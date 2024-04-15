@@ -54,7 +54,7 @@ class _SearchPageState extends State<SearchPage> {
                     height: 50,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.album); // Icono por defecto si la imagen no carga
+                      return Icon(Icons.album);
                     },
                   ),
                   title: Text(searchResults[index]['collectionName']),
@@ -103,7 +103,8 @@ class AlbumDetailsPage extends StatefulWidget {
 
 class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   List<dynamic> tracks = [];
-  Map<int, double> ratings = {};  // Mapa para guardar las calificaciones de las canciones
+  Map<int, double> ratings = {};
+  double averageRating = 0.0;
 
   @override
   void initState() {
@@ -121,7 +122,22 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       trackList.forEach((track) {
         ratings[track['trackId']] = 0.0;
       });
+      calculateAverageRating();
     });
+  }
+
+  void calculateAverageRating() {
+    var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
+    if (ratedTracks.isNotEmpty) {
+      double total = ratedTracks.reduce((a, b) => a + b);
+      setState(() {
+        averageRating = total / ratedTracks.length;
+      });
+    } else {
+      setState(() {
+        averageRating = 0.0;
+      });
+    }
   }
 
   @override
@@ -131,72 +147,66 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
         title: Text(widget.album['collectionName']),
       ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  Image.network(
-                    widget.album['artworkUrl100'].replaceAll('100x100', '600x600'), // Aumenta la resolución de la imagen
-                    width: 300,
-                    height: 300,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.album, size: 300); // Icono por defecto si la imagen no carga
-                    },
-                  ),
-                  Text(widget.album['collectionName'], style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  Text(widget.album['artistName'], style: TextStyle(fontSize: 18)),
-                  Text(DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-'), style: TextStyle(fontSize: 16)), // Formato de fecha
-                ],
+        child: Center(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Image.network(
+                  widget.album['artworkUrl100'].replaceAll('100x100', '600x600'),
+                  width: 300,
+                  height: 300,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(Icons.album, size: 300);
+                  },
+                ),
               ),
-            ),
-            Divider(),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: tracks.length,
-              itemBuilder: (context, index) {
-                var track = tracks[index];
-                return ListTile(
-                  title: Text(track['trackName']),
-                  subtitle: Text('Track No: ${track['trackNumber']}'),
-                  trailing: SizedBox(
-                    width: 200,
-                    child: Slider(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("Artist: ${widget.album['artistName']}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("Album: ${widget.album['collectionName']}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}", style: TextStyle(fontSize: 16)),
+                    SizedBox(height: 20),
+                    Text("Average Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Divider(),
+                  ],
+                ),
+              ),
+              DataTable(
+                columns: const [
+                  DataColumn(label: Text('Track No.')),
+                  DataColumn(label: Text('Title')),
+                  DataColumn(label: Text('Rating')),
+                ],
+                rows: tracks.map((track) => DataRow(
+                  cells: [
+                    DataCell(Text(track['trackNumber'].toString())),
+                    DataCell(Text(track['trackName'])),
+                    DataCell(Slider(
                       min: 0,
                       max: 10,
                       divisions: 10,
                       value: ratings[track['trackId']] ?? 0.0,
-                      label: (ratings[track['trackId']] ?? 0.0).toStringAsFixed(1),
+                      label: ratings[track['trackId']]?.toStringAsFixed(1) ?? '0.0',
                       onChanged: (newRating) {
                         setState(() {
                           ratings[track['trackId']] = newRating;
+                          calculateAverageRating();
                         });
                       },
-                    ),
-                  ),
-                );
-              },
-            ),
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Average Rating: ${_calculateAverageRating().toStringAsFixed(1)}',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    )),
+                  ],
+                )).toList(),
               ),
-            )
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  double _calculateAverageRating() {
-    var filteredRatings = ratings.values.where((rating) => rating > 0).toList();
-    if (filteredRatings.isEmpty) return 0.0;
-    var total = filteredRatings.reduce((a, b) => a + b);
-    return total / filteredRatings.length;
   }
 }
