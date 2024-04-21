@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(MusicRatingApp());
 
@@ -34,13 +35,16 @@ class _SearchPageState extends State<SearchPage> {
         children: <Widget>[
           Padding(
             padding: EdgeInsets.all(8.0),
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                labelText: 'Search Albums',
-                suffixIcon: Icon(Icons.search),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              child: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search Albums or Artists',
+                  suffixIcon: Icon(Icons.search),
+                ),
+                onChanged: _onSearchChanged,
               ),
-              onChanged: _onSearchChanged,
             ),
           ),
           Expanded(
@@ -53,9 +57,7 @@ class _SearchPageState extends State<SearchPage> {
                     width: 50,
                     height: 50,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.album);
-                    },
+                    errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
                   ),
                   title: Text(searchResults[index]['collectionName']),
                   subtitle: Text(searchResults[index]['artistName']),
@@ -65,6 +67,13 @@ class _SearchPageState extends State<SearchPage> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: Container(
+        height: 30,
+        color: Colors.grey[200],
+        child: Center(
+          child: Text("Version: 0.0.1", style: TextStyle(color: Colors.grey)),
+        ),
       ),
     );
   }
@@ -79,6 +88,7 @@ class _SearchPageState extends State<SearchPage> {
     final url = Uri.parse('https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&entity=album');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
+
     setState(() {
       searchResults = data['results'];
     });
@@ -102,9 +112,9 @@ class AlbumDetailsPage extends StatefulWidget {
 }
 
 class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
-  List<dynamic> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
+  int totalDuration = 0;
 
   @override
   void initState() {
@@ -116,14 +126,20 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     final url = Uri.parse('https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
-    var trackList = data['results'].where((track) => track['wrapperType'] == 'track').toList();
-    setState(() {
-      tracks = trackList;
-      trackList.forEach((track) {
-        ratings[track['trackId']] = 0.0;
+
+    if (response.statusCode == 200 && data['resultCount'] > 0) {
+      var tracks = data['results'].where((t) => t['wrapperType'] == 'track').toList();
+      setState(() {
+        widget.album['tracks'] = tracks;
+        totalDuration = tracks.fold(0, (sum, track) => sum + (track['trackTimeMillis'] ?? 0));
+        ratings = Map.fromIterable(tracks, key: (track) => track['trackId'], value: (track) => 0.0);
+        calculateAverageRating();
       });
-      calculateAverageRating();
-    });
+    } else {
+      setState(() {
+        widget.album['tracks'] = [];
+      });
+    }
   }
 
   void calculateAverageRating() {
@@ -149,7 +165,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       body: SingleChildScrollView(
         child: Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -158,32 +173,29 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                   width: 300,
                   height: 300,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.album, size: 300);
-                  },
+                  errorBuilder: (context, error, stackTrace) => Icon(Icons.album, size: 300),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text("Artist: ${widget.album['artistName']}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("Album: ${widget.album['collectionName']}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}", style: TextStyle(fontSize: 16)),
+                    Text("Album: ${widget.album['collectionName']}", style: TextStyle(fontSize: 18)),
+                    Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}", style: TextStyle(fontSize: 18)),
+                    Text("Duration: ${formatDuration(totalDuration)}", style: TextStyle(fontSize: 18)),
                     SizedBox(height: 20),
-                    Text("Average Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    Divider(),
+                    Text("Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
-              DataTable(
+              widget.album['tracks'] != null && widget.album['tracks'].isNotEmpty ? DataTable(
                 columns: const [
                   DataColumn(label: Text('Track No.')),
                   DataColumn(label: Text('Title')),
                   DataColumn(label: Text('Rating')),
                 ],
-                rows: tracks.map((track) => DataRow(
+                rows: widget.album['tracks'].map<DataRow>((track) => DataRow(
                   cells: [
                     DataCell(Text(track['trackNumber'].toString())),
                     DataCell(Text(track['trackName'])),
@@ -202,11 +214,28 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     )),
                   ],
                 )).toList(),
+              ) : Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text('No tracks available for this album.', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
               ),
             ],
           ),
         ),
       ),
+      bottomNavigationBar: Container(
+        height: 30,
+        color: Colors.grey[200],
+        child: Center(
+          child: Text("Version: 0.0.1", style: TextStyle(color: Colors.grey)),
+        ),
+      ),
     );
+  }
+
+  String formatDuration(int milliseconds) {
+    int seconds = (milliseconds / 1000).round();
+    int minutes = (seconds / 60).round();
+    seconds %= 60;
+    return '${minutes}m ${seconds}s';
   }
 }
