@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(MusicRatingApp());
 
@@ -72,7 +71,7 @@ class _SearchPageState extends State<SearchPage> {
         height: 30,
         color: Colors.grey[200],
         child: Center(
-          child: Text("Version: 0.0.1", style: TextStyle(color: Colors.grey)),
+          child: Text("Version: 0.0.2", style: TextStyle(color: Colors.grey)),
         ),
       ),
     );
@@ -165,6 +164,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       body: SingleChildScrollView(
         child: Center(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -179,11 +179,44 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text("Artist: ${widget.album['artistName']}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("Album: ${widget.album['collectionName']}", style: TextStyle(fontSize: 18)),
-                    Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}", style: TextStyle(fontSize: 18)),
-                    Text("Duration: ${formatDuration(totalDuration)}", style: TextStyle(fontSize: 18)),
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(fontSize: 18, color: Colors.black),
+                        children: [
+                          TextSpan(text: "Artist: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: widget.album['artistName']),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(fontSize: 18, color: Colors.black),
+                        children: [
+                          TextSpan(text: "Album: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: widget.album['collectionName']),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(fontSize: 18, color: Colors.black),
+                        children: [
+                          TextSpan(text: "Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(fontSize: 18, color: Colors.black),
+                        children: [
+                          TextSpan(text: "Duration: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: formatDuration(totalDuration)),
+                        ],
+                      ),
+                    ),
                     SizedBox(height: 20),
                     Text("Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   ],
@@ -193,18 +226,20 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 columns: const [
                   DataColumn(label: Text('Track No.')),
                   DataColumn(label: Text('Title')),
+                  DataColumn(label: Text('Length')),
                   DataColumn(label: Text('Rating')),
                 ],
                 rows: widget.album['tracks'].map<DataRow>((track) => DataRow(
                   cells: [
                     DataCell(Text(track['trackNumber'].toString())),
                     DataCell(Text(track['trackName'])),
+                    DataCell(Text(formatDuration(track['trackTimeMillis']))),
                     DataCell(Slider(
                       min: 0,
                       max: 10,
                       divisions: 10,
                       value: ratings[track['trackId']] ?? 0.0,
-                      label: ratings[track['trackId']]?.toStringAsFixed(1) ?? '0.0',
+                      label: "${ratings[track['trackId']]?.round()}",
                       onChanged: (newRating) {
                         setState(() {
                           ratings[track['trackId']] = newRating;
@@ -226,7 +261,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
         height: 30,
         color: Colors.grey[200],
         child: Center(
-          child: Text("Version: 0.0.1", style: TextStyle(color: Colors.grey)),
+          child: Text("Version: 0.0.2", style: TextStyle(color: Colors.grey)),
         ),
       ),
     );
