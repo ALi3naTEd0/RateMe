@@ -1,16 +1,29 @@
-# rateme
+# Rate Me!
 
-A new Flutter project.
+## Description
+"Rate Me!" is an application developed for rating music albums. It allows users to search for albums using the iTunes API and rate each song within an album. The app calculates and displays an average rating for each album, providing an overall perspective on the user's opinion of the album.
 
-## Getting Started
+## Features
+- **Album Search**: Users can search for albums by artist name or album title.
+- **Song Rating**: Each song within an album can be rated individually on a scale from 0 to 10.
+- **Average Rating Calculation**: The app automatically calculates an average rating based on the individual song ratings from the album.
+- **Album Details**: Displays details such as the artist, album name, release date, and total duration of the album.
+- **Data Export/Import**: Users can save their ratings in a CSV file and load previously saved ratings.
+- **Cross-Platform Compatibility**: Works on Windows and Mac, providing a consistent experience across different platforms.
 
-This project is a starting point for a Flutter application.
+## Technologies Used
+- Flutter for the user interface.
+- Dart as the main programming language.
+- iTunes API for searching and retrieving album data.
 
-A few resources to get you started if this is your first Flutter project:
+## How to Use
+1. **Album Search**: Enter the artist's name or album title in the search bar to find albums.
+2. **Rate Songs**: Access a specific album and rate each song.
+3. **View Album Details**: Album details can be viewed along with the ratings.
+4. **Save/Import Ratings**: Use the export/import buttons to handle saved ratings.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Current Version
+This document corresponds to version 0.0.3 of "Rate Me!", which includes all the features mentioned above.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+Developed with ♥ by [X](https://github.com/ALi3naTEd0)
