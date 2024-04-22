@@ -9,6 +9,7 @@ class MusicRatingApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Rate Me!',
+      debugShowCheckedModeBanner: false,
       home: SearchPage(),
     );
   }
@@ -39,7 +40,7 @@ class _SearchPageState extends State<SearchPage> {
               child: TextField(
                 controller: searchController,
                 decoration: InputDecoration(
-                  labelText: 'Search Albums or Artists',
+                  labelText: 'Search Albums',
                   suffixIcon: Icon(Icons.search),
                 ),
                 onChanged: _onSearchChanged,
@@ -68,36 +69,26 @@ class _SearchPageState extends State<SearchPage> {
         ],
       ),
       bottomNavigationBar: Container(
-        height: 30,
-        color: Colors.grey[200],
-        child: Center(
-          child: Text("Version: 0.0.2", style: TextStyle(color: Colors.grey)),
-        ),
+        height: 20,
+        alignment: Alignment.center,
+        child: Text('Version 0.0.3', style: TextStyle(color: Colors.grey)),
       ),
     );
   }
 
   void _onSearchChanged(String query) async {
     if (query.isEmpty) {
-      setState(() {
-        searchResults = [];
-      });
+      setState(() => searchResults = []);
       return;
     }
     final url = Uri.parse('https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&entity=album');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
-
-    setState(() {
-      searchResults = data['results'];
-    });
+    setState(() => searchResults = data['results']);
   }
 
   void _showAlbumDetails(dynamic album) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => AlbumDetailsPage(album: album)),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (context) => AlbumDetailsPage(album: album)));
   }
 }
 
@@ -111,9 +102,9 @@ class AlbumDetailsPage extends StatefulWidget {
 }
 
 class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
+  List<dynamic> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
-  int totalDuration = 0;
 
   @override
   void initState() {
@@ -125,33 +116,21 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     final url = Uri.parse('https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && data['resultCount'] > 0) {
-      var tracks = data['results'].where((t) => t['wrapperType'] == 'track').toList();
-      setState(() {
-        widget.album['tracks'] = tracks;
-        totalDuration = tracks.fold(0, (sum, track) => sum + (track['trackTimeMillis'] ?? 0));
-        ratings = Map.fromIterable(tracks, key: (track) => track['trackId'], value: (track) => 0.0);
-        calculateAverageRating();
-      });
-    } else {
-      setState(() {
-        widget.album['tracks'] = [];
-      });
-    }
+    var trackList = data['results'].where((track) => track['wrapperType'] == 'track').toList();
+    setState(() {
+      tracks = trackList;
+      trackList.forEach((track) => ratings[track['trackId']] = 0.0);
+      calculateAverageRating();
+    });
   }
 
   void calculateAverageRating() {
     var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
     if (ratedTracks.isNotEmpty) {
       double total = ratedTracks.reduce((a, b) => a + b);
-      setState(() {
-        averageRating = total / ratedTracks.length;
-      });
+      setState(() => averageRating = total / ratedTracks.length);
     } else {
-      setState(() {
-        averageRating = 0.0;
-      });
+      setState(() => averageRating = 0.0);
     }
   }
 
@@ -177,59 +156,27 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(fontSize: 18, color: Colors.black),
-                        children: [
-                          TextSpan(text: "Artist: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                          TextSpan(text: widget.album['artistName']),
-                        ],
-                      ),
-                    ),
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(fontSize: 18, color: Colors.black),
-                        children: [
-                          TextSpan(text: "Album: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                          TextSpan(text: widget.album['collectionName']),
-                        ],
-                      ),
-                    ),
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(fontSize: 18, color: Colors.black),
-                        children: [
-                          TextSpan(text: "Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                          TextSpan(text: DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')),
-                        ],
-                      ),
-                    ),
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(fontSize: 18, color: Colors.black),
-                        children: [
-                          TextSpan(text: "Duration: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                          TextSpan(text: formatDuration(totalDuration)),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Text("Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text("Artist: ${widget.album['artistName']}"),
+                    Text("Album: ${widget.album['collectionName']}"),
+                    Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}"),
                   ],
                 ),
               ),
-              widget.album['tracks'] != null && widget.album['tracks'].isNotEmpty ? DataTable(
+              SizedBox(height: 20),
+              Text("Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Divider(),
+              DataTable(
                 columns: const [
                   DataColumn(label: Text('Track No.')),
                   DataColumn(label: Text('Title')),
                   DataColumn(label: Text('Length')),
                   DataColumn(label: Text('Rating')),
                 ],
-                rows: widget.album['tracks'].map<DataRow>((track) => DataRow(
+                rows: tracks.map((track) => DataRow(
                   cells: [
                     DataCell(Text(track['trackNumber'].toString())),
                     DataCell(Text(track['trackName'])),
@@ -239,7 +186,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       max: 10,
                       divisions: 10,
                       value: ratings[track['trackId']] ?? 0.0,
-                      label: "${ratings[track['trackId']]?.round()}",
+                      label: ratings[track['trackId']]?.toStringAsFixed(0) ?? '0',
                       onChanged: (newRating) {
                         setState(() {
                           ratings[track['trackId']] = newRating;
@@ -249,28 +196,22 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     )),
                   ],
                 )).toList(),
-              ) : Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Text('No tracks available for this album.', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
               ),
             ],
           ),
         ),
       ),
       bottomNavigationBar: Container(
-        height: 30,
-        color: Colors.grey[200],
-        child: Center(
-          child: Text("Version: 0.0.2", style: TextStyle(color: Colors.grey)),
-        ),
+        height: 20,
+        alignment: Alignment.center,
+        child: Text('Version 0.0.3', style: TextStyle(color: Colors.grey)),
       ),
     );
   }
 
-  String formatDuration(int milliseconds) {
-    int seconds = (milliseconds / 1000).round();
-    int minutes = (seconds / 60).round();
-    seconds %= 60;
-    return '${minutes}m ${seconds}s';
+  String formatDuration(int millis) {
+    int seconds = (millis ~/ 1000) % 60;
+    int minutes = (millis ~/ 1000) ~/ 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
