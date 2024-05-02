@@ -71,7 +71,7 @@ class _SearchPageState extends State<SearchPage> {
       bottomNavigationBar: Container(
         height: 20,
         alignment: Alignment.center,
-        child: Text('Version 0.0.3', style: TextStyle(color: Colors.grey)),
+        child: Text('Version 0.0.4', style: TextStyle(color: Colors.grey)),
       ),
     );
   }
@@ -105,6 +105,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   List<dynamic> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
+  int albumDurationMillis = 0;
 
   @override
   void initState() {
@@ -121,6 +122,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       tracks = trackList;
       trackList.forEach((track) => ratings[track['trackId']] = 0.0);
       calculateAverageRating();
+      calculateAlbumDuration();
     });
   }
 
@@ -132,6 +134,18 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     } else {
       setState(() => averageRating = 0.0);
     }
+  }
+
+  void calculateAlbumDuration() {
+    int totalDuration = 0;
+    tracks.forEach((track) {
+      if (track['trackTimeMillis'] != null) {
+        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversión a entero
+      }
+    });
+    setState(() {
+      albumDurationMillis = totalDuration;
+    });
   }
 
   @override
@@ -163,6 +177,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Text("Artist: ${widget.album['artistName']}"),
                     Text("Album: ${widget.album['collectionName']}"),
                     Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}"),
+                    Text("Duration: ${formatDuration(albumDurationMillis)}"),
                   ],
                 ),
               ),
@@ -204,7 +219,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       bottomNavigationBar: Container(
         height: 20,
         alignment: Alignment.center,
-        child: Text('Version 0.0.3', style: TextStyle(color: Colors.grey)),
+        child: Text('Version 0.0.4', style: TextStyle(color: Colors.grey)),
       ),
     );
   }
