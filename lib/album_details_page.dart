@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'footer.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -126,11 +127,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
           ),
         ),
       ),
-      bottomNavigationBar: Container(
-        height: 20,
-        alignment: Alignment.center,
-        child: Text('Version 0.0.4', style: TextStyle(color: Colors.grey)),
-      ),
+      bottomNavigationBar: Footer(),
     );
   }
 
