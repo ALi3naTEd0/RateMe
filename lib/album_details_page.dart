@@ -65,11 +65,12 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       appBar: AppBar(
         title: Text(widget.album['collectionName']),
       ),
-      body: SingleChildScrollView(
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Image.network(
@@ -83,12 +84,36 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text("Artist: ${widget.album['artistName']}"),
-                    Text("Album: ${widget.album['collectionName']}"),
-                    Text("Release Date: ${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}"),
-                    Text("Duration: ${formatDuration(albumDurationMillis)}"),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Artist: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("${widget.album['artistName']}"),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Album: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("${widget.album['collectionName']}"),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}"),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Duration: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("${formatDuration(albumDurationMillis)}"),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -102,18 +127,18 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     DataColumn(label: Text('Track No.')),
                     DataColumn(label: Text('Title')),
                     DataColumn(label: Text('Length')),
-                    DataColumn(label: Text('Rating', textAlign: TextAlign.center)), // Centra el encabezado
+                    DataColumn(label: Text('Rating', textAlign: TextAlign.center)),
                   ],
                   rows: tracks.map((track) => DataRow(
                     cells: [
                       DataCell(Text(track['trackNumber'].toString())),
                       DataCell(Text(track['trackName'])),
                       DataCell(Text(formatDuration(track['trackTimeMillis']))),
-                      DataCell(Container( // Contenedor para personalizar la posición del slider y el valor de la calificación
-                        width: 150, // Ancho del contenedor para evitar que el texto se desborde
+                      DataCell(Container(
+                        width: 150,
                         child: Row(
                           children: [
-                            Expanded( // Ajusta el slider para ocupar el espacio restante
+                            Expanded(
                               child: Slider(
                                 min: 0,
                                 max: 10,
@@ -127,7 +152,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                 },
                               ),
                             ),
-                            Text((ratings[track['trackId']] ?? 0.0).toStringAsFixed(0)), // Valor de la calificación a la derecha del slider
+                            Text((ratings[track['trackId']] ?? 0.0).toStringAsFixed(0)),
                           ],
                         ),
                       )),
@@ -135,6 +160,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                   )).toList(),
                 ),
               ),
+              SizedBox(height: 100), // Agrega espacio adicional para evitar el desbordamiento
             ],
           ),
         ),

@@ -30,6 +30,7 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
           secondary: Color(0xFFF8E559), // Secundario: F8E559 (Amarillo)
         ),
         brightness: _themeBrightness,
+        scaffoldBackgroundColor: Colors.white, // Cambiar el color de fondo del Scaffold en tema claro
         sliderTheme: SliderThemeData(
           thumbColor: Color(0xFF864AF9), // Slider tema claro: 864AF9 (Morado)
           activeTrackColor: Color(0xFF864AF9), // Slider tema claro: 864AF9 (Morado)
@@ -64,6 +65,8 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
             Switch(
               value: _themeBrightness == Brightness.dark,
               onChanged: (_) => _toggleTheme(),
+              activeColor: Color(0xFFF8E559), // Cambiar el color del círculo del switch cuando está activado a amarillo
+              inactiveTrackColor: Theme.of(context).colorScheme.secondary, // Color de la pista del switch cuando está desactivado
             ),
           ],
         ),
