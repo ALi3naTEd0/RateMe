@@ -95,33 +95,45 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
               SizedBox(height: 20),
               Text("Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               Divider(),
-              DataTable(
-                columns: const [
-                  DataColumn(label: Text('Track No.')),
-                  DataColumn(label: Text('Title')),
-                  DataColumn(label: Text('Length')),
-                  DataColumn(label: Text('Rating')),
-                ],
-                rows: tracks.map((track) => DataRow(
-                  cells: [
-                    DataCell(Text(track['trackNumber'].toString())),
-                    DataCell(Text(track['trackName'])),
-                    DataCell(Text(formatDuration(track['trackTimeMillis']))),
-                    DataCell(Slider(
-                      min: 0,
-                      max: 10,
-                      divisions: 10,
-                      value: ratings[track['trackId']] ?? 0.0,
-                      label: ratings[track['trackId']]?.toStringAsFixed(0) ?? '0',
-                      onChanged: (newRating) {
-                        setState(() {
-                          ratings[track['trackId']] = newRating;
-                          calculateAverageRating();
-                        });
-                      },
-                    )),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columns: const [
+                    DataColumn(label: Text('Track No.')),
+                    DataColumn(label: Text('Title')),
+                    DataColumn(label: Text('Length')),
+                    DataColumn(label: Text('Rating', textAlign: TextAlign.center)), // Centra el encabezado
                   ],
-                )).toList(),
+                  rows: tracks.map((track) => DataRow(
+                    cells: [
+                      DataCell(Text(track['trackNumber'].toString())),
+                      DataCell(Text(track['trackName'])),
+                      DataCell(Text(formatDuration(track['trackTimeMillis']))),
+                      DataCell(Container( // Contenedor para personalizar la posición del slider y el valor de la calificación
+                        width: 150, // Ancho del contenedor para evitar que el texto se desborde
+                        child: Row(
+                          children: [
+                            Expanded( // Ajusta el slider para ocupar el espacio restante
+                              child: Slider(
+                                min: 0,
+                                max: 10,
+                                divisions: 10,
+                                value: ratings[track['trackId']] ?? 0.0,
+                                onChanged: (newRating) {
+                                  setState(() {
+                                    ratings[track['trackId']] = newRating;
+                                    calculateAverageRating();
+                                  });
+                                },
+                              ),
+                            ),
+                            Text((ratings[track['trackId']] ?? 0.0).toStringAsFixed(0)), // Valor de la calificación a la derecha del slider
+                          ],
+                        ),
+                      )),
+                    ],
+                  )).toList(),
+                ),
               ),
             ],
           ),

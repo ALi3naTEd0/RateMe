@@ -26,19 +26,34 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData.light().copyWith(
         colorScheme: ThemeData.light().colorScheme.copyWith(
-          primary: Color(0xFFFFEB3B), // Amarillo pastel como color primario
-          secondary: Color(0xFFFFEB3B), // Amarillo pastel como color secundario
+          primary: Color(0xFF864AF9), // Primario: 864AF9 (Morado)
+          secondary: Color(0xFFF8E559), // Secundario: F8E559 (Amarillo)
         ),
         brightness: _themeBrightness,
-        toggleableActiveColor: Colors.deepPurple, // Cambia el color de activación del botón switch a morado oscuro
+        sliderTheme: SliderThemeData(
+          thumbColor: Color(0xFF864AF9), // Slider tema claro: 864AF9 (Morado)
+          activeTrackColor: Color(0xFF864AF9), // Slider tema claro: 864AF9 (Morado)
+          valueIndicatorTextStyle: TextStyle(
+            color: Colors.white, // Texto del valor seleccionado del slider en tema claro: blanco
+            fontWeight: FontWeight.bold, // Texto del valor seleccionado del slider en tema claro: bold
+          ),
+        ),
       ),
       darkTheme: ThemeData.dark().copyWith(
         colorScheme: ThemeData.dark().colorScheme.copyWith(
-          primary: Color(0xFFFFC107), // Amarillo oscuro como color primario del tema oscuro
-          secondary: Color(0xFFFFC107), // Amarillo oscuro como color secundario del tema oscuro
+          primary: Color(0xFFF8E559), // Primario: F8E559 (Amarillo)
+          secondary: Color(0xFF864AF9), // Secundario: 864AF9 (Morado)
         ),
         brightness: _themeBrightness,
-        scaffoldBackgroundColor: Colors.grey[900], // Fondo gris oscuro para el tema oscuro
+        sliderTheme: SliderThemeData(
+          thumbColor: Color(0xFFF8E559), // Slider tema oscuro: F8E559 (Amarillo)
+          activeTrackColor: Color(0xFFF8E559), // Slider tema oscuro: F8E559 (Amarillo)
+          valueIndicatorTextStyle: TextStyle(
+            color: Colors.black, // Texto del valor seleccionado del slider en tema oscuro: negro
+            fontWeight: FontWeight.bold, // Texto del valor seleccionado del slider en tema oscuro: bold
+          ),
+        ),
+        scaffoldBackgroundColor: Color(0xFF332941), // Fondo en tema oscuro: 332941 (Gris oscuro)
       ),
       themeMode: _themeBrightness == Brightness.light ? ThemeMode.light : ThemeMode.dark,
       home: Scaffold(

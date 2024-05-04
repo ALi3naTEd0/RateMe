@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const String appVersion = '0.0.5';
+const String appVersion = '0.0.8';
 
 class Footer extends StatelessWidget {
   @override
