@@ -8,7 +8,7 @@
 - **Song Rating**: Each song within an album can be rated individually on a scale from 0 to 10.
 - **Average Rating Calculation**: The app automatically calculates an average rating based on the individual song ratings from the album.
 - **Album Details**: Displays details such as the artist, album name, release date, and total duration of the album.
-- **Data Export/Import**: Users can save their ratings in a CSV file and load previously saved ratings.
+- ~~**Data Export/Import**: Users can save their ratings in a CSV file and load previously saved ratings.~~
 - **Cross-Platform Compatibility**: Works on Windows and Mac, providing a consistent experience across different platforms.
 
 ## Technologies Used
@@ -20,10 +20,10 @@
 1. **Album Search**: Enter the artist's name or album title in the search bar to find albums.
 2. **Rate Songs**: Access a specific album and rate each song.
 3. **View Album Details**: Album details can be viewed along with the ratings.
-4. **Save/Import Ratings**: Use the export/import buttons to handle saved ratings.
+4. ~~**Save/Import Ratings**: Use the export/import buttons to handle saved ratings.~~
 
 ## Current Version
-This document corresponds to version 0.0.9b of "Rate Me!", which includes all the features mentioned above.
+This document corresponds to version 0.0.9c of "Rate Me!", which includes all the features mentioned above.
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)
