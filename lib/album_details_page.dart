@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
+import 'package:url_launcher/url_launcher.dart'; // Importa el paquete url_launcher
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -18,6 +19,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   Map<int, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
+  TextEditingController _artistController = TextEditingController();
+  TextEditingController _albumController = TextEditingController();
 
   @override
   void initState() {
@@ -60,6 +63,22 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     setState(() {
       albumDurationMillis = totalDuration;
     });
+  }
+
+  // Método para lanzar la búsqueda en RateYourMusic.com
+  void _launchRateYourMusicSearch() async {
+    String artistName = _artistController.text;
+    String albumName = _albumController.text;
+    if (artistName.isNotEmpty && albumName.isNotEmpty) {
+      artistName = artistName.replaceAll(' ', '+');
+      albumName = albumName.replaceAll(' ', '+');
+      final url = 'https://rateyourmusic.com/search?searchtype=a&searchterm=$artistName+$albumName';
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        throw 'Could not launch $url';
+      }
+    }
   }
 
   @override
@@ -126,6 +145,27 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     ),
                   ],
                 ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _artistController,
+                decoration: InputDecoration(
+                  labelText: 'Artist Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: _albumController,
+                decoration: InputDecoration(
+                  labelText: 'Album Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _launchRateYourMusicSearch,
+                child: Text('Search on RateYourMusic.com'),
               ),
               SizedBox(height: 20),
               Text("Rating: ${averageRating.toStringAsFixed(1)}",
