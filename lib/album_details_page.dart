@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'footer.dart';
+import 'app_theme.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -25,10 +26,12 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   }
 
   void _fetchTracks() async {
-    final url = Uri.parse('https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
+    final url = Uri.parse(
+        'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
-    var trackList = data['results'].where((track) => track['wrapperType'] == 'track').toList();
+    var trackList =
+        data['results'].where((track) => track['wrapperType'] == 'track').toList();
     setState(() {
       tracks = trackList;
       trackList.forEach((track) => ratings[track['trackId']] = 0.0);
@@ -74,11 +77,13 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Image.network(
-                  widget.album['artworkUrl100'].replaceAll('100x100', '600x600'),
+                  widget.album['artworkUrl100']
+                      .replaceAll('100x100', '600x600'),
                   width: 300,
                   height: 300,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Icon(Icons.album, size: 300),
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(Icons.album, size: 300),
                 ),
               ),
               Padding(
@@ -89,28 +94,33 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Artist: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Artist: ",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${widget.album['artistName']}"),
                       ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Album: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Album: ",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${widget.album['collectionName']}"),
                       ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${DateTime.parse(widget.album['releaseDate']).toString().substring(0,10).split('-').reversed.join('-')}"),
+                        Text("Release Date: ",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                            "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"),
                       ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Duration: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Duration: ",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${formatDuration(albumDurationMillis)}"),
                       ],
                     ),
@@ -118,7 +128,9 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 ),
               ),
               SizedBox(height: 20),
-              Text("Rating: ${averageRating.toStringAsFixed(1)}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text("Rating: ${averageRating.toStringAsFixed(1)}",
+                  style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
               Divider(),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -127,7 +139,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     DataColumn(label: Text('Track No.')),
                     DataColumn(label: Text('Title')),
                     DataColumn(label: Text('Length')),
-                    DataColumn(label: Text('Rating', textAlign: TextAlign.center)),
+                    DataColumn(
+                        label: Text('Rating', textAlign: TextAlign.center)),
                   ],
                   rows: tracks.map((track) => DataRow(
                     cells: [
@@ -150,9 +163,16 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                     calculateAverageRating();
                                   });
                                 },
+                                activeColor: Theme.of(context).brightness == Brightness.dark
+                                    ? AppTheme.darkTheme.sliderTheme.activeTrackColor // Morado oscuro
+                                    : AppTheme.lightTheme.sliderTheme.activeTrackColor, // Morado claro
+                                inactiveColor: Theme.of(context).brightness == Brightness.dark
+                                    ? AppTheme.darkTheme.sliderTheme.inactiveTrackColor // Morado oscuro con opacidad
+                                    : AppTheme.lightTheme.sliderTheme.inactiveTrackColor, // Morado claro con opacidad
                               ),
                             ),
-                            Text((ratings[track['trackId']] ?? 0.0).toStringAsFixed(0)),
+                            Text((ratings[track['trackId']] ?? 0.0)
+                                .toStringAsFixed(0)),
                           ],
                         ),
                       )),
