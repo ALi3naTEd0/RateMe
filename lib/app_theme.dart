@@ -21,6 +21,16 @@ class AppTheme {
       trackColor: MaterialStateProperty.all<Color>(Color(0xFF5E35B1).withOpacity(0.5)), // Morado oscuro con opacidad
       overlayColor: MaterialStateProperty.all<Color>(Colors.purple.withOpacity(0.12)), // Overlay morado con opacidad
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.disabled)) {
+            return Colors.grey; // Cambia el color del botón cuando está deshabilitado
+          }
+          return Color(0xFF864AF9); // Morado claro
+        }),
+      ),
+    ),
   );
 
   static final darkTheme = ThemeData.dark().copyWith(
@@ -42,6 +52,16 @@ class AppTheme {
       thumbColor: MaterialStateProperty.all<Color>(Color(0xFF5E35B1)), // Morado oscuro
       trackColor: MaterialStateProperty.all<Color>(Color(0xFF864AF9).withOpacity(0.5)), // Morado claro con opacidad
       overlayColor: MaterialStateProperty.all<Color>(Colors.purple.withOpacity(0.12)), // Overlay morado con opacidad
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.disabled)) {
+            return Colors.grey; // Cambia el color del botón cuando está deshabilitado
+          }
+          return Color(0xFF5E35B1); // Morado oscuro
+        }),
+      ),
     ),
   );
 }

@@ -23,7 +23,7 @@
 4. ~~**Save/Import Ratings**: Use the export/import buttons to handle saved ratings.~~
 
 ## Current Version
-This document corresponds to version 0.0.9c of "Rate Me!", which includes all the features mentioned above.
+This document corresponds to version 0.0.9d of "Rate Me!", which includes all the features mentioned above.
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)

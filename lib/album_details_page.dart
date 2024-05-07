@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
-import 'package:url_launcher/url_launcher.dart'; // Importa el paquete url_launcher
+import 'package:url_launcher/url_launcher.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -19,16 +19,11 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   Map<int, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
-  TextEditingController _artistController = TextEditingController();
-  TextEditingController _albumController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _fetchTracks();
-    // Prellenar los campos de texto con la información del álbum seleccionado
-    _artistController.text = widget.album['artistName'];
-    _albumController.text = widget.album['collectionName'];
   }
 
   void _fetchTracks() async {
@@ -68,19 +63,15 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     });
   }
 
-  // Método para lanzar la búsqueda en RateYourMusic.com
-  void _launchRateYourMusicSearch() async {
-    String artistName = _artistController.text;
-    String albumName = _albumController.text;
-    if (artistName.isNotEmpty && albumName.isNotEmpty) {
-      artistName = artistName.replaceAll(' ', '+');
-      albumName = albumName.replaceAll(' ', '+');
-      final url = 'https://rateyourmusic.com/search?searchtype=a&searchterm=$artistName+$albumName';
-      if (await canLaunch(url)) {
-        await launch(url);
-      } else {
-        throw 'Could not launch $url';
-      }
+  void _launchRateYourMusic() async {
+    final artistName = widget.album['artistName'];
+    final albumName = widget.album['collectionName'];
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw 'Could not launch $url';
     }
   }
 
@@ -150,10 +141,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 ),
               ),
               SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _launchRateYourMusicSearch,
-                child: Text('Search on RateYourMusic.com'),
-              ),
               Text("Rating: ${averageRating.toStringAsFixed(1)}",
                   style: TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold)),
@@ -190,11 +177,11 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                   });
                                 },
                                 activeColor: Theme.of(context).brightness == Brightness.dark
-                                    ? AppTheme.darkTheme.sliderTheme.activeTrackColor // Morado oscuro
-                                    : AppTheme.lightTheme.sliderTheme.activeTrackColor, // Morado claro
+                                    ? AppTheme.darkTheme.colorScheme.primary // Morado oscuro
+                                    : AppTheme.lightTheme.colorScheme.primary, // Morado claro
                                 inactiveColor: Theme.of(context).brightness == Brightness.dark
-                                    ? AppTheme.darkTheme.sliderTheme.inactiveTrackColor // Morado oscuro con opacidad
-                                    : AppTheme.lightTheme.sliderTheme.inactiveTrackColor, // Morado claro con opacidad
+                                    ? AppTheme.darkTheme.colorScheme.primary.withOpacity(0.5) // Morado oscuro con opacidad
+                                    : AppTheme.lightTheme.colorScheme.primary.withOpacity(0.5), // Morado claro con opacidad
                               ),
                             ),
                             Text((ratings[track['trackId']] ?? 0.0)
@@ -204,6 +191,19 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       )),
                     ],
                   )).toList(),
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _launchRateYourMusic,
+                child: Text(
+                  'Save on RateYourMusic.com',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.darkTheme.colorScheme.primary
+                      : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
               SizedBox(height: 100), // Agrega espacio adicional para evitar el desbordamiento
