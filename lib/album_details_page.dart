@@ -26,6 +26,9 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   void initState() {
     super.initState();
     _fetchTracks();
+    // Prellenar los campos de texto con la información del álbum seleccionado
+    _artistController.text = widget.album['artistName'];
+    _albumController.text = widget.album['collectionName'];
   }
 
   void _fetchTracks() async {
@@ -147,27 +150,10 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 ),
               ),
               SizedBox(height: 20),
-              TextField(
-                controller: _artistController,
-                decoration: InputDecoration(
-                  labelText: 'Artist Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: _albumController,
-                decoration: InputDecoration(
-                  labelText: 'Album Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 10),
               ElevatedButton(
                 onPressed: _launchRateYourMusicSearch,
                 child: Text('Search on RateYourMusic.com'),
               ),
-              SizedBox(height: 20),
               Text("Rating: ${averageRating.toStringAsFixed(1)}",
                   style: TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold)),
