@@ -1,3 +1,5 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic"
+    "java.compile.nullAnalysis.mode": "automatic",
+    "cmake.configureOnOpen": true,
+    "cmake.sourceDirectory": "/home/x/rateme/linux"
 }
