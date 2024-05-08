@@ -29,16 +29,20 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   void _fetchTracks() async {
     final url = Uri.parse(
         'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
-    final response = await http.get(url);
-    final data = jsonDecode(response.body);
-    var trackList =
-        data['results'].where((track) => track['wrapperType'] == 'track').toList();
-    setState(() {
-      tracks = trackList;
-      trackList.forEach((track) => ratings[track['trackId']] = 0.0);
-      calculateAverageRating();
-      calculateAlbumDuration();
-    });
+    try {
+      final response = await http.get(url);
+      final data = jsonDecode(response.body);
+      var trackList =
+          data['results'].where((track) => track['wrapperType'] == 'track').toList();
+      setState(() {
+        tracks = trackList;
+        trackList.forEach((track) => ratings[track['trackId']] = 0.0);
+        calculateAverageRating();
+        calculateAlbumDuration();
+      });
+    } catch (error) {
+      print('Error fetching tracks: $error');
+    }
   }
 
   void calculateAverageRating() {
@@ -55,7 +59,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     int totalDuration = 0;
     tracks.forEach((track) {
       if (track['trackTimeMillis'] != null) {
-        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Convert to integer
+        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversion to integer
       }
     });
     setState(() {
@@ -68,10 +72,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     final albumName = widget.album['collectionName'];
     final url =
         'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not launch $url';
+    try {
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (error) {
+      print('Error launching RateYourMusic: $error');
     }
   }
 
@@ -152,7 +160,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     DataColumn(label: Text('Track No.')),
                     DataColumn(label: Text('Title')),
                     DataColumn(label: Text('Length')),
-                    DataColumn(label: Text('Rating')),
+                    DataColumn(
+                        label: Text('Rating', textAlign: TextAlign.center)),
                   ],
                   rows: tracks.map((track) => DataRow(
                     cells: [
@@ -205,7 +214,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
-              SizedBox(height: 100), // Add additional space to avoid overflow
+              SizedBox(height: 100), // Add additional space to prevent overflow
             ],
           ),
         ),
