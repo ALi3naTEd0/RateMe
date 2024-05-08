@@ -55,7 +55,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     int totalDuration = 0;
     tracks.forEach((track) {
       if (track['trackTimeMillis'] != null) {
-        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversión a entero
+        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Convert to integer
       }
     });
     setState(() {
@@ -177,11 +177,11 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                   });
                                 },
                                 activeColor: Theme.of(context).brightness == Brightness.dark
-                                    ? AppTheme.darkTheme.colorScheme.primary // Morado oscuro
-                                    : AppTheme.lightTheme.colorScheme.primary, // Morado claro
+                                    ? AppTheme.darkTheme.colorScheme.primary // Dark purple
+                                    : AppTheme.lightTheme.colorScheme.primary, // Light purple
                                 inactiveColor: Theme.of(context).brightness == Brightness.dark
-                                    ? AppTheme.darkTheme.colorScheme.primary.withOpacity(0.5) // Morado oscuro con opacidad
-                                    : AppTheme.lightTheme.colorScheme.primary.withOpacity(0.5), // Morado claro con opacidad
+                                    ? AppTheme.darkTheme.colorScheme.primary.withOpacity(0.5) // Dark purple with opacity
+                                    : AppTheme.lightTheme.colorScheme.primary.withOpacity(0.5), // Light purple with opacity
                               ),
                             ),
                             Text((ratings[track['trackId']] ?? 0.0)
@@ -206,7 +206,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
-              SizedBox(height: 100), // Agrega espacio adicional para evitar el desbordamiento
+              SizedBox(height: 100), // Add additional space to avoid overflow
             ],
           ),
         ),
