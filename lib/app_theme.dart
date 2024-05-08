@@ -38,7 +38,7 @@ class AppTheme {
       primary: Color(0xFF5E35B1), // Dark purple
       secondary: Color(0xFF864AF9), // Light purple
     ),
-    scaffoldBackgroundColor: Color(0xFF1E1E1E), // Dark gray
+    scaffoldBackgroundColor: Color(0xFF1E1E1E), // Dark grey
     sliderTheme: SliderThemeData(
       thumbColor: Color(0xFF5E35B1), // Dark purple
       activeTrackColor: Color(0xFF5E35B1), // Dark purple

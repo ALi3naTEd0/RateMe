@@ -34,7 +34,7 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
             Switch(
               value: _themeBrightness == Brightness.dark,
               onChanged: (_) => _toggleTheme(),
-              activeColor: AppTheme.darkTheme.colorScheme.secondary, // Change the color of the switch circle when active to yellow (dark theme)
+              activeColor: AppTheme.darkTheme.colorScheme.secondary, // Change the color of the switch circle when activated to yellow (dark theme)
               inactiveThumbColor: AppTheme.lightTheme.colorScheme.primary, // Change the color of the switch circle when inactive to purple (light theme)
               inactiveTrackColor: AppTheme.lightTheme.colorScheme.primary.withOpacity(0.5), // Change the color of the switch track when inactive to a lighter shade of purple (light theme)
             ),
