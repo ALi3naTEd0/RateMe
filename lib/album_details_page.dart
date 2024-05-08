@@ -152,8 +152,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     DataColumn(label: Text('Track No.')),
                     DataColumn(label: Text('Title')),
                     DataColumn(label: Text('Length')),
-                    DataColumn(
-                        label: Text('Rating', textAlign: TextAlign.center)),
+                    DataColumn(label: Text('Rating')),
                   ],
                   rows: tracks.map((track) => DataRow(
                     cells: [
