@@ -24,8 +24,13 @@ class _SearchPageState extends State<SearchPage> {
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
-                labelText: 'Search Albums',
-                suffixIcon: Icon(Icons.search),
+                labelText: 'Search Albums or Paste URL',
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.search),
+                  onPressed: () {
+                    _searchOrLoadFromURL(searchController.text);
+                  },
+                ),
               ),
               onChanged: _onSearchChanged,
               maxLength: 255, // Maximum characters for search input
@@ -64,6 +69,30 @@ class _SearchPageState extends State<SearchPage> {
     }
     final url = Uri.parse(
         'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&entity=album');
+    final response = await http.get(url);
+    final data = jsonDecode(response.body);
+    setState(() => searchResults = data['results']);
+  }
+
+  void _searchOrLoadFromURL(String input) async {
+    if (input.isEmpty) {
+      setState(() => searchResults = []);
+      return;
+    }
+
+    // Verify if input is a valid URL
+    final Uri? parsedUrl = Uri.tryParse(input); // Use Uri? instead of Uri
+    if (parsedUrl != null && (parsedUrl.scheme == 'http' || parsedUrl.scheme == 'https')) {
+      // The input is a URL
+      // Perform logic to load data from the URL
+      // For now, simply print the URL
+      print('URL entered: $input');
+      return;
+    }
+
+    // Input is not a URL, perform normal search
+    final url = Uri.parse(
+        'https://itunes.apple.com/search?term=${Uri.encodeComponent(input)}&entity=album');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
     setState(() => searchResults = data['results']);
