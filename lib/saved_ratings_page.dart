@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'album_details_page.dart'; // Importa la página AlbumDetailsPage
 import 'user_data.dart'; // Importa la clase UserData
+import 'album_details_page.dart'; // Import AlbumDetailsPage
 
 class SavedRatingsPage extends StatefulWidget {
   @override
@@ -25,17 +23,16 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     });
   }
 
-  void _saveRatedAlbum(Map<String, dynamic> album) {
-    UserData.saveAlbum(album);
-    setState(() {
-      savedAlbums.add(album);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Album saved successfully!'),
-        duration: Duration(seconds: 2),
-      ),
+  void _editAlbum(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AlbumDetailsPage(album: savedAlbums[index])),
     );
+  }
+
+  void _deleteAlbum(int index) {
+    UserData.deleteAlbum(savedAlbums[index]);
+    _loadSavedAlbums(); // Recargar la lista después de eliminar el álbum
   }
 
   @override
@@ -56,12 +53,24 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   leading: Image.network(album['artworkUrl100']),
                   title: Text(album['collectionName']),
                   subtitle: Text(album['artistName']),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit),
+                        onPressed: () => _editAlbum(index),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete),
+                        onPressed: () => _deleteAlbum(index),
+                      ),
+                    ],
+                  ),
                   onTap: () {
+                    // Navegar a la página de detalles del álbum
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => AlbumDetailsPage(album: album),
-                      ),
+                      MaterialPageRoute(builder: (context) => AlbumDetailsPage(album: album)),
                     );
                   },
                 );

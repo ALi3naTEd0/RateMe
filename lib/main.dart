@@ -70,16 +70,6 @@ class MusicRatingHomePage extends StatelessWidget {
       ),
       body: SearchPage(),
       bottomNavigationBar: Footer(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SavedRatingsPage()),
-          );
-        },
-        tooltip: 'Historial',
-        child: Icon(Icons.history),
-      ),
     );
   }
 }
