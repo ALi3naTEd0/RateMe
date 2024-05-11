@@ -25,6 +25,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   void initState() {
     super.initState();
     _fetchTracks();
+    _loadSavedRatings();
   }
 
   void _fetchTracks() async {
@@ -44,6 +45,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     } catch (error) {
       print('Error fetching tracks: $error');
     }
+  }
+
+  void _loadSavedRatings() async {
+    List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(widget.album['collectionId']);
+    setState(() {
+      savedRatings.forEach((rating) => ratings[rating['trackId']] = rating['rating']);
+      calculateAverageRating();
+    });
   }
 
   void calculateAverageRating() {
@@ -84,6 +93,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     }
   }
 
+  // Función para guardar el álbum en el historial del usuario
   void _saveAlbumToHistory() {
     print('Guardando álbum en el historial: ${widget.album}');
     UserData.saveAlbum(widget.album); // Aquí se guarda el álbum en el historial
@@ -94,9 +104,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
         duration: Duration(seconds: 1),
       ),
     );
-    // Aquí podrías guardar los datos en formato JSON si lo necesitas
-    String albumJson = jsonEncode(widget.album);
-    print('Album saved to JSON: $albumJson');
   }
 
   @override
@@ -197,6 +204,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                 onChanged: (newRating) {
                                   setState(() {
                                     ratings[track['trackId']] = newRating;
+                                    UserData.saveRating(widget.album['collectionId'], track['trackId'], newRating);
                                     calculateAverageRating();
                                   });
                                 },
