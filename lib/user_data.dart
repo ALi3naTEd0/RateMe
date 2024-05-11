@@ -1,38 +1,29 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class UserData {
-  static List<UserData> savedRatings = []; // Static list to store saved ratings
-
-  String albumName; // Name of the album
-  String artistName; // Name of the artist
-  String releaseDate; // Release date of the album
-  String imageUrl; // URL of the album cover image
-  String searchUrl; // URL of the search query
-  List<TrackData> tracks; // List of tracks in the album
-  
-  UserData({
-    required this.albumName,
-    required this.artistName,
-    required this.releaseDate,
-    required this.imageUrl,
-    required this.searchUrl, // Initialize searchUrl in the constructor
-    required this.tracks,
-  });
-
-  // Method to add a UserData instance to the saved ratings list
-  static void addSavedRating(UserData userData) {
-    savedRatings.add(userData);
+  static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
+    if (savedAlbumsJson != null) {
+      List<Map<String, dynamic>> savedAlbums = [];
+      for (String json in savedAlbumsJson) {
+        savedAlbums.add(jsonDecode(json));
+      }
+      return savedAlbums;
+    } else {
+      return [];
+    }
   }
-}
 
-class TrackData {
-  int trackNumber; // Track number
-  String trackName; // Name of the track
-  int trackTimeMillis; // Duration of the track in milliseconds
-  double rating; // Rating of the track
-
-  TrackData({
-    required this.trackNumber,
-    required this.trackName,
-    required this.trackTimeMillis,
-    required this.rating,
-  });
+  static void saveAlbum(Map<String, dynamic> album) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
+    if (savedAlbumsJson == null) {
+      savedAlbumsJson = [];
+    }
+    String albumJson = jsonEncode(album);
+    savedAlbumsJson.add(albumJson);
+    await prefs.setStringList('saved_albums', savedAlbumsJson);
+  }
 }

@@ -28,22 +28,57 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
       title: 'Rate Me!',
       debugShowCheckedModeBanner: false,
       theme: _themeBrightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme,
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('Rate Me!'),
-          centerTitle: true,
-          actions: [
-            Switch(
-              value: _themeBrightness == Brightness.dark,
-              onChanged: (_) => _toggleTheme(),
-              activeColor: AppTheme.darkTheme.colorScheme.secondary, // Change the color of the switch circle when activated to yellow (dark theme)
-              inactiveThumbColor: AppTheme.lightTheme.colorScheme.primary, // Change the color of the switch circle when inactive to purple (light theme)
-              inactiveTrackColor: AppTheme.lightTheme.colorScheme.primary.withOpacity(0.5), // Change the color of the switch track when inactive to a lighter shade of purple (light theme)
-            ),
-          ],
-        ),
-        body: SearchPage(),
-        bottomNavigationBar: Footer(),
+      home: MusicRatingHomePage(
+        toggleTheme: _toggleTheme,
+        themeBrightness: _themeBrightness,
+      ),
+    );
+  }
+}
+
+class MusicRatingHomePage extends StatelessWidget {
+  final Function toggleTheme;
+  final Brightness themeBrightness;
+
+  MusicRatingHomePage({
+    required this.toggleTheme,
+    required this.themeBrightness,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Rate Me!'),
+        centerTitle: true,
+        actions: [
+          Switch(
+            value: themeBrightness == Brightness.dark,
+            onChanged: (_) => toggleTheme(),
+            activeColor: Theme.of(context).colorScheme.secondary, // Use the secondary color from the theme
+          ),
+          IconButton(
+            icon: Icon(Icons.star),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SavedRatingsPage()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SearchPage(),
+      bottomNavigationBar: Footer(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SavedRatingsPage()),
+          );
+        },
+        tooltip: 'Historial',
+        child: Icon(Icons.history),
       ),
     );
   }

@@ -1,36 +1,68 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:rateme/app_theme.dart';
-import 'package:rateme/user_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'album_details_page.dart'; // Importa la página AlbumDetailsPage
+import 'user_data.dart'; // Importa la clase UserData
 
-class SavedRatingsPage extends StatelessWidget {
+class SavedRatingsPage extends StatefulWidget {
+  @override
+  _SavedRatingsPageState createState() => _SavedRatingsPageState();
+}
+
+class _SavedRatingsPageState extends State<SavedRatingsPage> {
+  List<Map<String, dynamic>> savedAlbums = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedAlbums();
+  }
+
+  void _loadSavedAlbums() async {
+    List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
+    setState(() {
+      savedAlbums = albums;
+    });
+  }
+
+  void _saveRatedAlbum(Map<String, dynamic> album) {
+    UserData.saveAlbum(album);
+    setState(() {
+      savedAlbums.add(album);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Album saved successfully!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final savedRatings = UserData.savedRatings;
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Saved Ratings'),
       ),
-      body: savedRatings.isEmpty
+      body: savedAlbums.isEmpty
           ? Center(
-              child: Text('No ratings saved.'),
+              child: Text('No saved albums yet.'),
             )
           : ListView.builder(
-              itemCount: savedRatings.length,
+              itemCount: savedAlbums.length,
               itemBuilder: (context, index) {
-                final savedRating = savedRatings[index];
-                // Suma los ratings de todas las pistas
-                final totalRating = savedRating.tracks
-                    .map((track) => track.rating)
-                    .reduce((value, element) => value + element);
-                // Calcula el rating promedio
-                final averageRating = totalRating / savedRating.tracks.length;
+                final album = savedAlbums[index];
                 return ListTile(
-                  title: Text(savedRating.albumName),
-                  subtitle: Text(savedRating.artistName),
-                  trailing: Text(averageRating.toString()),
+                  leading: Image.network(album['artworkUrl100']),
+                  title: Text(album['collectionName']),
+                  subtitle: Text(album['artistName']),
                   onTap: () {
-                    // TODO: Implement navigation to the detailed rating page
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AlbumDetailsPage(album: album),
+                      ),
+                    );
                   },
                 );
               },

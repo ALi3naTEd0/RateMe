@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
-import 'album_details_page.dart'; // Import the AlbumDetailsPage
+import 'album_details_page.dart'; // Import the album details page
 
 class SearchPage extends StatefulWidget {
   @override
@@ -80,10 +79,12 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
 
-    // Verify if input is a valid URL
+    // Verify if input is a valid iTunes URL
     final Uri? parsedUrl = Uri.tryParse(input); // Use Uri? instead of Uri
-    if (parsedUrl != null && (parsedUrl.scheme == 'http' || parsedUrl.scheme == 'https')) {
-      // The input is a URL
+    if (parsedUrl != null &&
+        parsedUrl.scheme == 'http' &&
+        parsedUrl.host.contains('itunes.apple.com')) {
+      // The input is an iTunes URL
       // Perform logic to load data from the URL
       // For now, simply print the URL
       print('URL entered: $input');
