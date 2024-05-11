@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'user_data.dart'; // Importa la clase UserData
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -59,7 +60,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     int totalDuration = 0;
     tracks.forEach((track) {
       if (track['trackTimeMillis'] != null) {
-        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversion to integer
+        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversión a entero
       }
     });
     setState(() {
@@ -81,6 +82,21 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     } catch (error) {
       print('Error launching RateYourMusic: $error');
     }
+  }
+
+  void _saveAlbumToHistory() {
+    print('Guardando álbum en el historial: ${widget.album}');
+    UserData.saveAlbum(widget.album); // Aquí se guarda el álbum en el historial
+    print('Álbum guardado exitosamente en el historial');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Album saved to history'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+    // Aquí podrías guardar los datos en formato JSON si lo necesitas
+    String albumJson = jsonEncode(widget.album);
+    print('Album saved to JSON: $albumJson');
   }
 
   @override
@@ -206,6 +222,19 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 onPressed: _launchRateYourMusic,
                 child: Text(
                   'Save on RateYourMusic.com',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.darkTheme.colorScheme.primary
+                      : AppTheme.lightTheme.colorScheme.primary,
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _saveAlbumToHistory, // Llama a la función para guardar el álbum en el historial
+                child: Text(
+                  'Save Album to History',
                   style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
