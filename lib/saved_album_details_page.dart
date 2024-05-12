@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'user_data.dart';
+import 'user_data.dart'; // Importa la clase UserData
 
 class SavedAlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -24,8 +24,8 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   @override
   void initState() {
     super.initState();
+    ratings = {}; // Inicializar ratings aquí
     _fetchTracks();
-    ratings = {};
   }
 
   void _fetchTracks() async {
@@ -39,8 +39,9 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       setState(() {
         tracks = trackList;
         calculateAlbumDuration();
+        trackList.forEach((track) => ratings[track['trackId']] = 0.0);
+        _loadSavedRatings(); 
       });
-      _loadSavedRatings(); // Cargar las calificaciones después de establecer las pistas
     } catch (error) {
       print('Error fetching tracks: $error');
     }
@@ -50,7 +51,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     int totalDuration = 0;
     tracks.forEach((track) {
       if (track['trackTimeMillis'] != null) {
-        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversión a entero
+        totalDuration += (track['trackTimeMillis'] ?? 0) as int;
       }
     });
     setState(() {
@@ -66,11 +67,11 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       for (var rating in savedRatings) {
         ratings[rating['trackId']] = rating['rating'];
       }
-      calculateAverageRating();
+      calculateAverageRating(ratings);
     });
   }
 
-  void calculateAverageRating() {
+  void calculateAverageRating(Map<int, double> ratings) {
     var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
     if (ratedTracks.isNotEmpty) {
       double total = ratedTracks.reduce((a, b) => a + b);
@@ -85,7 +86,6 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
 
   void _updateRating(int trackId, double newRating) async {
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
-    // Recargar las calificaciones después de actualizar
     _loadSavedRatings();
   }
 
@@ -180,13 +180,13 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                                 min: 0,
                                 max: 10,
                                 divisions: 10,
-                                value: _getRating(track['trackId']),
+                                value: ratings[track['trackId']] ?? 0.0,
                                 onChanged: (newRating) {
                                   _updateRating(track['trackId'], newRating);
                                 },
                               ),
                             ),
-                            Text(_getRating(track['trackId'])
+                            Text((ratings[track['trackId']] ?? 0.0)
                                 .toStringAsFixed(0)),
                           ],
                         ),
@@ -197,9 +197,9 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: _launchRateYourMusic,
                 child: Text(
-                  'Update Rating',
+                  'RateYourMusic.com',
                   style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -208,8 +208,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
-              SizedBox(height: 20),
-              SizedBox(height: 100), // Add additional space to prevent overflow
+              SizedBox(height: 100), // Agrega espacio adicional para evitar desbordamiento
             ],
           ),
         ),
@@ -218,15 +217,25 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     );
   }
 
-  double _getRating(int trackId) {
-    // Obtener la calificación del trackId de las calificaciones cargadas
-    var savedRating = ratings[trackId] ?? 0.0;
-    return savedRating.toDouble();
+  String formatDuration(int millis) {
+    int seconds = (millis ~/ 1000) % 60;
+    int minutes = (millis ~/ 1000) ~/ 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  String formatDuration(int? milliseconds) {
-    if (milliseconds == null || milliseconds == 0) return '';
-    int seconds = (milliseconds / 1000).truncate();
-    return '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+  void _launchRateYourMusic() async {
+    final artistName = widget.album['artistName'];
+    final albumName = widget.album['collectionName'];
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+    try {
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (error) {
+      print('Error launching RateYourMusic: $error');
+    }
   }
 }

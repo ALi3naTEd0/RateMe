@@ -26,7 +26,7 @@ While the current version of "Rate Me!" offers a robust set of features, future 
 - **Sync Option**: Implement a synchronization feature to enable users to synchronize their ratings across multiple devices seamlessly.
 
 ## Current Version
-This document corresponds to version 0.0.9h of "Rate Me!", encompassing all the features and functionalities described above.
+This document corresponds to version 0.0.9i of "Rate Me!", encompassing all the features and functionalities described above.
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)
