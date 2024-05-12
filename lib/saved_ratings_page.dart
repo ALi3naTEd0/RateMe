@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'user_data.dart'; // Importa la clase UserData
 import 'album_details_page.dart'; // Import AlbumDetailsPage
 import 'saved_album_details_page.dart'; // Import SavedAlbumDetailsPage
+import 'footer.dart'; // Importa el widget Footer
 
 class SavedRatingsPage extends StatefulWidget {
   @override
@@ -88,6 +89,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                 );
               },
             ),
+      bottomNavigationBar: Footer(), // Agrega el footer
     );
   }
 }
