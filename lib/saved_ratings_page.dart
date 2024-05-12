@@ -24,16 +24,32 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     });
   }
 
-  void _editAlbum(int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => AlbumDetailsPage(album: savedAlbums[index])),
-    );
-  }
-
   void _deleteAlbum(int index) {
-    UserData.deleteAlbum(savedAlbums[index]);
-    _loadSavedAlbums(); // Recargar la lista después de eliminar el álbum
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Confirm Delete"),
+          content: Text("Are you sure you want to delete this item from the database?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                UserData.deleteAlbum(savedAlbums[index]);
+                _loadSavedAlbums(); // Recargar la lista después de eliminar el álbum
+                Navigator.of(context).pop();
+              },
+              child: Text("Delete"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _openSavedAlbumDetails(int index) {
@@ -61,18 +77,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   leading: Image.network(album['artworkUrl100']),
                   title: Text(album['collectionName']),
                   subtitle: Text(album['artistName']),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () => _editAlbum(index),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete),
-                        onPressed: () => _deleteAlbum(index),
-                      ),
-                    ],
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete),
+                    onPressed: () => _deleteAlbum(index),
                   ),
                   onTap: () {
                     // Abre la página de detalles del álbum guardado

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'album_details_page.dart'; // Import the album details page
+import 'album_details_page.dart'; // Importa la página de detalles del álbum
 
 class SearchPage extends StatefulWidget {
   @override
@@ -32,7 +32,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
               onChanged: _onSearchChanged,
-              maxLength: 255, // Maximum characters for search input
+              maxLength: 255, // Máximo de caracteres para la entrada de búsqueda
             ),
           ),
         ),
@@ -79,19 +79,19 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
 
-    // Verify if input is a valid iTunes URL
-    final Uri? parsedUrl = Uri.tryParse(input); // Use Uri? instead of Uri
+    // Verificar si la entrada es una URL válida de iTunes
+    final Uri? parsedUrl = Uri.tryParse(input); // Usar Uri? en lugar de Uri
     if (parsedUrl != null &&
         parsedUrl.scheme == 'http' &&
         parsedUrl.host.contains('itunes.apple.com')) {
-      // The input is an iTunes URL
-      // Perform logic to load data from the URL
-      // For now, simply print the URL
-      print('URL entered: $input');
+      // La entrada es una URL de iTunes
+      // Realizar lógica para cargar datos desde la URL
+      // Por ahora, simplemente imprimir la URL
+      print('URL ingresada: $input');
       return;
     }
 
-    // Input is not a URL, perform normal search
+    // La entrada no es una URL, realizar búsqueda normal
     final url = Uri.parse(
         'https://itunes.apple.com/search?term=${Uri.encodeComponent(input)}&entity=album');
     final response = await http.get(url);

@@ -1,5 +1,3 @@
-// album_details_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -175,6 +173,18 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 ),
               ),
               SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _saveInHistory,
+                child: Text(
+                  'Save Album', // Cambio de texto
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.darkTheme.colorScheme.primary
+                      : AppTheme.lightTheme.colorScheme.primary,
+                ),
+              ),
               Divider(),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -219,20 +229,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
                 child: Text(
-                  'Save on RateYourMusic.com',
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkTheme.colorScheme.primary
-                      : AppTheme.lightTheme.colorScheme.primary,
-                ),
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _saveInHistory,
-                child: Text(
-                  'Save in History',
+                  'RateYourMusic.com',
                   style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
