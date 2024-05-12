@@ -1,9 +1,8 @@
+// user_data.dart
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Class for managing user data such as saved albums.
 class UserData {
-  /// Retrieves the list of saved albums from SharedPreferences.
   static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
@@ -18,7 +17,6 @@ class UserData {
     }
   }
 
-  /// Saves the given album to SharedPreferences.
   static Future<void> saveAlbum(Map<String, dynamic> album) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
@@ -30,7 +28,6 @@ class UserData {
     await prefs.setStringList('saved_albums', savedAlbumsJson);
   }
 
-  /// Deletes the given album from SharedPreferences.
   static Future<void> deleteAlbum(Map<String, dynamic> album) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
@@ -43,5 +40,34 @@ class UserData {
       savedAlbumsJson = savedAlbums.map((album) => jsonEncode(album)).toList();
       await prefs.setStringList('saved_albums', savedAlbumsJson);
     }
+  }
+
+  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(int albumId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
+    if (savedRatingsJson != null) {
+      List<Map<String, dynamic>> savedRatings = [];
+      for (String json in savedRatingsJson) {
+        savedRatings.add(jsonDecode(json));
+      }
+      print('Ratings loaded: $savedRatings');
+      return savedRatings;
+    } else {
+      print('No ratings found for album $albumId');
+      return [];
+    }
+  }
+
+  static Future<void> saveRating(int albumId, int trackId, double rating) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
+    if (savedRatingsJson == null) {
+      savedRatingsJson = [];
+    }
+    Map<String, dynamic> ratingData = {'trackId': trackId, 'rating': rating};
+    String ratingJson = jsonEncode(ratingData);
+    savedRatingsJson.add(ratingJson);
+    await prefs.setStringList('saved_ratings_$albumId', savedRatingsJson);
+    print('Rating saved: $ratingData');
   }
 }
