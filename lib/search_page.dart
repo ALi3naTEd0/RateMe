@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async'; // Importa la librería async
 import 'album_details_page.dart'; // Importa la página de detalles del álbum
 
 class SearchPage extends StatefulWidget {
@@ -11,6 +12,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController searchController = TextEditingController();
   List<dynamic> searchResults = [];
+  Timer? _debounce; // Timer para retrasar la búsqueda
 
   @override
   Widget build(BuildContext context) {
@@ -26,9 +28,7 @@ class _SearchPageState extends State<SearchPage> {
                 labelText: 'Search Albums or Paste URL',
                 suffixIcon: IconButton(
                   icon: Icon(Icons.search),
-                  onPressed: () {
-                    _searchOrLoadFromURL(searchController.text);
-                  },
+                  onPressed: () {}, // Remove the onPressed handler from here
                 ),
               ),
               onChanged: _onSearchChanged,
@@ -61,39 +61,22 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  void _onSearchChanged(String query) async {
+  void _onSearchChanged(String query) {
+    // Cancela el temporizador anterior si existe
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    // Configura un nuevo temporizador para realizar la búsqueda después de 500 milisegundos
+    _debounce = Timer(Duration(milliseconds: 500), () {
+      _performSearch(query);
+    });
+  }
+
+  void _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() => searchResults = []);
       return;
     }
     final url = Uri.parse(
         'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&entity=album');
-    final response = await http.get(url);
-    final data = jsonDecode(response.body);
-    setState(() => searchResults = data['results']);
-  }
-
-  void _searchOrLoadFromURL(String input) async {
-    if (input.isEmpty) {
-      setState(() => searchResults = []);
-      return;
-    }
-
-    // Verificar si la entrada es una URL válida de iTunes
-    final Uri? parsedUrl = Uri.tryParse(input); // Usar Uri? en lugar de Uri
-    if (parsedUrl != null &&
-        parsedUrl.scheme == 'http' &&
-        parsedUrl.host.contains('itunes.apple.com')) {
-      // La entrada es una URL de iTunes
-      // Realizar lógica para cargar datos desde la URL
-      // Por ahora, simplemente imprimir la URL
-      print('URL ingresada: $input');
-      return;
-    }
-
-    // La entrada no es una URL, realizar búsqueda normal
-    final url = Uri.parse(
-        'https://itunes.apple.com/search?term=${Uri.encodeComponent(input)}&entity=album');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
     setState(() => searchResults = data['results']);
