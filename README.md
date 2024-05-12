@@ -4,7 +4,7 @@
 "Rate Me!" is a music album rating application developed to provide users with a platform to rate and review their favorite albums. Leveraging the iTunes API, users can search for albums by artist name or album title and rate each song within the album. The app then calculates and presents an average rating for the entire album, offering users a comprehensive overview of the album's quality based on their ratings.
 
 ## Features
-- **Album Search**: Utilize the built-in search functionality to discover albums by entering the artist's name or the album title.
+- **Album Search**: Utilize the built-in search functionality to discover albums by entering the artist's name, album title, or URL from iTunes or Apple Music.
 - **Song Rating**: Rate individual songs within an album on a scale from 0 to 10, allowing users to express their opinions on each track.
 - **Average Rating Calculation**: The app dynamically calculates an average rating for each album based on the aggregated ratings of its individual songs.
 - **Album Details**: Access detailed information about each album, including the artist's name, album title, release date, and total duration.

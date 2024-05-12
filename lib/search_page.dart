@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:async'; // Importa la librería async
-import 'album_details_page.dart'; // Importa la página de detalles del álbum
+import 'dart:async';
+import 'album_details_page.dart';
 
 class SearchPage extends StatefulWidget {
   @override
@@ -12,7 +12,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController searchController = TextEditingController();
   List<dynamic> searchResults = [];
-  Timer? _debounce; // Timer para retrasar la búsqueda
+  Timer? _debounce; // Timer to delay the search
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
               onChanged: _onSearchChanged,
-              maxLength: 255, // Máximo de caracteres para la entrada de búsqueda
+              maxLength: 255, // Maximum characters for search entry
             ),
           ),
         ),
@@ -62,9 +62,9 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _onSearchChanged(String query) {
-    // Cancela el temporizador anterior si existe
+    // Cancel the previous timer if it exists
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    // Configura un nuevo temporizador para realizar la búsqueda después de 500 milisegundos
+    // Set a new timer to search after 500 milliseconds
     _debounce = Timer(Duration(milliseconds: 500), () {
       _performSearch(query);
     });

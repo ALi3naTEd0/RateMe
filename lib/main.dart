@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
-import 'album_details_page.dart'; // Import AlbumDetailsPage
-import 'saved_ratings_page.dart'; // Import SavedRatingsPage
+import 'album_details_page.dart';
+import 'saved_ratings_page.dart';
 
 void main() => runApp(MusicRatingApp());
 
@@ -52,19 +52,25 @@ class MusicRatingHomePage extends StatelessWidget {
         title: Text('Rate Me!'),
         centerTitle: true,
         actions: [
-          Switch(
-            value: themeBrightness == Brightness.dark,
-            onChanged: (_) => toggleTheme(),
-            activeColor: Theme.of(context).colorScheme.secondary, // Use the secondary color from the theme
+          Tooltip(
+            message: 'Saved Ratings',
+            child: IconButton(
+              icon: Icon(Icons.star, size: 28),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SavedRatingsPage()),
+                );
+              },
+            ),
           ),
-          IconButton(
-            icon: Icon(Icons.star),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SavedRatingsPage()),
-              );
-            },
+          Tooltip(
+            message: 'Theme',
+            child: Switch(
+              value: themeBrightness == Brightness.dark,
+              onChanged: (_) => toggleTheme(),
+              activeColor: Theme.of(context).colorScheme.secondary, // Use the secondary color from the theme
+            ),
           ),
         ],
       ),
