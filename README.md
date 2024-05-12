@@ -8,7 +8,11 @@
 - **Song Rating**: Rate individual songs within an album on a scale from 0 to 10, allowing users to express their opinions on each track.
 - **Average Rating Calculation**: The app dynamically calculates an average rating for each album based on the aggregated ratings of its individual songs.
 - **Album Details**: Access detailed information about each album, including the artist's name, album title, release date, and total duration.
-- **Cross-Platform Compatibility**: Enjoy a seamless user experience across multiple platforms, including Windows and Mac.
+- **No Login Required**: Users can start using the app immediately without the need for any login or authentication process.
+- **This is NOT a Database**: The app does not store data persistently or serve as a database, ensuring user data privacy and security.
+- **Saved History**: Users can view their saved ratings history, providing a record of their past ratings and reviews.
+- **Edit Old Saved Ratings**: Modify or update previously saved ratings for albums and songs, giving users the flexibility to refine their ratings over time.
+- **Save Rating to RateYourMusic.com**: Seamlessly save ratings to RateYourMusic.com for expanded visibility and sharing with the wider music community.
 
 ## Technologies Used
 - **Flutter**: Utilized for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
@@ -19,11 +23,8 @@
 1. **Album Search**: Begin by entering the artist's name or album title in the search bar to initiate a search for albums.
 2. **Rate Songs**: Upon selecting an album, rate each song individually by assigning a rating from 0 to 10.
 3. **View Album Details**: Explore comprehensive details about each album, including artist information, release date, and total album duration.
-
-## Future Enhancements
-While the current version of "Rate Me!" offers a robust set of features, future updates may include:
-- **Data Export/Import**: Enable users to export and import their saved ratings for backup or transfer purposes.
-- **Sync Option**: Implement a synchronization feature to enable users to synchronize their ratings across multiple devices seamlessly.
+4. **Saved History**: Access your saved ratings history to review past ratings and make any necessary edits or updates.
+5. **Save Rating to RateYourMusic.com**: Share your ratings with the broader music community by saving them to RateYourMusic.com.
 
 ## Current Version
 This document corresponds to version 0.0.9i of "Rate Me!", encompassing all the features and functionalities described above.
