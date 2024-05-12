@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rateme/search_page.dart';
+import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'album_details_page.dart'; // Import AlbumDetailsPage

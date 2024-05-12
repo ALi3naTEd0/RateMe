@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'user_data.dart'; // Importa la clase UserData
 import 'album_details_page.dart'; // Import AlbumDetailsPage
+import 'saved_album_details_page.dart'; // Import SavedAlbumDetailsPage
 
 class SavedRatingsPage extends StatefulWidget {
   @override
@@ -35,6 +36,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     _loadSavedAlbums(); // Recargar la lista después de eliminar el álbum
   }
 
+  void _openSavedAlbumDetails(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => SavedAlbumDetailsPage(album: savedAlbums[index])),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,11 +75,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     ],
                   ),
                   onTap: () {
-                    // Navegar a la página de detalles del álbum
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => AlbumDetailsPage(album: album)),
-                    );
+                    // Abre la página de detalles del álbum guardado
+                    _openSavedAlbumDetails(index);
                   },
                 );
               },
