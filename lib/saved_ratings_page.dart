@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'user_data.dart'; // Importa la clase UserData
-import 'album_details_page.dart'; // Import AlbumDetailsPage
-import 'saved_album_details_page.dart'; // Import SavedAlbumDetailsPage
-import 'footer.dart'; // Importa el widget Footer
+import 'user_data.dart';
+import 'album_details_page.dart';
+import 'saved_album_details_page.dart';
+import 'footer.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   @override
@@ -31,7 +31,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text("Confirm Delete"),
-          content: Text("Are you sure you want to delete this item from the database?"),
+          content: Text("Are you sure you want to delete this item from Saved Ratings?"),
           actions: [
             TextButton(
               onPressed: () {
@@ -42,7 +42,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             TextButton(
               onPressed: () {
                 UserData.deleteAlbum(savedAlbums[index]);
-                _loadSavedAlbums(); // Recargar la lista después de eliminar el álbum
+                _loadSavedAlbums(); // Reload list after deleting album
                 Navigator.of(context).pop();
               },
               child: Text("Delete"),
@@ -75,7 +75,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
               itemBuilder: (context, index) {
                 final album = savedAlbums[index];
                 return ListTile(
-                  leading: Image.network(album['artworkUrl100']),
+                  leading: Image.network(
+                    album['artworkUrl100'],
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Icon(Icons.album),
+                  ),
                   title: Text(album['collectionName']),
                   subtitle: Text(album['artistName']),
                   trailing: IconButton(
@@ -83,13 +90,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     onPressed: () => _deleteAlbum(index),
                   ),
                   onTap: () {
-                    // Abre la página de detalles del álbum guardado
+                    // Open the details page of the saved album
                     _openSavedAlbumDetails(index);
                   },
                 );
               },
             ),
-      bottomNavigationBar: Footer(), // Agrega el footer
+      bottomNavigationBar: Footer(),
     );
   }
 }

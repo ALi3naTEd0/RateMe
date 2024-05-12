@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'user_data.dart'; // Importa la clase UserData
+import 'user_data.dart';
 
 class SavedAlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -24,7 +24,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   @override
   void initState() {
     super.initState();
-    ratings = {}; // Inicializar ratings aquí
+    ratings = {}; // Initialize ratings here
     _fetchTracks();
   }
 
@@ -208,7 +208,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
-              SizedBox(height: 100), // Agrega espacio adicional para evitar desbordamiento
+              SizedBox(height: 100), // Add additional space to prevent overflow
             ],
           ),
         ),
