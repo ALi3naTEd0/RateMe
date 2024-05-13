@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'user_data.dart'; // Importa la clase UserData
+import 'user_data.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -63,7 +63,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     int totalDuration = 0;
     tracks.forEach((track) {
       if (track['trackTimeMillis'] != null) {
-        totalDuration += (track['trackTimeMillis'] ?? 0) as int; // Conversión a entero
+        totalDuration += (track['trackTimeMillis'] ?? 0) as int;
       }
     });
     setState(() {
@@ -87,7 +87,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     }
   }
 
-  void _saveInHistory() {
+  void _saveRatings() {
     UserData.saveAlbum(widget.album);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -103,7 +103,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       calculateAverageRating();
     });
 
-    // Guardar el nuevo rating automáticamente
+    // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
   }
 
@@ -164,9 +164,19 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Rating: ${averageRating.toStringAsFixed(2)}",
+                        Text("Duration: ",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(formatDuration(albumDurationMillis)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Rating: ",
                             style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold)),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20)),
+                        Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
                       ],
                     ),
                   ],
@@ -174,9 +184,9 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _saveInHistory,
+                onPressed: _saveRatings,
                 child: Text(
-                  'Save Album', // Cambio de texto
+                  'Save Album',
                   style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -251,6 +261,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   String formatDuration(int millis) {
     int seconds = (millis ~/ 1000) % 60;
     int minutes = (millis ~/ 1000) ~/ 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }
