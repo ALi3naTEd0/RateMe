@@ -146,9 +146,19 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Rating: ${averageRating.toStringAsFixed(2)}",
+                        Text("Duration: ",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(formatDuration(albumDurationMillis)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Rating: ",
                             style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold)),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20)),
+                        Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
                       ],
                     ),
                   ],
@@ -220,7 +230,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   String formatDuration(int millis) {
     int seconds = (millis ~/ 1000) % 60;
     int minutes = (millis ~/ 1000) ~/ 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   void _launchRateYourMusic() async {
