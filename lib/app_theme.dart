@@ -15,7 +15,6 @@ class AppTheme {
         fontWeight: FontWeight.bold,
       ),
     ),
-    toggleableActiveColor: Color(0xFF5E35B1), // Dark purple
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.all<Color>(Color(0xFF864AF9)), // Light purple
       trackColor: MaterialStateProperty.all<Color>(Color(0xFF5E35B1).withOpacity(0.5)), // Dark purple with opacity
@@ -47,7 +46,6 @@ class AppTheme {
         fontWeight: FontWeight.bold,
       ),
     ),
-    toggleableActiveColor: Color(0xFF864AF9), // Light purple
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.all<Color>(Color(0xFF5E35B1)), // Dark purple
       trackColor: MaterialStateProperty.all<Color>(Color(0xFF864AF9).withOpacity(0.5)), // Light purple with opacity

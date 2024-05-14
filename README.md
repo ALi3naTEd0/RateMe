@@ -27,7 +27,7 @@
 5. **Save Rating to RateYourMusic.com**: Share your ratings with the broader music community by saving them to RateYourMusic.com.
 
 ## Current Version
-This document corresponds to version 0.0.9i of "Rate Me!", encompassing all the features and functionalities described above.
+This document corresponds to version 0.0.9j of "Rate Me!", encompassing all the features and functionalities described above.
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)
