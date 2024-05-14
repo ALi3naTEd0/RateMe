@@ -87,10 +87,13 @@ class MusicRatingHomePage extends StatelessWidget {
         actions: [
           Tooltip(
             message: 'Theme',
-            child: Switch(
-              value: themeBrightness == Brightness.dark,
-              onChanged: (_) => toggleTheme(),
-              activeColor: Theme.of(context).colorScheme.secondary,
+            child: Transform.scale(
+              scale: 0.8, // Ajusta el tamaño del Switch aquí
+              child: Switch(
+                value: themeBrightness == Brightness.dark,
+                onChanged: (_) => toggleTheme(),
+                activeColor: Theme.of(context).colorScheme.secondary,
+              ),
             ),
           ),
         ],
