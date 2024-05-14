@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
@@ -13,24 +14,44 @@ class MusicRatingApp extends StatefulWidget {
 }
 
 class _MusicRatingAppState extends State<MusicRatingApp> {
-  Brightness _themeBrightness = Brightness.light;
+  Brightness? _themeBrightness;
 
-  void _toggleTheme() {
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final brightnessIndex = prefs.getInt('themeBrightness');
     setState(() {
-      _themeBrightness =
-          _themeBrightness == Brightness.light ? Brightness.dark : Brightness.light;
+      _themeBrightness = brightnessIndex != null ? Brightness.values[brightnessIndex] : Brightness.light;
+    });
+  }
+
+  void _toggleTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final newBrightness = _themeBrightness == Brightness.light ? Brightness.dark : Brightness.light;
+    await prefs.setInt('themeBrightness', newBrightness.index);
+    setState(() {
+      _themeBrightness = newBrightness;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_themeBrightness == null) {
+      // Si _themeBrightness es null, muestra un indicador de carga o un widget de carga
+      return CircularProgressIndicator(); // Por ejemplo, podrías usar un CircularProgressIndicator
+    }
     return MaterialApp(
       title: 'Rate Me!',
       debugShowCheckedModeBanner: false,
       theme: _themeBrightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme,
       home: MusicRatingHomePage(
         toggleTheme: _toggleTheme,
-        themeBrightness: _themeBrightness,
+        themeBrightness: _themeBrightness!,
       ),
     );
   }
@@ -51,25 +72,25 @@ class MusicRatingHomePage extends StatelessWidget {
       appBar: AppBar(
         title: Text('Rate Me!'),
         centerTitle: true,
-        actions: [
-          Tooltip(
-            message: 'Saved Ratings',
-            child: IconButton(
-              icon: Icon(Icons.star, size: 28),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SavedRatingsPage()),
-                );
-              },
-            ),
+        leading: Tooltip(
+          message: 'Saved Ratings',
+          child: IconButton(
+            icon: Icon(Icons.star, size: 32, color: _getStarIconColor(themeBrightness)), // Cambiado el color del icono de la estrella
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SavedRatingsPage()),
+              );
+            },
           ),
+        ),
+        actions: [
           Tooltip(
             message: 'Theme',
             child: Switch(
               value: themeBrightness == Brightness.dark,
               onChanged: (_) => toggleTheme(),
-              activeColor: Theme.of(context).colorScheme.secondary, // Use the secondary color from the theme
+              activeColor: Theme.of(context).colorScheme.secondary,
             ),
           ),
         ],
@@ -77,5 +98,9 @@ class MusicRatingHomePage extends StatelessWidget {
       body: SearchPage(),
       bottomNavigationBar: Footer(),
     );
+  }
+
+  Color _getStarIconColor(Brightness themeBrightness) {
+    return themeBrightness == Brightness.light ? AppTheme.lightTheme.colorScheme.primary : AppTheme.darkTheme.colorScheme.primary;
   }
 }
