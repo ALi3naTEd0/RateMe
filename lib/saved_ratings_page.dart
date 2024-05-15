@@ -1,6 +1,7 @@
+// saved_ratings_page.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'user_data.dart';
-import 'album_details_page.dart';
 import 'saved_album_details_page.dart';
 import 'footer.dart';
 
@@ -20,9 +21,18 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   void _loadSavedAlbums() async {
     List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
+    List<String> albumOrder = await UserData.getSavedAlbumOrder();
     setState(() {
       savedAlbums = albums;
+      _reorderAlbums(albumOrder);
     });
+  }
+
+  void _reorderAlbums(List<String> albumOrder) {
+    if (albumOrder.isNotEmpty) {
+      savedAlbums.sort((a, b) => albumOrder.indexOf(a['collectionId'].toString())
+          .compareTo(albumOrder.indexOf(b['collectionId'].toString())));
+    }
   }
 
   void _deleteAlbum(int index) {
@@ -60,6 +70,24 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     );
   }
 
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final album = savedAlbums.removeAt(oldIndex);
+      savedAlbums.insert(newIndex, album);
+    });
+
+    // Guardar el nuevo orden en SharedPreferences
+    _saveAlbumOrder();
+  }
+
+  Future<void> _saveAlbumOrder() async {
+    List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
+    await UserData.saveAlbumOrder(albumIds);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,11 +98,11 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           ? Center(
               child: Text('No saved albums yet.'),
             )
-          : ListView.builder(
-              itemCount: savedAlbums.length,
-              itemBuilder: (context, index) {
-                final album = savedAlbums[index];
+          : ReorderableListView(
+              onReorder: _onReorder,
+              children: savedAlbums.map((album) {
                 return ListTile(
+                  key: Key(album['collectionId'].toString()),
                   leading: Image.network(
                     album['artworkUrl100'],
                     width: 50,
@@ -87,14 +115,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   subtitle: Text(album['artistName']),
                   trailing: IconButton(
                     icon: Icon(Icons.delete),
-                    onPressed: () => _deleteAlbum(index),
+                    onPressed: () => _deleteAlbum(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId'])),
                   ),
                   onTap: () {
-                    // Open the details page of the saved album
-                    _openSavedAlbumDetails(index);
+                    _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
                   },
                 );
-              },
+              }).toList(),
             ),
       bottomNavigationBar: Footer(),
     );

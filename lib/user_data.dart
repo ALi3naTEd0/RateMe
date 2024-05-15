@@ -41,6 +41,17 @@ class UserData {
     }
   }
 
+  static Future<void> saveAlbumOrder(List<String> albumIds) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('savedAlbumsOrder', albumIds);
+  }
+
+  static Future<List<String>> getSavedAlbumOrder() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? albumIds = prefs.getStringList('savedAlbumsOrder');
+    return albumIds ?? [];
+  }
+
   static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(int albumId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
