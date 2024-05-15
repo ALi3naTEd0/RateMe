@@ -37,7 +37,7 @@ This document corresponds to version 0.0.9k of "Rate Me!", encompassing all the 
 Contributions to the project are welcome! If you encounter any issues or wish to request a new feature, feel free to inform us through GitHub issues.
 
 ## License
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the `LICENSE` file for more details.
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)
