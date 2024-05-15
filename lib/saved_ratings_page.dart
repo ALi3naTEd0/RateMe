@@ -1,4 +1,3 @@
-// saved_ratings_page.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_data.dart';
@@ -21,18 +20,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   void _loadSavedAlbums() async {
     List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
-    List<String> albumOrder = await UserData.getSavedAlbumOrder();
     setState(() {
       savedAlbums = albums;
-      _reorderAlbums(albumOrder);
     });
-  }
-
-  void _reorderAlbums(List<String> albumOrder) {
-    if (albumOrder.isNotEmpty) {
-      savedAlbums.sort((a, b) => albumOrder.indexOf(a['collectionId'].toString())
-          .compareTo(albumOrder.indexOf(b['collectionId'].toString())));
-    }
   }
 
   void _deleteAlbum(int index) {
@@ -80,12 +70,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     });
 
     // Guardar el nuevo orden en SharedPreferences
-    _saveAlbumOrder();
-  }
-
-  Future<void> _saveAlbumOrder() async {
     List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
-    await UserData.saveAlbumOrder(albumIds);
+    UserData.saveAlbumOrder(albumIds);
   }
 
   @override
@@ -111,11 +97,19 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     errorBuilder: (context, error, stackTrace) =>
                         Icon(Icons.album),
                   ),
-                  title: Text(album['collectionName']),
-                  subtitle: Text(album['artistName']),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete),
-                    onPressed: () => _deleteAlbum(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId'])),
+                  title: Text(album['collectionName'] ?? 'N/A'),
+                  subtitle: Text(album['artistName'] ?? 'N/A'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(album['averageRating']?.toStringAsFixed(2) ?? 'N/A'), // Mostrar el rating si está disponible, de lo contrario N/A
+                      SizedBox(width: 16), // Espacio adicional
+                      GestureDetector(
+                        onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
+                        child: Icon(Icons.delete),
+                      ),
+                      SizedBox(width: 16), // Espacio adicional
+                    ],
                   ),
                   onTap: () {
                     _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
