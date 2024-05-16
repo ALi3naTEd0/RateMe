@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static final lightTheme = ThemeData.light().copyWith(
-    colorScheme: ThemeData.light().colorScheme.copyWith(
+    colorScheme: ColorScheme.light().copyWith(
       primary: Color(0xFF864AF9), // Light purple
       secondary: Color(0xFF5E35B1), // Dark purple
     ),
@@ -33,7 +33,7 @@ class AppTheme {
   );
 
   static final darkTheme = ThemeData.dark().copyWith(
-    colorScheme: ThemeData.dark().colorScheme.copyWith(
+    colorScheme: ColorScheme.dark().copyWith(
       primary: Color(0xFF5E35B1), // Dark purple
       secondary: Color(0xFF864AF9), // Light purple
     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_details_page.dart';
 import 'footer.dart';
+import 'app_theme.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   @override
@@ -95,6 +96,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Saved Ratings'),
@@ -108,21 +111,43 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
               children: savedAlbums.map((album) {
                 return ListTile(
                   key: Key(album['collectionId'].toString()),
-                  leading: Image.network(
-                    album['artworkUrl100'],
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Icon(Icons.album),
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 50, // Tamaño fijo para hacerlo cuadrado
+                        height: 50, // Tamaño fijo para hacerlo cuadrado
+                        padding: EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: isDarkTheme ? Colors.white : Colors.black), // Color del borde
+                        ),
+                        child: Center(
+                          child: Text(
+                            album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkTheme ? Colors.white : Colors.black, // Color del texto
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Image.network(
+                        album['artworkUrl100'],
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
+                      ),
+                    ],
                   ),
                   title: Text(album['collectionName'] ?? 'N/A'),
                   subtitle: Text(album['artistName'] ?? 'N/A'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(album['averageRating']?.toStringAsFixed(2) ?? 'N/A'),
-                      SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
                         child: Icon(Icons.delete),

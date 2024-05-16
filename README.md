@@ -31,7 +31,7 @@ Discover, rate, and share your favorite albums with "Rate Me!" This app allows y
 5. **Save Rating to RateYourMusic.com**: Share your ratings with the broader music community by saving them to RateYourMusic.com.
 
 ## Current Version
-This document corresponds to version 0.0.9l of "Rate Me!", encompassing all the features and functionalities described above.
+This document corresponds to version 0.0.9m of "Rate Me!", encompassing all the features and functionalities described above.
 
 ## Contributions and Issues
 Contributions to the project are welcome! If you encounter any issues or wish to request a new feature, feel free to inform us through GitHub issues.

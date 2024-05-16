@@ -119,68 +119,78 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Image.network(
-                  widget.album['artworkUrl100']
-                      .replaceAll('100x100', '600x600'),
-                  width: 300,
-                  height: 300,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Icon(Icons.album, size: 300),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Artist: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.album['artistName']}"),
-                      ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.network(
+                        widget.album['artworkUrl100']
+                            .replaceAll('100x100', '600x600'),
+                        width: 300,
+                        height: 300,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Icon(Icons.album, size: 300),
+                      ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Album: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.album['collectionName']}"),
-                      ],
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Artist: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("${widget.album['artistName']}"),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Album: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("${widget.album['collectionName']}"),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Release Date: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                  "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Duration: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(formatDuration(albumDurationMillis)),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Rating: ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20)),
+                              Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Release Date: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                            "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Duration: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(formatDuration(albumDurationMillis)),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Rating: ",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20)),
-                        Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               SizedBox(height: 20),
               ElevatedButton(
