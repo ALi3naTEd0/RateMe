@@ -17,14 +17,13 @@ class SavedAlbumDetailsPage extends StatefulWidget {
 
 class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   List<dynamic> tracks = [];
+  Map<int, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
-  late Map<int, double> ratings;
 
   @override
   void initState() {
     super.initState();
-    ratings = {}; // Initialize ratings here
     _fetchTracks();
   }
 
@@ -38,12 +37,26 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
           data['results'].where((track) => track['wrapperType'] == 'track').toList();
       setState(() {
         tracks = trackList;
-        calculateAlbumDuration();
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
-        _loadSavedRatings(); 
+        calculateAverageRating();
+        calculateAlbumDuration();
+        _loadSavedRatings();
       });
     } catch (error) {
       print('Error fetching tracks: $error');
+    }
+  }
+
+  void calculateAverageRating() {
+    var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
+    if (ratedTracks.isNotEmpty) {
+      double total = ratedTracks.reduce((a, b) => a + b);
+      setState(() {
+        averageRating = total / ratedTracks.length;
+        averageRating = double.parse(averageRating.toStringAsFixed(2));
+      });
+    } else {
+      setState(() => averageRating = 0.0);
     }
   }
 
@@ -62,31 +75,37 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   void _loadSavedRatings() async {
     List<Map<String, dynamic>> savedRatings =
         await UserData.getSavedAlbumRatings(widget.album['collectionId']);
-    print('Saved Ratings: $savedRatings');
     setState(() {
       for (var rating in savedRatings) {
         ratings[rating['trackId']] = rating['rating'];
       }
-      calculateAverageRating(ratings);
     });
   }
 
-  void calculateAverageRating(Map<int, double> ratings) {
-    var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
-    if (ratedTracks.isNotEmpty) {
-      double total = ratedTracks.reduce((a, b) => a + b);
-      setState(() {
-        averageRating = total / ratedTracks.length;
-        averageRating = double.parse(averageRating.toStringAsFixed(2));
-      });
-    } else {
-      setState(() => averageRating = 0.0);
+  void _launchRateYourMusic() async {
+    final artistName = widget.album['artistName'];
+    final albumName = widget.album['collectionName'];
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+    try {
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (error) {
+      print('Error launching RateYourMusic: $error');
     }
   }
 
   void _updateRating(int trackId, double newRating) async {
+    setState(() {
+      ratings[trackId] = newRating;
+      calculateAverageRating();
+    });
+
+    // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
-    _loadSavedRatings();
   }
 
   @override
@@ -218,6 +237,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
+              SizedBox(height: 20),
               SizedBox(height: 100), // Add additional space to prevent overflow
             ],
           ),
@@ -231,21 +251,5 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     int seconds = (millis ~/ 1000) % 60;
     int minutes = (millis ~/ 1000) ~/ 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  void _launchRateYourMusic() async {
-    final artistName = widget.album['artistName'];
-    final albumName = widget.album['collectionName'];
-    final url =
-        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
-    try {
-      if (await canLaunch(url)) {
-        await launch(url);
-      } else {
-        throw 'Could not launch $url';
-      }
-    } catch (error) {
-      print('Error launching RateYourMusic: $error');
-    }
   }
 }
