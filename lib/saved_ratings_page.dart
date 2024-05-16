@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'user_data.dart';
 import 'saved_album_details_page.dart';
 import 'footer.dart';
@@ -20,9 +19,30 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   void _loadSavedAlbums() async {
     List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
+    for (var album in albums) {
+      List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(album['collectionId']);
+      double averageRating = _calculateAverageRating(ratings);
+      album['averageRating'] = averageRating;
+    }
     setState(() {
       savedAlbums = albums;
     });
+  }
+
+  double _calculateAverageRating(List<Map<String, dynamic>> ratings) {
+    if (ratings.isEmpty) return 0.0;
+    var uniqueRatings = Map<int, double>();
+
+    for (var rating in ratings.reversed) {
+      if (!uniqueRatings.containsKey(rating['trackId'])) {
+        uniqueRatings[rating['trackId']] = rating['rating'];
+      }
+    }
+
+    if (uniqueRatings.isEmpty) return 0.0;
+
+    double totalRating = uniqueRatings.values.reduce((a, b) => a + b);
+    return totalRating / uniqueRatings.length;
   }
 
   void _deleteAlbum(int index) {
@@ -42,7 +62,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             TextButton(
               onPressed: () {
                 UserData.deleteAlbum(savedAlbums[index]);
-                _loadSavedAlbums(); // Reload list after deleting album
+                _loadSavedAlbums();
                 Navigator.of(context).pop();
               },
               child: Text("Delete"),
@@ -69,7 +89,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       savedAlbums.insert(newIndex, album);
     });
 
-    // Guardar el nuevo orden en SharedPreferences
     List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
     UserData.saveAlbumOrder(albumIds);
   }
@@ -102,13 +121,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(album['averageRating']?.toStringAsFixed(2) ?? 'N/A'), // Mostrar el rating si está disponible, de lo contrario N/A
-                      SizedBox(width: 16), // Espacio adicional
+                      Text(album['averageRating']?.toStringAsFixed(2) ?? 'N/A'),
+                      SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
                         child: Icon(Icons.delete),
                       ),
-                      SizedBox(width: 16), // Espacio adicional
+                      SizedBox(width: 16),
                     ],
                   ),
                   onTap: () {
