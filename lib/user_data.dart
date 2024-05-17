@@ -10,6 +10,14 @@ class UserData {
       for (String json in savedAlbumsJson) {
         savedAlbums.add(jsonDecode(json));
       }
+
+      // Obtener el orden guardado
+      List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+      if (albumOrder != null) {
+        savedAlbums.sort((a, b) => albumOrder.indexOf(a['collectionId'].toString())
+            .compareTo(albumOrder.indexOf(b['collectionId'].toString())));
+      }
+
       return savedAlbums;
     } else {
       return [];
@@ -25,6 +33,10 @@ class UserData {
     String albumJson = jsonEncode(album);
     savedAlbumsJson.add(albumJson);
     await prefs.setStringList('saved_albums', savedAlbumsJson);
+
+    // Guardar el nuevo orden
+    List<String> albumOrder = savedAlbumsJson.map((json) => jsonDecode(json)['collectionId'].toString()).toList();
+    await prefs.setStringList('savedAlbumsOrder', albumOrder);
   }
 
   static Future<void> deleteAlbum(Map<String, dynamic> album) async {
@@ -38,6 +50,10 @@ class UserData {
       savedAlbums.removeWhere((savedAlbum) => savedAlbum['collectionId'] == album['collectionId']);
       savedAlbumsJson = savedAlbums.map((album) => jsonEncode(album)).toList();
       await prefs.setStringList('saved_albums', savedAlbumsJson);
+
+      // Actualizar el orden
+      List<String> albumOrder = savedAlbums.map((album) => album['collectionId'].toString()).toList();
+      await prefs.setStringList('savedAlbumsOrder', albumOrder);
     }
   }
 

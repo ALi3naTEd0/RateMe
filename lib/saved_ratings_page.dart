@@ -90,6 +90,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       savedAlbums.insert(newIndex, album);
     });
 
+    // Guardar el nuevo orden de los álbumes
     List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
     UserData.saveAlbumOrder(albumIds);
   }
