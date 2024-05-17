@@ -38,7 +38,6 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       setState(() {
         tracks = trackList;
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
-        calculateAverageRating();
         calculateAlbumDuration();
         _loadSavedRatings();
       });
@@ -79,6 +78,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       for (var rating in savedRatings) {
         ratings[rating['trackId']] = rating['rating'];
       }
+      calculateAverageRating(); // Calculate average rating after loading saved ratings
     });
   }
 
