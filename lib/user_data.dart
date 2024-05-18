@@ -5,19 +5,19 @@ class UserData {
   static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
-    if (savedAlbumsJson != null) {
+    List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+    if (savedAlbumsJson != null && albumOrder != null) {
       List<Map<String, dynamic>> savedAlbums = [];
+      Map<String, Map<String, dynamic>> albumMap = {};
       for (String json in savedAlbumsJson) {
-        savedAlbums.add(jsonDecode(json));
+        Map<String, dynamic> album = jsonDecode(json);
+        albumMap[album['collectionId'].toString()] = album;
       }
-
-      // Obtener el orden guardado
-      List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
-      if (albumOrder != null) {
-        savedAlbums.sort((a, b) => albumOrder.indexOf(a['collectionId'].toString())
-            .compareTo(albumOrder.indexOf(b['collectionId'].toString())));
+      for (String id in albumOrder) {
+        if (albumMap.containsKey(id)) {
+          savedAlbums.add(albumMap[id]!);
+        }
       }
-
       return savedAlbums;
     } else {
       return [];
@@ -27,32 +27,40 @@ class UserData {
   static Future<void> saveAlbum(Map<String, dynamic> album) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
+    List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+
     if (savedAlbumsJson == null) {
       savedAlbumsJson = [];
     }
+    if (albumOrder == null) {
+      albumOrder = [];
+    }
+
     String albumJson = jsonEncode(album);
     savedAlbumsJson.add(albumJson);
-    await prefs.setStringList('saved_albums', savedAlbumsJson);
+    albumOrder.add(album['collectionId'].toString());
 
-    // Guardar el nuevo orden
-    List<String> albumOrder = savedAlbumsJson.map((json) => jsonDecode(json)['collectionId'].toString()).toList();
+    await prefs.setStringList('saved_albums', savedAlbumsJson);
     await prefs.setStringList('savedAlbumsOrder', albumOrder);
   }
 
   static Future<void> deleteAlbum(Map<String, dynamic> album) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
-    if (savedAlbumsJson != null) {
+    List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+
+    if (savedAlbumsJson != null && albumOrder != null) {
       List<Map<String, dynamic>> savedAlbums = [];
       for (String json in savedAlbumsJson) {
         savedAlbums.add(jsonDecode(json));
       }
-      savedAlbums.removeWhere((savedAlbum) => savedAlbum['collectionId'] == album['collectionId']);
-      savedAlbumsJson = savedAlbums.map((album) => jsonEncode(album)).toList();
-      await prefs.setStringList('saved_albums', savedAlbumsJson);
 
-      // Actualizar el orden
-      List<String> albumOrder = savedAlbums.map((album) => album['collectionId'].toString()).toList();
+      savedAlbums.removeWhere((savedAlbum) => savedAlbum['collectionId'] == album['collectionId']);
+      albumOrder.remove(album['collectionId'].toString());
+
+      savedAlbumsJson = savedAlbums.map((album) => jsonEncode(album)).toList();
+
+      await prefs.setStringList('saved_albums', savedAlbumsJson);
       await prefs.setStringList('savedAlbumsOrder', albumOrder);
     }
   }
