@@ -90,7 +90,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       savedAlbums.insert(newIndex, album);
     });
 
-    // Guardar el nuevo orden de los álbumes
     List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
     UserData.saveAlbumOrder(albumIds);
   }
@@ -116,12 +115,12 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 50, // Tamaño fijo para hacerlo cuadrado
-                        height: 50, // Tamaño fijo para hacerlo cuadrado
+                        width: 50,
+                        height: 50,
                         padding: EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: isDarkTheme ? Colors.white : Colors.black), // Color del borde
+                          border: Border.all(color: isDarkTheme ? Colors.white : Colors.black),
                         ),
                         child: Center(
                           child: Text(
@@ -129,7 +128,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: isDarkTheme ? Colors.white : Colors.black, // Color del texto
+                              color: isDarkTheme ? Colors.white : Colors.black,
                             ),
                           ),
                         ),
