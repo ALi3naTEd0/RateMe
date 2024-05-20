@@ -14,12 +14,18 @@ void main() async {
   WindowOptions windowOptions = WindowOptions(
     title: 'Rate Me!', // Cambia el título de la ventana aquí
     size: Size(800, 600),
-    center: true,
+    center: false, // Asegúrate de que el centrado automático está deshabilitado
   );
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
+    // Establece manualmente la posición de la ventana
+    final screenSize = await windowManager.getSize();
+    await windowManager.setPosition(Offset(
+      (screenSize.width - 800) / 2,
+      (screenSize.height - 600) / 2,
+    ));
   });
 
   runApp(MusicRatingApp());
