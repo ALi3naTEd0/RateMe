@@ -1,12 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart'; // Importa el paquete window_manager
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'album_details_page.dart';
 import 'saved_ratings_page.dart';
 
-void main() => runApp(MusicRatingApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = WindowOptions(
+    title: 'Rate Me!', // Cambia el título de la ventana aquí
+    size: Size(800, 600),
+    center: true,
+  );
+
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  runApp(MusicRatingApp());
+}
 
 class MusicRatingApp extends StatefulWidget {
   @override
@@ -42,8 +59,7 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
   @override
   Widget build(BuildContext context) {
     if (_themeBrightness == null) {
-      // Si _themeBrightness es null, muestra un indicador de carga o un widget de carga
-      return CircularProgressIndicator(); // Por ejemplo, podrías usar un CircularProgressIndicator
+      return CircularProgressIndicator(); // Muestra un indicador de carga si _themeBrightness es null
     }
     return MaterialApp(
       title: 'Rate Me!',
@@ -75,7 +91,7 @@ class MusicRatingHomePage extends StatelessWidget {
         leading: Tooltip(
           message: 'Saved Ratings',
           child: IconButton(
-            icon: Icon(Icons.star, size: 32, color: _getStarIconColor(themeBrightness)), // Cambiado el color del icono de la estrella
+            icon: Icon(Icons.star, size: 32, color: _getStarIconColor(themeBrightness)), // Cambia el color del icono de la estrella
             onPressed: () {
               Navigator.push(
                 context,
