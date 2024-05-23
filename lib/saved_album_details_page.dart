@@ -39,6 +39,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
         tracks = trackList;
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
         calculateAlbumDuration();
+        // Mover la llamada aquí para cargar las calificaciones después de que las pistas se hayan cargado con éxito
         _loadSavedRatings();
       });
     } catch (error) {
@@ -227,14 +228,17 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
-                child: Text(
-                  'RateYourMusic.com',
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkTheme.colorScheme.primary
-                      : AppTheme.lightTheme.colorScheme.primary,
+                child: ElevatedButton(
+                  onPressed: _launchRateYourMusic,
+                  child: Text(
+                    'RateYourMusic.com',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkTheme.colorScheme.primary
+                        : AppTheme.lightTheme.colorScheme.primary,
+                  ),
                 ),
               ),
               SizedBox(height: 20),
@@ -253,3 +257,4 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }
+
