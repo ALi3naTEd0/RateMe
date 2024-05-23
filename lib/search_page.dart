@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'album_details_page.dart';
+import 'bandcamp_details_page.dart'; // Importa la página de detalles de Bandcamp
 import 'bandcamp_service.dart';
 import 'saved_preferences_page.dart';
 
@@ -111,13 +112,27 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _showAlbumDetails(BuildContext context, dynamic album) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) {
-          return AlbumDetailsPage(album: album);
-        },
-      ),
-    );
+    // Verificar si la URL del álbum contiene "bandcamp.com"
+    if (album['url'].toString().contains('bandcamp.com')) {
+      // Si la URL es de Bandcamp, abrir la página de detalles de Bandcamp
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) {
+            return BandcampDetailsPage(album: album);
+          },
+        ),
+      );
+    } else {
+      // Si no es de Bandcamp, abrir la página de detalles del álbum estándar
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) {
+            return AlbumDetailsPage(album: album);
+          },
+        ),
+      );
+    }
   }
 }
