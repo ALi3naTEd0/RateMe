@@ -104,4 +104,18 @@ class UserData {
     await prefs.setStringList('saved_ratings_$albumId', savedRatingsJson);
     print('Rating saved: $ratingData');
   }
+
+  static Future<bool> isAlbumSaved(int albumId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
+    if (savedAlbumsJson != null) {
+      for (String json in savedAlbumsJson) {
+        Map<String, dynamic> album = jsonDecode(json);
+        if (album['collectionId'] == albumId) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 }

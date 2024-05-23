@@ -11,6 +11,7 @@ class SavedRatingsPage extends StatefulWidget {
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
   List<Map<String, dynamic>> savedAlbums = [];
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     }
     setState(() {
       savedAlbums = albums;
+      isLoading = false;
     });
   }
 
@@ -46,7 +48,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     return totalRating / uniqueRatings.length;
   }
 
-  void _deleteAlbum(int index) {
+  void _deleteAlbum(int index) async {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -61,9 +63,10 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
               child: Text("Cancel"),
             ),
             TextButton(
-              onPressed: () {
-                UserData.deleteAlbum(savedAlbums[index]);
-                _loadSavedAlbums();
+              onPressed: () async {
+                await UserData.deleteAlbum(savedAlbums[index]);
+                // Update ratings after deleting the album
+                await _updateAlbumRatings();
                 Navigator.of(context).pop();
               },
               child: Text("Delete"),
@@ -74,24 +77,22 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     );
   }
 
+  Future<void> _updateAlbumRatings() async {
+    // Iterate through saved albums and update ratings
+    for (int i = 0; i < savedAlbums.length; i++) {
+      List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(savedAlbums[i]['collectionId']);
+      double averageRating = _calculateAverageRating(ratings);
+      setState(() {
+        savedAlbums[i]['averageRating'] = averageRating;
+      });
+    }
+  }
+
   void _openSavedAlbumDetails(int index) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => SavedAlbumDetailsPage(album: savedAlbums[index])),
     );
-  }
-
-  void _onReorder(int oldIndex, int newIndex) {
-    setState(() {
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
-      final album = savedAlbums.removeAt(oldIndex);
-      savedAlbums.insert(newIndex, album);
-    });
-
-    List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
-    UserData.saveAlbumOrder(albumIds);
   }
 
   @override
@@ -102,64 +103,83 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       appBar: AppBar(
         title: Text('Saved Ratings'),
       ),
-      body: savedAlbums.isEmpty
-          ? Center(
-              child: Text('No saved albums yet.'),
-            )
-          : ReorderableListView(
-              onReorder: _onReorder,
-              children: savedAlbums.map((album) {
-                return ListTile(
-                  key: Key(album['collectionId'].toString()),
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        padding: EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: isDarkTheme ? Colors.white : Colors.black),
-                        ),
-                        child: Center(
-                          child: Text(
-                            album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDarkTheme ? Colors.white : Colors.black,
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width),
+              child: SingleChildScrollView(
+                child: Container( // Wrap the ReorderableListView with a Container
+                  height: MediaQuery.of(context).size.height, // Set a specific height
+                  child: ReorderableListView(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    physics: AlwaysScrollableScrollPhysics(),
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) {
+                          newIndex -= 1;
+                        }
+                        final album = savedAlbums.removeAt(oldIndex);
+                        savedAlbums.insert(newIndex, album);
+                      });
+
+                      List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
+                      UserData.saveAlbumOrder(albumIds);
+                    },
+                    children: savedAlbums.map((album) {
+                      return ListTile(
+                        key: Key(album['collectionId'].toString()),
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              padding: EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: isDarkTheme ? Colors.white : Colors.black),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDarkTheme ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            SizedBox(width: 8),
+                            Image.network(
+                              album['artworkUrl100'],
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
+                            ),
+                          ],
                         ),
-                      ),
-                      SizedBox(width: 8),
-                      Image.network(
-                        album['artworkUrl100'],
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
-                      ),
-                    ],
+                        title: Text(album['collectionName'] ?? 'N/A'),
+                        subtitle: Text(album['artistName'] ?? 'N/A'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
+                              child: Icon(Icons.delete),
+                            ),
+                            SizedBox(width: 16),
+                          ],
+                        ),
+                        onTap: () {
+                          _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
+                        },
+                      );
+                    }).toList(),
                   ),
-                  title: Text(album['collectionName'] ?? 'N/A'),
-                  subtitle: Text(album['artistName'] ?? 'N/A'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
-                        child: Icon(Icons.delete),
-                      ),
-                      SizedBox(width: 16),
-                    ],
-                  ),
-                  onTap: () {
-                    _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
-                  },
-                );
-              }).toList(),
+                ),
+              ),
             ),
       bottomNavigationBar: Footer(),
     );

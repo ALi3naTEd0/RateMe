@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'album_details_page.dart';
+import 'bandcamp_service.dart';
+import 'saved_preferences_page.dart';
 
 class SearchPage extends StatefulWidget {
   @override
@@ -12,59 +14,64 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController searchController = TextEditingController();
   List<dynamic> searchResults = [];
-  Timer? _debounce; // Timer to delay the search
+  Timer? _debounce;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: EdgeInsets.all(8.0),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.85,
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                labelText: 'Search Albums or Paste URL',
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.search),
-                  onPressed: () {}, // Remove the onPressed handler from here
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Search Albums'),
+      ),
+      body: Column(
+        children: <Widget>[
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              child: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search Albums or Paste URL',
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.search),
+                    onPressed: () {
+                      _performSearch(searchController.text);
+                    },
+                  ),
                 ),
+                onChanged: _onSearchChanged,
+                maxLength: 255,
               ),
-              onChanged: _onSearchChanged,
-              maxLength: 255, // Maximum characters for search entry
             ),
           ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: searchResults.length,
-            itemBuilder: (context, index) {
-              return ListTile(
-                leading: Image.network(
-                  searchResults[index]['artworkUrl100'],
-                  width: 50,
-                  height: 50,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Icon(Icons.album),
-                ),
-                title: Text(searchResults[index]['collectionName']),
-                subtitle: Text(searchResults[index]['artistName']),
-                onTap: () =>
-                    _showAlbumDetails(searchResults[index]),
-              );
-            },
+          Expanded(
+            child: ListView.builder(
+              itemCount: searchResults.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  leading: Image.network(
+                    searchResults[index]['artworkUrl100'],
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Icon(Icons.album),
+                  ),
+                  title: Text(searchResults[index]['collectionName']),
+                  subtitle: Text(searchResults[index]['artistName']),
+                  onTap: () =>
+                      _showAlbumDetails(context, searchResults[index]),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   void _onSearchChanged(String query) {
-    // Cancel the previous timer if it exists
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    // Set a new timer to search after 500 milliseconds
     _debounce = Timer(Duration(milliseconds: 500), () {
       _performSearch(query);
     });
@@ -75,6 +82,15 @@ class _SearchPageState extends State<SearchPage> {
       setState(() => searchResults = []);
       return;
     }
+
+    if (query.contains('bandcamp.com')) {
+      _fetchBandcampAlbumInfo(query);
+    } else {
+      _fetchiTunesAlbums(query);
+    }
+  }
+
+  void _fetchiTunesAlbums(String query) async {
     final url = Uri.parse(
         'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&entity=album');
     final response = await http.get(url);
@@ -82,10 +98,26 @@ class _SearchPageState extends State<SearchPage> {
     setState(() => searchResults = data['results']);
   }
 
-  void _showAlbumDetails(dynamic album) {
+  void _fetchBandcampAlbumInfo(String url) async {
+    try {
+      final albumInfo = await BandcampService.fetchBandcampAlbumInfo(url);
+      setState(() => searchResults = [albumInfo]);
+    } catch (e) {
+      setState(() => searchResults = []);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to load Bandcamp album: $e'),
+      ));
+    }
+  }
+
+  void _showAlbumDetails(BuildContext context, dynamic album) {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => AlbumDetailsPage(album: album)));
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return AlbumDetailsPage(album: album);
+        },
+      ),
+    );
   }
 }

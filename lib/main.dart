@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:window_manager/window_manager.dart'; // Importa el paquete window_manager
+import 'package:window_manager/window_manager.dart';
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'album_details_page.dart';
+// import 'bandcamp_details_page.dart'; // Importar la página BandcampDetailsPage
+import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
 
 void main() async {
@@ -12,15 +14,14 @@ void main() async {
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = WindowOptions(
-    title: 'Rate Me!', // Cambia el título de la ventana aquí
+    title: 'Rate Me!',
     size: Size(800, 600),
-    center: false, // Asegúrate de que el centrado automático está deshabilitado
+    center: false,
   );
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
-    // Establece manualmente la posición de la ventana
     final screenSize = await windowManager.getSize();
     await windowManager.setPosition(Offset(
       (screenSize.width - 800) / 2,
@@ -65,7 +66,7 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
   @override
   Widget build(BuildContext context) {
     if (_themeBrightness == null) {
-      return CircularProgressIndicator(); // Muestra un indicador de carga si _themeBrightness es null
+      return CircularProgressIndicator();
     }
     return MaterialApp(
       title: 'Rate Me!',
@@ -97,7 +98,7 @@ class MusicRatingHomePage extends StatelessWidget {
         leading: Tooltip(
           message: 'Saved Ratings',
           child: IconButton(
-            icon: Icon(Icons.star, size: 32, color: _getStarIconColor(themeBrightness)), // Cambia el color del icono de la estrella
+            icon: Icon(Icons.star, size: 32, color: _getStarIconColor(themeBrightness)),
             onPressed: () {
               Navigator.push(
                 context,
@@ -110,12 +111,24 @@ class MusicRatingHomePage extends StatelessWidget {
           Tooltip(
             message: 'Theme',
             child: Transform.scale(
-              scale: 0.8, // Ajusta el tamaño del Switch aquí
+              scale: 0.8,
               child: Switch(
                 value: themeBrightness == Brightness.dark,
                 onChanged: (_) => toggleTheme(),
                 activeColor: Theme.of(context).colorScheme.secondary,
               ),
+            ),
+          ),
+          Tooltip(
+            message: 'Saved Preferences',
+            child: IconButton(
+              icon: Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SavedPreferencesPage()),
+                );
+              },
             ),
           ),
         ],
