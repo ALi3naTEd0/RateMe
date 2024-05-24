@@ -1,6 +1,9 @@
+// saved_ratings_page.dart
 import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_details_page.dart';
+import 'bandcamp_details_page.dart';
+import 'bandcamp_saved_album_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 
@@ -22,9 +25,12 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   void _loadSavedAlbums() async {
     List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
     for (var album in albums) {
-      List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(album['collectionId']);
-      double averageRating = _calculateAverageRating(ratings);
-      album['averageRating'] = averageRating;
+      int? collectionId = int.tryParse(album['collectionId'].toString());
+      if (collectionId != null) {
+        List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(collectionId);
+        double averageRating = _calculateAverageRating(ratings);
+        album['averageRating'] = averageRating;
+      }
     }
     setState(() {
       savedAlbums = albums;
@@ -89,10 +95,20 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   }
 
   void _openSavedAlbumDetails(int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => SavedAlbumDetailsPage(album: savedAlbums[index])),
-    );
+    final album = savedAlbums[index];
+    final url = album['url'];
+
+    if (url != null && url.contains('bandcamp.com')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => BandcampSavedAlbumPage(album: album)),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => SavedAlbumDetailsPage(album: album)),
+      );
+    }
   }
 
   @override
@@ -105,82 +121,84 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width),
-              child: SingleChildScrollView(
-                child: Container( // Wrap the ReorderableListView with a Container
-                  height: MediaQuery.of(context).size.height, // Set a specific height
-                  child: ReorderableListView(
-                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                    physics: AlwaysScrollableScrollPhysics(),
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        if (newIndex > oldIndex) {
-                          newIndex -= 1;
-                        }
-                        final album = savedAlbums.removeAt(oldIndex);
-                        savedAlbums.insert(newIndex, album);
-                      });
+          : savedAlbums.isEmpty
+              ? Center(child: Text('No saved albums found'))
+              : ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width),
+                  child: SingleChildScrollView(
+                    child: Container( // Wrap the ReorderableListView with a Container
+                      height: MediaQuery.of(context).size.height, // Set a specific height
+                      child: ReorderableListView(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        physics: AlwaysScrollableScrollPhysics(),
+                        onReorder: (oldIndex, newIndex) {
+                          setState(() {
+                            if (newIndex > oldIndex) {
+                              newIndex -= 1;
+                            }
+                            final album = savedAlbums.removeAt(oldIndex);
+                            savedAlbums.insert(newIndex, album);
+                          });
 
-                      List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
-                      UserData.saveAlbumOrder(albumIds);
-                    },
-                    children: savedAlbums.map((album) {
-                      return ListTile(
-                        key: Key(album['collectionId'].toString()),
-                        leading: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              padding: EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: isDarkTheme ? Colors.white : Colors.black),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDarkTheme ? Colors.white : Colors.black,
+                          List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
+                          UserData.saveAlbumOrder(albumIds);
+                        },
+                        children: savedAlbums.map((album) {
+                          return ListTile(
+                            key: Key(album['collectionId'].toString()),
+                            leading: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  padding: EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: isDarkTheme ? Colors.white : Colors.black),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDarkTheme ? Colors.white : Colors.black,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                SizedBox(width: 8),
+                                Image.network(
+                                  album['artworkUrl100'],
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
+                                ),
+                              ],
                             ),
-                            SizedBox(width: 8),
-                            Image.network(
-                              album['artworkUrl100'],
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
+                            title: Text(album['collectionName'] ?? 'N/A'),
+                            subtitle: Text(album['artistName'] ?? 'N/A'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
+                                  child: Icon(Icons.delete),
+                                ),
+                                SizedBox(width: 16),
+                              ],
                             ),
-                          ],
-                        ),
-                        title: Text(album['collectionName'] ?? 'N/A'),
-                        subtitle: Text(album['artistName'] ?? 'N/A'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
-                              child: Icon(Icons.delete),
-                            ),
-                            SizedBox(width: 16),
-                          ],
-                        ),
-                        onTap: () {
-                          _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
-                        },
-                      );
-                    }).toList(),
+                            onTap: () {
+                              _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
       bottomNavigationBar: Footer(),
     );
   }
