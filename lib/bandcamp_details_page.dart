@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' show parse;
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
@@ -107,11 +106,6 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _saveAlbum() {
-    // Generate a unique ID for the album if it doesn't exist
-    if (widget.album['collectionId'] == null) {
-      widget.album['collectionId'] = md5.convert(utf8.encode(widget.album['url'])).toString();
-    }
-
     UserData.saveAlbum(widget.album);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -265,21 +259,16 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                                   children: [
                                     Expanded(
                                       child: Slider(
+                                        min: 0,
+                                        max: 10,
+                                        divisions: 10,
                                         value: ratings[index] ?? 0.0,
                                         onChanged: (newRating) {
                                           _updateRating(index, newRating);
                                         },
-                                        min: 0.0,
-                                        max: 5.0,
-                                        divisions: 10,
-                                        label: '${ratings[index] ?? 0.0}',
                                       ),
                                     ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      '${ratings[index] ?? 0.0}',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
+                                    Text((ratings[index] ?? 0.0).toStringAsFixed(0)),
                                   ],
                                 ),
                               )),
@@ -288,17 +277,26 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                         ),
                       ),
                     ],
-                    SizedBox(height: 16),
+                    SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _launchRateYourMusic,
-                      child: Text('View on RateYourMusic'),
+                      child: Text(
+                        'RateYourMusic.com',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                            ? AppTheme.darkTheme.colorScheme.primary
+                            : AppTheme.lightTheme.colorScheme.primary,
+                      ),
                     ),
-                    SizedBox(height: 16),
-                    Footer(),
+                    SizedBox(height: 20),
+                    SizedBox(height: 100), // Add additional space to prevent overflow
                   ],
                 ),
               ),
       ),
+      bottomNavigationBar: Footer(),
     );
   }
 }

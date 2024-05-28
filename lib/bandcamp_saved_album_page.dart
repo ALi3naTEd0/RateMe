@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:html/parser.dart' show parse;
-import 'dart:convert';
+import 'package:html/parser.dart';
 import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
