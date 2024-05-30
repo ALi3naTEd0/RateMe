@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' show parse;
-import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
@@ -37,24 +36,36 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
         final document = parse(response.body);
         final trackElements = document.querySelectorAll('tbody > tr');
 
-        List<Map<String, String>> trackList = trackElements.map((element) {
+        List<Map<String, String>> trackList = [];
+        int trackId = 1; // Inicializamos el ID de la pista en 1
+
+        for (var element in trackElements) {
           final trackNumber = element.querySelector('td.track-number-col')?.text?.trim() ?? '';
           final title = element.querySelector('td.title-col')?.text?.trim() ?? '';
           final duration = element.querySelector('span.time.secondaryText')?.text?.trim() ?? '';
 
           if (trackNumber.isNotEmpty && title.isNotEmpty && duration.isNotEmpty) {
-            return {
-              'trackNumber': trackNumber,
+            trackList.add({
+              'trackId': trackId.toString(), // Convertimos el ID único a una cadena
+              'trackNumber': trackNumber, // Mantenemos 'trackNumber' como String
               'title': title,
               'duration': duration,
-            };
+            });
+            trackId++; // Incrementamos el ID de la pista para la próxima pista
           }
-          return null;
-        }).where((track) => track != null).cast<Map<String, String>>().toList();
+        }
+
+        trackList.forEach((track) {
+          final trackId = track['trackId'];
+          if (trackId != null) {
+            ratings[int.parse(trackId)] = 0.0; // Inicializa las calificaciones para las pistas
+          }
+        });
 
         setState(() {
           tracks = trackList;
           isLoading = false;
+          calculateAlbumDuration();
         });
       } else {
         throw Exception('Failed to load album page');
@@ -95,14 +106,14 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
     });
   }
 
-  void _updateRating(int trackIndex, double newRating) async {
+  void _updateRating(int trackId, double newRating) async {
     setState(() {
-      ratings[trackIndex] = newRating;
+      ratings[trackId] = newRating;
       calculateAverageRating();
     });
 
     // Save the new rating automatically
-    await UserData.saveRating(widget.album['collectionId'], trackIndex, newRating);
+    await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
   }
 
   void _saveAlbum() {
@@ -229,54 +240,52 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                        backgroundColor: Theme.of(context).brightness ==
+                                Brightness.dark
                             ? AppTheme.darkTheme.colorScheme.primary
                             : AppTheme.lightTheme.colorScheme.primary,
                       ),
                     ),
                     Divider(),
-                    if (tracks.isNotEmpty) ...[
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('Track No.')),
-                            DataColumn(label: Text('Title')),
-                            DataColumn(label: Text('Length')),
-                            DataColumn(
-                                label: Text('Rating', textAlign: TextAlign.center)),
-                          ],
-                          rows: tracks.asMap().entries.map((entry) {
-                            int index = entry.key;
-                            var track = entry.value;
-                            return DataRow(cells: [
-                              DataCell(Text(track['trackNumber'] ?? '')),
-                              DataCell(Text(track['title'] ?? 'Unknown Track')),
-                              DataCell(Text(track['duration'] ?? '')),
-                              DataCell(Container(
-                                width: 150,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Slider(
-                                        min: 0,
-                                        max: 10,
-                                        divisions: 10,
-                                        value: ratings[index] ?? 0.0,
-                                        onChanged: (newRating) {
-                                          _updateRating(index, newRating);
-                                        },
-                                      ),
+                    DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Track No.')),
+                        DataColumn(label: Text('Title')),
+                        DataColumn(label: Text('Length')),
+                        DataColumn(
+                            label: Text('Rating', textAlign: TextAlign.center)),
+                      ],
+                      rows: tracks.map((track) {
+                        final trackId = int.tryParse(track['trackId'] ?? '0') ?? 0;
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(track['trackNumber']!)),
+                            DataCell(Text(track['title']!)),
+                            DataCell(Text(track['duration']!)),
+                            DataCell(Container(
+                              width: 150,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Slider(
+                                      min: 0,
+                                      max: 10,
+                                      divisions: 10,
+                                      value: ratings[trackId] ?? 0.0,
+                                      onChanged: (newRating) {
+                                        _updateRating(trackId, newRating);
+                                      },
                                     ),
-                                    Text((ratings[index] ?? 0.0).toStringAsFixed(0)),
-                                  ],
-                                ),
-                              )),
-                            ]);
-                          }).toList(),
-                        ),
-                      ),
-                    ],
+                                  ),
+                                  Text(
+                                      (ratings[trackId] ?? 0.0).toStringAsFixed(0)),
+                                ],
+                              ),
+                            )),
+                          ],
+                        );
+                      }).toList(),
+                    ),
                     SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _launchRateYourMusic,
@@ -285,7 +294,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                        backgroundColor: Theme.of(context).brightness ==
+                                Brightness.dark
                             ? AppTheme.darkTheme.colorScheme.primary
                             : AppTheme.lightTheme.colorScheme.primary,
                       ),
