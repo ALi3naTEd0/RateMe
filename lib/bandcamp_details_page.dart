@@ -26,6 +26,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   void initState() {
     super.initState();
     _fetchTracksFromBandcamp();
+    _loadRatings();
   }
 
   void _fetchTracksFromBandcamp() async {
@@ -37,28 +38,28 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
         final trackElements = document.querySelectorAll('tbody > tr');
 
         List<Map<String, String>> trackList = [];
-        int trackId = 1; // Inicializamos el ID de la pista en 1
+        int trackId = 1;
 
         for (var element in trackElements) {
-          final trackNumber = element.querySelector('td.track-number-col')?.text?.trim() ?? '';
+          final trackNumber = trackId.toString();
           final title = element.querySelector('td.title-col')?.text?.trim() ?? '';
           final duration = element.querySelector('span.time.secondaryText')?.text?.trim() ?? '';
 
-          if (trackNumber.isNotEmpty && title.isNotEmpty && duration.isNotEmpty) {
+          if (title.isNotEmpty && duration.isNotEmpty) {
             trackList.add({
-              'trackId': trackId.toString(), // Convertimos el ID único a una cadena
-              'trackNumber': trackNumber, // Mantenemos 'trackNumber' como String
+              'trackId': trackId.toString(),
+              'trackNumber': trackNumber,
               'title': title,
               'duration': duration,
             });
-            trackId++; // Incrementamos el ID de la pista para la próxima pista
+            trackId++;
           }
         }
 
         trackList.forEach((track) {
           final trackId = track['trackId'];
           if (trackId != null) {
-            ratings[int.parse(trackId)] = 0.0; // Inicializa las calificaciones para las pistas
+            ratings[int.parse(trackId)] = 0.0;
           }
         });
 
@@ -76,6 +77,22 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
         isLoading = false;
       });
     }
+  }
+
+  void _loadRatings() async {
+    int albumId = widget.album['collectionId'];
+    List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
+    Map<int, double> ratingsMap = {};
+    savedRatings.forEach((rating) {
+      int trackId = rating['trackId'];
+      double ratingValue = rating['rating'];
+      ratingsMap[trackId] = ratingValue;
+    });
+
+    setState(() {
+      ratings = ratingsMap;
+      calculateAverageRating();
+    });
   }
 
   void calculateAverageRating() {
@@ -112,8 +129,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       calculateAverageRating();
     });
 
-    // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
+    print('Updated rating for trackId $trackId: $newRating');
   }
 
   void _saveAlbum() {
@@ -249,39 +266,41 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                     Divider(),
                     DataTable(
                       columns: const [
-                        DataColumn(label: Text('Track No.')),
-                        DataColumn(label: Text('Title')),
-                        DataColumn(label: Text('Length')),
-                        DataColumn(
-                            label: Text('Rating', textAlign: TextAlign.center)),
+                        DataColumn(label: Text('Track No.', textAlign: TextAlign.center)),
+                        DataColumn(label: Text('Title', textAlign: TextAlign.center)),
+                        DataColumn(label: Text('Length', textAlign: TextAlign.center)),
+                        DataColumn(label: Text('Rating', textAlign: TextAlign.center)),
                       ],
                       rows: tracks.map((track) {
                         final trackId = int.tryParse(track['trackId'] ?? '0') ?? 0;
                         return DataRow(
                           cells: [
-                            DataCell(Text(track['trackNumber']!)),
-                            DataCell(Text(track['title']!)),
-                            DataCell(Text(track['duration']!)),
-                            DataCell(Container(
-                              width: 150,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Slider(
-                                      min: 0,
-                                      max: 10,
-                                      divisions: 10,
-                                      value: ratings[trackId] ?? 0.0,
-                                      onChanged: (newRating) {
-                                        _updateRating(trackId, newRating);
-                                      },
-                                    ),
+                            DataCell(Center(child: Text(track['trackNumber'] ?? ''))),
+                            DataCell(Center(child: Text(track['title'] ?? ''))),
+                            DataCell(Center(child: Text(track['duration'] ?? ''))),
+                            DataCell(
+                              Center(
+                                child: SizedBox(
+                                  width: 150,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Slider(
+                                          value: ratings[trackId] ?? 0.0,
+                                          min: 0,
+                                          max: 5,
+                                          divisions: 5,
+                                          onChanged: (newRating) {
+                                            _updateRating(trackId, newRating);
+                                          },
+                                        ),
+                                      ),
+                                      Text((ratings[trackId] ?? 0.0).toStringAsFixed(1)),
+                                    ],
                                   ),
-                                  Text(
-                                      (ratings[trackId] ?? 0.0).toStringAsFixed(0)),
-                                ],
+                                ),
                               ),
-                            )),
+                            ),
                           ],
                         );
                       }).toList(),

@@ -18,5 +18,5 @@ package() {
     # No hay necesidad de comandos de empaquetado específicos para Flutter
 
     # Instalar el paquete después de crearlo
-    # pacman -U "RateMe-0.0.9-1-x86_64.pkg.tar.zst"
+    sudo pacman -U "RateMe-0.0.9-1-x86_64.pkg.tar.zst"
 }
