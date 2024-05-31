@@ -9,12 +9,17 @@ license=('GPL3')
 source=()
 
 build() {
-    cd "$srcdir/RateMe"  # Cambiar a RateMe si ese es el nombre del directorio clonado
+    cd "$srcdir"
+    
+    # Clonar el repositorio
+    git clone "$url" rateme
+    
+    # No hay necesidad de cambiar el nombre del directorio
     # No hay necesidad de comandos de construcción específicos para Flutter
 }
 
 package() {
-    cd "$srcdir/RateMe"  # Cambiar a RateMe si ese es el nombre del directorio clonado
+    cd "$srcdir/rateme"
     
     # Crear la estructura de directorios del paquete
     mkdir -p "$pkgdir/usr/bin"
