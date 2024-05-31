@@ -15,8 +15,16 @@ build() {
 
 package() {
     cd "$srcdir"
-    # No hay necesidad de comandos de empaquetado específicos para Flutter
+    
+    # Crear la estructura de directorios del paquete
+    mkdir -p "$pkgdir/usr/bin"
+    
+    # Copiar los archivos de la aplicación al directorio de instalación
+    cp -r "$srcdir/linux/"* "$pkgdir/usr/bin/"
 
-    # Instalar el paquete después de crearlo
-    sudo pacman -U "RateMe-0.0.9-1-x86_64.pkg.tar.zst"
+    # Crear un enlace simbólico al ejecutable de la aplicación
+    ln -s "/usr/bin/rateme" "$pkgdir/usr/bin/"
+
+    # Instalar el archivo .desktop para el lanzador de la aplicación
+    install -Dm644 "$srcdir/linux/rateme.desktop" "$pkgdir/usr/share/applications/rateme.desktop"
 }
