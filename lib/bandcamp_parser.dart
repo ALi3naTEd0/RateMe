@@ -29,7 +29,7 @@ class BandcampParser {
     for (var trackElement in trackElements) {
       String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
       String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
-      String durationText = trackElement.querySelector('.time-col')?.text.trim() ?? '0:00';
+      String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
       int durationMillis = _parseDuration(durationText);
 
       // Utilizamos el último trackId utilizado y lo incrementamos
