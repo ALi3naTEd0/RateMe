@@ -1,33 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:window_manager/window_manager.dart';
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'album_details_page.dart';
-// import 'bandcamp_details_page.dart'; // Importar la página BandcampDetailsPage
+import 'bandcamp_details_page.dart'; // Importar la página BandcampDetailsPage
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await windowManager.ensureInitialized();
-
-  WindowOptions windowOptions = WindowOptions(
-    title: 'Rate Me!',
-    size: Size(800, 600),
-    center: false,
-  );
-
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-    final screenSize = await windowManager.getSize();
-    await windowManager.setPosition(Offset(
-      (screenSize.width - 800) / 2,
-      (screenSize.height - 600) / 2,
-    ));
-  });
 
   runApp(MusicRatingApp());
 }
