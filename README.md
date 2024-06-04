@@ -4,9 +4,9 @@
 Discover, rate, and share your favorite albums with "Rate Me!" This app allows you to explore a wide variety of music albums, rate each song, and get an overview of the album's quality based on your ratings.
 
 ## Screenshots
-![Screenshot 1](screenshot1.png)
-![Screenshot 2](screenshot2.png)
-![Screenshot 3](screenshot3.png)
+![Screenshot 1](https://imgur.com/SgBZ4ZA)
+![Screenshot 2](https://imgur.com/B5CFkFN)
+![Screenshot 3](https://imgur.com/RhpIop9)
 
 ## Features
 - **Album Search**: Easily find albums by entering the artist's name, album title, or iTunes or Apple Music URL.
