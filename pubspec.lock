@@ -97,14 +97,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
-  csv:
-    dependency: "direct main"
-    description:
-      name: csv
-      sha256: c6aa2679b2a18cb57652920f674488d89712efaf4d3fdf2e537215b35fc19d6c
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.0.0"
   cupertino_icons:
     dependency: "direct main"
     description:
@@ -368,6 +360,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.16.7"
+  nanoid:
+    dependency: "direct main"
+    description:
+      name: nanoid
+      sha256: be3f8752d9046c825df2f3914195151eb876f3ad64b9d833dd0b799b77b8759e
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   package_config:
     dependency: transitive
     description:
@@ -512,14 +512,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
-  screen_retriever:
-    dependency: transitive
-    description:
-      name: screen_retriever
-      sha256: "6ee02c8a1158e6dae7ca430da79436e3b1c9563c8cf02f524af997c201ac2b90"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.9"
   share_plus:
     dependency: "direct main"
     description:
@@ -665,10 +657,10 @@ packages:
     dependency: "direct main"
     description:
       name: url_launcher
-      sha256: "6ce1e04375be4eed30548f10a315826fd933c1e493206eab82eed01f438c8d2e"
+      sha256: "21b704ce5fa560ea9f3b525b43601c678728ba46725bab9b01187b4831377ed3"
       url: "https://pub.dev"
     source: hosted
-    version: "6.2.6"
+    version: "6.3.0"
   url_launcher_android:
     dependency: transitive
     description:
@@ -726,7 +718,7 @@ packages:
     source: hosted
     version: "3.1.1"
   uuid:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: uuid
       sha256: "814e9e88f21a176ae1359149021870e87f7cddaf633ab678a5d2b0bff7fd1ba8"
@@ -765,14 +757,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.5.1"
-  window_manager:
-    dependency: "direct main"
-    description:
-      name: window_manager
-      sha256: "8699323b30da4cdbe2aa2e7c9de567a6abd8a97d9a5c850a3c86dcd0b34bbfbf"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.9"
   xdg_directories:
     dependency: transitive
     description:
