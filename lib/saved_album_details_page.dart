@@ -39,7 +39,6 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
         tracks = trackList;
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
         calculateAlbumDuration();
-        // Mover la llamada aquí para cargar las calificaciones después de que las pistas se hayan cargado con éxito
         _loadSavedRatings();
       });
     } catch (error) {
@@ -79,7 +78,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       for (var rating in savedRatings) {
         ratings[rating['trackId']] = rating['rating'];
       }
-      calculateAverageRating(); // Calculate average rating after loading saved ratings
+      calculateAverageRating();
     });
   }
 
@@ -105,7 +104,6 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       calculateAverageRating();
     });
 
-    // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
   }
 
@@ -194,12 +192,24 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     DataColumn(label: Text('Title')),
                     DataColumn(label: Text('Length')),
                     DataColumn(
-                        label: Text('Rating', textAlign: TextAlign.center)),
+                      label: Text('Rating', textAlign: TextAlign.center),
+                    ),
                   ],
                   rows: tracks.map((track) => DataRow(
                     cells: [
                       DataCell(Text(track['trackNumber'].toString())),
-                      DataCell(Text(track['trackName'])),
+                      DataCell(
+                        Tooltip(
+                          message: track['trackName'],
+                          child: Container(
+                            width: MediaQuery.of(context).size.width * 0.4,
+                            child: Text(
+                              track['trackName'],
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
                       DataCell(Text(formatDuration(track['trackTimeMillis']))),
                       DataCell(Container(
                         width: 150,
@@ -228,17 +238,14 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
-                child: ElevatedButton(
-                  onPressed: _launchRateYourMusic,
-                  child: Text(
-                    'RateYourMusic.com',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).brightness == Brightness.dark
-                        ? AppTheme.darkTheme.colorScheme.primary
-                        : AppTheme.lightTheme.colorScheme.primary,
-                  ),
+                child: Text(
+                  'RateYourMusic.com',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.darkTheme.colorScheme.primary
+                      : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
               SizedBox(height: 20),
@@ -257,4 +264,3 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }
-
