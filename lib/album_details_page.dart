@@ -166,12 +166,24 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                   DataColumn(label: Text('Title')),
                   DataColumn(label: Text('Length')),
                   DataColumn(
-                      label: Text('Rating', textAlign: TextAlign.center)),
+                    label: Text('Rating', textAlign: TextAlign.center),
+                  ),
                 ],
                 rows: tracks.map((track) => DataRow(
                   cells: [
                     DataCell(Text(track['trackNumber'].toString())),
-                    DataCell(Text(track['trackName'])),
+                    DataCell(
+                      Tooltip(
+                        message: track['trackName'],
+                        child: Container(
+                          width: MediaQuery.of(context).size.width * 0.4, // Ajusta el ancho según sea necesario
+                          child: Text(
+                            track['trackName'],
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
                     DataCell(Text(formatDuration(track['trackTimeMillis']))),
                     DataCell(Container(
                       width: 150,
@@ -188,8 +200,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                               },
                             ),
                           ),
-                          Text((ratings[track['trackId']] ?? 0.0)
-                              .toStringAsFixed(0)),
+                          Text((ratings[track['trackId']] ?? 0.0).toStringAsFixed(0)),
                         ],
                       ),
                     )),
