@@ -1,3 +1,4 @@
+// saved_album_details_page
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -78,7 +79,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       for (var rating in savedRatings) {
         ratings[rating['trackId']] = rating['rating'];
       }
-      calculateAverageRating();
+      calculateAverageRating(); // Calculate average rating after loading saved ratings
     });
   }
 
@@ -104,11 +105,22 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       calculateAverageRating();
     });
 
+    // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
+  }
+
+  double _calculateTitleWidth() {
+    if (tracks.isEmpty) return 0.4; // Default value if no tracks
+
+    // Adjust the width between 0.2 and 0.5 based on the size of the trackList
+    double calculatedWidth = (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble();
+    return calculatedWidth.clamp(0.2, 0.5);
   }
 
   @override
   Widget build(BuildContext context) {
+    double titleWidthFactor = _calculateTitleWidth();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.album['collectionName']),
@@ -192,8 +204,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     DataColumn(label: Text('Title')),
                     DataColumn(label: Text('Length')),
                     DataColumn(
-                      label: Text('Rating', textAlign: TextAlign.center),
-                    ),
+                        label: Text('Rating', textAlign: TextAlign.center)),
                   ],
                   rows: tracks.map((track) => DataRow(
                     cells: [
@@ -201,8 +212,10 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       DataCell(
                         Tooltip(
                           message: track['trackName'],
-                          child: Container(
-                            width: MediaQuery.of(context).size.width * 0.4,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
+                            ),
                             child: Text(
                               track['trackName'],
                               overflow: TextOverflow.ellipsis,
@@ -249,7 +262,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                 ),
               ),
               SizedBox(height: 20),
-              SizedBox(height: 100), // Add additional space to prevent overflow
+              SizedBox(height: 100),
             ],
           ),
         ),
