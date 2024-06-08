@@ -1,6 +1,8 @@
+// bandcamp_parser.dart
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
-import 'id_generator.dart'; // Import the UniqueIdGenerator
+import 'package:shared_preferences/shared_preferences.dart';
+import 'id_generator.dart';
 
 class BandcampParser {
   static String extractAlbumCoverUrl(Document document) {
@@ -13,7 +15,6 @@ class BandcampParser {
 
     List<Map<String, dynamic>> tracks = [];
     int trackNumberCounter = 1; // Contador para el número de pista
-    int trackIdCounter = collectionId; // Empezar con el collectionId
     
     for (var trackElement in trackElements) {
       String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
@@ -21,11 +22,12 @@ class BandcampParser {
       String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
       int durationMillis = _parseDuration(durationText);
 
-      // Incrementar el trackIdCounter para cada pista
-      trackIdCounter++;
+      // Generamos un ID único para cada pista
+      int trackId = UniqueIdGenerator.generateUniqueTrackId();
 
       tracks.add({
-        'trackId': trackIdCounter,
+        'trackId': trackId,
+        'collectionId': collectionId,
         'trackNumber': trackNumberCounter++, // Utilizamos el contador para el número de pista
         'title': title,
         'duration': durationMillis,
