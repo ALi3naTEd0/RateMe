@@ -6,6 +6,7 @@ import 'bandcamp_parser.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
+import 'id_generator.dart'; // Import the UniqueIdGenerator
 
 class BandcampDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -32,11 +33,13 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
 
   void _fetchTracksFromBandcamp() async {
     final url = widget.album['url'];
+    final collectionId = widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
+
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        final tracksData = BandcampParser.extractTracks(document);
+        final tracksData = BandcampParser.extractTracks(document, collectionId);
 
         tracksData.forEach((track) {
           final trackId = track['trackId'];
@@ -62,7 +65,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _loadRatings() async {
-    int albumId = widget.album['collectionId'] ?? _generateUniqueId(widget.album);
+    int albumId = widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
     List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
     Map<int, double> ratingsMap = {};
     savedRatings.forEach((rating) {
@@ -100,20 +103,13 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
     });
   }
 
-  int _generateUniqueId(dynamic album) {
-    final title = album['title'] ?? '';
-    final artist = album['artist'] ?? '';
-    final hash = title.hashCode ^ artist.hashCode;
-    return hash;
-  }
-
   void _updateRating(int trackId, double newRating) async {
     setState(() {
       ratings[trackId] = newRating;
       calculateAverageRating();
     });
 
-    int albumId = widget.album['collectionId'] ?? _generateUniqueId(widget.album);
+    int albumId = widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
     await UserData.saveRating(albumId, trackId, newRating);
     print('Updated rating for trackId $trackId: $newRating');
   }
