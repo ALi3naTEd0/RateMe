@@ -1,25 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
+class DeleterPage extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: MyHomePage(),
-    );
-  }
+  _DeleterPageState createState() => _DeleterPageState();
 }
 
-class MyHomePage extends StatefulWidget {
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
+class _DeleterPageState extends State<DeleterPage> {
   late SharedPreferences _prefs;
   List<String> _sharedPrefsData = [];
 
@@ -52,14 +39,13 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('SharedPreferences Demo'),
+        title: Text('Borrar Datos Guardados'),
       ),
       body: ListView.builder(
         itemCount: _sharedPrefsData.length,
         itemBuilder: (context, index) {
           final key = _sharedPrefsData[index];
           final dynamicValue = _prefs.get(key);
-          // Verifica si el valor es de tipo int
           final value = dynamicValue is int ? dynamicValue : null;
           return ListTile(
             title: Text(key),

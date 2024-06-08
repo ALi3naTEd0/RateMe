@@ -71,8 +71,10 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             TextButton(
               onPressed: () async {
                 await UserData.deleteAlbum(savedAlbums[index]);
-                // Update ratings after deleting the album
-                await _updateAlbumRatings();
+                // Remove the album from the list
+                setState(() {
+                  savedAlbums.removeAt(index);
+                });
                 Navigator.of(context).pop();
               },
               child: Text("Delete"),
@@ -131,7 +133,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                       child: ReorderableListView(
                         padding: EdgeInsets.symmetric(vertical: 8.0),
                         physics: AlwaysScrollableScrollPhysics(),
-                        onReorder: (oldIndex, newIndex) {
+                        onReorder: (oldIndex, newIndex) async {
                           setState(() {
                             if (newIndex > oldIndex) {
                               newIndex -= 1;
@@ -140,8 +142,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                             savedAlbums.insert(newIndex, album);
                           });
 
+                          // Update the order of albums in local storage
                           List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
-                          UserData.saveAlbumOrder(albumIds);
+                          await UserData.saveAlbumOrder(albumIds);
                         },
                         children: savedAlbums.map((album) {
                           return ListTile(

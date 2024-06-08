@@ -7,6 +7,7 @@ import 'album_details_page.dart';
 import 'bandcamp_details_page.dart'; // Importar la página BandcampDetailsPage
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
+import 'deleter.dart'; // Importar el módulo de borrado
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,6 +118,15 @@ class MusicRatingHomePage extends StatelessWidget {
       ),
       body: SearchPage(),
       bottomNavigationBar: Footer(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DeleterPage()),
+          );
+        },
+        child: Icon(Icons.delete),
+      ),
     );
   }
 
