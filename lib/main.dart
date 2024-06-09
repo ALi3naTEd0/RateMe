@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'id_generator.dart'; // Importar el módulo de generación de IDs
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
@@ -11,7 +12,7 @@ import 'deleter.dart'; // Importar el módulo de borrado
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await UniqueIdGenerator.initialize(); // Inicializar los IDs generados
   runApp(MusicRatingApp());
 }
 
