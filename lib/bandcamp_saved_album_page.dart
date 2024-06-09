@@ -22,6 +22,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   Map<int, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
         extractedTracks.forEach((track) => ratings[track['trackId']] = 0.0);
         calculateAlbumDuration();
         _loadSavedRatings();
+        isLoading = false; // Marcamos que ya no estamos cargando
       });
     } catch (error) {
       print('Error fetching tracks: $error');
@@ -104,6 +106,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
 
     // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
+
+    print('Updated rating for trackId $trackId: $newRating'); // Nueva impresión en consola
   }
 
   @override
@@ -112,150 +116,152 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       appBar: AppBar(
         title: Text(widget.album['collectionName']),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Image.network(
-                  widget.album['artworkUrl100']
-                      .replaceAll('100x100', '600x600'),
-                  width: 300,
-                  height: 300,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Icon(Icons.album, size: 300),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Center(
+              child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Artist: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.album['artistName']}"),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Album: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.album['collectionName']}"),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                          widget.album['releaseDate'] != null
-                              ? "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"
-                              : "N/A",
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Duration: ",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(formatDuration(albumDurationMillis)),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Rating: ",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20)),
-                        Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-              Divider(),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Track No.')),
-                    DataColumn(label: Text('Title')),
-                    DataColumn(label: Text('Length')),
-                    DataColumn(
-                        label: Text('Rating', textAlign: TextAlign.center)),
-                  ],
-                  rows: tracks.map((track) => DataRow(
-                    cells: [
-                      DataCell(Text(track['trackNumber'].toString())),
-                      DataCell(
-                        Tooltip(
-                          message: track['title'],
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.3,
-                            ),
-                            child: Text(
-                              track['title'],
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
+                    SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.network(
+                        widget.album['artworkUrl100']
+                            .replaceAll('100x100', '600x600'),
+                        width: 300,
+                        height: 300,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Icon(Icons.album, size: 300),
                       ),
-                      DataCell(Text(formatDuration(track['duration'] as int))),
-                      DataCell(Container(
-                        width: 150,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Slider(
-                                min: 0,
-                                max: 10,
-                                divisions: 10,
-                                value: ratings[track['trackId']] ?? 0.0,
-                                onChanged: (newRating) {
-                                  _updateRating(track['trackId'], newRating);
-                                },
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Artist: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("${widget.album['artistName']}"),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Album: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("${widget.album['collectionName']}"),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                widget.album['releaseDate'] != null
+                                    ? "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"
+                                    : "N/A",
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Duration: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(formatDuration(albumDurationMillis)),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Rating: ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20)),
+                              Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Divider(),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columns: const [
+                          DataColumn(label: Text('Track No.')),
+                          DataColumn(label: Text('Title')),
+                          DataColumn(label: Text('Length')),
+                          DataColumn(
+                              label: Text('Rating', textAlign: TextAlign.center)),
+                        ],
+                        rows: tracks.map((track) => DataRow(
+                          cells: [
+                            DataCell(Text(track['trackNumber'].toString())),
+                            DataCell(
+                              Tooltip(
+                                message: track['title'],
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: MediaQuery.of(context).size.width * 0.3,
+                                  ),
+                                  child: Text(
+                                    track['title'],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
                             ),
-                            Text((ratings[track['trackId']] ?? 0.0)
-                                .toStringAsFixed(0)),
+                            DataCell(Text(formatDuration(track['duration'] as int))),
+                            DataCell(Container(
+                              width: 150,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Slider(
+                                      min: 0,
+                                      max: 10,
+                                      divisions: 10,
+                                      value: ratings[track['trackId']] ?? 0.0,
+                                      onChanged: (newRating) {
+                                        _updateRating(track['trackId'], newRating);
+                                      },
+                                    ),
+                                  ),
+                                  Text((ratings[track['trackId']] ?? 0.0)
+                                      .toStringAsFixed(0)),
+                                ],
+                              ),
+                            )),
                           ],
-                        ),
-                      )),
-                    ],
-                  )).toList(),
+                        )).toList(),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _launchRateYourMusic,
+                      child: Text(
+                        'RateYourMusic.com',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                            ? AppTheme.darkTheme.colorScheme.primary
+                            : AppTheme.lightTheme.colorScheme.primary,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    SizedBox(height: 100),
+                  ],
                 ),
               ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _launchRateYourMusic,
-                child: Text(
-                  'RateYourMusic.com',
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkTheme.colorScheme.primary
-                      : AppTheme.lightTheme.colorScheme.primary,
-                ),
-              ),
-              SizedBox(height: 20),
-              SizedBox(height: 100),
-            ],
-          ),
-        ),
-      ),
+            ),
       bottomNavigationBar: Footer(),
     );
   }

@@ -6,18 +6,22 @@ class UserData {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
     List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+    
     if (savedAlbumsJson != null && albumOrder != null) {
       List<Map<String, dynamic>> savedAlbums = [];
       Map<String, Map<String, dynamic>> albumMap = {};
+
       for (String json in savedAlbumsJson) {
         Map<String, dynamic> album = jsonDecode(json);
         albumMap[album['collectionId'].toString()] = album;
       }
+
       for (String id in albumOrder) {
         if (albumMap.containsKey(id)) {
           savedAlbums.add(albumMap[id]!);
         }
       }
+
       return savedAlbums;
     } else {
       return [];
@@ -57,6 +61,7 @@ class UserData {
 
     if (savedAlbumsJson != null && albumOrder != null) {
       List<Map<String, dynamic>> savedAlbums = [];
+
       for (String json in savedAlbumsJson) {
         savedAlbums.add(jsonDecode(json));
       }
@@ -96,11 +101,14 @@ class UserData {
   static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(int albumId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
+    
     if (savedRatingsJson != null) {
       List<Map<String, dynamic>> savedRatings = [];
+
       for (String json in savedRatingsJson) {
         savedRatings.add(jsonDecode(json));
       }
+
       return savedRatings;
     } else {
       return [];
@@ -110,26 +118,32 @@ class UserData {
   static Future<void> saveRating(int albumId, int trackId, double rating) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
+    
     if (savedRatingsJson == null) {
       savedRatingsJson = [];
     }
+
     Map<String, dynamic> ratingData = {'trackId': trackId, 'rating': rating};
     String ratingJson = jsonEncode(ratingData);
     savedRatingsJson.add(ratingJson);
+
     await prefs.setStringList('saved_ratings_$albumId', savedRatingsJson);
   }
 
   static Future<Map<String, dynamic>?> getSavedAlbumById(int albumId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
+    
     if (savedAlbumsJson != null) {
       for (String json in savedAlbumsJson) {
         Map<String, dynamic> album = jsonDecode(json);
+        
         if (album['collectionId'] == albumId) {
           return album;
         }
       }
     }
+
     return null;
   }
 }

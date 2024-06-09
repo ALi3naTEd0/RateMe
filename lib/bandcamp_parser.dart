@@ -1,3 +1,4 @@
+// bandcamp_parser.dart
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +15,7 @@ class BandcampParser {
 
     List<Map<String, dynamic>> tracks = [];
     int trackNumberCounter = 1; // Contador para el número de pista
-    
+
     for (var trackElement in trackElements) {
       String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
       String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
@@ -47,17 +48,46 @@ class BandcampParser {
     }
   }
 
-  static Map<String, dynamic> extractAlbumDetails(Document document) {
-    String title = document.querySelector('.trackTitle')?.text.trim() ?? '';
-    String artist = document.querySelector('.artistTitle')?.text.trim() ?? '';
-    String releaseDate = document.querySelector('.tralbumData.tralbum-credits')?.text.trim() ?? '';
-    String albumArtUrl = extractAlbumCoverUrl(document);
+  static List<Map<String, dynamic>> extractAlbums(Document document, int collectionId) {
+    var albumElements = document.querySelectorAll('.album-element-selector'); // Selector de ejemplo, cámbialo según tu HTML
+    List<Map<String, dynamic>> albums = [];
+    
+    for (var albumElement in albumElements) {
+      String title = albumElement.querySelector('.album-title')?.text.trim() ?? '';
+      String artist = albumElement.querySelector('.album-artist')?.text.trim() ?? '';
+      String albumArtUrl = albumElement.querySelector('.album-art')?.attributes['src'] ?? '';
 
-    return {
-      'title': title,
-      'artist': artist,
-      'releaseDate': releaseDate,
-      'albumArtUrl': albumArtUrl,
-    };
+      List<Map<String, dynamic>> tracks = [];
+      int trackNumberCounter = 1; // Reinicia el contador para cada álbum nuevo
+
+      var trackElements = albumElement.querySelectorAll('.track_row_view');
+
+      for (var trackElement in trackElements) {
+        String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
+        String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
+        String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
+        int durationMillis = _parseDuration(durationText);
+
+        // Generamos un ID único para cada pista
+        int trackId = UniqueIdGenerator.generateUniqueTrackId();
+
+        tracks.add({
+          'trackId': trackId,
+          'collectionId': collectionId,
+          'trackNumber': trackNumberCounter++, // Utilizamos el contador para el número de pista
+          'title': title,
+          'duration': durationMillis,
+        });
+      }
+
+      albums.add({
+        'collectionId': UniqueIdGenerator.generateUniqueCollectionId(), // Utilizamos el método para generar un ID único para la colección
+        'title': title,
+        'artist': artist,
+        'albumArtUrl': albumArtUrl,
+        'tracks': tracks, // Agrega las pistas al álbum
+      });
+    }
+    return albums;
   }
 }

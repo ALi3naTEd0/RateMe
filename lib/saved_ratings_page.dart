@@ -1,4 +1,3 @@
-// saved_ratings_page.dart
 import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_details_page.dart';
@@ -85,17 +84,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     );
   }
 
-  Future<void> _updateAlbumRatings() async {
-    // Iterate through saved albums and update ratings
-    for (int i = 0; i < savedAlbums.length; i++) {
-      List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(savedAlbums[i]['collectionId']);
-      double averageRating = _calculateAverageRating(ratings);
-      setState(() {
-        savedAlbums[i]['averageRating'] = averageRating;
-      });
-    }
-  }
-
   void _openSavedAlbumDetails(int index) {
     final album = savedAlbums[index];
     final url = album['url'];
@@ -111,6 +99,20 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         MaterialPageRoute(builder: (context) => SavedAlbumDetailsPage(album: album)),
       );
     }
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final album = savedAlbums.removeAt(oldIndex);
+      savedAlbums.insert(newIndex, album);
+    });
+
+    // Update the order of albums in local storage
+    List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
+    UserData.saveAlbumOrder(albumIds);
   }
 
   @override
@@ -133,19 +135,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                       child: ReorderableListView(
                         padding: EdgeInsets.symmetric(vertical: 8.0),
                         physics: AlwaysScrollableScrollPhysics(),
-                        onReorder: (oldIndex, newIndex) async {
-                          setState(() {
-                            if (newIndex > oldIndex) {
-                              newIndex -= 1;
-                            }
-                            final album = savedAlbums.removeAt(oldIndex);
-                            savedAlbums.insert(newIndex, album);
-                          });
-
-                          // Update the order of albums in local storage
-                          List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
-                          await UserData.saveAlbumOrder(albumIds);
-                        },
+                        onReorder: _onReorder, // <-- Add onReorder callback
                         children: savedAlbums.map((album) {
                           return ListTile(
                             key: Key(album['collectionId'].toString()),

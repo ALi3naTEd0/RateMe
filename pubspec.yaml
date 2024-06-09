@@ -60,7 +60,7 @@ dev_dependencies:
 
 msix_config:
   display_name: Rate Me!
-  msix_version: 0.0.9-4
+  msix_version: 0.0.9.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
