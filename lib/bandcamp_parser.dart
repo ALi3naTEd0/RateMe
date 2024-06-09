@@ -1,4 +1,3 @@
-// bandcamp_parser.dart
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,24 +47,17 @@ class BandcampParser {
     }
   }
 
-  static List<Map<String, dynamic>> extractAlbums(Document document) {
-    var albumElements = document.querySelectorAll('.album-element-selector'); // Selector de ejemplo, cámbialo según tu HTML
+  static Map<String, dynamic> extractAlbumDetails(Document document) {
+    String title = document.querySelector('.trackTitle')?.text.trim() ?? '';
+    String artist = document.querySelector('.artistTitle')?.text.trim() ?? '';
+    String releaseDate = document.querySelector('.tralbumData.tralbum-credits')?.text.trim() ?? '';
+    String albumArtUrl = extractAlbumCoverUrl(document);
 
-    List<Map<String, dynamic>> albums = [];
-    
-    for (var albumElement in albumElements) {
-      String title = albumElement.querySelector('.album-title')?.text.trim() ?? '';
-      String artist = albumElement.querySelector('.album-artist')?.text.trim() ?? '';
-      String albumArtUrl = albumElement.querySelector('.album-art')?.attributes['src'] ?? '';
-
-      albums.add({
-        'collectionId': UniqueIdGenerator.generateUniqueCollectionId(), // Utilizamos el método para generar un ID único para la colección
-        'title': title,
-        'artist': artist,
-        'albumArtUrl': albumArtUrl,
-      });
-    }
-
-    return albums;
+    return {
+      'title': title,
+      'artist': artist,
+      'releaseDate': releaseDate,
+      'albumArtUrl': albumArtUrl,
+    };
   }
 }
