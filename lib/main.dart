@@ -8,6 +8,7 @@ import 'album_details_page.dart';
 import 'bandcamp_details_page.dart';
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
+import 'shared_preferences_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,13 +104,13 @@ class MusicRatingHomePage extends StatelessWidget {
             ),
           ),
           Tooltip(
-            message: 'Saved Preferences',
+            message: 'Shared Preferences',
             child: IconButton(
               icon: Icon(Icons.settings),
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SavedPreferencesPage()),
+                  MaterialPageRoute(builder: (context) => SharedPreferencesPage()),
                 );
               },
             ),
