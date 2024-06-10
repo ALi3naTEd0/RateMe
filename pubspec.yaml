@@ -37,7 +37,8 @@ dependencies:
   url_launcher: ^6.3.0
   shared_preferences: ^2.2.3
   file_selector: ^1.0.3
-  file_picker: ^8.0.3
+  file_picker: ^8.0.4
+  file_saver: ^0.2.13
   permission_handler: ^11.3.1
   share_plus: ^9.0.0
   html: ^0.15.4
