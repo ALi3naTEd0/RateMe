@@ -27,4 +27,12 @@ class UniqueIdGenerator {
     saveLastGeneratedIds();
     return _lastTrackId;
   }
+
+  static int getLastCollectionId() {
+    return _lastCollectionId;
+  }
+
+  static int getLastTrackId() {
+    return _lastTrackId;
+  }
 }
