@@ -1,5 +1,7 @@
+// user_data.dart
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 
 class UserData {
   static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
@@ -75,10 +77,6 @@ class UserData {
       await prefs.setStringList('savedAlbumsOrder', albumOrder);
 
       await _deleteRatings(album['collectionId']);
-
-      print('Album deleted: ${album['collectionId']}');
-      print('Remaining albums: $savedAlbumsJson');
-      print('Remaining order: $albumOrder');
     }
   }
 
@@ -145,5 +143,40 @@ class UserData {
     }
 
     return null;
+  }
+
+  static Future<void> exportRatings(String filePath) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
+
+    if (savedAlbumsJson != null) {
+      // Obtener el historial de calificaciones de cada álbum guardado
+      Map<int, List<Map<String, dynamic>>> ratingsMap = {};
+      for (String json in savedAlbumsJson) {
+        Map<String, dynamic> album = jsonDecode(json);
+        int albumId = album['collectionId'];
+        List<Map<String, dynamic>> ratings = await getSavedAlbumRatings(albumId);
+        ratingsMap[albumId] = ratings;
+      }
+
+      // Escribir el historial de calificaciones en un archivo
+      File file = File(filePath);
+      await file.writeAsString(jsonEncode(ratingsMap));
+    }
+  }
+
+  static Future<void> importRatings(String filePath) async {
+    File file = File(filePath);
+    String fileContent = await file.readAsString();
+    Map<int, List<Map<String, dynamic>>> ratingsMap = jsonDecode(fileContent);
+
+    for (int albumId in ratingsMap.keys) {
+      List<Map<String, dynamic>> ratings = ratingsMap[albumId] ?? [];
+      for (Map<String, dynamic> rating in ratings) {
+        int trackId = rating['trackId'];
+        double ratingValue = rating['rating'];
+        await saveRating(albumId, trackId, ratingValue);
+      }
+    }
   }
 }
