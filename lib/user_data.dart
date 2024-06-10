@@ -1,4 +1,3 @@
-// user_data.dart
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -25,6 +24,23 @@ class UserData {
       }
 
       return savedAlbums;
+    } else {
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(int albumId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
+    
+    if (savedRatingsJson != null) {
+      List<Map<String, dynamic>> savedRatings = [];
+
+      for (String json in savedRatingsJson) {
+        savedRatings.add(jsonDecode(json));
+      }
+
+      return savedRatings;
     } else {
       return [];
     }
@@ -94,23 +110,6 @@ class UserData {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? albumIds = prefs.getStringList('savedAlbumsOrder');
     return albumIds ?? [];
-  }
-
-  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(int albumId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
-    
-    if (savedRatingsJson != null) {
-      List<Map<String, dynamic>> savedRatings = [];
-
-      for (String json in savedRatingsJson) {
-        savedRatings.add(jsonDecode(json));
-      }
-
-      return savedRatings;
-    } else {
-      return [];
-    }
   }
 
   static Future<void> saveRating(int albumId, int trackId, double rating) async {

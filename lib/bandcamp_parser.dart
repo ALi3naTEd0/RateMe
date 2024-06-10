@@ -1,7 +1,5 @@
-// bandcamp_parser.dart
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'id_generator.dart';
 
 class BandcampParser {
@@ -80,8 +78,11 @@ class BandcampParser {
         });
       }
 
+      // Generamos un ID único para cada colección de álbumes
+      int uniqueCollectionId = UniqueIdGenerator.generateUniqueCollectionId();
+
       albums.add({
-        'collectionId': UniqueIdGenerator.generateUniqueCollectionId(), // Utilizamos el método para generar un ID único para la colección
+        'collectionId': uniqueCollectionId,
         'title': title,
         'artist': artist,
         'albumArtUrl': albumArtUrl,
