@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'id_generator.dart'; // Importar el módulo de generación de IDs
+import 'id_generator.dart';
 import 'search_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'album_details_page.dart';
-import 'bandcamp_details_page.dart'; // Importar la página BandcampDetailsPage
+import 'bandcamp_details_page.dart';
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
-import 'deleter.dart'; // Importar el módulo de borrado
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,7 +122,7 @@ class MusicRatingHomePage extends StatelessWidget {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => DeleterPage()),
+            MaterialPageRoute(builder: (context) => SavedPreferencesPage()),
           );
         },
         child: Icon(Icons.delete),

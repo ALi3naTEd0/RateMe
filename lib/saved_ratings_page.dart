@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_details_page.dart';
-import 'bandcamp_details_page.dart';
 import 'bandcamp_saved_album_page.dart';
 import 'footer.dart';
 import 'app_theme.dart';
@@ -70,7 +69,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             TextButton(
               onPressed: () async {
                 await UserData.deleteAlbum(savedAlbums[index]);
-                // Remove the album from the list
                 setState(() {
                   savedAlbums.removeAt(index);
                 });
@@ -110,7 +108,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       savedAlbums.insert(newIndex, album);
     });
 
-    // Update the order of albums in local storage
     List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
     UserData.saveAlbumOrder(albumIds);
   }
@@ -130,12 +127,12 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
               : ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width),
                   child: SingleChildScrollView(
-                    child: Container( // Wrap the ReorderableListView with a Container
-                      height: MediaQuery.of(context).size.height, // Set a specific height
+                    child: Container(
+                      height: MediaQuery.of(context).size.height,
                       child: ReorderableListView(
                         padding: EdgeInsets.symmetric(vertical: 8.0),
                         physics: AlwaysScrollableScrollPhysics(),
-                        onReorder: _onReorder, // <-- Add onReorder callback
+                        onReorder: _onReorder,
                         children: savedAlbums.map((album) {
                           return ListTile(
                             key: Key(album['collectionId'].toString()),
