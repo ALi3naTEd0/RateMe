@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' show parse;
-import 'package:intl/intl.dart'; // Importa la biblioteca intl
+import 'package:intl/intl.dart';
 import 'bandcamp_parser.dart';
 import 'footer.dart';
 import 'app_theme.dart';
@@ -24,7 +24,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   double averageRating = 0.0;
   int albumDurationMillis = 0;
   bool isLoading = true;
-  DateTime? releaseDate; // Añade esta línea
+  DateTime? releaseDate;
 
   @override
   void initState() {
@@ -35,7 +35,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
 
   void _fetchTracksFromBandcamp() async {
     final url = widget.album['url'];
-    final collectionId = widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
+    final collectionId =
+        widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
 
     try {
       final response = await http.get(Uri.parse(url));
@@ -53,7 +54,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
 
         setState(() {
           tracks = tracksData;
-          releaseDate = releaseDateData; // Asigna la fecha de lanzamiento
+          releaseDate = releaseDateData;
           isLoading = false;
           calculateAlbumDuration();
         });

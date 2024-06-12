@@ -10,9 +10,8 @@ import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
 import 'shared_preferences_page.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await UniqueIdGenerator.initialize(); // Inicializar los IDs generados
   runApp(MusicRatingApp());
 }
 

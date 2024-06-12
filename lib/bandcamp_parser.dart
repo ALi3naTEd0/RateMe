@@ -1,6 +1,6 @@
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
-import 'package:intl/intl.dart'; // Importa la biblioteca intl
+import 'package:intl/intl.dart';
 import 'id_generator.dart';
 
 class BandcampParser {
@@ -13,7 +13,7 @@ class BandcampParser {
     var trackElements = document.querySelectorAll('.track_row_view');
 
     List<Map<String, dynamic>> tracks = [];
-    int trackNumberCounter = 1; // Contador para el número de pista
+    int trackNumberCounter = 1;
 
     for (var trackElement in trackElements) {
       String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
@@ -21,13 +21,12 @@ class BandcampParser {
       String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
       int durationMillis = _parseDuration(durationText);
 
-      // Generamos un ID único para cada pista
       int trackId = UniqueIdGenerator.generateUniqueTrackId();
 
       tracks.add({
         'trackId': trackId,
         'collectionId': collectionId,
-        'trackNumber': trackNumberCounter++, // Utilizamos el contador para el número de pista
+        'trackNumber': trackNumberCounter++,
         'title': title,
         'duration': durationMillis,
       });
@@ -36,19 +35,8 @@ class BandcampParser {
     return tracks;
   }
 
-  static int _parseDuration(String durationText) {
-    var parts = durationText.split(':');
-    if (parts.length == 2) {
-      int minutes = int.tryParse(parts[0]) ?? 0;
-      int seconds = int.tryParse(parts[1]) ?? 0;
-      return (minutes * 60 + seconds) * 1000;
-    } else {
-      return 0;
-    }
-  }
-
   static List<Map<String, dynamic>> extractAlbums(Document document, int collectionId) {
-    var albumElements = document.querySelectorAll('.album-element-selector'); // Selector de ejemplo, cámbialo según tu HTML
+    var albumElements = document.querySelectorAll('.album-element-selector');
     List<Map<String, dynamic>> albums = [];
     
     for (var albumElement in albumElements) {
@@ -57,7 +45,7 @@ class BandcampParser {
       String albumArtUrl = albumElement.querySelector('.album-art')?.attributes['src'] ?? '';
 
       List<Map<String, dynamic>> tracks = [];
-      int trackNumberCounter = 1; // Reinicia el contador para cada álbum nuevo
+      int trackNumberCounter = 1;
 
       var trackElements = albumElement.querySelectorAll('.track_row_view');
 
@@ -67,19 +55,17 @@ class BandcampParser {
         String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
         int durationMillis = _parseDuration(durationText);
 
-        // Generamos un ID único para cada pista
         int trackId = UniqueIdGenerator.generateUniqueTrackId();
 
         tracks.add({
           'trackId': trackId,
           'collectionId': collectionId,
-          'trackNumber': trackNumberCounter++, // Utilizamos el contador para el número de pista
+          'trackNumber': trackNumberCounter++,
           'title': title,
           'duration': durationMillis,
         });
       }
 
-      // Generamos un ID único para cada colección de álbumes
       int uniqueCollectionId = UniqueIdGenerator.generateUniqueCollectionId();
 
       albums.add({
@@ -87,7 +73,7 @@ class BandcampParser {
         'title': title,
         'artist': artist,
         'albumArtUrl': albumArtUrl,
-        'tracks': tracks, // Agrega las pistas al álbum
+        'tracks': tracks,
       });
     }
     return albums;
@@ -104,5 +90,16 @@ class BandcampParser {
       }
     }
     return null;
+  }
+
+  static int _parseDuration(String durationText) {
+    var parts = durationText.split(':');
+    if (parts.length == 2) {
+      int minutes = int.tryParse(parts[0]) ?? 0;
+      int seconds = int.tryParse(parts[1]) ?? 0;
+      return (minutes * 60 + seconds) * 1000;
+    } else {
+      return 0;
+    }
   }
 }

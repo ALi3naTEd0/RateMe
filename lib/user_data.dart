@@ -149,7 +149,6 @@ class UserData {
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
 
     if (savedAlbumsJson != null) {
-      // Obtener el historial de calificaciones de cada álbum guardado
       Map<int, List<Map<String, dynamic>>> ratingsMap = {};
       for (String json in savedAlbumsJson) {
         Map<String, dynamic> album = jsonDecode(json);
@@ -158,7 +157,6 @@ class UserData {
         ratingsMap[albumId] = ratings;
       }
 
-      // Escribir el historial de calificaciones en un archivo
       File file = File(filePath);
       await file.writeAsString(jsonEncode(ratingsMap));
     }
