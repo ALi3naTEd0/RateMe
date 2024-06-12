@@ -1,13 +1,17 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UniqueIdGenerator {
-  static late int _lastCollectionId;
-  static late int _lastTrackId;
+  static int _lastCollectionId = 1000000000;
+  static int _lastTrackId = 2000000000;
+  static bool _initialized = false;
 
   static Future<void> initialize() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _lastCollectionId = prefs.getInt('lastCollectionId') ?? 1000000000;
-    _lastTrackId = prefs.getInt('lastTrackId') ?? 2000000000;
+    if (!_initialized) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      _lastCollectionId = prefs.getInt('lastCollectionId') ?? 1000000000;
+      _lastTrackId = prefs.getInt('lastTrackId') ?? 2000000000;
+      _initialized = true;
+    }
   }
 
   static Future<void> saveLastGeneratedIds() async {

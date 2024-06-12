@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'user_data.dart';
 import 'bandcamp_parser.dart';
@@ -22,6 +23,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   double averageRating = 0.0;
   int albumDurationMillis = 0;
   bool isLoading = true;
+  DateTime? releaseDate;
 
   @override
   void initState() {
@@ -35,12 +37,14 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       final response = await http.get(url);
       final document = parse(response.body);
       final extractedTracks = BandcampParser.extractTracks(document, widget.album['collectionId']);
+      final releaseDateData = BandcampParser.extractReleaseDate(document);
       setState(() {
         tracks = extractedTracks;
         extractedTracks.forEach((track) => ratings[track['trackId']] = 0.0);
         calculateAlbumDuration();
         _loadSavedRatings();
-        isLoading = false; // Marcamos que ya no estamos cargando
+        isLoading = false;
+        releaseDate = releaseDateData;
       });
     } catch (error) {
       print('Error fetching tracks: $error');
@@ -77,7 +81,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       for (var rating in savedRatings) {
         ratings[rating['trackId']] = rating['rating'];
       }
-      calculateAverageRating(); // Calculate average rating after loading saved ratings
+      calculateAverageRating();
     });
   }
 
@@ -103,10 +107,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       calculateAverageRating();
     });
 
-    // Save the new rating automatically
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
-
-    print('Updated rating for trackId $trackId: $newRating'); // Nueva impresión en consola
+    print('Updated rating for trackId $trackId: $newRating');
   }
 
   @override
@@ -159,11 +161,12 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("Release Date: ",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
                               Text(
-                                widget.album['releaseDate'] != null
-                                    ? "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"
-                                    : "N/A",
+                                releaseDate != null
+                                    ? "${DateFormat('dd-MM-yyyy').format(releaseDate!)}"
+                                    : 'Unknown Date',
                               ),
                             ],
                           ),
@@ -197,8 +200,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           DataColumn(label: Text('Track No.')),
                           DataColumn(label: Text('Title')),
                           DataColumn(label: Text('Length')),
-                          DataColumn(
-                              label: Text('Rating', textAlign: TextAlign.center)),
+                          DataColumn(label: Text('Rating', textAlign: TextAlign.center)),
                         ],
                         rows: tracks.map((track) => DataRow(
                           cells: [
