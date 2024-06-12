@@ -101,7 +101,7 @@ class _SearchPageState extends State<SearchPage> {
 
   void _fetchBandcampAlbumInfo(String url) async {
     try {
-      final albumInfo = await BandcampService.fetchBandcampAlbumInfo(url);
+      final albumInfo = await BandcampService.saveAlbum(url);
       setState(() => searchResults = [albumInfo]);
     } catch (e) {
       setState(() => searchResults = []);
