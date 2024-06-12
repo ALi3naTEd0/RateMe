@@ -1,5 +1,6 @@
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
+import 'package:intl/intl.dart'; // Importa la biblioteca intl
 import 'id_generator.dart';
 
 class BandcampParser {
@@ -90,5 +91,18 @@ class BandcampParser {
       });
     }
     return albums;
+  }
+
+  static DateTime? extractReleaseDate(Document document) {
+    var releaseElement = document.querySelector('.tralbumData.tralbum-credits');
+    if (releaseElement != null) {
+      RegExp dateRegExp = RegExp(r'released (\w+ \d{1,2}, \d{4})');
+      var match = dateRegExp.firstMatch(releaseElement.text);
+      if (match != null) {
+        String dateStr = match.group(1) ?? '';
+        return DateFormat('MMMM d, yyyy').parse(dateStr);
+      }
+    }
+    return null;
   }
 }
