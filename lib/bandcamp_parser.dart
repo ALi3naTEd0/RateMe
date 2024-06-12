@@ -1,7 +1,6 @@
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
 import 'package:intl/intl.dart';
-import 'id_generator.dart';
 
 class BandcampParser {
   static String extractAlbumCoverUrl(Document document) {
@@ -21,10 +20,9 @@ class BandcampParser {
       String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
       int durationMillis = _parseDuration(durationText);
 
-      int trackId = UniqueIdGenerator.generateUniqueTrackId();
+      // Aquí no necesitas generar el trackId
 
       tracks.add({
-        'trackId': trackId,
         'collectionId': collectionId,
         'trackNumber': trackNumberCounter++,
         'title': title,
@@ -55,10 +53,9 @@ class BandcampParser {
         String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
         int durationMillis = _parseDuration(durationText);
 
-        int trackId = UniqueIdGenerator.generateUniqueTrackId();
+        // Aquí tampoco necesitas generar el trackId
 
         tracks.add({
-          'trackId': trackId,
           'collectionId': collectionId,
           'trackNumber': trackNumberCounter++,
           'title': title,
@@ -66,10 +63,10 @@ class BandcampParser {
         });
       }
 
-      int uniqueCollectionId = UniqueIdGenerator.generateUniqueCollectionId();
+      // Aquí no necesitas generar el uniqueCollectionId
 
       albums.add({
-        'collectionId': uniqueCollectionId,
+        'collectionId': collectionId,
         'title': title,
         'artist': artist,
         'albumArtUrl': albumArtUrl,
