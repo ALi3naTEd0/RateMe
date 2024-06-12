@@ -119,8 +119,16 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
     print('Updated rating for trackId $trackId: $newRating');
   }
 
-  void _saveAlbum() {
-    UserData.saveAlbum(widget.album);
+  void _printSavedIds(int collectionId, List<int> trackIds) {
+    print('Saved album information:');
+    print('CollectionId: $collectionId');
+    print('TrackIds: $trackIds');
+  }
+
+  void _saveAlbum() async {
+    await UserData.saveAlbum(widget.album);  // Espera a que el álbum se guarde
+    List<int> trackIds = tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
+    _printSavedIds(widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId(), trackIds);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Album saved in history'),

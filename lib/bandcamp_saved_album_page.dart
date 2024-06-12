@@ -1,3 +1,5 @@
+// bandcamp_saved_album_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
@@ -28,6 +30,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   @override
   void initState() {
     super.initState();
+    print('Init State: Starting to fetch tracks for album ${widget.album['collectionId']}');
     _fetchTracks();
   }
 
@@ -46,6 +49,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
         isLoading = false;
         releaseDate = releaseDateData;
       });
+      print('Tracks fetched successfully: $extractedTracks');
     } catch (error) {
       print('Error fetching tracks: $error');
     }
@@ -75,6 +79,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   }
 
   void _loadSavedRatings() async {
+    print('Loading saved ratings for album ${widget.album['collectionId']}');
     List<Map<String, dynamic>> savedRatings =
         await UserData.getSavedAlbumRatings(widget.album['collectionId']);
     setState(() {
@@ -83,6 +88,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       }
       calculateAverageRating();
     });
+    print('Saved ratings loaded: $ratings');
   }
 
   void _launchRateYourMusic() async {
