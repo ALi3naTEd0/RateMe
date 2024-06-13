@@ -157,7 +157,8 @@ class UserData {
   static Future<void> saveAlbumTrackIds(int collectionId, List<int> trackIds) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String key = 'album_track_ids_$collectionId';
-    await prefs.setStringList(key, trackIds.map((id) => id.toString()).toList());
+    List<String> trackIdsStr = trackIds.map((id) => id.toString()).toList();
+    await prefs.setStringList(key, trackIdsStr);
   }
 
   static Future<void> exportRatings(String filePath) async {
