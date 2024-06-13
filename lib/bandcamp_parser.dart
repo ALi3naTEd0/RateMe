@@ -1,6 +1,8 @@
+// bandcamp_parser.dart
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'id_generator.dart';
 
 class BandcampParser {
@@ -11,12 +13,10 @@ class BandcampParser {
 
   static List<Map<String, dynamic>> extractTracks(Document document, int collectionId) {
     var trackElements = document.querySelectorAll('.track_row_view');
-
     List<Map<String, dynamic>> tracks = [];
     int trackNumberCounter = 1;
 
     for (var trackElement in trackElements) {
-      String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
       String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
       String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
       int durationMillis = _parseDuration(durationText);
@@ -38,7 +38,7 @@ class BandcampParser {
   static List<Map<String, dynamic>> extractAlbums(Document document, int collectionId) {
     var albumElements = document.querySelectorAll('.album-element-selector');
     List<Map<String, dynamic>> albums = [];
-    
+
     for (var albumElement in albumElements) {
       String title = albumElement.querySelector('.album-title')?.text.trim() ?? '';
       String artist = albumElement.querySelector('.album-artist')?.text.trim() ?? '';
@@ -50,7 +50,6 @@ class BandcampParser {
       var trackElements = albumElement.querySelectorAll('.track_row_view');
 
       for (var trackElement in trackElements) {
-        String trackNumberText = trackElement.querySelector('.track-number-col')?.text.trim() ?? '';
         String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
         String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
         int durationMillis = _parseDuration(durationText);
@@ -76,6 +75,7 @@ class BandcampParser {
         'tracks': tracks,
       });
     }
+
     return albums;
   }
 
