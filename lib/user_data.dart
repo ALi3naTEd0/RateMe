@@ -6,7 +6,7 @@ class UserData {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
     List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
-    
+
     if (savedAlbumsJson != null && albumOrder != null) {
       List<Map<String, dynamic>> savedAlbums = [];
       Map<String, Map<String, dynamic>> albumMap = {};
@@ -28,10 +28,12 @@ class UserData {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(int albumId) async {
+  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(
+      int albumId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
-    
+    List<String>? savedRatingsJson =
+        prefs.getStringList('saved_ratings_$albumId');
+
     if (savedRatingsJson != null) {
       List<Map<String, dynamic>> savedRatings = [];
 
@@ -59,7 +61,8 @@ class UserData {
     });
 
     if (existingIndex != -1) {
-      Map<String, dynamic> existingAlbum = jsonDecode(savedAlbumsJson[existingIndex]);
+      Map<String, dynamic> existingAlbum =
+          jsonDecode(savedAlbumsJson[existingIndex]);
       existingAlbum.addAll(album);
       savedAlbumsJson[existingIndex] = jsonEncode(existingAlbum);
     } else {
@@ -83,7 +86,8 @@ class UserData {
         savedAlbums.add(jsonDecode(json));
       }
 
-      savedAlbums.removeWhere((savedAlbum) => savedAlbum['collectionId'] == album['collectionId']);
+      savedAlbums.removeWhere(
+          (savedAlbum) => savedAlbum['collectionId'] == album['collectionId']);
       albumOrder.remove(album['collectionId'].toString());
 
       savedAlbumsJson = savedAlbums.map((album) => jsonEncode(album)).toList();
@@ -111,17 +115,27 @@ class UserData {
     return albumIds ?? [];
   }
 
-  static Future<void> saveRating(int albumId, int trackId, double rating) async {
+  static Future<void> saveRating(
+      int albumId, int trackId, double rating) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedRatingsJson = prefs.getStringList('saved_ratings_$albumId');
-    
-    if (savedRatingsJson == null) {
-      savedRatingsJson = [];
-    }
+    List<String> savedRatingsJson =
+        prefs.getStringList('saved_ratings_$albumId') ?? [];
 
-    Map<String, dynamic> ratingData = {'trackId': trackId, 'rating': rating};
-    String ratingJson = jsonEncode(ratingData);
-    savedRatingsJson.add(ratingJson);
+    int trackIndex = savedRatingsJson.indexWhere((json) {
+      Map<String, dynamic> ratingData = jsonDecode(json);
+      return ratingData['trackId'] == trackId;
+    });
+
+    if (trackIndex != -1) {
+      Map<String, dynamic> ratingData =
+          jsonDecode(savedRatingsJson[trackIndex]);
+      ratingData['rating'] = rating;
+      savedRatingsJson[trackIndex] = jsonEncode(ratingData);
+    } else {
+      Map<String, dynamic> ratingData = {'trackId': trackId, 'rating': rating};
+      String ratingJson = jsonEncode(ratingData);
+      savedRatingsJson.add(ratingJson);
+    }
 
     await prefs.setStringList('saved_ratings_$albumId', savedRatingsJson);
   }
@@ -129,11 +143,11 @@ class UserData {
   static Future<Map<String, dynamic>?> getSavedAlbumById(int albumId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
-    
+
     if (savedAlbumsJson != null) {
       for (String json in savedAlbumsJson) {
         Map<String, dynamic> album = jsonDecode(json);
-        
+
         if (album['collectionId'] == albumId) {
           return album;
         }
@@ -154,7 +168,8 @@ class UserData {
     }
   }
 
-  static Future<void> saveAlbumTrackIds(int collectionId, List<int> trackIds) async {
+  static Future<void> saveAlbumTrackIds(
+      int collectionId, List<int> trackIds) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String key = 'album_track_ids_$collectionId';
     List<String> trackIdsStr = trackIds.map((id) => id.toString()).toList();
@@ -170,7 +185,8 @@ class UserData {
       for (String json in savedAlbumsJson) {
         Map<String, dynamic> album = jsonDecode(json);
         int albumId = album['collectionId'];
-        List<Map<String, dynamic>> ratings = await getSavedAlbumRatings(albumId);
+        List<Map<String, dynamic>> ratings =
+            await getSavedAlbumRatings(albumId);
         ratingsMap[albumId] = ratings;
       }
 

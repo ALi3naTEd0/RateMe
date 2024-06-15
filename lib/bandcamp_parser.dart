@@ -1,9 +1,8 @@
 // bandcamp_parser.dart
-import 'package:html/parser.dart' show parse;
+import 'dart:convert';
+
 import 'package:html/dom.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'id_generator.dart';
 
 class BandcampParser {
   static String extractAlbumCoverUrl(Document document) {
@@ -11,22 +10,38 @@ class BandcampParser {
     return imageElement != null ? imageElement.attributes['href'] ?? '' : '';
   }
 
-  static List<Map<String, dynamic>> extractTracks(Document document, int collectionId) {
-    var trackElements = document.querySelectorAll('.track_row_view');
+  static List<Map<String, dynamic>> extractTracks(Document document) {
+    Element? scriptElement =
+        document.querySelector('script[type="application/ld+json"]');
+
+    Map<String, dynamic> contentJson =
+        jsonDecode(scriptElement?.innerHtml ?? '');
+
+    final int collectionId = _extractCollectionId(contentJson);
+
+    return _extractTracksFromJson(contentJson, collectionId);
+  }
+
+  static List<Map<String, dynamic>> _extractTracksFromJson(
+      Map<String, dynamic> contentJson, int collectionId) {
+    List<dynamic> trackElements = contentJson['track']['itemListElement'] ?? [];
     List<Map<String, dynamic>> tracks = [];
-    int trackNumberCounter = 1;
 
     for (var trackElement in trackElements) {
-      String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
-      String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
+      int position = trackElement['position'] ?? 0;
+      var item = trackElement['item'];
+      String title = item['name'] ?? '';
+      String durationText = item['duration'] ?? 'P00H00M00S';
       int durationMillis = _parseDuration(durationText);
 
-      int trackId = UniqueIdGenerator.generateUniqueTrackId();
+      int trackId = item['additionalProperty']?.firstWhere(
+        (prop) => prop['name'] == 'track_id',
+      )['value'];
 
       tracks.add({
         'trackId': trackId,
         'collectionId': collectionId,
-        'trackNumber': trackNumberCounter++,
+        'trackNumber': position,
         'title': title,
         'duration': durationMillis,
       });
@@ -35,46 +50,50 @@ class BandcampParser {
     return tracks;
   }
 
-  static List<Map<String, dynamic>> extractAlbums(Document document, int collectionId) {
-    var albumElements = document.querySelectorAll('.album-element-selector');
+  static int _extractCollectionId(Map<String, dynamic> contentJson) {
+    if (contentJson.containsKey('albumRelease')) {
+      List<dynamic> albumReleaseItems = contentJson['albumRelease'];
+      for (var releaseItem in albumReleaseItems) {
+        if (releaseItem['@id'] == contentJson['@id'] &&
+            releaseItem.containsKey('additionalProperty')) {
+          List<dynamic> additionalProperties =
+              releaseItem['additionalProperty'];
+          for (var property in additionalProperties) {
+            if (property['name'] == 'item_id') {
+              return property['value'];
+            }
+          }
+        }
+      }
+    }
+    return 0;
+  }
+
+  static List<Map<String, dynamic>> extractAlbums(Document document) {
+    Element? scriptElement =
+        document.querySelector('script[type="application/ld+json"]');
+
+    Map<String, dynamic> contentJson =
+        jsonDecode(scriptElement?.innerHtml ?? '');
+
+    final int collectionId = _extractCollectionId(contentJson);
+
     List<Map<String, dynamic>> albums = [];
 
-    for (var albumElement in albumElements) {
-      String title = albumElement.querySelector('.album-title')?.text.trim() ?? '';
-      String artist = albumElement.querySelector('.album-artist')?.text.trim() ?? '';
-      String albumArtUrl = albumElement.querySelector('.album-art')?.attributes['src'] ?? '';
+    String title = contentJson['name'] ?? '';
+    String artist = contentJson['byArtist']['name'] ?? '';
+    String albumArtUrl = contentJson['image'] ?? '';
 
-      List<Map<String, dynamic>> tracks = [];
-      int trackNumberCounter = 1;
+    List<Map<String, dynamic>> tracks =
+        _extractTracksFromJson(contentJson, collectionId);
 
-      var trackElements = albumElement.querySelectorAll('.track_row_view');
-
-      for (var trackElement in trackElements) {
-        String title = trackElement.querySelector('.title-col span')?.text.trim() ?? '';
-        String durationText = trackElement.querySelector('.time.secondaryText')?.text.trim() ?? '0:00';
-        int durationMillis = _parseDuration(durationText);
-
-        int trackId = UniqueIdGenerator.generateUniqueTrackId();
-
-        tracks.add({
-          'trackId': trackId,
-          'collectionId': collectionId,
-          'trackNumber': trackNumberCounter++,
-          'title': title,
-          'duration': durationMillis,
-        });
-      }
-
-      int uniqueCollectionId = UniqueIdGenerator.generateUniqueCollectionId();
-
-      albums.add({
-        'collectionId': uniqueCollectionId,
-        'title': title,
-        'artist': artist,
-        'albumArtUrl': albumArtUrl,
-        'tracks': tracks,
-      });
-    }
+    albums.add({
+      'collectionId': collectionId,
+      'title': title,
+      'artist': artist,
+      'albumArtUrl': albumArtUrl,
+      'tracks': tracks,
+    });
 
     return albums;
   }
@@ -93,11 +112,15 @@ class BandcampParser {
   }
 
   static int _parseDuration(String durationText) {
-    var parts = durationText.split(':');
-    if (parts.length == 2) {
-      int minutes = int.tryParse(parts[0]) ?? 0;
-      int seconds = int.tryParse(parts[1]) ?? 0;
-      return (minutes * 60 + seconds) * 1000;
+    final regex = RegExp(
+        r'P(?:(?<hours>\d+)H)?(?:(?<minutes>\d+)M)?(?:(?<seconds>\d+)S)?');
+    final match = regex.firstMatch(durationText);
+
+    if (match != null) {
+      final hours = int.tryParse(match.namedGroup('hours') ?? '0') ?? 0;
+      final minutes = int.tryParse(match.namedGroup('minutes') ?? '0') ?? 0;
+      final seconds = int.tryParse(match.namedGroup('seconds') ?? '0') ?? 0;
+      return (hours * 3600 + minutes * 60 + seconds) * 1000;
     } else {
       return 0;
     }
