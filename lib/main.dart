@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'app_theme.dart';
 import 'footer.dart';
-import 'id_generator.dart';
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
 import 'search_page.dart';
-import 'shared_preferences_page.dart';
+import 'shared_preferences_page.dart';  // Asegúrate de que este import esté presente y el archivo exista.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await UniqueIdGenerator.initialize(); // Inicializar los IDs generados
   runApp(MusicRatingApp());
 }
 

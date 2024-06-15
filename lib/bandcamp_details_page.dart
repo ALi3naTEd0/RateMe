@@ -7,7 +7,6 @@ import 'bandcamp_parser.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
-import 'id_generator.dart';
 
 class BandcampDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -68,8 +67,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _loadRatings() async {
-    int albumId = widget.album['collectionId'] ??
-        UniqueIdGenerator.generateUniqueCollectionId();
+    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
     List<Map<String, dynamic>> savedRatings =
         await UserData.getSavedAlbumRatings(albumId);
     Map<int, double> ratingsMap = {};
@@ -114,8 +112,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       calculateAverageRating();
     });
 
-    int albumId = widget.album['collectionId'] ??
-        UniqueIdGenerator.generateUniqueCollectionId();
+    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
     await UserData.saveRating(albumId, trackId, newRating);
     print('Updated rating for trackId $trackId: $newRating');
   }
@@ -131,8 +128,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
     List<int> trackIds =
         tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
     _printSavedIds(
-        widget.album['collectionId'] ??
-            UniqueIdGenerator.generateUniqueCollectionId(),
+        widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch,
         trackIds);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
