@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'id_generator.dart';
-import 'search_page.dart';
-import 'footer.dart';
+
 import 'app_theme.dart';
-import 'album_details_page.dart';
-import 'bandcamp_details_page.dart';
+import 'footer.dart';
+import 'id_generator.dart';
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
+import 'search_page.dart';
 import 'shared_preferences_page.dart';
 
 void main() async {
@@ -34,13 +33,17 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
     final prefs = await SharedPreferences.getInstance();
     final brightnessIndex = prefs.getInt('themeBrightness');
     setState(() {
-      _themeBrightness = brightnessIndex != null ? Brightness.values[brightnessIndex] : Brightness.light;
+      _themeBrightness = brightnessIndex != null
+          ? Brightness.values[brightnessIndex]
+          : Brightness.light;
     });
   }
 
   void _toggleTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final newBrightness = _themeBrightness == Brightness.light ? Brightness.dark : Brightness.light;
+    final newBrightness = _themeBrightness == Brightness.light
+        ? Brightness.dark
+        : Brightness.light;
     await prefs.setInt('themeBrightness', newBrightness.index);
     setState(() {
       _themeBrightness = newBrightness;
@@ -55,7 +58,9 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
     return MaterialApp(
       title: 'Rate Me!',
       debugShowCheckedModeBanner: false,
-      theme: _themeBrightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme,
+      theme: _themeBrightness == Brightness.light
+          ? AppTheme.lightTheme
+          : AppTheme.darkTheme,
       home: MusicRatingHomePage(
         toggleTheme: _toggleTheme,
         themeBrightness: _themeBrightness!,
@@ -82,7 +87,8 @@ class MusicRatingHomePage extends StatelessWidget {
         leading: Tooltip(
           message: 'Saved Ratings',
           child: IconButton(
-            icon: Icon(Icons.star, size: 32, color: _getStarIconColor(themeBrightness)),
+            icon: Icon(Icons.star,
+                size: 32, color: _getStarIconColor(themeBrightness)),
             onPressed: () {
               Navigator.push(
                 context,
@@ -110,7 +116,8 @@ class MusicRatingHomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SharedPreferencesPage()),
+                  MaterialPageRoute(
+                      builder: (context) => SharedPreferencesPage()),
                 );
               },
             ),
@@ -132,6 +139,8 @@ class MusicRatingHomePage extends StatelessWidget {
   }
 
   Color _getStarIconColor(Brightness themeBrightness) {
-    return themeBrightness == Brightness.light ? AppTheme.lightTheme.colorScheme.primary : AppTheme.darkTheme.colorScheme.primary;
+    return themeBrightness == Brightness.light
+        ? AppTheme.lightTheme.colorScheme.primary
+        : AppTheme.darkTheme.colorScheme.primary;
   }
 }

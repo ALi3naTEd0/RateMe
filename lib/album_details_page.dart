@@ -33,8 +33,9 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     try {
       final response = await http.get(url);
       final data = jsonDecode(response.body);
-      var trackList =
-          data['results'].where((track) => track['wrapperType'] == 'track').toList();
+      var trackList = data['results']
+          .where((track) => track['wrapperType'] == 'track')
+          .toList();
       setState(() {
         tracks = trackList;
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
@@ -75,10 +76,11 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     if (tracks.isEmpty) return 0.4; // Default value if no tracks
 
     // Adjust the width between 0.2 and 0.5 based on the size of the trackList
-    double calculatedWidth = (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble();
+    double calculatedWidth =
+        (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble();
     return calculatedWidth.clamp(0.2, 0.5);
   }
-  
+
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
@@ -148,9 +150,9 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       children: [
                         Text("Rating: ",
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20)),
-                        Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
+                                fontWeight: FontWeight.bold, fontSize: 20)),
+                        Text(averageRating.toStringAsFixed(2),
+                            style: TextStyle(fontSize: 20)),
                       ],
                     ),
                   ],
@@ -164,9 +166,10 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                   style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkTheme.colorScheme.primary
-                      : AppTheme.lightTheme.colorScheme.primary,
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkTheme.colorScheme.primary
+                          : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
               Divider(),
@@ -180,46 +183,52 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     DataColumn(
                         label: Text('Rating', textAlign: TextAlign.center)),
                   ],
-                  rows: tracks.map((track) => DataRow(
-                    cells: [
-                      DataCell(Text(track['trackNumber'].toString())),
-                      DataCell(
-                        Tooltip(
-                          message: track['trackName'],
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
-                            ),
-                            child: Text(
-                              track['trackName'],
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(Text(formatDuration(track['trackTimeMillis']))),
-                      DataCell(Container(
-                        width: 150,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Slider(
-                                min: 0,
-                                max: 10,
-                                divisions: 10,
-                                value: ratings[track['trackId']] ?? 0.0,
-                                onChanged: (newRating) {
-                                  _updateRating(track['trackId'], newRating);
-                                },
+                  rows: tracks
+                      .map((track) => DataRow(
+                            cells: [
+                              DataCell(Text(track['trackNumber'].toString())),
+                              DataCell(
+                                Tooltip(
+                                  message: track['trackName'],
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                              titleWidthFactor,
+                                    ),
+                                    child: Text(
+                                      track['trackName'],
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            Text((ratings[track['trackId']] ?? 0.0)
-                                .toStringAsFixed(0)),
-                          ],
-                        ),
-                      )),
-                    ],
-                  )).toList(),
+                              DataCell(Text(
+                                  formatDuration(track['trackTimeMillis']))),
+                              DataCell(Container(
+                                width: 150,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Slider(
+                                        min: 0,
+                                        max: 10,
+                                        divisions: 10,
+                                        value: ratings[track['trackId']] ?? 0.0,
+                                        onChanged: (newRating) {
+                                          _updateRating(
+                                              track['trackId'], newRating);
+                                        },
+                                      ),
+                                    ),
+                                    Text((ratings[track['trackId']] ?? 0.0)
+                                        .toStringAsFixed(0)),
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ))
+                      .toList(),
                 ),
               ),
               SizedBox(height: 20),
@@ -230,9 +239,10 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                   style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkTheme.colorScheme.primary
-                      : AppTheme.lightTheme.colorScheme.primary,
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkTheme.colorScheme.primary
+                          : AppTheme.lightTheme.colorScheme.primary,
                 ),
               ),
               SizedBox(height: 20),
@@ -263,8 +273,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
   void _updateRating(int trackId, double newRating) async {
     setState(() {
-      ratings[trackId] =
-      newRating;
+      ratings[trackId] = newRating;
       calculateAverageRating();
     });
 
@@ -288,4 +297,3 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     }
   }
 }
-

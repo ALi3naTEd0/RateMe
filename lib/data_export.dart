@@ -26,18 +26,20 @@ Future<void> exportSharedPreferencesToJson(BuildContext context) async {
     String path = file.path!;
 
     // Guardamos el archivo JSON en el directorio seleccionado.
-    File(filePath).writeAsStringSync(jsonData);
+    File(path).writeAsStringSync(jsonData);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Los datos de SharedPreferences se han exportado correctamente en: $path'),
+        content: Text(
+            'Los datos de SharedPreferences se han exportado correctamente en: $path'),
       ),
     );
   } else {
     // El usuario canceló la selección del archivo.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('No se seleccionó ningún directorio para guardar el archivo.'),
+        content:
+            Text('No se seleccionó ningún directorio para guardar el archivo.'),
       ),
     );
   }

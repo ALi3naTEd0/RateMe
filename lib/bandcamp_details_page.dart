@@ -35,14 +35,12 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
 
   void _fetchTracksFromBandcamp() async {
     final url = widget.album['url'];
-    final collectionId =
-        widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
 
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        final tracksData = BandcampParser.extractTracks(document, collectionId);
+        final tracksData = BandcampParser.extractTracks(document);
         final releaseDateData = BandcampParser.extractReleaseDate(document);
 
         tracksData.forEach((track) {
@@ -61,8 +59,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       } else {
         throw Exception('Failed to load album page');
       }
-    } catch (error) {
-      print('Error fetching tracks: $error');
+    } catch (error, st) {
+      print('Error fetching tracks: $error $st');
       setState(() {
         isLoading = false;
       });
@@ -70,8 +68,10 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _loadRatings() async {
-    int albumId = widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
-    List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
+    int albumId = widget.album['collectionId'] ??
+        UniqueIdGenerator.generateUniqueCollectionId();
+    List<Map<String, dynamic>> savedRatings =
+        await UserData.getSavedAlbumRatings(albumId);
     Map<int, double> ratingsMap = {};
     savedRatings.forEach((rating) {
       int trackId = rating['trackId'];
@@ -114,7 +114,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       calculateAverageRating();
     });
 
-    int albumId = widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId();
+    int albumId = widget.album['collectionId'] ??
+        UniqueIdGenerator.generateUniqueCollectionId();
     await UserData.saveRating(albumId, trackId, newRating);
     print('Updated rating for trackId $trackId: $newRating');
   }
@@ -126,9 +127,13 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _saveAlbum() async {
-    await UserData.saveAlbum(widget.album);  // Espera a que el álbum se guarde
-    List<int> trackIds = tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
-    _printSavedIds(widget.album['collectionId'] ?? UniqueIdGenerator.generateUniqueCollectionId(), trackIds);
+    await UserData.saveAlbum(widget.album); // Espera a que el álbum se guarde
+    List<int> trackIds =
+        tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
+    _printSavedIds(
+        widget.album['collectionId'] ??
+            UniqueIdGenerator.generateUniqueCollectionId(),
+        trackIds);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Album saved in history'),
@@ -195,25 +200,31 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Artist: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.album['artistName'] ?? 'Unknown Artist'),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.album['artistName'] ??
+                                  'Unknown Artist'),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Album: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.album['collectionName'] ?? 'Unknown Album'),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.album['collectionName'] ??
+                                  'Unknown Album'),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Release Date: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(releaseDate != null
-                                  ? DateFormat('dd-MM-yyyy').format(releaseDate!)
+                                  ? DateFormat('dd-MM-yyyy')
+                                      .format(releaseDate!)
                                   : 'Unknown Date'),
                             ],
                           ),
@@ -221,7 +232,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Duration: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(formatDuration(albumDurationMillis)),
                             ],
                           ),
@@ -230,7 +242,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                             children: [
                               Text("Rating: ",
                                   style: TextStyle(
-                                      fontWeight: FontWeight.bold, fontSize: 20)),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20)),
                               Text(averageRating.toStringAsFixed(2),
                                   style: TextStyle(fontSize: 20)),
                             ],
@@ -246,27 +259,38 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                     ),
                     Divider(),
                     DataTable(
                       columns: const [
-                        DataColumn(label: Text('Track No.', textAlign: TextAlign.center)),
-                        DataColumn(label: Text('Title', textAlign: TextAlign.left)), // Alineación a la izquierda
-                        DataColumn(label: Text('Length', textAlign: TextAlign.center)),
-                        DataColumn(label: Text('Rating', textAlign: TextAlign.center)),
+                        DataColumn(
+                            label:
+                                Text('Track No.', textAlign: TextAlign.center)),
+                        DataColumn(
+                            label: Text('Title',
+                                textAlign: TextAlign
+                                    .left)), // Alineación a la izquierda
+                        DataColumn(
+                            label: Text('Length', textAlign: TextAlign.center)),
+                        DataColumn(
+                            label: Text('Rating', textAlign: TextAlign.center)),
                       ],
                       rows: tracks.map((track) {
                         final trackId = track['trackId'] ?? 0;
                         return DataRow(
                           cells: [
-                            DataCell(Center(child: Text(track['trackNumber'].toString()))),
-                            DataCell(Text(track['title'] ?? '')), // Alineación a la izquierda
-                            DataCell(Center(child: Text(formatDuration(track['duration'] ?? 0)))),
+                            DataCell(Center(
+                                child: Text(track['trackNumber'].toString()))),
+                            DataCell(Text(track['title'] ??
+                                '')), // Alineación a la izquierda
+                            DataCell(Center(
+                                child: Text(
+                                    formatDuration(track['duration'] ?? 0)))),
                             DataCell(
                               Center(
                                 child: SizedBox(
@@ -279,14 +303,16 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                                           min: 0,
                                           max: 10,
                                           divisions: 10,
-                                          label: ratings[trackId]?.toStringAsFixed(0),
+                                          label: ratings[trackId]
+                                              ?.toStringAsFixed(0),
                                           onChanged: (newRating) {
                                             _updateRating(trackId, newRating);
                                           },
                                         ),
                                       ),
                                       Text(
-                                        ratings[trackId]?.toStringAsFixed(0) ?? '0',
+                                        ratings[trackId]?.toStringAsFixed(0) ??
+                                            '0',
                                         style: TextStyle(fontSize: 16),
                                       ),
                                     ],
@@ -306,10 +332,10 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                     ),
                     SizedBox(height: 20),

@@ -4,6 +4,8 @@ import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
 import 'bandcamp_parser.dart';
 
+import '../user_data.dart';
+
 class BandcampLogicPage extends ChangeNotifier {
   List<Map<String, dynamic>> tracks = [];
   Map<int, double> ratings = {};
@@ -15,7 +17,7 @@ class BandcampLogicPage extends ChangeNotifier {
     try {
       final response = await http.get(Uri.parse(url));
       final document = parse(response.body);
-      final extractedTracks = BandcampParser.extractTracks(document, collectionId);
+      final extractedTracks = BandcampParser.extractTracks(document);
       tracks = extractedTracks;
       extractedTracks.forEach((track) => ratings[track['trackId']] = 0.0);
       calculateAlbumDuration();
