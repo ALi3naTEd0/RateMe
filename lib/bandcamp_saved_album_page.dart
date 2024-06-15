@@ -30,7 +30,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   @override
   void initState() {
     super.initState();
-    print('Init State: Starting to fetch tracks for album ${widget.album['collectionId']}');
+    print(
+        'Init State: Starting to fetch tracks for album ${widget.album['collectionId']}');
     _fetchTracks();
   }
 
@@ -39,7 +40,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
     try {
       final response = await http.get(url);
       final document = parse(response.body);
-      final extractedTracks = BandcampParser.extractTracks(document, widget.album['collectionId']);
+      final extractedTracks = BandcampParser.extractTracks(document);
       final releaseDateData = BandcampParser.extractReleaseDate(document);
       setState(() {
         tracks = extractedTracks;
@@ -152,7 +153,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Artist: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text("${widget.album['artistName']}"),
                             ],
                           ),
@@ -160,7 +162,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Album: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text("${widget.album['collectionName']}"),
                             ],
                           ),
@@ -168,7 +171,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Release Date: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(
                                 releaseDate != null
                                     ? "${DateFormat('dd-MM-yyyy').format(releaseDate!)}"
@@ -180,7 +184,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Duration: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(formatDuration(albumDurationMillis)),
                             ],
                           ),
@@ -191,7 +196,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20)),
-                              Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
+                              Text(averageRating.toStringAsFixed(2),
+                                  style: TextStyle(fontSize: 20)),
                             ],
                           ),
                         ],
@@ -206,48 +212,61 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           DataColumn(label: Text('Track No.')),
                           DataColumn(label: Text('Title')),
                           DataColumn(label: Text('Length')),
-                          DataColumn(label: Text('Rating', textAlign: TextAlign.center)),
+                          DataColumn(
+                              label:
+                                  Text('Rating', textAlign: TextAlign.center)),
                         ],
-                        rows: tracks.map((track) => DataRow(
-                          cells: [
-                            DataCell(Text(track['trackNumber'].toString())),
-                            DataCell(
-                              Tooltip(
-                                message: track['title'],
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * 0.3,
-                                  ),
-                                  child: Text(
-                                    track['title'],
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(Text(formatDuration(track['duration'] as int))),
-                            DataCell(Container(
-                              width: 150,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Slider(
-                                      min: 0,
-                                      max: 10,
-                                      divisions: 10,
-                                      value: ratings[track['trackId']] ?? 0.0,
-                                      onChanged: (newRating) {
-                                        _updateRating(track['trackId'], newRating);
-                                      },
+                        rows: tracks
+                            .map((track) => DataRow(
+                                  cells: [
+                                    DataCell(
+                                        Text(track['trackNumber'].toString())),
+                                    DataCell(
+                                      Tooltip(
+                                        message: track['title'],
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: MediaQuery.of(context)
+                                                    .size
+                                                    .width *
+                                                0.3,
+                                          ),
+                                          child: Text(
+                                            track['title'],
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  Text((ratings[track['trackId']] ?? 0.0)
-                                      .toStringAsFixed(0)),
-                                ],
-                              ),
-                            )),
-                          ],
-                        )).toList(),
+                                    DataCell(Text(formatDuration(
+                                        track['duration'] as int))),
+                                    DataCell(Container(
+                                      width: 150,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Slider(
+                                              min: 0,
+                                              max: 10,
+                                              divisions: 10,
+                                              value:
+                                                  ratings[track['trackId']] ??
+                                                      0.0,
+                                              onChanged: (newRating) {
+                                                _updateRating(track['trackId'],
+                                                    newRating);
+                                              },
+                                            ),
+                                          ),
+                                          Text(
+                                              (ratings[track['trackId']] ?? 0.0)
+                                                  .toStringAsFixed(0)),
+                                        ],
+                                      ),
+                                    )),
+                                  ],
+                                ))
+                            .toList(),
                       ),
                     ),
                     SizedBox(height: 20),
@@ -258,9 +277,10 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                     ),
                     SizedBox(height: 20),
