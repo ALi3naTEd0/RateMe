@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Rate Me!"
-#define MyAppVersion "0.0.9.4"
+#define MyAppVersion "0.0.9.5"
 #define MyAppPublisher "ALi3naTEd0"
 #define MyAppURL "https://github.com/ALi3naTEd0/RateMe/"
 #define MyAppExeName "RateMe!.exe"
