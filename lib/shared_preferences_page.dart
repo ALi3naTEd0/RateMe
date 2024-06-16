@@ -23,12 +23,12 @@ class SharedPreferencesPage extends StatelessWidget {
                 exportSharedPreferencesToJson(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.lightTheme.colorScheme.primary, // Usa el color morado claro definido en app_theme.dart
+                backgroundColor: AppTheme.lightTheme.colorScheme.primary, // Use the light purple color defined in app_theme.dart
               ),
               child: Text(
                 'Exportar',
                 style: TextStyle(
-                  color: Colors.white, // Texto en blanco
+                  color: Colors.white, // White text
                 ),
               ),
             ),
@@ -38,12 +38,12 @@ class SharedPreferencesPage extends StatelessWidget {
                 importSharedPreferencesFromJson(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.lightTheme.colorScheme.primary, // Usa el color morado claro definido en app_theme.dart
+                backgroundColor: AppTheme.lightTheme.colorScheme.primary, // Use the light purple color defined in app_theme.dart
               ),
               child: Text(
                 'Importar',
                 style: TextStyle(
-                  color: Colors.white, // Texto en blanco
+                  color: Colors.white, // White text
                 ),
               ),
             ),
@@ -88,7 +88,7 @@ class SharedPreferencesPage extends StatelessWidget {
   }
 
   Future<void> importSharedPreferencesFromJson(BuildContext context) async {
-    // Solicitamos al usuario que seleccione el archivo JSON a importar.
+    // We ask the user to select the JSON file to import.
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
@@ -99,10 +99,10 @@ class SharedPreferencesPage extends StatelessWidget {
       PlatformFile file = result.files.first;
       String path = file.path!;
 
-      // Leemos el archivo JSON seleccionado.
+      // We read the selected JSON file.
       String jsonData = await File(path).readAsString();
 
-      // Procesamos el JSON e importamos los datos en SharedPreferences.
+      // We process the JSON and import the data into SharedPreferences.
       SharedPreferences prefs = await SharedPreferences.getInstance();
       Map<String, dynamic> data = jsonDecode(jsonData);
 

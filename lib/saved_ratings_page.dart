@@ -72,7 +72,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                 setState(() {
                   savedAlbums.removeAt(index);
                 });
-                // Actualizar la lista de álbumes guardados en la memoria persistente
+                // Update the list of albums saved in persistent memory
                 await UserData.saveAlbumOrder(savedAlbums.map<String>((album) => album['collectionId'].toString()).toList());
                 Navigator.of(context).pop();
               },
