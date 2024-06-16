@@ -14,7 +14,7 @@ Future<void> exportSharedPreferencesToJson(BuildContext context) async {
 
   String jsonData = jsonEncode(data);
 
-  // Solicitamos al usuario que seleccione el directorio donde se guardará el archivo.
+  // We ask the user to select the directory where the file will be saved.
   FilePickerResult? result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['json'],
@@ -25,7 +25,7 @@ Future<void> exportSharedPreferencesToJson(BuildContext context) async {
     PlatformFile file = result.files.first;
     String path = file.path!;
 
-    // Guardamos el archivo JSON en el directorio seleccionado.
+    // We save the JSON file in the selected directory.
     File(path).writeAsStringSync(jsonData);
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -35,7 +35,7 @@ Future<void> exportSharedPreferencesToJson(BuildContext context) async {
       ),
     );
   } else {
-    // El usuario canceló la selección del archivo.
+    // The user deselected the file.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content:

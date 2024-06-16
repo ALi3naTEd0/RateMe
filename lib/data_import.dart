@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 
 Future<void> importSharedPreferencesFromJson(BuildContext context) async {
-  // Solicitamos al usuario que seleccione el archivo JSON a importar.
+  // We ask the user to select the JSON file to import.
   FilePickerResult? result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['json'],
@@ -17,10 +17,10 @@ Future<void> importSharedPreferencesFromJson(BuildContext context) async {
     PlatformFile file = result.files.first;
     String path = file.path!;
 
-    // Leemos el archivo JSON seleccionado.
+    // We read the selected JSON file.
     String jsonData = await File(path).readAsString();
 
-    // Procesamos el JSON e importamos los datos en SharedPreferences.
+    // We process the JSON and import the data into SharedPreferences.
     SharedPreferences prefs = await SharedPreferences.getInstance();
     Map<String, dynamic> data = jsonDecode(jsonData);
 
@@ -44,7 +44,7 @@ Future<void> importSharedPreferencesFromJson(BuildContext context) async {
       ),
     );
   } else {
-    // El usuario canceló la selección del archivo.
+    // The user deselected the file.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('No se seleccionó ningún archivo para importar.'),

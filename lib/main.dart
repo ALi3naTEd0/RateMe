@@ -5,7 +5,7 @@ import 'footer.dart';
 import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
 import 'search_page.dart';
-import 'shared_preferences_page.dart';  // Asegúrate de que este import esté presente y el archivo exista.
+import 'shared_preferences_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

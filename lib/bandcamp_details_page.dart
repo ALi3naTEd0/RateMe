@@ -132,7 +132,7 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _saveAlbum() async {
-    await UserData.saveAlbum(widget.album); // Espera a que el álbum se guarde
+    await UserData.saveAlbum(widget.album); // Wait for album to be saved
     List<int> trackIds = tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
     _printSavedIds(widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch, trackIds);
     ScaffoldMessenger.of(context).showSnackBar(
