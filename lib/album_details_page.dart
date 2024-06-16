@@ -1,3 +1,4 @@
+// album_details_page
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -5,6 +6,7 @@ import 'dart:convert';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
+import 'package:intl/intl.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -81,6 +83,11 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     return calculatedWidth.clamp(0.2, 0.5);
   }
 
+  String _formatReleaseDate(String releaseDate) {
+    DateTime date = DateTime.parse(releaseDate);
+    return DateFormat('d MMMM yyyy').format(date);
+  }
+
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
@@ -133,8 +140,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       children: [
                         Text("Release Date: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                            "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"),
+                        Text(_formatReleaseDate(widget.album['releaseDate'])),
                       ],
                     ),
                     Row(

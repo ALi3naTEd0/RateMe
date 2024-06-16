@@ -1,8 +1,6 @@
-// bandcamp_parser.dart
 import 'dart:convert';
-
-import 'package:html/dom.dart';
 import 'package:intl/intl.dart';
+import 'package:html/dom.dart';
 
 class BandcampParser {
   static String extractAlbumCoverUrl(Document document) {
@@ -87,12 +85,15 @@ class BandcampParser {
     List<Map<String, dynamic>> tracks =
         _extractTracksFromJson(contentJson, collectionId);
 
+    DateTime? releaseDate = extractReleaseDate(document);
+
     albums.add({
       'collectionId': collectionId,
       'title': title,
       'artist': artist,
       'albumArtUrl': albumArtUrl,
       'tracks': tracks,
+      'releaseDate': releaseDate,
     });
 
     return albums;
