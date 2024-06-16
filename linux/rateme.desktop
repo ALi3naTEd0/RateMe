@@ -1,6 +1,6 @@
 [Desktop Entry]
-Version=1.0
-Name=RateMe
+Version=0.0.9-5
+Name=Rate Me!
 Comment=A Music Rating App
 Exec=/usr/bin/rateme
 Icon=audio-player
