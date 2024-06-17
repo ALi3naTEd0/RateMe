@@ -10,7 +10,11 @@ depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme')
 makedepends=('git')  # Dependency for cloning the application repository
 source=(
   "git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}"
+  "git+https://aur.archlinux.org/flutter.git"
 )
+
+# Disable integrity checks for git sources
+options=('!check')
 
 prepare() {
   cd "$srcdir"
