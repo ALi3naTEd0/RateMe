@@ -13,6 +13,8 @@ source=(
   "git+https://aur.archlinux.org/flutter.git"
 )
 
+sha256sums=('SKIP' 'SKIP')  # Dummy checksums for git sources
+
 prepare() {
   cd "$srcdir"
   
