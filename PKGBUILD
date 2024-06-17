@@ -18,8 +18,10 @@ sha256sums=('SKIP' 'SKIP')  # Dummy checksums for git sources
 prepare() {
   cd "$srcdir"
   
-  # Clone flutter from AUR
-  git clone https://aur.archlinux.org/flutter.git
+  # Clone flutter from AUR only if it doesn't exist or is empty
+  if [ ! -d "$srcdir/flutter" ]; then
+    git clone https://aur.archlinux.org/flutter.git
+  fi
 }
 
 build() {
