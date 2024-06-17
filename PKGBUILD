@@ -6,18 +6,29 @@ pkgdesc="Rate Me!"
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')
-depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme' 'flutter')  # Dependencies needed for runtime, including flutter from AUR
+depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme')
 makedepends=('git')  # Dependency for cloning the application repository
 source=(
   "git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}"
-  "git+https://aur.archlinux.org/flutter.git"
 )
+
+prepare() {
+  cd "$srcdir"
+  
+  # Clone flutter from AUR
+  git clone https://aur.archlinux.org/flutter.git
+}
 
 build() {
   cd "$srcdir/RateMe"
   
-  # Assuming the application is built with Flutter
-  flutter build linux --release
+  # Copy flutter if not present in system
+  if [ ! -d "$srcdir/flutter" ]; then
+    cp -r "$srcdir/flutter" "$srcdir/RateMe"
+  fi
+  
+  # Build application with Flutter
+  ./flutter/bin/flutter build linux --release
 }
 
 package() {
