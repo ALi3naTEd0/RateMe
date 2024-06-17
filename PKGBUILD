@@ -6,23 +6,24 @@ pkgdesc="Rate Me!"
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')
-depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme' 'flutter')  # Dependencies necessary for execution on the user's system, including flutter from AUR
-makedepends=('git')  # Dependency to clone application repository
-source=("git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}")
-
-# Flutter dependency from AUR
-depends=('flutter')
+depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme' 'flutter')  # Dependencies needed for runtime, including flutter from AUR
+makedepends=('git')  # Dependency for cloning the application repository
+source=(
+  "git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}"
+  "git+https://aur.archlinux.org/flutter.git"
+)
 
 build() {
   cd "$srcdir/RateMe"
   
+  # Assuming the application is built with Flutter
   flutter build linux --release
 }
 
 package() {
   cd "$srcdir/RateMe"
   
-  # Install the application files
+  # Install application files
   install -Dm755 "build/linux/release/bundle/rateme" "$pkgdir/usr/bin/rateme"
   install -Dm644 "linux/rateme.desktop" "$pkgdir/usr/share/applications/rateme.desktop"
   
@@ -31,4 +32,3 @@ package() {
     install -Dm644 "assets/icon.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/rateme.png"
   fi
 }
-
