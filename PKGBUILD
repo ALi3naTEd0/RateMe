@@ -9,7 +9,7 @@ license=('GPL3')
 depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme')
 makedepends=('git')  # Dependency for cloning the application repository
 source=(
-  "git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}"
+  "git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}-${pkgrel}"
   "git+https://aur.archlinux.org/flutter.git"
 )
 
