@@ -13,9 +13,6 @@ source=(
   "git+https://aur.archlinux.org/flutter.git"
 )
 
-# Disable integrity checks for git sources
-options=('!check')
-
 prepare() {
   cd "$srcdir"
   
