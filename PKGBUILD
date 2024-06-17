@@ -21,19 +21,21 @@ prepare() {
   # Clone flutter from AUR only if it doesn't exist or is empty
   if [ ! -d "$srcdir/flutter" ]; then
     git clone https://aur.archlinux.org/flutter.git
+  else
+    cd flutter
+    git pull origin master  # Update flutter if already cloned
+    cd ..
   fi
 }
 
 build() {
   cd "$srcdir/RateMe"
   
-  # Copy flutter if not present in system
-  if [ ! -d "$srcdir/flutter" ]; then
-    cp -r "$srcdir/flutter" "$srcdir/RateMe"
-  fi
+  # Add flutter bin directory to PATH
+  export PATH="$PATH:$srcdir/flutter/bin"
   
   # Build application with Flutter
-  ./flutter/bin/flutter build linux --release
+  flutter build linux --release
 }
 
 package() {
