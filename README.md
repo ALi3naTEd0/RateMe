@@ -1,14 +1,35 @@
 # Rate Me!
 
+![Version](https://img.shields.io/badge/version-0.0.9--5-blue)
+![License](https://img.shields.io/badge/license-GPL--3.0-green)
+
+## Table of Contents
+- [Introduction](#introduction)
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Technologies Used](#technologies-used)
+- [Getting Started](#getting-started)
+- [How to Use](#how-to-use)
+- [Project Architecture](#project-architecture)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [Contributions](#contributions)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+- [Contact](#contact)
+
 ## Introduction
+
 Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and manage their favorite albums effortlessly. With **Rate Me!**, you can explore a wide variety of albums, rate each song individually, and get an overall view of the album's quality based on your personal ratings.
 
 ## Screenshots
+
 ![Screenshot 1](https://i.imgur.com/SgBZ4ZA.png)
 ![Screenshot 2](https://i.imgur.com/B5CFkFN.png)
 ![Screenshot 3](https://i.imgur.com/RhpIop9.png)
 
 ## Features
+
 - **Album Search**: Easily find albums by entering the artist's name, album title, or iTunes, Apple Music, or Bandcamp URL.
 - **Song Rating**: Rate each song within an album on a scale of 0 to 10, expressing your opinions on each track in detail.
 - **Average Rating Calculation**: The app dynamically calculates an average rating for each album based on the individual song ratings.
@@ -20,29 +41,79 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 - **Bandcamp Integration**: Support for Bandcamp links allows you to search and rate albums directly from Bandcamp.
 
 ## Technologies Used
-- **Flutter**: Used for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
-- **Dart**: As the primary programming language, Dart powers the logic and functionality of the **Rate Me!** application.
-- **iTunes API**: Utilized to search for albums and retrieve detailed album data, the iTunes API serves as the primary data source for the application.
+
+- [Flutter](https://flutter.dev/): Used for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
+- [Dart](https://dart.dev/): As the primary programming language, Dart powers the logic and functionality of the **Rate Me!** application.
+- [iTunes API](https://affiliate.itunes.apple.com/resources/documentation/itunes-store-web-service-search-api/): Utilized to search for albums and retrieve detailed album data, the iTunes API serves as the primary data source for the application.
 - **JSON Parser for Bandcamp**: A JSON parser is used to search and retrieve detailed album data from Bandcamp links.
 
+## Getting Started
+
+1. Clone the repository: `git clone https://github.com/ALi3naTEd0/RateMe.git rateme`
+2. Navigate to the project directory: `cd rateme`
+3. Install dependencies: `flutter pub get`
+4. Run the application: `flutter run`
+
 ## How to Use
+
 1. **Album Search**: Start by entering the artist's name, album title, or URL (iTunes, Apple Music, or Bandcamp) in the search bar to initiate a search for albums.
 2. **Rate Songs**: Upon selecting an album, rate each song individually by assigning a rating from 0 to 10.
 3. **View Album Details**: Explore comprehensive details about each album, including artist information, release date, and total album duration.
 4. **Saved History**: Access your saved ratings history to review past ratings and make any necessary edits.
 5. **Export and Import Data**: Use the export and import options to back up your rating data or transfer it to other devices.
 
-## Current Version
-This document corresponds to version 0.0.9-5 of **Rate Me!**, encompassing all the features and functionalities described above.
+## Project Architecture
 
-## Contributions and Issues
+(Here you can describe the folder structure and files of the project, as well as the main components and how they interact with each other.)
+
+## Development
+
+- **Environment Setup**: 
+  1. Ensure you have Flutter installed and added to your PATH. If not, follow the [official Flutter installation guide](https://flutter.dev/docs/get-started/install).
+  2. Once Flutter is set up, follow the steps in the [Getting Started](#getting-started) section above to set up the project.
+
+- **Code Conventions**: 
+  We follow the official [Dart style guide](https://dart.dev/guides/language/effective-dart/style) and [Flutter style guide](https://github.com/flutter/flutter/wiki/Style-guide-for-Flutter-repo). Please ensure your contributions adhere to these guidelines.
+
+- **Running Tests**: 
+  To run tests, use the following command in the project root directory:
+
+## Roadmap
+
+- Implementation of a recommendation system based on user ratings
+- Integration with additional music streaming services
+- Functionality to share ratings on RateYourMusic.com
+- Offline mode to access ratings without an internet connection
+
+## Contributions
+
 Contributions to the project are welcome! If you encounter any issues or wish to request a new feature, feel free to inform us through GitHub issues.
 
+To contribute:
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
 ## License
+
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the `LICENSE` file for more details.
 
+The GPL-3.0 is a strong copyleft license that requires any derivative software to also be open source under the same license. This ensures that the software remains free and open, protecting the rights of users and developers.
+
+## Acknowledgements
+
+- [http](https://pub.dev/packages/http) - Used for making HTTP requests to the iTunes API
+- [shared_preferences](https://pub.dev/packages/shared_preferences) - Used for storing simple data locally
+- [provider](https://pub.dev/packages/provider) - Used for state management in the application
+- [html](https://pub.dev/packages/html) - Used for parsing HTML content from Bandcamp pages
+
 ## Contact
-For any inquiries or additional information, you can contact us through [email/website/social media, as applicable]. We are here to help and improve our application together. Thank you for using **Rate Me!**!
+
+[Discord](https://discord.gg/z3FGHzJw)
+
+Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTEd0/RateMe)
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)
