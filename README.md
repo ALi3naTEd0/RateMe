@@ -6,6 +6,7 @@
 ## Table of Contents
 - [Introduction](#introduction)
 - [Screenshots](#screenshots)
+- [Downloads](#downloads)
 - [Features](#features)
 - [Technologies Used](#technologies-used)
 - [Getting Started](#getting-started)
@@ -27,6 +28,12 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ![Screenshot 1](https://i.imgur.com/SgBZ4ZA.png)
 ![Screenshot 2](https://i.imgur.com/B5CFkFN.png)
 ![Screenshot 3](https://i.imgur.com/RhpIop9.png)
+
+## Downloads
+| Windows      | MacOS        | Linux        |
+|--------------|--------------|--------------|
+| Portable     | Coming soon  | Coming soon  |
+| Installer    |              |              |
 
 ## Features
 
