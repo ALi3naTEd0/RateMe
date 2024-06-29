@@ -198,4 +198,25 @@ class UserData {
   static Future<void> importRatings(String filePath) async {
     // Example implementation for importing ratings from file omitted for brevity
   }
+
+  static Future<Map<int, double>?> getRatings(int albumId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedRatingsJson =
+        prefs.getStringList('saved_ratings_$albumId');
+
+    if (savedRatingsJson != null) {
+      Map<int, double> savedRatings = {};
+
+      for (String json in savedRatingsJson) {
+        Map<String, dynamic> rating = jsonDecode(json);
+        int trackId = rating['trackId'];
+        double ratingValue = rating['rating'];
+        savedRatings[trackId] = ratingValue;
+      }
+
+      return savedRatings;
+    } else {
+      return null;
+    }
+  }
 }
