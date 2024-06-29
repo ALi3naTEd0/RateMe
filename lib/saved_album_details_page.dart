@@ -5,6 +5,7 @@ import 'footer.dart';
 import 'app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'user_data.dart';
+import 'package:intl/intl.dart';
 
 class SavedAlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -39,7 +40,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
         tracks = trackList;
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
         calculateAlbumDuration();
-        _loadSavedRatings();
+        _loadSavedRatings(); // Call _loadSavedRatings method here
       });
     } catch (error) {
       print('Error fetching tracks: $error');
@@ -72,6 +73,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   }
 
   void _loadSavedRatings() async {
+    // Implement loading saved ratings logic here
     List<Map<String, dynamic>> savedRatings =
         await UserData.getSavedAlbumRatings(widget.album['collectionId']);
     setState(() {
@@ -82,38 +84,18 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     });
   }
 
-  void _launchRateYourMusic() async {
-    final artistName = widget.album['artistName'];
-    final albumName = widget.album['collectionName'];
-    final url =
-        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
-    try {
-      if (await canLaunch(url)) {
-        await launch(url);
-      } else {
-        throw 'Could not launch $url';
-      }
-    } catch (error) {
-      print('Error launching RateYourMusic: $error');
-    }
-  }
-
-  void _updateRating(int trackId, double newRating) async {
-    setState(() {
-      ratings[trackId] = newRating;
-      calculateAverageRating();
-    });
-
-    // Save the new rating automatically
-    await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
-  }
-
   double _calculateTitleWidth() {
     if (tracks.isEmpty) return 0.4; // Default value if no tracks
 
     // Adjust the width between 0.2 and 0.5 based on the size of the trackList
-    double calculatedWidth = (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble();
+    double calculatedWidth =
+        (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble();
     return calculatedWidth.clamp(0.2, 0.5);
+  }
+
+  String _formatReleaseDate(String releaseDate) {
+    DateTime date = DateTime.parse(releaseDate);
+    return DateFormat('d MMMM yyyy').format(date);
   }
 
   @override
@@ -169,7 +151,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                         Text("Release Date: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(
-                            "${DateTime.parse(widget.album['releaseDate']).toString().substring(0, 10).split('-').reversed.join('-')}"),
+                            "${DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']))}"),
                       ],
                     ),
                     Row(
@@ -274,5 +256,31 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     int seconds = (millis ~/ 1000) % 60;
     int minutes = (millis ~/ 1000) ~/ 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _updateRating(int trackId, double newRating) async {
+    setState(() {
+      ratings[trackId] = newRating;
+      calculateAverageRating();
+    });
+
+    // Save the new rating automatically
+    await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
+  }
+
+  void _launchRateYourMusic() async {
+    final artistName = widget.album['artistName'];
+    final albumName = widget.album['collectionName'];
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+    try {
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (error) {
+      print('Error launching RateYourMusic: $error');
+    }
   }
 }
