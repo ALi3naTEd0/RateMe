@@ -2,6 +2,9 @@
 
 ![Version](https://img.shields.io/badge/version-0.0.9--5-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green)
+![Downloads](https://img.shields.io/github/downloads/ALi3naTEd0/RateMe/total)
+![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
+![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -25,9 +28,12 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Screenshots
 
-![Screenshot 1](https://i.imgur.com/SgBZ4ZA.png)
-![Screenshot 2](https://i.imgur.com/B5CFkFN.png)
-![Screenshot 3](https://i.imgur.com/RhpIop9.png)
+<div style="display: flex; flex-wrap: wrap;">
+  <img src="https://i.imgur.com/SgBZ4ZA.png" alt="Screenshot 1" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+  <img src="https://i.imgur.com/B5CFkFN.png" alt="Screenshot 2" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+  <img src="https://i.imgur.com/RhpIop9.png" alt="Screenshot 3" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+  <!-- Add more images as needed -->
+</div>
 
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
@@ -69,9 +75,56 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 4. **Saved History**: Access your saved ratings history to review past ratings and make any necessary edits.
 5. **Export and Import Data**: Use the export and import options to back up your rating data or transfer it to other devices.
 
-## Project Architecture
+## Architecture
 
-(Here you can describe the folder structure and files of the project, as well as the main components and how they interact with each other.)
+This Flutter project follows a modular architecture and uses the Provider pattern for state management. The main components are described below:
+
+### Main Components
+
+1. **MusicRatingApp**: The main widget of the application. It handles the global theme state (light/dark) and persists it using SharedPreferences.
+2. **SearchPage**: Allows users to search for albums on iTunes or enter Bandcamp URLs. It uses debouncing to optimize API calls.
+3. **SavedRatingsPage**: Displays saved albums and their ratings. Allows reordering the list and deleting albums.
+4. **AlbumDetailsPage**: Shows details of an iTunes album, including tracks and their individual ratings. Allows users to rate tracks and save the album.
+5. **BandcampSavedAlbumPage**: Displays details of a Bandcamp album, including tracks and their ratings. Supports rating tracks and saving the album.
+6. **UserData**: Utility class for handling data persistence using SharedPreferences. Manages saving and retrieving album data and ratings.
+
+### Data Handling
+
+- **SharedPreferences**: Used to locally store saved albums, ratings, and user preferences.
+- **HTTP**: Used to make requests to the iTunes API and retrieve album information.
+- **HTML Parser**: Utilized to parse Bandcamp album pages and extract relevant information.
+
+### Services
+
+- **BandcampService**: Handles the logic for obtaining album information from Bandcamp.
+- **BandcampParser**: Extracts track information and release date from Bandcamp HTML pages.
+
+### Themes
+
+- **AppTheme**: Defines the light and dark themes of the application.
+
+### Reusable UI Components
+
+- **Footer**: Reusable footer widget used across various screens.
+
+### Key Features
+
+1. Album search on iTunes and Bandcamp
+2. Saving albums and ratings
+3. Viewing saved albums and their details
+4. Rating individual tracks for both iTunes and Bandcamp albums
+5. Calculating average rating per album
+6. Switching between light/dark themes
+7. Exporting and importing preferences
+8. Integration with RateYourMusic for additional album information
+
+### External Integrations
+
+- **iTunes API**: Used to fetch album and track information for iTunes albums.
+- **Bandcamp**: Web scraping is used to fetch album and track information from Bandcamp pages.
+- **RateYourMusic**: Provides a link to search for the album on RateYourMusic for additional ratings and reviews.
+
+This architecture allows for a clear separation of concerns, facilitating project maintenance and scalability. It also provides a consistent user experience across different music platforms (iTunes and Bandcamp) while maintaining platform-specific data retrieval methods.
 
 ## Development
 
@@ -115,6 +168,16 @@ The GPL-3.0 is a strong copyleft license that requires any derivative software t
 - [shared_preferences](https://pub.dev/packages/shared_preferences) - Used for storing simple data locally
 - [provider](https://pub.dev/packages/provider) - Used for state management in the application
 - [html](https://pub.dev/packages/html) - Used for parsing HTML content from Bandcamp pages
+- [path_provider](https://pub.dev/packages/path_provider) - Used for finding commonly used locations on the filesystem
+- [flutter_xlider](https://pub.dev/packages/flutter_xlider) - Used for creating customizable range sliders
+- [url_launcher](https://pub.dev/packages/url_launcher) - Used for launching URLs in the mobile platform
+- [file_selector](https://pub.dev/packages/file_selector) - Used for selecting files or directories
+- [file_picker](https://pub.dev/packages/file_picker) - Used for picking files from the device storage
+- [file_saver](https://pub.dev/packages/file_saver) - Used for saving files to the device
+- [permission_handler](https://pub.dev/packages/permission_handler) - Used for handling runtime permissions
+- [share_plus](https://pub.dev/packages/share_plus) - Used for sharing content from the app
+- [csv](https://pub.dev/packages/csv) - Used for parsing and encoding CSV data
+- [intl](https://pub.dev/packages/intl) - Used for internationalization and localization
 
 ## Contact
 
