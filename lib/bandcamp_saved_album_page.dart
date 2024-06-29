@@ -29,6 +29,15 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   void initState() {
     super.initState();
     _fetchAlbumDetails();
+    _loadRatings();  // Cargar los ratings aquí
+  }
+
+  void _loadRatings() async {
+    final savedRatings = await UserData.getRatings(widget.album['collectionId']);
+    setState(() {
+      ratings = savedRatings ?? {};
+      calculateAverageRating();
+    });
   }
 
   void _fetchAlbumDetails() async {
@@ -44,7 +53,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
         tracksData.forEach((track) {
           final trackId = track['trackId'];
           if (trackId != null) {
-            ratings[trackId] = 0.0;
+            ratings.putIfAbsent(trackId, () => 0.0);
           }
         });
 
