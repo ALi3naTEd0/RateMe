@@ -30,10 +30,10 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ![Screenshot 3](https://i.imgur.com/RhpIop9.png)
 
 ## Downloads
-| Windows      | MacOS        | Linux        |
-|--------------|--------------|--------------|
-| Portable     | Coming soon  | Coming soon  |
-| Installer    |              |              |
+| Windows      | MacOS        | Linux        | Android      | iOS          |
+|--------------|--------------|--------------|--------------|--------------|
+| Portable     | Coming soon  | Coming soon  | Maybe?       | Maybe?       |
+| Installer    |              |              |              |              |
 
 ## Features
 
