@@ -37,6 +37,7 @@ build() {
 package() {
   cd "$srcdir/RateMe"
 
-  install -Dm755 "build/linux/release/bundle/rateme" "$pkgdir/usr/bin/rateme"
+  # Make sure the binary directory exists and is correctly referenced
+  install -Dm755 "build/linux/x64/release/bundle/rateme" "$pkgdir/usr/bin/rateme"
   install -Dm644 "linux/rateme.desktop" "$pkgdir/usr/share/applications/rateme.desktop"
 }
