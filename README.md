@@ -32,10 +32,6 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 |:-------------------------:|:-------------------------:|:-------------------------:|
 |![Screenshot 1](https://i.imgur.com/jjclzhS.png)       |  ![Screenshot 2](https://i.imgur.com/m73eQXI.png)|![Screenshot 3](https://i.imgur.com/ve8LkiB.png)|
 
-![Screenshot 1](https://i.imgur.com/SgBZ4ZA.png)
-![Screenshot 2](https://i.imgur.com/B5CFkFN.png)
-![Screenshot 3](https://i.imgur.com/RhpIop9.png)
-
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
