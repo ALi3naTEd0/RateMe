@@ -29,9 +29,9 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Screenshots
 
 <div style="display: flex; flex-wrap: wrap;">
-  <img src="https://i.imgur.com/SgBZ4ZA.png" alt="Screenshot 1" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
-  <img src="https://i.imgur.com/B5CFkFN.png" alt="Screenshot 2" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
-  <img src="https://i.imgur.com/RhpIop9.png" alt="Screenshot 3" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+  <img src="[Imgur](https://i.imgur.com/SgBZ4ZA.png)" alt="Screenshot 1" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+  <img src="[Imgur](https://i.imgur.com/B5CFkFN.png)" alt="Screenshot 2" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+  <img src="[Imgur](https://i.imgur.com/RhpIop9.png)" alt="Screenshot 3" style="width: 30%; margin: 1%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
   <!-- Add more images as needed -->
 </div>
 
