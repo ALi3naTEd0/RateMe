@@ -6,7 +6,7 @@ pkgdesc="Rate Me!"
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')
-depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme' 'flutter')
+depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme')
 makedepends=('git')
 options=('!lto')
 source=(
@@ -19,7 +19,7 @@ prepare() {
 
   # Update Flutter if necessary
   if [ ! -d "$srcdir/flutter" ]; then
-    git clone https://aur.archlinux.org/flutter.git "$srcdir/flutter"
+    git clone https://github.com/flutter/flutter.git -b stable "$srcdir/flutter"
   else
     cd "$srcdir/flutter"
     git pull
@@ -28,10 +28,9 @@ prepare() {
 
 build() {
   cd "$srcdir/flutter"
-  makepkg -sric --noconfirm
+  export PATH="$srcdir/flutter/bin:$PATH"
 
   cd "$srcdir/RateMe"
-  export PATH="$PATH:/opt/flutter/bin"
   flutter build linux --release --no-tree-shake-icons
 }
 
