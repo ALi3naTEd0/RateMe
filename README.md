@@ -6,6 +6,8 @@
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
 
+[Discord](https://discordapp.com/channels/@me/343448030986371072/)
+
 ## Table of Contents
 - [Introduction](#introduction)
 - [Screenshots](#screenshots)
@@ -178,7 +180,7 @@ The GPL-3.0 is a strong copyleft license that requires any derivative software t
 
 ## Contact
 
-[Discord](https://discord.gg/z3FGHzJw)
+[Discord](https://discordapp.com/channels/@me/343448030986371072/)
 
 Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTEd0/RateMe)
 
