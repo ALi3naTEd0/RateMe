@@ -6,6 +6,8 @@
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
 
+[Discord](https://discordapp.com/channels/@me/343448030986371072/)
+
 ## Table of Contents
 - [Introduction](#introduction)
 - [Screenshots](#screenshots)
@@ -35,8 +37,8 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| Portable     | Coming soon  | Coming soon  | Maybe?       | Maybe?       |
-| Installer    |              |              |              |              |
+| [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-5/RateMe.v0.0.9-5.exe)    | Coming soon  | Coming soon  | Maybe?       | Maybe?       |
+| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-5/RateMe.v0.0.9-5.zip)     |              |              |              |              |
 
 ## Features
 
@@ -72,7 +74,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 4. **Saved History**: Access your saved ratings history to review past ratings and make any necessary edits.
 5. **Export and Import Data**: Use the export and import options to back up your rating data or transfer it to other devices.
 
-## Architecture
+## Project Architecture
 
 This Flutter project follows a modular architecture and uses the Provider pattern for state management. The main components are described below:
 
@@ -178,7 +180,7 @@ The GPL-3.0 is a strong copyleft license that requires any derivative software t
 
 ## Contact
 
-[Discord](https://discord.gg/z3FGHzJw)
+[Discord](https://discordapp.com/channels/@me/343448030986371072/)
 
 Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTEd0/RateMe)
 
