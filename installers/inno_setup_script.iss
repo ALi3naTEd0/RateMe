@@ -5,7 +5,7 @@
 #define MyAppVersion "0.0.9.5"
 #define MyAppPublisher "ALi3naTEd0"
 #define MyAppURL "https://github.com/ALi3naTEd0/RateMe/"
-#define MyAppExeName "RateMe!.exe"
+#define MyAppExeName "rateme.exe"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -23,7 +23,7 @@ DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 OutputDir=C:\Users\x\Desktop\rateme\installers
-OutputBaseFilename=RateMe!
+OutputBaseFilename=RateMe!v0.0.9-5
 SetupIconFile=C:\Users\x\Desktop\rateme\windows\runner\resources\app_icon.ico
 Compression=lzma
 SolidCompression=yes
