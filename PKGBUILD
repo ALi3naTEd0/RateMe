@@ -30,7 +30,7 @@ build() {
     flutter build linux --release --no-tree-shake-icons
     
     # Configura RPATH
-    patchelf --set-rpath '$ORIGIN/lib' build/linux/x64/release/bundle/rateme
+    patchelf --set-rpath '$ORIGIN/lib:/usr/lib/flutter-engine' build/linux/x64/release/bundle/rateme
 }
 
 package() {
@@ -49,6 +49,6 @@ package() {
     # Instalar archivo .desktop
     install -Dm644 "linux/rateme.desktop" "$pkgdir/usr/share/applications/rateme.desktop"
     
-    # Ajustar el archivo .desktop si es necesario
+    # Ajustar el archivo .desktop
     sed -i 's|^Exec=.*|Exec=/opt/rateme/rateme|' "$pkgdir/usr/share/applications/rateme.desktop"
 }
