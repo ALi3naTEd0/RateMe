@@ -26,7 +26,7 @@
 
 ## Introduction
 
-Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and manage their favorite albums effortlessly. With **Rate Me!**, you can explore a wide variety of albums, rate each song individually, and get an overall view of the album's quality based on your personal ratings.
+Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and manage your favorite albums effortlessly. With **Rate Me!**, you can explore a wide variety of albums, rate each song individually, and get an overall view of the album's quality based on your personal ratings.
 
 ## Screenshots
 
