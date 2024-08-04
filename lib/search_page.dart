@@ -5,7 +5,6 @@ import 'dart:async';
 import 'album_details_page.dart';
 import 'bandcamp_details_page.dart';
 import 'bandcamp_service.dart';
-import 'saved_preferences_page.dart';
 
 class SearchPage extends StatefulWidget {
   @override
@@ -60,8 +59,7 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   title: Text(searchResults[index]['collectionName']),
                   subtitle: Text(searchResults[index]['artistName']),
-                  onTap: () =>
-                      _showAlbumDetails(context, searchResults[index]),
+                  onTap: () => _showAlbumDetails(context, searchResults[index]),
                 );
               },
             ),

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:file_saver/file_saver.dart';
 import 'app_theme.dart';
 
 class SharedPreferencesPage extends StatelessWidget {
@@ -23,7 +21,8 @@ class SharedPreferencesPage extends StatelessWidget {
                 exportSharedPreferencesToJson(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.lightTheme.colorScheme.primary, // Use the light purple color defined in app_theme.dart
+                backgroundColor: AppTheme.lightTheme.colorScheme
+                    .primary, // Use the light purple color defined in app_theme.dart
               ),
               child: Text(
                 'Exportar',
@@ -38,7 +37,8 @@ class SharedPreferencesPage extends StatelessWidget {
                 importSharedPreferencesFromJson(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.lightTheme.colorScheme.primary, // Use the light purple color defined in app_theme.dart
+                backgroundColor: AppTheme.lightTheme.colorScheme
+                    .primary, // Use the light purple color defined in app_theme.dart
               ),
               child: Text(
                 'Importar',
@@ -75,7 +75,8 @@ class SharedPreferencesPage extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Los datos de SharedPreferences se han exportado correctamente en: $path'),
+          content: Text(
+              'Los datos de SharedPreferences se han exportado correctamente en: $path'),
         ),
       );
     } else {
@@ -122,7 +123,8 @@ class SharedPreferencesPage extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Los datos de SharedPreferences se han importado correctamente desde: $path'),
+          content: Text(
+              'Los datos de SharedPreferences se han importado correctamente desde: $path'),
         ),
       );
     } else {
