@@ -151,8 +151,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       children: [
                         const Text("Release Date: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(DateFormat('d MMMM yyyy').format(
-                            DateTime.parse(widget.album['releaseDate']))),
+                        Text(_formatReleaseDate(widget.album['releaseDate'])),
                       ],
                     ),
                     Row(
