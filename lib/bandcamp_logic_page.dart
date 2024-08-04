@@ -18,7 +18,9 @@ class BandcampLogicPage extends ChangeNotifier {
       final document = parse(response.body);
       final extractedTracks = BandcampParser.extractTracks(document);
       tracks = extractedTracks;
-      extractedTracks.forEach((track) => ratings[track['trackId']] = 0.0);
+      for (var track in extractedTracks) {
+        ratings[track['trackId']] = 0.0;
+      }
       calculateAlbumDuration();
       _loadSavedRatings(collectionId);
       isLoading = false;
@@ -42,9 +44,9 @@ class BandcampLogicPage extends ChangeNotifier {
 
   void calculateAlbumDuration() {
     int totalDuration = 0;
-    tracks.forEach((track) {
+    for (var track in tracks) {
       totalDuration += track['duration'] as int;
-    });
+    }
     albumDurationMillis = totalDuration;
     notifyListeners();
   }

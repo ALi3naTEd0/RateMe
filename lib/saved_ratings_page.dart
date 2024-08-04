@@ -5,6 +5,8 @@ import 'bandcamp_saved_album_page.dart';
 import 'footer.dart';
 
 class SavedRatingsPage extends StatefulWidget {
+  const SavedRatingsPage({super.key});
+
   @override
   _SavedRatingsPageState createState() => _SavedRatingsPageState();
 }
@@ -38,7 +40,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   double _calculateAverageRating(List<Map<String, dynamic>> ratings) {
     if (ratings.isEmpty) return 0.0;
-    var uniqueRatings = Map<int, double>();
+    var uniqueRatings = <int, double>{};
 
     for (var rating in ratings.reversed) {
       if (!uniqueRatings.containsKey(rating['trackId'])) {
@@ -57,15 +59,15 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Confirm Delete"),
-          content: Text(
+          title: const Text("Confirm Delete"),
+          content: const Text(
               "Are you sure you want to delete this item from Saved Ratings?"),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text("Cancel"),
+              child: const Text("Cancel"),
             ),
             TextButton(
               onPressed: () async {
@@ -79,7 +81,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     .toList());
                 Navigator.of(context).pop();
               },
-              child: Text("Delete"),
+              child: const Text("Delete"),
             ),
           ],
         );
@@ -127,21 +129,21 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Saved Ratings'),
+        title: const Text('Saved Ratings'),
       ),
       body: isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : savedAlbums.isEmpty
-              ? Center(child: Text('No saved albums found'))
+              ? const Center(child: Text('No saved albums found'))
               : ConstrainedBox(
                   constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width),
                   child: SingleChildScrollView(
-                    child: Container(
+                    child: SizedBox(
                       height: MediaQuery.of(context).size.height,
                       child: ReorderableListView(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        physics: AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        physics: const AlwaysScrollableScrollPhysics(),
                         onReorder: _onReorder,
                         children: savedAlbums.map((album) {
                           return ListTile(
@@ -152,7 +154,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                 Container(
                                   width: 50,
                                   height: 50,
-                                  padding: EdgeInsets.all(4),
+                                  padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(
@@ -175,14 +177,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Image.network(
                                   album['artworkUrl100'],
                                   width: 50,
                                   height: 50,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
-                                      Icon(Icons.album),
+                                      const Icon(Icons.album),
                                 ),
                               ],
                             ),
@@ -194,9 +196,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                 GestureDetector(
                                   onTap: () =>
                                       _deleteAlbum(savedAlbums.indexOf(album)),
-                                  child: Icon(Icons.delete),
+                                  child: const Icon(Icons.delete),
                                 ),
-                                SizedBox(width: 16),
+                                const SizedBox(width: 16),
                               ],
                             ),
                             onTap: () {
@@ -211,7 +213,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     ),
                   ),
                 ),
-      bottomNavigationBar: Footer(),
+      bottomNavigationBar: const Footer(),
     );
   }
 }

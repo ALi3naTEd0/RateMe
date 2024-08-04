@@ -11,7 +11,7 @@ import 'user_data.dart';
 class BandcampSavedAlbumPage extends StatefulWidget {
   final dynamic album;
 
-  BandcampSavedAlbumPage({Key? key, required this.album}) : super(key: key);
+  const BandcampSavedAlbumPage({super.key, required this.album});
 
   @override
   _BandcampSavedAlbumPageState createState() => _BandcampSavedAlbumPageState();
@@ -50,12 +50,12 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
         final tracksData = BandcampParser.extractTracks(document);
         final releaseDateData = BandcampParser.extractReleaseDate(document);
 
-        tracksData.forEach((track) {
+        for (var track in tracksData) {
           final trackId = track['trackId'];
           if (trackId != null) {
             ratings.putIfAbsent(trackId, () => 0.0);
           }
-        });
+        }
 
         setState(() {
           tracks = tracksData;
@@ -89,9 +89,9 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
 
   void calculateAlbumDuration() {
     int totalDuration = 0;
-    tracks.forEach((track) {
+    for (var track in tracks) {
       totalDuration += track['duration'] as int;
-    });
+    }
     setState(() {
       albumDurationMillis = totalDuration;
     });
@@ -119,7 +119,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   void _saveAlbum() async {
     await UserData.saveAlbum(widget.album); // Wait for album to be saved
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text('Album saved successfully'),
         duration: Duration(seconds: 2),
       ),
@@ -163,12 +163,12 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       ),
       body: Center(
         child: isLoading
-            ? CircularProgressIndicator()
+            ? const CircularProgressIndicator()
             : SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Image.network(
@@ -179,18 +179,18 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                         height: 300,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
-                            Icon(Icons.album, size: 300),
+                            const Icon(Icons.album, size: 300),
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Artist: ",
+                              const Text("Artist: ",
                                   style: TextStyle(fontWeight: FontWeight.bold)),
                               Text(widget.album['artistName'] ?? 'Unknown Artist'),
                             ],
@@ -198,7 +198,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Album: ",
+                              const Text("Album: ",
                                   style: TextStyle(fontWeight: FontWeight.bold)),
                               Text(widget.album['collectionName'] ?? 'Unknown Album'),
                             ],
@@ -206,7 +206,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Release Date: ",
+                              const Text("Release Date: ",
                                   style: TextStyle(fontWeight: FontWeight.bold)),
                               Text(_formatReleaseDate(releaseDate)),
                             ],
@@ -214,7 +214,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Duration: ",
+                              const Text("Duration: ",
                                   style: TextStyle(fontWeight: FontWeight.bold)),
                               Text(formatDuration(albumDurationMillis)),
                             ],
@@ -222,36 +222,36 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Rating: ",
+                              const Text("Rating: ",
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20)),
                               Text(averageRating.toStringAsFixed(2),
-                                  style: TextStyle(fontSize: 20)),
+                                  style: const TextStyle(fontSize: 20)),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _saveAlbum,
-                      child: Text(
-                        'Save Album',
-                        style: TextStyle(color: Colors.white),
-                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).brightness ==
                                 Brightness.dark
                             ? AppTheme.darkTheme.colorScheme.primary
                             : AppTheme.lightTheme.colorScheme.primary,
                       ),
+                      child: const Text(
+                        'Save Album',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-                    Divider(),
+                    const Divider(),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        columns: [
+                        columns: const [
                           DataColumn(
                             label: Text('Track No.', textAlign: TextAlign.center),
                           ),
@@ -313,7 +313,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                                         ),
                                         Text(
                                           ratings[trackId]?.toStringAsFixed(0) ?? '0',
-                                          style: TextStyle(fontSize: 16),
+                                          style: const TextStyle(fontSize: 16),
                                         ),
                                       ],
                                     ),
@@ -325,22 +325,22 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                         }).toList(),
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _launchRateYourMusic,
-                      child: Text(
-                        'Rate on RateYourMusic',
-                        style: TextStyle(color: Colors.white),
-                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).brightness ==
                                 Brightness.dark
                             ? AppTheme.darkTheme.colorScheme.primary
                             : AppTheme.lightTheme.colorScheme.primary,
                       ),
+                      child: const Text(
+                        'Rate on RateYourMusic',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-                    SizedBox(height: 20),
-                    Footer(),
+                    const SizedBox(height: 20),
+                    const Footer(),
                   ],
                 ),
               ),

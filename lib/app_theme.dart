@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static final lightTheme = ThemeData.light().copyWith(
-    colorScheme: ColorScheme.light().copyWith(
-      primary: Color(0xFF864AF9), // Light purple
-      secondary: Color(0xFF5E35B1), // Dark purple
+    colorScheme: const ColorScheme.light().copyWith(
+      primary: const Color(0xFF864AF9), // Light purple
+      secondary: const Color(0xFF5E35B1), // Dark purple
     ),
     scaffoldBackgroundColor: Colors.white,
-    sliderTheme: SliderThemeData(
+    sliderTheme: const SliderThemeData(
       thumbColor: Color(0xFF864AF9), // Light purple
       activeTrackColor: Color(0xFF864AF9), // Light purple
       valueIndicatorTextStyle: TextStyle(
@@ -16,29 +16,29 @@ class AppTheme {
       ),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.all<Color>(Color(0xFF864AF9)), // Light purple
-      trackColor: MaterialStateProperty.all<Color>(Color(0xFF5E35B1).withOpacity(0.5)), // Dark purple with opacity
-      overlayColor: MaterialStateProperty.all<Color>(Colors.purple.withOpacity(0.12)), // Purple overlay with opacity
+      thumbColor: WidgetStateProperty.all<Color>(const Color(0xFF864AF9)), // Light purple
+      trackColor: WidgetStateProperty.all<Color>(const Color(0xFF5E35B1).withOpacity(0.5)), // Dark purple with opacity
+      overlayColor: WidgetStateProperty.all<Color>(Colors.purple.withOpacity(0.12)), // Purple overlay with opacity
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.disabled)) {
+        backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.disabled)) {
             return Colors.grey; // Change button color when disabled
           }
-          return Color(0xFF864AF9); // Light purple
+          return const Color(0xFF864AF9); // Light purple
         }),
       ),
     ),
   );
 
   static final darkTheme = ThemeData.dark().copyWith(
-    colorScheme: ColorScheme.dark().copyWith(
-      primary: Color(0xFF5E35B1), // Dark purple
-      secondary: Color(0xFF864AF9), // Light purple
+    colorScheme: const ColorScheme.dark().copyWith(
+      primary: const Color(0xFF5E35B1), // Dark purple
+      secondary: const Color(0xFF864AF9), // Light purple
     ),
-    scaffoldBackgroundColor: Color(0xFF1E1E1E), // Dark grey
-    sliderTheme: SliderThemeData(
+    scaffoldBackgroundColor: const Color(0xFF1E1E1E), // Dark grey
+    sliderTheme: const SliderThemeData(
       thumbColor: Color(0xFF5E35B1), // Dark purple
       activeTrackColor: Color(0xFF5E35B1), // Dark purple
       valueIndicatorTextStyle: TextStyle(
@@ -47,17 +47,17 @@ class AppTheme {
       ),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.all<Color>(Color(0xFF5E35B1)), // Dark purple
-      trackColor: MaterialStateProperty.all<Color>(Color(0xFF864AF9).withOpacity(0.5)), // Light purple with opacity
-      overlayColor: MaterialStateProperty.all<Color>(Colors.purple.withOpacity(0.12)), // Purple overlay with opacity
+      thumbColor: WidgetStateProperty.all<Color>(const Color(0xFF5E35B1)), // Dark purple
+      trackColor: WidgetStateProperty.all<Color>(const Color(0xFF864AF9).withOpacity(0.5)), // Light purple with opacity
+      overlayColor: WidgetStateProperty.all<Color>(Colors.purple.withOpacity(0.12)), // Purple overlay with opacity
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.disabled)) {
+        backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.disabled)) {
             return Colors.grey; // Change button color when disabled
           }
-          return Color(0xFF5E35B1); // Dark purple
+          return const Color(0xFF5E35B1); // Dark purple
         }),
       ),
     ),

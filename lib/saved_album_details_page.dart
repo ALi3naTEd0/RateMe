@@ -10,7 +10,7 @@ import 'package:intl/intl.dart';
 class SavedAlbumDetailsPage extends StatefulWidget {
   final dynamic album;
 
-  SavedAlbumDetailsPage({Key? key, required this.album}) : super(key: key);
+  const SavedAlbumDetailsPage({super.key, required this.album});
 
   @override
   _SavedAlbumDetailsPageState createState() => _SavedAlbumDetailsPageState();
@@ -62,11 +62,11 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
 
   void calculateAlbumDuration() {
     int totalDuration = 0;
-    tracks.forEach((track) {
+    for (var track in tracks) {
       if (track['trackTimeMillis'] != null) {
         totalDuration += (track['trackTimeMillis'] ?? 0) as int;
       }
-    });
+    }
     setState(() {
       albumDurationMillis = totalDuration;
     });
@@ -111,7 +111,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Image.network(
@@ -121,18 +121,18 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                   height: 300,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
-                      Icon(Icons.album, size: 300),
+                      const Icon(Icons.album, size: 300),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Artist: ",
+                        const Text("Artist: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${widget.album['artistName']}"),
                       ],
@@ -140,7 +140,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Album: ",
+                        const Text("Album: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${widget.album['collectionName']}"),
                       ],
@@ -148,16 +148,16 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Release Date: ",
+                        const Text("Release Date: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(
-                            "${DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']))}"),
+                            DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']))),
                       ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Duration: ",
+                        const Text("Duration: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(formatDuration(albumDurationMillis)),
                       ],
@@ -165,18 +165,18 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Rating: ",
+                        const Text("Rating: ",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20)),
-                        Text(averageRating.toStringAsFixed(2), style: TextStyle(fontSize: 20)),
+                        Text(averageRating.toStringAsFixed(2), style: const TextStyle(fontSize: 20)),
                       ],
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 20),
-              Divider(),
+              const SizedBox(height: 20),
+              const Divider(),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
@@ -205,7 +205,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                         ),
                       ),
                       DataCell(Text(formatDuration(track['trackTimeMillis']))),
-                      DataCell(Container(
+                      DataCell(SizedBox(
                         width: 150,
                         child: Row(
                           children: [
@@ -229,26 +229,26 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                   )).toList(),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
-                child: Text(
-                  'RateYourMusic.com',
-                  style: TextStyle(color: Colors.white),
-                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).brightness == Brightness.dark
                       ? AppTheme.darkTheme.colorScheme.primary
                       : AppTheme.lightTheme.colorScheme.primary,
                 ),
+                child: const Text(
+                  'RateYourMusic.com',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-              SizedBox(height: 20),
-              SizedBox(height: 100),
+              const SizedBox(height: 20),
+              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: Footer(),
+      bottomNavigationBar: const Footer(),
     );
   }
 

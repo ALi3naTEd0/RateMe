@@ -36,7 +36,7 @@ Future<void> exportSharedPreferencesToJson(BuildContext context) async {
   } else {
     // The user deselected the file.
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content:
             Text('No se seleccionó ningún directorio para guardar el archivo.'),
       ),

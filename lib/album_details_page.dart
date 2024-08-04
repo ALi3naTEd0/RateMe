@@ -10,7 +10,7 @@ import 'package:intl/intl.dart';
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
 
-  AlbumDetailsPage({Key? key, required this.album}) : super(key: key);
+  const AlbumDetailsPage({super.key, required this.album});
 
   @override
   _AlbumDetailsPageState createState() => _AlbumDetailsPageState();
@@ -63,11 +63,11 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
   void calculateAlbumDuration() {
     int totalDuration = 0;
-    tracks.forEach((track) {
+    for (var track in tracks) {
       if (track['trackTimeMillis'] != null) {
         totalDuration += (track['trackTimeMillis'] ?? 0) as int;
       }
-    });
+    }
     setState(() {
       albumDurationMillis = totalDuration;
     });
@@ -100,7 +100,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Image.network(
@@ -110,18 +110,18 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                   height: 300,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
-                      Icon(Icons.album, size: 300),
+                      const Icon(Icons.album, size: 300),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Artist: ",
+                        const Text("Artist: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${widget.album['artistName']}"),
                       ],
@@ -129,7 +129,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Album: ",
+                        const Text("Album: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text("${widget.album['collectionName']}"),
                       ],
@@ -137,7 +137,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Release Date: ",
+                        const Text("Release Date: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(_formatReleaseDate(widget.album['releaseDate'])),
                       ],
@@ -145,7 +145,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Duration: ",
+                        const Text("Duration: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(formatDuration(albumDurationMillis)),
                       ],
@@ -153,31 +153,31 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Rating: ",
+                        const Text("Rating: ",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 20)),
                         Text(averageRating.toStringAsFixed(2),
-                            style: TextStyle(fontSize: 20)),
+                            style: const TextStyle(fontSize: 20)),
                       ],
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _saveRatings,
-                child: Text(
-                  'Save Album',
-                  style: TextStyle(color: Colors.white),
-                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       Theme.of(context).brightness == Brightness.dark
                           ? AppTheme.darkTheme.colorScheme.primary
                           : AppTheme.lightTheme.colorScheme.primary,
                 ),
+                child: const Text(
+                  'Save Album',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-              Divider(),
+              const Divider(),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
@@ -210,7 +210,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                               ),
                               DataCell(Text(
                                   formatDuration(track['trackTimeMillis']))),
-                              DataCell(Container(
+                              DataCell(SizedBox(
                                 width: 150,
                                 child: Row(
                                   children: [
@@ -236,27 +236,27 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       .toList(),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
-                child: Text(
-                  'RateYourMusic.com',
-                  style: TextStyle(color: Colors.white),
-                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       Theme.of(context).brightness == Brightness.dark
                           ? AppTheme.darkTheme.colorScheme.primary
                           : AppTheme.lightTheme.colorScheme.primary,
                 ),
+                child: const Text(
+                  'RateYourMusic.com',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-              SizedBox(height: 20),
-              SizedBox(height: 100), // Add additional space to prevent overflow
+              const SizedBox(height: 20),
+              const SizedBox(height: 100), // Add additional space to prevent overflow
             ],
           ),
         ),
       ),
-      bottomNavigationBar: Footer(),
+      bottomNavigationBar: const Footer(),
     );
   }
 
@@ -269,7 +269,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   void _saveRatings() {
     UserData.saveAlbum(widget.album);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text('Album saved in history'),
         duration: Duration(seconds: 2),
       ),
