@@ -46,7 +46,7 @@ Future<void> importSharedPreferencesFromJson(BuildContext context) async {
   } else {
     // The user deselected the file.
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text('No se seleccionó ningún archivo para importar.'),
       ),
     );

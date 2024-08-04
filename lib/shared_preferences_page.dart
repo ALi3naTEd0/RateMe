@@ -6,11 +6,13 @@ import 'package:file_picker/file_picker.dart';
 import 'app_theme.dart';
 
 class SharedPreferencesPage extends StatelessWidget {
+  const SharedPreferencesPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('SharedPreferences'),
+        title: const Text('SharedPreferences'),
       ),
       body: Center(
         child: Column(
@@ -24,14 +26,14 @@ class SharedPreferencesPage extends StatelessWidget {
                 backgroundColor: AppTheme.lightTheme.colorScheme
                     .primary, // Use the light purple color defined in app_theme.dart
               ),
-              child: Text(
+              child: const Text(
                 'Exportar',
                 style: TextStyle(
                   color: Colors.white, // White text
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 importSharedPreferencesFromJson(context);
@@ -40,7 +42,7 @@ class SharedPreferencesPage extends StatelessWidget {
                 backgroundColor: AppTheme.lightTheme.colorScheme
                     .primary, // Use the light purple color defined in app_theme.dart
               ),
-              child: Text(
+              child: const Text(
                 'Importar',
                 style: TextStyle(
                   color: Colors.white, // White text
@@ -81,7 +83,7 @@ class SharedPreferencesPage extends StatelessWidget {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('No se seleccionó ningún archivo para guardar.'),
         ),
       );
@@ -129,7 +131,7 @@ class SharedPreferencesPage extends StatelessWidget {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('No se seleccionó ningún archivo para importar.'),
         ),
       );

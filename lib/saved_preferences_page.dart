@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'user_data.dart';
 
 class SavedPreferencesPage extends StatefulWidget {
+  const SavedPreferencesPage({super.key});
+
   @override
   _SavedPreferencesPageState createState() => _SavedPreferencesPageState();
 }
@@ -31,10 +33,10 @@ class _SavedPreferencesPageState extends State<SavedPreferencesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Saved Preferences'),
+        title: const Text('Saved Preferences'),
       ),
       body: savedAlbums.isEmpty
-          ? Center(child: Text('No albums saved'))
+          ? const Center(child: Text('No albums saved'))
           : ListView.builder(
               itemCount: savedAlbums.length,
               itemBuilder: (context, index) {
@@ -43,27 +45,27 @@ class _SavedPreferencesPageState extends State<SavedPreferencesPage> {
                   title: Text(album['collectionName']),
                   subtitle: Text(album['artistName']),
                   trailing: IconButton(
-                    icon: Icon(Icons.delete),
+                    icon: const Icon(Icons.delete),
                     onPressed: () {
                       showDialog(
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: Text('Confirm Delete'),
-                            content: Text('Are you sure you want to delete this album?'),
+                            title: const Text('Confirm Delete'),
+                            content: const Text('Are you sure you want to delete this album?'),
                             actions: <Widget>[
                               TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                 },
-                                child: Text('Cancel'),
+                                child: const Text('Cancel'),
                               ),
                               TextButton(
                                 onPressed: () {
                                   _deleteAlbum(album);
                                   Navigator.of(context).pop();
                                 },
-                                child: Text('Delete'),
+                                child: const Text('Delete'),
                               ),
                             ],
                           );

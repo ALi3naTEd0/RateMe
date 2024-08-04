@@ -7,6 +7,8 @@ import 'bandcamp_details_page.dart';
 import 'bandcamp_service.dart';
 
 class SearchPage extends StatefulWidget {
+  const SearchPage({super.key});
+
   @override
   _SearchPageState createState() => _SearchPageState();
 }
@@ -20,20 +22,20 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Search Albums'),
+        title: const Text('Search Albums'),
       ),
       body: Column(
         children: <Widget>[
           Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Container(
+            padding: const EdgeInsets.all(8.0),
+            child: SizedBox(
               width: MediaQuery.of(context).size.width * 0.85,
               child: TextField(
                 controller: searchController,
                 decoration: InputDecoration(
                   labelText: 'Search Albums or Paste URL',
                   suffixIcon: IconButton(
-                    icon: Icon(Icons.search),
+                    icon: const Icon(Icons.search),
                     onPressed: () {
                       _performSearch(searchController.text);
                     },
@@ -55,7 +57,7 @@ class _SearchPageState extends State<SearchPage> {
                     height: 50,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
-                        Icon(Icons.album),
+                        const Icon(Icons.album),
                   ),
                   title: Text(searchResults[index]['collectionName']),
                   subtitle: Text(searchResults[index]['artistName']),
@@ -71,7 +73,7 @@ class _SearchPageState extends State<SearchPage> {
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(Duration(milliseconds: 500), () {
+    _debounce = Timer(const Duration(milliseconds: 500), () {
       _performSearch(query);
     });
   }

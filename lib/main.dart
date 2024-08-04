@@ -9,10 +9,12 @@ import 'shared_preferences_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(MusicRatingApp());
+  runApp(const MusicRatingApp());
 }
 
 class MusicRatingApp extends StatefulWidget {
+  const MusicRatingApp({super.key});
+
   @override
   _MusicRatingAppState createState() => _MusicRatingAppState();
 }
@@ -50,7 +52,7 @@ class _MusicRatingAppState extends State<MusicRatingApp> {
   @override
   Widget build(BuildContext context) {
     if (_themeBrightness == null) {
-      return CircularProgressIndicator();
+      return const CircularProgressIndicator();
     }
     return MaterialApp(
       title: 'Rate Me!',
@@ -70,7 +72,7 @@ class MusicRatingHomePage extends StatelessWidget {
   final Function toggleTheme;
   final Brightness themeBrightness;
 
-  MusicRatingHomePage({
+  const MusicRatingHomePage({super.key, 
     required this.toggleTheme,
     required this.themeBrightness,
   });
@@ -79,7 +81,7 @@ class MusicRatingHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rate Me!'),
+        title: const Text('Rate Me!'),
         centerTitle: true,
         leading: Tooltip(
           message: 'Saved Ratings',
@@ -89,7 +91,7 @@ class MusicRatingHomePage extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SavedRatingsPage()),
+                MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
               );
             },
           ),
@@ -109,28 +111,28 @@ class MusicRatingHomePage extends StatelessWidget {
           Tooltip(
             message: 'Shared Preferences',
             child: IconButton(
-              icon: Icon(Icons.settings),
+              icon: const Icon(Icons.settings),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => SharedPreferencesPage()),
+                      builder: (context) => const SharedPreferencesPage()),
                 );
               },
             ),
           ),
         ],
       ),
-      body: SearchPage(),
-      bottomNavigationBar: Footer(),
+      body: const SearchPage(),
+      bottomNavigationBar: const Footer(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => SavedPreferencesPage()),
+            MaterialPageRoute(builder: (context) => const SavedPreferencesPage()),
           );
         },
-        child: Icon(Icons.delete),
+        child: const Icon(Icons.delete),
       ),
     );
   }
