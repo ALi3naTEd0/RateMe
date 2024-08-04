@@ -67,8 +67,10 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   }
 
   void _loadRatings() async {
-    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
-    List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
+    int albumId =
+        widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+    List<Map<String, dynamic>> savedRatings =
+        await UserData.getSavedAlbumRatings(albumId);
     Map<int, double> ratingsMap = {};
     for (var rating in savedRatings) {
       int trackId = rating['trackId'];
@@ -120,7 +122,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       calculateAverageRating();
     });
 
-    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+    int albumId =
+        widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
     await UserData.saveRating(albumId, trackId, newRating);
     print('Updated rating for trackId $trackId: $newRating');
   }
@@ -133,8 +136,11 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
 
   void _saveAlbum() async {
     await UserData.saveAlbum(widget.album); // Wait for album to be saved
-    List<int> trackIds = tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
-    _printSavedIds(widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch, trackIds);
+    List<int> trackIds =
+        tracks.map((track) => track['trackId'] ?? 0).cast<int>().toList();
+    _printSavedIds(
+        widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch,
+        trackIds);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Album saved in history'),
@@ -146,10 +152,12 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
   void _launchRateYourMusic() async {
     final artistName = widget.album['artistName'];
     final albumName = widget.album['collectionName'];
-    final url = 'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
     try {
-      if (await canLaunch(url)) {
-        await launch(url);
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
       } else {
         throw 'Could not launch $url';
       }
@@ -188,11 +196,14 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Image.network(
-                        widget.album['artworkUrl100']?.replaceAll('100x100', '600x600') ?? '',
+                        widget.album['artworkUrl100']
+                                ?.replaceAll('100x100', '600x600') ??
+                            '',
                         width: 300,
                         height: 300,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.album, size: 300),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.album, size: 300),
                       ),
                     ),
                     Padding(
@@ -203,36 +214,50 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Artist: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.album['artistName'] ?? 'Unknown Artist'),
+                              const Text("Artist: ",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.album['artistName'] ??
+                                  'Unknown Artist'),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Album: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.album['collectionName'] ?? 'Unknown Album'),
+                              const Text("Album: ",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.album['collectionName'] ??
+                                  'Unknown Album'),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Release Date: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text("Release Date: ",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(_formatReleaseDate(releaseDate)),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Duration: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text("Duration: ",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(formatDuration(albumDurationMillis)),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Rating: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                              Text(averageRating.toStringAsFixed(2), style: const TextStyle(fontSize: 20)),
+                              const Text("Rating: ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20)),
+                              Text(averageRating.toStringAsFixed(2),
+                                  style: const TextStyle(fontSize: 20)),
                             ],
                           ),
                         ],
@@ -242,9 +267,10 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                     ElevatedButton(
                       onPressed: _saveAlbum,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                       child: const Text(
                         'Save Album',
@@ -257,7 +283,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                       child: DataTable(
                         columns: const [
                           DataColumn(
-                            label: Text('Track No.', textAlign: TextAlign.center),
+                            label:
+                                Text('Track No.', textAlign: TextAlign.center),
                           ),
                           DataColumn(
                             label: Text('Title', textAlign: TextAlign.center),
@@ -283,7 +310,9 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                                   message: track['title'] ?? '',
                                   child: ConstrainedBox(
                                     constraints: BoxConstraints(
-                                      maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                              titleWidthFactor,
                                     ),
                                     child: Text(
                                       track['title'] ?? '',
@@ -294,7 +323,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                               ),
                               DataCell(
                                 Center(
-                                  child: Text(formatDuration(track['duration'] ?? 0)),
+                                  child: Text(
+                                      formatDuration(track['duration'] ?? 0)),
                                 ),
                               ),
                               DataCell(
@@ -309,14 +339,17 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                                             min: 0,
                                             max: 10,
                                             divisions: 10,
-                                            label: ratings[trackId]?.toStringAsFixed(0),
+                                            label: ratings[trackId]
+                                                ?.toStringAsFixed(0),
                                             onChanged: (newRating) {
                                               _updateRating(trackId, newRating);
                                             },
                                           ),
                                         ),
                                         Text(
-                                          ratings[trackId]?.toStringAsFixed(0) ?? '0',
+                                          ratings[trackId]
+                                                  ?.toStringAsFixed(0) ??
+                                              '0',
                                           style: const TextStyle(fontSize: 16),
                                         ),
                                       ],
@@ -333,9 +366,10 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
                     ElevatedButton(
                       onPressed: _launchRateYourMusic,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                       child: const Text(
                         'Rate on RateYourMusic',

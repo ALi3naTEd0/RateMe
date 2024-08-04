@@ -29,11 +29,12 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   void initState() {
     super.initState();
     _fetchAlbumDetails();
-    _loadRatings();  // Cargar los ratings aquí
+    _loadRatings(); // Cargar los ratings aquí
   }
 
   void _loadRatings() async {
-    final savedRatings = await UserData.getRatings(widget.album['collectionId']);
+    final savedRatings =
+        await UserData.getRatings(widget.album['collectionId']);
     setState(() {
       ratings = savedRatings ?? {};
       calculateAverageRating();
@@ -132,8 +133,9 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
     final url =
         'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
     try {
-      if (await canLaunch(url)) {
-        await launch(url);
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
       } else {
         throw 'Could not launch $url';
       }
@@ -191,23 +193,28 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text("Artist: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.album['artistName'] ?? 'Unknown Artist'),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.album['artistName'] ??
+                                  'Unknown Artist'),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text("Album: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.album['collectionName'] ?? 'Unknown Album'),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.album['collectionName'] ??
+                                  'Unknown Album'),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text("Release Date: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(_formatReleaseDate(releaseDate)),
                             ],
                           ),
@@ -215,7 +222,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text("Duration: ",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(formatDuration(albumDurationMillis)),
                             ],
                           ),
@@ -237,10 +245,10 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                     ElevatedButton(
                       onPressed: _saveAlbum,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                       child: const Text(
                         'Save Album',
@@ -253,7 +261,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                       child: DataTable(
                         columns: const [
                           DataColumn(
-                            label: Text('Track No.', textAlign: TextAlign.center),
+                            label:
+                                Text('Track No.', textAlign: TextAlign.center),
                           ),
                           DataColumn(
                             label: Text('Title', textAlign: TextAlign.left),
@@ -279,7 +288,9 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                                   message: track['title'] ?? '',
                                   child: ConstrainedBox(
                                     constraints: BoxConstraints(
-                                      maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                              titleWidthFactor,
                                     ),
                                     child: Text(
                                       track['title'] ?? '',
@@ -290,7 +301,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                               ),
                               DataCell(
                                 Center(
-                                  child: Text(formatDuration(track['duration'] ?? 0)),
+                                  child: Text(
+                                      formatDuration(track['duration'] ?? 0)),
                                 ),
                               ),
                               DataCell(
@@ -305,14 +317,17 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                                             min: 0,
                                             max: 10,
                                             divisions: 10,
-                                            label: ratings[trackId]?.toStringAsFixed(0),
+                                            label: ratings[trackId]
+                                                ?.toStringAsFixed(0),
                                             onChanged: (newRating) {
                                               _updateRating(trackId, newRating);
                                             },
                                           ),
                                         ),
                                         Text(
-                                          ratings[trackId]?.toStringAsFixed(0) ?? '0',
+                                          ratings[trackId]
+                                                  ?.toStringAsFixed(0) ??
+                                              '0',
                                           style: const TextStyle(fontSize: 16),
                                         ),
                                       ],
@@ -329,10 +344,10 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                     ElevatedButton(
                       onPressed: _launchRateYourMusic,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? AppTheme.darkTheme.colorScheme.primary
-                            : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkTheme.colorScheme.primary
+                                : AppTheme.lightTheme.colorScheme.primary,
                       ),
                       child: const Text(
                         'Rate on RateYourMusic',

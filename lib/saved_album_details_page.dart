@@ -34,8 +34,9 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     try {
       final response = await http.get(url);
       final data = jsonDecode(response.body);
-      var trackList =
-          data['results'].where((track) => track['wrapperType'] == 'track').toList();
+      var trackList = data['results']
+          .where((track) => track['wrapperType'] == 'track')
+          .toList();
       setState(() {
         tracks = trackList;
         trackList.forEach((track) => ratings[track['trackId']] = 0.0);
@@ -150,8 +151,8 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       children: [
                         const Text("Release Date: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                            DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']))),
+                        Text(DateFormat('d MMMM yyyy').format(
+                            DateTime.parse(widget.album['releaseDate']))),
                       ],
                     ),
                     Row(
@@ -167,9 +168,9 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                       children: [
                         const Text("Rating: ",
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20)),
-                        Text(averageRating.toStringAsFixed(2), style: const TextStyle(fontSize: 20)),
+                                fontWeight: FontWeight.bold, fontSize: 20)),
+                        Text(averageRating.toStringAsFixed(2),
+                            style: const TextStyle(fontSize: 20)),
                       ],
                     ),
                   ],
@@ -187,55 +188,62 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                     DataColumn(
                         label: Text('Rating', textAlign: TextAlign.center)),
                   ],
-                  rows: tracks.map((track) => DataRow(
-                    cells: [
-                      DataCell(Text(track['trackNumber'].toString())),
-                      DataCell(
-                        Tooltip(
-                          message: track['trackName'],
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
-                            ),
-                            child: Text(
-                              track['trackName'],
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(Text(formatDuration(track['trackTimeMillis']))),
-                      DataCell(SizedBox(
-                        width: 150,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Slider(
-                                min: 0,
-                                max: 10,
-                                divisions: 10,
-                                value: ratings[track['trackId']] ?? 0.0,
-                                onChanged: (newRating) {
-                                  _updateRating(track['trackId'], newRating);
-                                },
+                  rows: tracks
+                      .map((track) => DataRow(
+                            cells: [
+                              DataCell(Text(track['trackNumber'].toString())),
+                              DataCell(
+                                Tooltip(
+                                  message: track['trackName'],
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                              titleWidthFactor,
+                                    ),
+                                    child: Text(
+                                      track['trackName'],
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            Text((ratings[track['trackId']] ?? 0.0)
-                                .toStringAsFixed(0)),
-                          ],
-                        ),
-                      )),
-                    ],
-                  )).toList(),
+                              DataCell(Text(
+                                  formatDuration(track['trackTimeMillis']))),
+                              DataCell(SizedBox(
+                                width: 150,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Slider(
+                                        min: 0,
+                                        max: 10,
+                                        divisions: 10,
+                                        value: ratings[track['trackId']] ?? 0.0,
+                                        onChanged: (newRating) {
+                                          _updateRating(
+                                              track['trackId'], newRating);
+                                        },
+                                      ),
+                                    ),
+                                    Text((ratings[track['trackId']] ?? 0.0)
+                                        .toStringAsFixed(0)),
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ))
+                      .toList(),
                 ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkTheme.colorScheme.primary
-                      : AppTheme.lightTheme.colorScheme.primary,
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkTheme.colorScheme.primary
+                          : AppTheme.lightTheme.colorScheme.primary,
                 ),
                 child: const Text(
                   'RateYourMusic.com',
@@ -273,9 +281,11 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
     final albumName = widget.album['collectionName'];
     final url =
         'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+
     try {
-      if (await canLaunch(url)) {
-        await launch(url);
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
       } else {
         throw 'Could not launch $url';
       }
