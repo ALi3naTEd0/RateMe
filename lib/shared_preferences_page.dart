@@ -75,18 +75,24 @@ class SharedPreferencesPage extends StatelessWidget {
       File file = File(path);
       await file.writeAsString(jsonData);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Los datos de SharedPreferences se han exportado correctamente en: $path'),
-        ),
-      );
+      if (context.mounted) {
+        // Check if the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Los datos de SharedPreferences se han exportado correctamente en: $path'),
+          ),
+        );
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se seleccionó ningún archivo para guardar.'),
-        ),
-      );
+      if (context.mounted) {
+        // Check if the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se seleccionó ningún archivo para guardar.'),
+          ),
+        );
+      }
     }
   }
 
@@ -123,18 +129,24 @@ class SharedPreferencesPage extends StatelessWidget {
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Los datos de SharedPreferences se han importado correctamente desde: $path'),
-        ),
-      );
+      if (context.mounted) {
+        // Check if the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Los datos de SharedPreferences se han importado correctamente desde: $path'),
+          ),
+        );
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se seleccionó ningún archivo para importar.'),
-        ),
-      );
+      if (context.mounted) {
+        // Check if the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se seleccionó ningún archivo para importar.'),
+          ),
+        );
+      }
     }
   }
 }

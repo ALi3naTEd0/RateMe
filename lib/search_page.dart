@@ -96,18 +96,24 @@ class _SearchPageState extends State<SearchPage> {
         'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&entity=album');
     final response = await http.get(url);
     final data = jsonDecode(response.body);
-    setState(() => searchResults = data['results']);
+    if (mounted) {
+      setState(() => searchResults = data['results']);
+    }
   }
 
   void _fetchBandcampAlbumInfo(String url) async {
     try {
       final albumInfo = await BandcampService.saveAlbum(url);
-      setState(() => searchResults = [albumInfo]);
+      if (mounted) {
+        setState(() => searchResults = [albumInfo]);
+      }
     } catch (e) {
-      setState(() => searchResults = []);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Failed to load Bandcamp album: $e'),
-      ));
+      if (mounted) {
+        setState(() => searchResults = []);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to load Bandcamp album: $e'),
+        ));
+      }
     }
   }
 

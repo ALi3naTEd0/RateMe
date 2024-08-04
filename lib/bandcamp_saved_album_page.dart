@@ -35,10 +35,12 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   void _loadRatings() async {
     final savedRatings =
         await UserData.getRatings(widget.album['collectionId']);
-    setState(() {
-      ratings = savedRatings ?? {};
-      calculateAverageRating();
-    });
+    if (mounted) {
+      setState(() {
+        ratings = savedRatings ?? {};
+        calculateAverageRating();
+      });
+    }
   }
 
   void _fetchAlbumDetails() async {
@@ -58,20 +60,24 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
           }
         }
 
-        setState(() {
-          tracks = tracksData;
-          releaseDate = releaseDateData;
-          isLoading = false;
-          calculateAlbumDuration();
-        });
+        if (mounted) {
+          setState(() {
+            tracks = tracksData;
+            releaseDate = releaseDateData;
+            isLoading = false;
+            calculateAlbumDuration();
+          });
+        }
       } else {
         throw Exception('Failed to load album page');
       }
     } catch (error, st) {
       print('Error fetching album details: $error $st');
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -79,12 +85,16 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
     var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
     if (ratedTracks.isNotEmpty) {
       double total = ratedTracks.reduce((a, b) => a + b);
-      setState(() {
-        averageRating = total / ratedTracks.length;
-        averageRating = double.parse(averageRating.toStringAsFixed(2));
-      });
+      if (mounted) {
+        setState(() {
+          averageRating = total / ratedTracks.length;
+          averageRating = double.parse(averageRating.toStringAsFixed(2));
+        });
+      }
     } else {
-      setState(() => averageRating = 0.0);
+      if (mounted) {
+        setState(() => averageRating = 0.0);
+      }
     }
   }
 
@@ -93,9 +103,11 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
     for (var track in tracks) {
       totalDuration += track['duration'] as int;
     }
-    setState(() {
-      albumDurationMillis = totalDuration;
-    });
+    if (mounted) {
+      setState(() {
+        albumDurationMillis = totalDuration;
+      });
+    }
   }
 
   double _calculateTitleWidth() {
@@ -108,10 +120,12 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
   }
 
   void _updateRating(int trackId, double newRating) async {
-    setState(() {
-      ratings[trackId] = newRating;
-      calculateAverageRating();
-    });
+    if (mounted) {
+      setState(() {
+        ratings[trackId] = newRating;
+        calculateAverageRating();
+      });
+    }
 
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
     print('Updated rating for trackId $trackId: $newRating');
@@ -119,12 +133,14 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
 
   void _saveAlbum() async {
     await UserData.saveAlbum(widget.album); // Wait for album to be saved
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Album saved successfully'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Album saved successfully'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _launchRateYourMusic() async {
