@@ -251,7 +251,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              const SizedBox(height: 100), // Add additional space to prevent overflow
+              const SizedBox(
+                  height: 100), // Add additional space to prevent overflow
             ],
           ),
         ),
