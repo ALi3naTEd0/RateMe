@@ -3,7 +3,6 @@ import 'user_data.dart';
 import 'saved_album_details_page.dart';
 import 'bandcamp_saved_album_page.dart';
 import 'footer.dart';
-import 'app_theme.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   @override
@@ -25,7 +24,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     for (var album in albums) {
       int? collectionId = int.tryParse(album['collectionId'].toString());
       if (collectionId != null) {
-        List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(collectionId);
+        List<Map<String, dynamic>> ratings =
+            await UserData.getSavedAlbumRatings(collectionId);
         double averageRating = _calculateAverageRating(ratings);
         album['averageRating'] = averageRating;
       }
@@ -58,7 +58,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text("Confirm Delete"),
-          content: Text("Are you sure you want to delete this item from Saved Ratings?"),
+          content: Text(
+              "Are you sure you want to delete this item from Saved Ratings?"),
           actions: [
             TextButton(
               onPressed: () {
@@ -73,7 +74,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   savedAlbums.removeAt(index);
                 });
                 // Update the list of albums saved in persistent memory
-                await UserData.saveAlbumOrder(savedAlbums.map<String>((album) => album['collectionId'].toString()).toList());
+                await UserData.saveAlbumOrder(savedAlbums
+                    .map<String>((album) => album['collectionId'].toString())
+                    .toList());
                 Navigator.of(context).pop();
               },
               child: Text("Delete"),
@@ -91,12 +94,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     if (url != null && url.contains('bandcamp.com')) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => BandcampSavedAlbumPage(album: album)),
+        MaterialPageRoute(
+            builder: (context) => BandcampSavedAlbumPage(album: album)),
       );
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => SavedAlbumDetailsPage(album: album)),
+        MaterialPageRoute(
+            builder: (context) => SavedAlbumDetailsPage(album: album)),
       );
     }
   }
@@ -110,7 +115,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       savedAlbums.insert(newIndex, album);
     });
 
-    List<String> albumIds = savedAlbums.map<String>((album) => album['collectionId'].toString()).toList();
+    List<String> albumIds = savedAlbums
+        .map<String>((album) => album['collectionId'].toString())
+        .toList();
     UserData.saveAlbumOrder(albumIds);
   }
 
@@ -127,7 +134,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           : savedAlbums.isEmpty
               ? Center(child: Text('No saved albums found'))
               : ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width),
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width),
                   child: SingleChildScrollView(
                     child: Container(
                       height: MediaQuery.of(context).size.height,
@@ -147,15 +155,22 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                   padding: EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: isDarkTheme ? Colors.white : Colors.black),
+                                    border: Border.all(
+                                        color: isDarkTheme
+                                            ? Colors.white
+                                            : Colors.black),
                                   ),
                                   child: Center(
                                     child: Text(
-                                      album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                                      album['averageRating']
+                                              ?.toStringAsFixed(2) ??
+                                          'N/A',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: isDarkTheme ? Colors.white : Colors.black,
+                                        color: isDarkTheme
+                                            ? Colors.white
+                                            : Colors.black,
                                       ),
                                     ),
                                   ),
@@ -166,7 +181,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                   width: 50,
                                   height: 50,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Icon(Icons.album),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Icon(Icons.album),
                                 ),
                               ],
                             ),
@@ -176,14 +192,18 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 GestureDetector(
-                                  onTap: () => _deleteAlbum(savedAlbums.indexOf(album)),
+                                  onTap: () =>
+                                      _deleteAlbum(savedAlbums.indexOf(album)),
                                   child: Icon(Icons.delete),
                                 ),
                                 SizedBox(width: 16),
                               ],
                             ),
                             onTap: () {
-                              _openSavedAlbumDetails(savedAlbums.indexWhere((a) => a['collectionId'] == album['collectionId']));
+                              _openSavedAlbumDetails(savedAlbums.indexWhere(
+                                  (a) =>
+                                      a['collectionId'] ==
+                                      album['collectionId']));
                             },
                           );
                         }).toList(),
