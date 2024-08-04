@@ -32,10 +32,12 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         album['averageRating'] = averageRating;
       }
     }
-    setState(() {
-      savedAlbums = albums;
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        savedAlbums = albums;
+        isLoading = false;
+      });
+    }
   }
 
   double _calculateAverageRating(List<Map<String, dynamic>> ratings) {
@@ -55,7 +57,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   }
 
   void _deleteAlbum(int index) async {
-    showDialog(
+    bool? confirmDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -65,21 +67,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(false);
               },
               child: const Text("Cancel"),
             ),
             TextButton(
-              onPressed: () async {
-                await UserData.deleteAlbum(savedAlbums[index]);
-                setState(() {
-                  savedAlbums.removeAt(index);
-                });
-                // Update the list of albums saved in persistent memory
-                await UserData.saveAlbumOrder(savedAlbums
-                    .map<String>((album) => album['collectionId'].toString())
-                    .toList());
-                Navigator.of(context).pop();
+              onPressed: () {
+                Navigator.of(context).pop(true);
               },
               child: const Text("Delete"),
             ),
@@ -87,6 +81,19 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         );
       },
     );
+
+    if (confirmDelete == true) {
+      await UserData.deleteAlbum(savedAlbums[index]);
+      if (mounted) {
+        setState(() {
+          savedAlbums.removeAt(index);
+        });
+      }
+      // Update the list of albums saved in persistent memory
+      await UserData.saveAlbumOrder(savedAlbums
+          .map<String>((album) => album['collectionId'].toString())
+          .toList());
+    }
   }
 
   void _openSavedAlbumDetails(int index) {

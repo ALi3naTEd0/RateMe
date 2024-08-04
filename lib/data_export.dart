@@ -27,19 +27,25 @@ Future<void> exportSharedPreferencesToJson(BuildContext context) async {
     // We save the JSON file in the selected directory.
     File(path).writeAsStringSync(jsonData);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Los datos de SharedPreferences se han exportado correctamente en: $path'),
-      ),
-    );
+    if (context.mounted) {
+      // Check if the widget is still mounted
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Los datos de SharedPreferences se han exportado correctamente en: $path'),
+        ),
+      );
+    }
   } else {
     // The user deselected the file.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content:
-            Text('No se seleccionó ningún directorio para guardar el archivo.'),
-      ),
-    );
+    if (context.mounted) {
+      // Check if the widget is still mounted
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No se seleccionó ningún directorio para guardar el archivo.'),
+        ),
+      );
+    }
   }
 }

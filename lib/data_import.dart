@@ -37,18 +37,23 @@ Future<void> importSharedPreferencesFromJson(BuildContext context) async {
       }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Los datos de SharedPreferences se han importado correctamente desde: $path'),
-      ),
-    );
+    if (context.mounted) {
+      // Check if the widget is still mounted
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Los datos de SharedPreferences se han importado correctamente desde: $path'),
+        ),
+      );
+    }
   } else {
-    // The user deselected the file.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No se seleccionó ningún archivo para importar.'),
-      ),
-    );
+    if (context.mounted) {
+      // Check if the widget is still mounted
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se seleccionó ningún archivo para importar.'),
+        ),
+      );
+    }
   }
 }
