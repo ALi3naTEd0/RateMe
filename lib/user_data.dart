@@ -7,25 +7,25 @@ class UserData {
     List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
     List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
 
-    if (savedAlbumsJson != null && albumOrder != null) {
-      List<Map<String, dynamic>> savedAlbums = [];
-      Map<String, Map<String, dynamic>> albumMap = {};
+    List<Map<String, dynamic>> savedAlbums = [];
+    Map<String, Map<String, dynamic>> albumMap = {};
 
+    if (savedAlbumsJson != null) {
       for (String json in savedAlbumsJson) {
         Map<String, dynamic> album = jsonDecode(json);
         albumMap[album['collectionId'].toString()] = album;
       }
+    }
 
+    if (albumOrder != null) {
       for (String id in albumOrder) {
         if (albumMap.containsKey(id)) {
           savedAlbums.add(albumMap[id]!);
         }
       }
-
-      return savedAlbums;
-    } else {
-      return [];
     }
+
+    return savedAlbums;
   }
 
   static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(
@@ -34,17 +34,15 @@ class UserData {
     List<String>? savedRatingsJson =
         prefs.getStringList('saved_ratings_$albumId');
 
-    if (savedRatingsJson != null) {
-      List<Map<String, dynamic>> savedRatings = [];
+    List<Map<String, dynamic>> savedRatings = [];
 
+    if (savedRatingsJson != null) {
       for (String json in savedRatingsJson) {
         savedRatings.add(jsonDecode(json));
       }
-
-      return savedRatings;
-    } else {
-      return [];
     }
+
+    return savedRatings;
   }
 
   static Future<void> saveAlbum(Map<String, dynamic> album) async {
@@ -161,11 +159,7 @@ class UserData {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String key = 'album_track_ids_$collectionId';
     List<String>? trackIdsStr = prefs.getStringList(key);
-    if (trackIdsStr != null) {
-      return trackIdsStr.map((id) => int.tryParse(id) ?? 0).toList();
-    } else {
-      return [];
-    }
+    return trackIdsStr?.map((id) => int.tryParse(id) ?? 0).toList() ?? [];
   }
 
   static Future<void> saveAlbumTrackIds(
@@ -215,8 +209,8 @@ class UserData {
       }
 
       return savedRatings;
-    } else {
-      return null;
     }
+
+    return null;
   }
 }
