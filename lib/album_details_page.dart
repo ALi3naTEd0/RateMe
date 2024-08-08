@@ -6,6 +6,7 @@ import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
 import 'package:intl/intl.dart';
+import 'logging.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -43,8 +44,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
         calculateAverageRating();
         calculateAlbumDuration();
       });
-    } catch (error) {
-      print('Error fetching tracks: $error');
+    } catch (error, stackTrace) {
+      Logging.severe('Error fetching tracks', error, stackTrace);
     }
   }
 
@@ -299,8 +300,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       } else {
         throw 'Could not launch $url';
       }
-    } catch (error) {
-      print('Error launching RateYourMusic: $error');
+    } catch (error, stackTrace) {
+      Logging.severe('Error launching RateYourMusic', error, stackTrace);
     }
   }
 }

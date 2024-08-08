@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
 import 'bandcamp_parser.dart';
-
-import '../user_data.dart';
+import 'user_data.dart';
+import 'logging.dart';
 
 class BandcampLogicPage extends ChangeNotifier {
   List<Map<String, dynamic>> tracks = [];
@@ -25,8 +25,8 @@ class BandcampLogicPage extends ChangeNotifier {
       _loadSavedRatings(collectionId);
       isLoading = false;
       notifyListeners();
-    } catch (error) {
-      print('Error fetching tracks: $error');
+    } catch (error, stackTrace) {
+      Logging.severe('Error fetching tracks', error, stackTrace);
     }
   }
 
@@ -64,6 +64,6 @@ class BandcampLogicPage extends ChangeNotifier {
     ratings[trackId] = newRating;
     calculateAverageRating();
     await UserData.saveRating(albumId, trackId, newRating);
-    print('Updated rating for trackId $trackId: $newRating');
+    Logging.info('Updated rating for trackId $trackId', null, null);
   }
 }
