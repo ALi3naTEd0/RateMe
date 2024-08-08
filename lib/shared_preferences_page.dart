@@ -106,37 +106,39 @@ class SharedPreferencesPage extends StatelessWidget {
 
     if (result != null) {
       PlatformFile file = result.files.first;
-      String path = file.path!;
+      String? path = file.path;
 
-      // We read the selected JSON file.
-      String jsonData = await File(path).readAsString();
+      if (path != null) {
+        // We read the selected JSON file.
+        String jsonData = await File(path).readAsString();
 
-      // We process the JSON and import the data into SharedPreferences.
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      Map<String, dynamic> data = jsonDecode(jsonData);
+        // We process the JSON and import the data into SharedPreferences.
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        Map<String, dynamic> data = jsonDecode(jsonData);
 
-      data.forEach((key, value) {
-        if (value is int) {
-          prefs.setInt(key, value);
-        } else if (value is double) {
-          prefs.setDouble(key, value);
-        } else if (value is bool) {
-          prefs.setBool(key, value);
-        } else if (value is String) {
-          prefs.setString(key, value);
-        } else if (value is List<String>) {
-          prefs.setStringList(key, value);
+        data.forEach((key, value) {
+          if (value is int) {
+            prefs.setInt(key, value);
+          } else if (value is double) {
+            prefs.setDouble(key, value);
+          } else if (value is bool) {
+            prefs.setBool(key, value);
+          } else if (value is String) {
+            prefs.setString(key, value);
+          } else if (value is List<String>) {
+            prefs.setStringList(key, value);
+          }
+        });
+
+        if (context.mounted) {
+          // Check if the widget is still mounted
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Los datos de SharedPreferences se han importado correctamente desde: $path'),
+            ),
+          );
         }
-      });
-
-      if (context.mounted) {
-        // Check if the widget is still mounted
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Los datos de SharedPreferences se han importado correctamente desde: $path'),
-          ),
-        );
       }
     } else {
       if (context.mounted) {
