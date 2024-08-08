@@ -6,9 +6,14 @@ import 'saved_preferences_page.dart';
 import 'saved_ratings_page.dart';
 import 'search_page.dart';
 import 'shared_preferences_page.dart';
+import 'logging.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configura el sistema de logging
+  Logging.setupLogging();
+
   runApp(const MusicRatingApp());
 }
 
@@ -72,7 +77,8 @@ class MusicRatingHomePage extends StatelessWidget {
   final Function toggleTheme;
   final Brightness themeBrightness;
 
-  const MusicRatingHomePage({super.key, 
+  const MusicRatingHomePage({
+    super.key,
     required this.toggleTheme,
     required this.themeBrightness,
   });
@@ -91,7 +97,8 @@ class MusicRatingHomePage extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
+                MaterialPageRoute(
+                    builder: (context) => const SavedRatingsPage()),
               );
             },
           ),
@@ -129,7 +136,8 @@ class MusicRatingHomePage extends StatelessWidget {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const SavedPreferencesPage()),
+            MaterialPageRoute(
+                builder: (context) => const SavedPreferencesPage()),
           );
         },
         child: const Icon(Icons.delete),

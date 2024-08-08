@@ -7,6 +7,7 @@ import 'bandcamp_parser.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
+import 'logging.dart';
 
 class BandcampSavedAlbumPage extends StatefulWidget {
   final dynamic album;
@@ -71,8 +72,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       } else {
         throw Exception('Failed to load album page');
       }
-    } catch (error, st) {
-      print('Error fetching album details: $error $st');
+    } catch (error, stackTrace) {
+      Logging.severe('Error fetching album details', error, stackTrace);
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -128,7 +129,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
     }
 
     await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
-    print('Updated rating for trackId $trackId: $newRating');
+    Logging.info('Updated rating for trackId $trackId', null, null);
   }
 
   void _saveAlbum() async {
@@ -155,8 +156,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       } else {
         throw 'Could not launch $url';
       }
-    } catch (error) {
-      print('Error launching RateYourMusic: $error');
+    } catch (error, stackTrace) {
+      Logging.severe('Error launching RateYourMusic', error, stackTrace);
     }
   }
 

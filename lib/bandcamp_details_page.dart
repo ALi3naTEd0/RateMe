@@ -7,6 +7,7 @@ import 'bandcamp_parser.dart';
 import 'footer.dart';
 import 'app_theme.dart';
 import 'user_data.dart';
+import 'logging.dart';
 
 class BandcampDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -60,8 +61,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       } else {
         throw Exception('Failed to load album page');
       }
-    } catch (error, st) {
-      print('Error fetching tracks: $error $st');
+    } catch (error, stackTrace) {
+      Logging.severe('Error fetching tracks from Bandcamp', error, stackTrace);
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -139,13 +140,13 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
     int albumId =
         widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
     await UserData.saveRating(albumId, trackId, newRating);
-    print('Updated rating for trackId $trackId: $newRating');
+    Logging.info('Updated rating for trackId $trackId', null, null);
   }
 
   void _printSavedIds(int collectionId, List<int> trackIds) {
-    print('Saved album information:');
-    print('CollectionId: $collectionId');
-    print('TrackIds: $trackIds');
+    Logging.info('Saved album information', null, null);
+    Logging.info('CollectionId: $collectionId', null, null);
+    Logging.info('TrackIds: $trackIds', null, null);
   }
 
   void _saveAlbum() async {
@@ -177,8 +178,8 @@ class _BandcampDetailsPageState extends State<BandcampDetailsPage> {
       } else {
         throw 'Could not launch $url';
       }
-    } catch (error) {
-      print('Error launching RateYourMusic: $error');
+    } catch (error, stackTrace) {
+      Logging.severe('Error launching RateYourMusic', error, stackTrace);
     }
   }
 

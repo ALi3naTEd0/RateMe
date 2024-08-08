@@ -10,10 +10,10 @@ class Logging {
       final logMessage =
           '${record.level.name}: ${record.time}: ${record.message}';
       if (record.error != null) {
-        print(
+        _logger.log(record.level,
             '$logMessage, Error: ${record.error}, StackTrace: ${record.stackTrace}');
       } else {
-        print(logMessage);
+        _logger.log(record.level, logMessage);
       }
     });
   }
