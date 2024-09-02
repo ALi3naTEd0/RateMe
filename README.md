@@ -38,7 +38,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
 | [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/RateMe.v0.0.9-6_installer.exe)    | Coming soon  | Coming soon  | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/app-armeabi-v7a-release.apk)       | Maybe?       |
-| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/RateMe.v0.0.9-5_portable.zip)     |              |              | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/app-arm64-v8a-release.apk)             |              |
+| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/RateMe.v0.0.9-6_portable.zip)     |              |              | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/app-arm64-v8a-release.apk)             |              |
 |              |              |              | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v0.0.9-6/app-x86_64-release.apk)              |              |
 
 ## Features
