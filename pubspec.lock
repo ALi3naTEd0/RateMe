@@ -465,10 +465,10 @@ packages:
     dependency: "direct dev"
     description:
       name: json_serializable
-      sha256: ea1432d167339ea9b5bb153f0571d0039607a873d6e04e0117af043f14a1fd4b
+      sha256: c2fcb3920cf2b6ae6845954186420fca40bc0a8abcc84903b7801f17d7050d7c
       url: "https://pub.dev"
     source: hosted
-    version: "6.8.0"
+    version: "6.9.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -657,10 +657,10 @@ packages:
     dependency: transitive
     description:
       name: permission_handler_html
-      sha256: "6b9cb54b7135073841a35513fba39e598b421702d5f4d92319992fd6eb5532a9"
+      sha256: "38f000e83355abb3392140f6bc3030660cfaef189e1f87824facb76300b4ff24"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.3+4"
+    version: "0.1.3+5"
   permission_handler_platform_interface:
     dependency: transitive
     description:
