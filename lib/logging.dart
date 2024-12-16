@@ -9,11 +9,14 @@ class Logging {
     Logger.root.onRecord.listen((record) {
       final logMessage =
           '${record.level.name}: ${record.time}: ${record.message}';
+      
+      // Imprime directamente el mensaje en la consola
+      print(logMessage);
+
+      // Si hay un error asociado, imprime el error y el stacktrace
       if (record.error != null) {
-        _logger.log(record.level,
+        print(
             '$logMessage, Error: ${record.error}, StackTrace: ${record.stackTrace}');
-      } else {
-        _logger.log(record.level, logMessage);
       }
     });
   }
