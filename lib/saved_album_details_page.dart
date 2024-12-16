@@ -220,14 +220,16 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                                         max: 10,
                                         divisions: 10,
                                         value: ratings[track['trackId']] ?? 0.0,
+                                        label: (ratings[track['trackId']] ?? 0.0).toStringAsFixed(0), // Agregado
                                         onChanged: (newRating) {
-                                          _updateRating(
-                                              track['trackId'], newRating);
+                                          _updateRating(track['trackId'], newRating);
                                         },
                                       ),
                                     ),
-                                    Text((ratings[track['trackId']] ?? 0.0)
-                                        .toStringAsFixed(0)),
+                                    Text(
+                                      (ratings[track['trackId']] ?? 0.0).toStringAsFixed(0),
+                                      style: const TextStyle(fontSize: 16), // Opcional para mantener consistencia
+                                    ),
                                   ],
                                 ),
                               )),
@@ -267,13 +269,23 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
   }
 
   void _updateRating(int trackId, double newRating) async {
-    setState(() {
-      ratings[trackId] = newRating;
-      calculateAverageRating();
-    });
+    if (mounted) {
+      setState(() {
+        ratings[trackId] = newRating;
+        calculateAverageRating();
+      });
+    }
 
-    // Save the new rating automatically
-    await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
+    int albumId =
+        widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+    await UserData.saveRating(albumId, trackId, newRating);
+    Logging.info('Updated rating for trackId $trackId', null, null);
+  }
+
+  void _printSavedIds(int collectionId, List<int> trackIds) {
+    Logging.info('Saved album information', null, null);
+    Logging.info('CollectionId: $collectionId', null, null);
+    Logging.info('TrackIds: $trackIds', null, null);
   }
 
   void _launchRateYourMusic() async {
