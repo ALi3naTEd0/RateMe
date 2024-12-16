@@ -279,13 +279,22 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   }
 
   void _updateRating(int trackId, double newRating) async {
+    int albumId =
+        widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+
     setState(() {
       ratings[trackId] = newRating;
       calculateAverageRating();
     });
 
-    // Save the new rating automatically
-    await UserData.saveRating(widget.album['collectionId'], trackId, newRating);
+    await UserData.saveRating(albumId, trackId, newRating);
+    Logging.info('Updated rating for trackId $trackId', null, null);
+  }
+
+  void _printSavedIds(int collectionId, List<int> trackIds) {
+    Logging.info('Saved album information', null, null);
+    Logging.info('CollectionId: $collectionId', null, null);
+    Logging.info('TrackIds: $trackIds', null, null);
   }
 
   void _launchRateYourMusic() async {
