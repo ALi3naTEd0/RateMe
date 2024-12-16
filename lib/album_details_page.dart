@@ -221,14 +221,16 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                         max: 10,
                                         divisions: 10,
                                         value: ratings[track['trackId']] ?? 0.0,
+                                        label: (ratings[track['trackId']] ?? 0.0).toStringAsFixed(0), // Agregado
                                         onChanged: (newRating) {
-                                          _updateRating(
-                                              track['trackId'], newRating);
+                                          _updateRating(track['trackId'], newRating);
                                         },
                                       ),
                                     ),
-                                    Text((ratings[track['trackId']] ?? 0.0)
-                                        .toStringAsFixed(0)),
+                                    Text(
+                                      (ratings[track['trackId']] ?? 0.0).toStringAsFixed(0),
+                                      style: const TextStyle(fontSize: 16), // Opcional para mantener consistencia
+                                    ),
                                   ],
                                 ),
                               )),
