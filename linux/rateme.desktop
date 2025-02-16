@@ -1,9 +1,9 @@
 [Desktop Entry]
-Version=0.0.9-5
 Name=Rate Me!
 Comment=A Music Rating App
-Exec=/opt/rateme/rateme
-Icon=/opt/rateme/data/flutter_assets/assets/icon/icon.png
+Exec=rateme
+Icon=rateme
 Terminal=false
 Type=Application
-Categories=AudioVideo;Player;
+Categories=AudioVideo;Player
+StartupWMClass=RateMe
