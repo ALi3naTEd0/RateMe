@@ -2,53 +2,60 @@
 pkgname=rateme
 pkgver=0.0.9
 pkgrel=5
-pkgdesc="Rate Me!"
+pkgdesc="Aplicación de calificación musical"
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')
-depends=('gtk3' 'libappindicator-gtk3' 'libxkbcommon' 'hicolor-icon-theme')
-makedepends=('git' 'flutter' 'patchelf')
-options=('!strip' '!emptydirs')
-source=("git+https://github.com/ALi3naTEd0/RateMe.git#tag=v${pkgver}-${pkgrel}")
+depends=(
+    'gtk3'
+    'libglvnd'
+    'pcre2'
+    'openssl'
+    'libsecret'
+)
+makedepends=(
+    'git'
+    'flutter'
+    'clang'
+    'cmake'
+    'ninja'
+    'patchelf'
+)
+source=("git+$url.git#branch=rateme")
 sha256sums=('SKIP')
 
-prepare() {
-    cd "$srcdir/RateMe"
-    # Update Flutter if necessary
-    if [ ! -d "$srcdir/flutter" ]; then
-        git clone https://github.com/flutter/flutter.git -b stable "$srcdir/flutter"
-    else
-        cd "$srcdir/flutter"
-        git pull
-    fi
-}
-
 build() {
-    cd "$srcdir/flutter"
-    export PATH="$srcdir/flutter/bin:$PATH"
     cd "$srcdir/RateMe"
-    flutter build linux --release --no-tree-shake-icons
+    
+    # Check essential files
+    [ ! -f "linux/runner/rateme.desktop" ] && { echo "Error: .desktop no encontrado"; exit 1; }
+    [ ! -f "assets/rateme.png" ] && { echo "Error: rateme.png no encontrado"; exit 1; }
+
+    # Clean build
+    flutter clean
+    flutter pub get
+    flutter build linux --release
 }
 
 package() {
-    cd "$srcdir/RateMe"
-    
-    # Crear directorio de destino
-    mkdir -p "$pkgdir/opt/$pkgname"
-    
-    # Copiar todo el contenido del bundle
-    cp -R "build/linux/x64/release/bundle/"* "$pkgdir/opt/$pkgname/"
-    
-    # Configurar RPATH
-    patchelf --set-rpath '$ORIGIN/lib' "$pkgdir/opt/$pkgname/$pkgname"
-    
-    # Crear enlace simbólico en /usr/bin
-    mkdir -p "$pkgdir/usr/bin"
-    ln -s "/opt/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
-    
-    # Instalar archivo .desktop
-    install -Dm644 "linux/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
-    
-    # Ajustar el archivo .desktop
-    sed -i "s|^Exec=.*|Exec=/opt/$pkgname/$pkgname|" "$pkgdir/usr/share/applications/$pkgname.desktop"
+    # Install executable
+    install -Dm755 "$srcdir/RateMe/build/linux/x64/release/bundle/rateme" \
+        "$pkgdir/usr/bin/rateme"
+
+    # Install .desktop
+    install -Dm644 "$srcdir/RateMe/linux/runner/rateme.desktop" \
+        "$pkgdir/usr/share/applications/rateme.desktop"
+
+    # Install icon
+    install -Dm644 "$srcdir/RateMe/assets/rateme.png" \
+        "$pkgdir/usr/share/icons/hicolor/512x512/apps/rateme.png"
+
+    # Install libraries
+    install -d "$pkgdir/usr/lib/rateme"
+    cp -r "$srcdir/RateMe/build/linux/x64/release/bundle/lib" \
+        "$pkgdir/usr/lib/rateme/"
+
+    # Adjust RPATH
+    find "$pkgdir/usr/lib/rateme/lib" -name '*.so' -exec patchelf --set-rpath '$ORIGIN' {} \;
+    patchelf --set-rpath '/usr/lib/rateme/lib' "$pkgdir/usr/bin/rateme"
 }
