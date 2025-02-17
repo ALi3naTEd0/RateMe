@@ -1,36 +1,33 @@
 import 'package:logging/logging.dart';
 
 class Logging {
-  static final Logger _logger = Logger('AppLogger');
-
-  // Configura el logger
   static void setupLogging() {
-    Logger.root.level = Level.ALL; // Establece el nivel de logging
-    Logger.root.onRecord.listen((record) {
-      final logMessage =
-          '${record.level.name}: ${record.time}: ${record.message}';
-      
-      // Imprime directamente el mensaje en la consola
-      print(logMessage);
-
-      // Si hay un error asociado, imprime el error y el stacktrace
-      if (record.error != null) {
-        print(
-            '$logMessage, Error: ${record.error}, StackTrace: ${record.stackTrace}');
+    Logger.root.level = Level.ALL;
+    Logger.root.onRecord.listen((LogRecord rec) {
+      print('${rec.level.name}: ${rec.time}: ${rec.message}');
+      if (rec.error != null) {
+        print('Error: ${rec.error}');
+      }
+      if (rec.stackTrace != null) {
+        print('Stack trace:\n${rec.stackTrace}');
       }
     });
   }
 
-  // Métodos de acceso para diferentes niveles de logging
   static void info(String message, [Object? error, StackTrace? stackTrace]) {
-    _logger.info(message, error, stackTrace);
-  }
-
-  static void warning(String message, [Object? error, StackTrace? stackTrace]) {
-    _logger.warning(message, error, stackTrace);
+    Logger('RateMe').info(message, error, stackTrace);
   }
 
   static void severe(String message, [Object? error, StackTrace? stackTrace]) {
-    _logger.severe(message, error, stackTrace);
+    Logger('RateMe').severe(message, error, stackTrace);
+  }
+
+  // Agregar métodos útiles
+  static void warning(String message, [Object? error, StackTrace? stackTrace]) {
+    Logger('RateMe').warning(message, error, stackTrace);
+  }
+
+  static void debug(String message, [Object? error, StackTrace? stackTrace]) {
+    Logger('RateMe').fine(message, error, stackTrace);
   }
 }

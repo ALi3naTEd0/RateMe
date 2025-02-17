@@ -11,14 +11,15 @@ class SavedRatingsPage extends StatefulWidget {
 }
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
-  List<Map<String, dynamic>> savedAlbums = [];
-  bool isLoading = true;
-
   @override
   void initState() {
     super.initState();
+    UserData.inspectAllData(); // Añadir esta línea para inspeccionar los datos
     _loadSavedAlbums();
   }
+
+  List<Map<String, dynamic>> savedAlbums = [];
+  bool isLoading = true;
 
   void _loadSavedAlbums() async {
     List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
