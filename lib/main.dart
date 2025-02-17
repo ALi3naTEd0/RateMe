@@ -14,8 +14,6 @@ import 'details_page.dart';  // Nuevo import
 // Remover imports de bandcamp_details_page.dart y album_details_page.dart
 // Remove import of search_page.dart
 import 'package:file_picker/file_picker.dart';
-import 'data_export.dart';  // Mantener las funciones de exportación/importación separadas
-import 'data_import.dart';
 import 'user_data.dart';  // Agregar esta importación
 import 'package:path_provider/path_provider.dart';
 
@@ -156,13 +154,12 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 title: const Text('Import Data'),
                 onTap: () async {
                   Navigator.pop(context);
-                  final success = await importSharedPreferencesFromJson(context);
+                  final success = await UserData.importData(context);
                   if (success && mounted) {
-                    // En lugar de reemplazar, mostrar un mensaje de éxito
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Data imported successfully'),
-                        duration: Duration(seconds: 2),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SavedRatingsPage(),
                       ),
                     );
                   }
@@ -173,7 +170,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 title: const Text('Export Data'),
                 onTap: () {
                   Navigator.pop(context);
-                  exportSharedPreferencesToJson(context);
+                  UserData.exportData(context);
                 },
               ),
             ],
@@ -240,6 +237,13 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               ),
             ),
           ),
+          Tooltip(
+            message: 'Settings',
+            child: IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _showOptionsDialog,
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -284,10 +288,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showOptionsDialog,
-        child: const Icon(Icons.settings), // Cambiar de more_vert a settings
       ),
     );
   }
