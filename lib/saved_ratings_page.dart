@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_page.dart';
+import 'share_widget.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -104,6 +105,19 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
         ),
       ),
+    ).then((_) => _loadSavedAlbums());  // Recargar al volver
+  }
+
+  Widget _buildAlbumActions(int index) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.remove_circle_outline, size: 20),
+          onPressed: () => _deleteAlbum(index),
+        ),
+        const Icon(Icons.drag_handle),
+      ],
     );
   }
 
@@ -178,20 +192,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                       ),
                       title: Text(album['collectionName'] ?? 'N/A'),
                       subtitle: Text(album['artistName'] ?? 'N/A'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _openSavedAlbumDetails(index),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => _deleteAlbum(index),
-                          ),
-                          const Icon(Icons.drag_handle),
-                        ],
-                      ),
+                      trailing: _buildAlbumActions(index),
                       onTap: () => _openSavedAlbumDetails(index),
                     );
                   },

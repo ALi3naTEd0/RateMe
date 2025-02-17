@@ -336,6 +336,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
     if (query.contains('bandcamp.com')) {
       _fetchBandcampAlbumInfo(query);
     } else {
+      // Volver al método original que era más efectivo
       _fetchiTunesAlbums(query);
     }
   }

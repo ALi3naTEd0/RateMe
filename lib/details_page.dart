@@ -8,6 +8,7 @@ import 'user_data.dart';
 import 'logging.dart';
 import 'main.dart';  // Agregamos import para usar BandcampService
 import 'custom_lists_page.dart';  // Única importación necesaria para CustomList y CustomListsPage
+import 'share_widget.dart';
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -57,25 +58,28 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _fetchBandcampTracks() async {
     final url = widget.album['url'];
     try {
+      // Copiar ratings existentes
+      Map<int, double> currentRatings = Map.from(ratings);
+
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
         final tracksData = BandcampService.extractTracks(document);
         final releaseDateData = BandcampService.extractReleaseDate(document);
 
-        for (var track in tracksData) {
-          final trackId = track['trackId'];
-          if (trackId != null) {
-            ratings[trackId] = 0.0;
-          }
-        }
-
         if (mounted) {
           setState(() {
             tracks = tracksData;
+            // Restaurar ratings previos o inicializar en 0.0
+            for (var track in tracksData) {
+              final trackId = track['trackId'];
+              if (trackId != null) {                ratings[trackId] = currentRatings[trackId] ?? 0.0;
+              }
+            }
             releaseDate = releaseDateData;
             isLoading = false;
             calculateAlbumDuration();
+            calculateAverageRating();
           });
         }
       }
@@ -238,122 +242,38 @@ class _DetailsPageState extends State<DetailsPage> {
                         const SizedBox(height: 8),
                         _buildInfoRow("Rating", averageRating.toStringAsFixed(2), fontSize: 20),
                         const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () async {
-                            // First save the album normally
-                            await UserData.saveAlbum(widget.album);
-
-                            if (!mounted) return;
-
-                            // Then show dialog to save to list
-                            final result = await showDialog<String>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Save to List'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ListTile(
-                                      leading: const Icon(Icons.add),
-                                      title: const Text('Create New List'),
-                                      onTap: () => Navigator.pop(context, 'new'),
-                                    ),
-                                    const Divider(),
-                                    FutureBuilder<List<CustomList>>(
-                                      future: UserData.getCustomLists(),
-                                      builder: (context, snapshot) {
-                                        if (!snapshot.hasData) {
-                                          return const CircularProgressIndicator();
-                                        }
-                                        final lists = snapshot.data!;
-                                        return Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: lists.map((list) => ListTile(
-                                            title: Text(list.name),
-                                            onTap: () => Navigator.pop(context, list.id),
-                                          )).toList(),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () async {
+                                // Primero guardar el álbum
+                                await UserData.saveAlbum(widget.album);
+                                
+                                if (!mounted) return;
+                                // Luego mostrar diálogo para elegir/crear lista
+                                _showAddToListDialog(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                minimumSize: const Size(150, 45),
                               ),
-                            );
-
-                            if (!mounted) return;
-
-                            if (result == 'new') {
-                              // Show dialog to create new list
-                              final nameController = TextEditingController();
-                              final descController = TextEditingController();
-
-                              final createResult = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Create New List'),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      TextField(
-                                        controller: nameController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'List Name',
-                                          hintText: 'e.g. Progressive Rock',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      TextField(
-                                        controller: descController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Description (optional)',
-                                          hintText: 'e.g. My favorite prog rock albums',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text('Create'),
-                                    ),
-                                  ],
-                                ),
-                              );
-
-                              if (createResult == true && nameController.text.isNotEmpty) {
-                                final newList = CustomList(
-                                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                                  name: nameController.text,
-                                  description: descController.text,
-                                  albumIds: [widget.album['collectionId'].toString()],
-                                );
-                                await UserData.saveCustomList(newList);
-                              }
-                            } else if (result != null) {
-                              // Add to existing list
-                              final lists = await UserData.getCustomLists();
-                              final selectedList = lists.firstWhere((list) => list.id == result);
-                              if (!selectedList.albumIds.contains(widget.album['collectionId'].toString())) {
-                                selectedList.albumIds.add(widget.album['collectionId'].toString());
-                                await UserData.saveCustomList(selectedList);
-                              }
-                            }
-
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Album saved successfully')),
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                          ),
-                          child: const Text('Save Album', style: TextStyle(color: Colors.white)),
+                              child: const Text('Save Album', style: TextStyle(color: Colors.white)),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.more_vert, color: Colors.white),
+                              label: const Text('Options', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                minimumSize: const Size(150, 45),
+                              ),
+                              onPressed: () => _showOptionsDialog(context),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -447,6 +367,204 @@ class _DetailsPageState extends State<DetailsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Album Options'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.file_download),
+              title: const Text('Import Album'),
+              onTap: () async {
+                Navigator.pop(context);
+                final album = await UserData.importAlbum(context);
+                if (album != null && mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DetailsPage(
+                        album: album,
+                        isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_upload),
+              title: const Text('Export Album'),
+              onTap: () async {
+                Navigator.pop(context);
+                await UserData.exportAlbum(context, widget.album);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share as Image'),
+              onTap: () => _showShareDialog(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddToListDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add to List'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('Create New List'),
+              onTap: () => Navigator.pop(context, 'new'),
+            ),
+            const Divider(),
+            FutureBuilder<List<CustomList>>(
+              future: UserData.getCustomLists(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const CircularProgressIndicator();
+                }
+                final lists = snapshot.data!;
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: lists.map((CustomList list) => ListTile(
+                      title: Text(list.name),
+                      onTap: () => Navigator.pop(context, list.id),
+                    )).toList(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    ).then((result) async {
+      if (result == 'new') {
+        final nameController = TextEditingController();
+        final descController = TextEditingController();
+
+        final createResult = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Create New List'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'List Name',
+                    hintText: 'e.g. Progressive Rock',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (optional)',
+                    hintText: 'e.g. My favorite prog rock albums',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Create'),
+              ),
+            ],
+          ),
+        );
+
+        if (createResult == true && nameController.text.isNotEmpty) {
+          final newList = CustomList(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            name: nameController.text,
+            description: descController.text,
+            albumIds: [widget.album['collectionId'].toString()],
+          );
+          await UserData.saveCustomList(newList);
+        }
+      } else if (result != null) {
+        final lists = await UserData.getCustomLists();
+        final selectedList = lists.firstWhere((list) => list.id == result);
+        if (!selectedList.albumIds.contains(widget.album['collectionId'].toString())) {
+          selectedList.albumIds.add(widget.album['collectionId'].toString());
+          await UserData.saveCustomList(selectedList);
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Album added to list successfully')),
+        );
+      }
+    });
+  }
+
+  void _showShareDialog(BuildContext context) {
+    Navigator.pop(context); // Cerrar el diálogo de opciones
+    showDialog(
+      context: context,
+      builder: (context) {
+        final shareWidget = ShareWidget(
+          key: ShareWidget.shareKey, // Usar la key estática
+          album: widget.album,
+          tracks: tracks,
+          ratings: ratings,
+          averageRating: averageRating,
+        );
+        return AlertDialog(
+          content: SingleChildScrollView(
+            child: shareWidget,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  // Llamar a saveAsImage mediante la GlobalKey
+                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  if (mounted && path != null) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Image saved to: $path')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error saving image: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Image'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
