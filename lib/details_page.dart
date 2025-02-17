@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'user_data.dart';
 import 'logging.dart';
 import 'main.dart';  // Agregamos import para usar BandcampService
+import 'custom_lists_page.dart';  // Única importación necesaria para CustomList y CustomListsPage
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -239,13 +240,112 @@ class _DetailsPageState extends State<DetailsPage> {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () async {
+                            // First save the album normally
                             await UserData.saveAlbum(widget.album);
+
+                            if (!mounted) return;
+
+                            // Then show dialog to save to list
+                            final result = await showDialog<String>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Save to List'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.add),
+                                      title: const Text('Create New List'),
+                                      onTap: () => Navigator.pop(context, 'new'),
+                                    ),
+                                    const Divider(),
+                                    FutureBuilder<List<CustomList>>(
+                                      future: UserData.getCustomLists(),
+                                      builder: (context, snapshot) {
+                                        if (!snapshot.hasData) {
+                                          return const CircularProgressIndicator();
+                                        }
+                                        final lists = snapshot.data!;
+                                        return Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: lists.map((list) => ListTile(
+                                            title: Text(list.name),
+                                            onTap: () => Navigator.pop(context, list.id),
+                                          )).toList(),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+
+                            if (!mounted) return;
+
+                            if (result == 'new') {
+                              // Show dialog to create new list
+                              final nameController = TextEditingController();
+                              final descController = TextEditingController();
+
+                              final createResult = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Create New List'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextField(
+                                        controller: nameController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'List Name',
+                                          hintText: 'e.g. Progressive Rock',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextField(
+                                        controller: descController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Description (optional)',
+                                          hintText: 'e.g. My favorite prog rock albums',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Create'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (createResult == true && nameController.text.isNotEmpty) {
+                                final newList = CustomList(
+                                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                                  name: nameController.text,
+                                  description: descController.text,
+                                  albumIds: [widget.album['collectionId'].toString()],
+                                );
+                                await UserData.saveCustomList(newList);
+                              }
+                            } else if (result != null) {
+                              // Add to existing list
+                              final lists = await UserData.getCustomLists();
+                              final selectedList = lists.firstWhere((list) => list.id == result);
+                              if (!selectedList.albumIds.contains(widget.album['collectionId'].toString())) {
+                                selectedList.albumIds.add(widget.album['collectionId'].toString());
+                                await UserData.saveCustomList(selectedList);
+                              }
+                            }
+
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Album saved successfully'),
-                                  duration: Duration(seconds: 2),
-                                ),
+                                const SnackBar(content: Text('Album saved successfully')),
                               );
                             }
                           },

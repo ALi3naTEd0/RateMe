@@ -4,11 +4,13 @@ import 'logging.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'custom_lists_page.dart';  // Única importación necesaria para CustomList
 
 class UserData {
   static const String _savedAlbumsKey = 'saved_albums';
   static const String _savedAlbumOrderKey = 'saved_album_order';
   static const String _ratingsPrefix = 'saved_ratings_';
+  static const String _customListsKey = 'custom_lists';
 
   static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
     try {
@@ -337,6 +339,58 @@ class UserData {
         );
       }
       return false;
+    }
+  }
+
+  static Future<List<CustomList>> getCustomLists() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> lists = prefs.getStringList(_customListsKey) ?? [];
+      return lists.map((json) => CustomList.fromJson(jsonDecode(json))).toList();
+    } catch (e, stackTrace) {
+      Logging.severe('Error getting custom lists', e, stackTrace);
+      return [];
+    }
+  }
+
+  static Future<void> saveCustomList(CustomList list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> lists = prefs.getStringList(_customListsKey) ?? [];
+      
+      // Update existing or add new
+      int index = lists.indexWhere((json) {
+        CustomList existing = CustomList.fromJson(jsonDecode(json));
+        return existing.id == list.id;
+      });
+
+      if (index != -1) {
+        lists[index] = jsonEncode(list.toJson());
+      } else {
+        lists.add(jsonEncode(list.toJson()));
+      }
+
+      await prefs.setStringList(_customListsKey, lists);
+    } catch (e, stackTrace) {
+      Logging.severe('Error saving custom list', e, stackTrace);
+      rethrow;
+    }
+  }
+
+  static Future<void> deleteCustomList(String listId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> lists = prefs.getStringList(_customListsKey) ?? [];
+      
+      lists.removeWhere((json) {
+        CustomList list = CustomList.fromJson(jsonDecode(json));
+        return list.id == listId;
+      });
+
+      await prefs.setStringList(_customListsKey, lists);
+    } catch (e, stackTrace) {
+      Logging.severe('Error deleting custom list', e, stackTrace);
+      rethrow;
     }
   }
 }

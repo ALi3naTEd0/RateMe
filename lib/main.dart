@@ -16,6 +16,7 @@ import 'details_page.dart';  // Nuevo import
 import 'package:file_picker/file_picker.dart';
 import 'user_data.dart';  // Agregar esta importación
 import 'package:path_provider/path_provider.dart';
+import 'custom_lists_page.dart';  // Actualizar esta importación
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -214,42 +215,58 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       appBar: AppBar(
         title: const Text('Rate Me!'),
         centerTitle: true,
-        leading: Tooltip(
-          message: 'Saved Ratings',
-          child: IconButton(
-            icon: Icon(Icons.star,
-                size: 32, color: _getStarIconColor(widget.themeBrightness)),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
-            ),
-          ),
-        ),
-        actions: [
-          Tooltip(
-            message: 'Theme',
-            child: Transform.scale(
-              scale: 0.8,
-              child: Switch(
-                value: widget.themeBrightness == Brightness.dark,
-                onChanged: (_) => widget.toggleTheme(),
-                activeColor: Theme.of(context).colorScheme.secondary,
+        leadingWidth: MediaQuery.of(context).size.width * 0.2,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Expanded(
+              child: IconButton(
+                icon: const Icon(Icons.library_music),
+                tooltip: 'All Saved Albums',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
+                ),
               ),
             ),
-          ),
-          Tooltip(
-            message: 'Settings',
-            child: IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: _showOptionsDialog,
+            Expanded(
+              child: IconButton(
+                icon: const Icon(Icons.folder_special),
+                tooltip: 'Custom Lists',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CustomListsPage()),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: MediaQuery.of(context).size.width * 0.85 / 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Switch(
+                  value: widget.themeBrightness == Brightness.dark,
+                  onChanged: (_) => widget.toggleTheme(),
+                  activeColor: Theme.of(context).colorScheme.secondary,
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.settings),
+                  onPressed: _showOptionsDialog,
+                ),
+              ],
             ),
           ),
         ],
       ),
       body: Column(
         children: [
+          const SizedBox(height: 32), // Más espacio arriba
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(vertical: 24.0),
             child: SizedBox(
               width: MediaQuery.of(context).size.width * 0.85,
               child: TextField(
