@@ -13,7 +13,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   @override
   void initState() {
     super.initState();
-    UserData.inspectAllData(); // Añadir esta línea para inspeccionar los datos
     _loadSavedAlbums();
   }
 

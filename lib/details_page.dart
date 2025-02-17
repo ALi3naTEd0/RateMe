@@ -148,7 +148,6 @@ class _DetailsPageState extends State<DetailsPage> {
 
     int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
     await UserData.saveRating(albumId, trackId, newRating);
-    Logging.info('Updated rating for trackId $trackId', null, null);
   }
 
   Future<void> _launchRateYourMusic() async {
