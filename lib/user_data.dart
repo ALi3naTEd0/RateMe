@@ -93,10 +93,6 @@ class UserData {
 
       // Eliminar ratings
       await prefs.remove('${_ratingsPrefix}$albumId');
-
-      Logging.info('Album deleted - ID: $albumId');
-      Logging.info('Remaining albums: ${savedAlbums.length}');
-      Logging.info('Remaining order entries: ${albumOrder.length}');
     } catch (e, stackTrace) {
       Logging.severe('Error deleting album', e, stackTrace);
       rethrow;
@@ -234,64 +230,10 @@ class UserData {
     return null;
   }
 
-  // Método para verificar las calificaciones guardadas (debug)
-  static Future<void> debugPrintRatings(int albumId) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String key = '${_ratingsPrefix}$albumId';
-      List<String>? savedRatings = prefs.getStringList(key);
-      
-      Logging.info('Debug: Ratings for album $albumId');
-      Logging.info('Key used: $key');
-      Logging.info('Raw saved ratings: $savedRatings');
-      
-      if (savedRatings != null) {
-        for (String rating in savedRatings) {
-          Logging.info('Rating entry: $rating');
-        }
-      }
-    } catch (e, stackTrace) {
-      Logging.severe('Error debugging ratings', e, stackTrace);
-    }
-  }
-
-  // Método para inspeccionar todas las keys y valores en SharedPreferences
-  static Future<void> inspectAllData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final allKeys = prefs.getKeys();
-      
-      Logging.info('=== INSPECTING ALL SHARED PREFERENCES DATA ===');
-      Logging.info('Total keys found: ${allKeys.length}');
-      
-      for (String key in allKeys) {
-        if (key.startsWith(_ratingsPrefix)) {
-          final ratings = prefs.getStringList(key);
-          Logging.info('Rating Key: $key');
-          Logging.info('Rating Values: $ratings');
-          
-          if (ratings != null) {
-            for (String rating in ratings) {
-              Logging.info('  Decoded rating: ${jsonDecode(rating)}');
-            }
-          }
-        } else {
-          final value = prefs.get(key);
-          Logging.info('Key: $key');
-          Logging.info('Value: $value');
-        }
-      }
-      Logging.info('=== END INSPECTION ===');
-    } catch (e, stackTrace) {
-      Logging.severe('Error inspecting data', e, stackTrace);
-    }
-  }
-
   static Future<void> clearAllData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-      Logging.info('All user data cleared');
     } catch (e, stackTrace) {
       Logging.severe('Error clearing all data', e, stackTrace);
       rethrow;
