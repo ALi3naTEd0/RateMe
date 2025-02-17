@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
-import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:html/parser.dart' show parse;
 import 'user_data.dart';
 import 'logging.dart';
-import 'main.dart';  // Agregamos import para usar BandcampService
+import 'main.dart';
 
-class DetailsPage extends StatefulWidget {
-  final dynamic album;
+class SavedAlbumPage extends StatefulWidget {
+  final Map<String, dynamic> album;
   final bool isBandcamp;
 
-  const DetailsPage({
-    super.key, 
+  const SavedAlbumPage({
+    super.key,
     required this.album,
-    this.isBandcamp = true,
+    required this.isBandcamp,
   });
 
   @override
-  State<DetailsPage> createState() => _DetailsPageState();
+  State<SavedAlbumPage> createState() => _SavedAlbumPageState();
 }
 
-class _DetailsPageState extends State<DetailsPage> {
+class _SavedAlbumPageState extends State<SavedAlbumPage> {
   List<dynamic> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
@@ -33,79 +33,25 @@ class _DetailsPageState extends State<DetailsPage> {
   @override
   void initState() {
     super.initState();
-    widget.isBandcamp ? _fetchBandcampTracks() : _fetchItunesTracks();
-    _loadRatings();
+    _loadRatings().then((_) {
+      widget.isBandcamp ? _fetchBandcampTracks() : _fetchItunesTracks();
+    });
   }
 
   Future<void> _loadRatings() async {
-    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
-    List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
-    Map<int, double> ratingsMap = {};
-    for (var rating in savedRatings) {
-      ratingsMap[rating['trackId']] = rating['rating'];
-    }
-
+    final List<Map<String, dynamic>> savedRatings = 
+        await UserData.getSavedAlbumRatings(widget.album['collectionId']);
+    
     if (mounted) {
+      Map<int, double> ratingsMap = {};
+      for (var rating in savedRatings) {
+        ratingsMap[rating['trackId']] = rating['rating'].toDouble();
+      }
+      
       setState(() {
         ratings = ratingsMap;
         calculateAverageRating();
       });
-    }
-  }
-
-  Future<void> _fetchBandcampTracks() async {
-    final url = widget.album['url'];
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final document = parse(response.body);
-        final tracksData = BandcampService.extractTracks(document);
-        final releaseDateData = BandcampService.extractReleaseDate(document);
-
-        for (var track in tracksData) {
-          final trackId = track['trackId'];
-          if (trackId != null) {
-            ratings[trackId] = 0.0;
-          }
-        }
-
-        if (mounted) {
-          setState(() {
-            tracks = tracksData;
-            releaseDate = releaseDateData;
-            isLoading = false;
-            calculateAlbumDuration();
-          });
-        }
-      }
-    } catch (error, stackTrace) {
-      Logging.severe('Error fetching Bandcamp tracks', error, stackTrace);
-      if (mounted) setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _fetchItunesTracks() async {
-    try {
-      final url = Uri.parse(
-          'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
-      final response = await http.get(url);
-      final data = jsonDecode(response.body);
-      var trackList = data['results']
-          .where((track) => track['wrapperType'] == 'track')
-          .toList();
-      
-      if (mounted) {
-        setState(() {
-          tracks = trackList;
-          trackList.forEach((track) => ratings[track['trackId']] = 0.0);
-          releaseDate = DateTime.parse(widget.album['releaseDate']);
-          isLoading = false;
-          calculateAlbumDuration();
-        });
-      }
-    } catch (error, stackTrace) {
-      Logging.severe('Error fetching iTunes tracks', error, stackTrace);
-      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -140,15 +86,62 @@ class _DetailsPageState extends State<DetailsPage> {
     if (mounted) setState(() => albumDurationMillis = totalDuration);
   }
 
+  Future<void> _fetchBandcampTracks() async {
+    final url = widget.album['url'];
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final document = parse(response.body);
+        final tracksData = BandcampService.extractTracks(document);
+        final releaseDateData = BandcampService.extractReleaseDate(document);
+
+        if (mounted) {
+          setState(() {
+            tracks = tracksData;
+            releaseDate = releaseDateData;
+            isLoading = false;
+            calculateAlbumDuration();
+          });
+        }
+      }
+    } catch (error, stackTrace) {
+      Logging.severe('Error fetching Bandcamp tracks', error, stackTrace);
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _fetchItunesTracks() async {
+    try {
+      final url = Uri.parse(
+          'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
+      final response = await http.get(url);
+      final data = jsonDecode(response.body);
+      var trackList = data['results']
+          .where((track) => track['wrapperType'] == 'track')
+          .toList();
+      
+      if (mounted) {
+        setState(() {
+          tracks = trackList;
+          releaseDate = DateTime.parse(widget.album['releaseDate']);
+          isLoading = false;
+          calculateAlbumDuration();
+        });
+      }
+    } catch (error, stackTrace) {
+      Logging.severe('Error fetching iTunes tracks', error, stackTrace);
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
   void _updateRating(int trackId, double newRating) async {
     setState(() {
       ratings[trackId] = newRating;
       calculateAverageRating();
     });
 
-    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+    int albumId = widget.album['collectionId'];
     await UserData.saveRating(albumId, trackId, newRating);
-    Logging.info('Updated rating for trackId $trackId', null, null);
   }
 
   Future<void> _launchRateYourMusic() async {
@@ -179,24 +172,26 @@ class _DetailsPageState extends State<DetailsPage> {
     return (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble().clamp(0.2, 0.5);
   }
 
-  String _formatReleaseDate() {
-    if (widget.isBandcamp) {
-      if (releaseDate == null) return 'Unknown Date';
-      return DateFormat('d MMMM yyyy').format(releaseDate!);
-    } else {
-      return DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']));
-    }
-  }
-
-  Widget _buildTrackTitle(String title, double maxWidth) {
-    return Tooltip(
-      message: title,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: Text(
-          title,
-          overflow: TextOverflow.ellipsis,
-        ),
+  Widget _buildTrackSlider(int trackId) {
+    return SizedBox(
+      width: 150,
+      child: Row(
+        children: [
+          Expanded(
+            child: Slider(
+              min: 0,
+              max: 10,
+              divisions: 10,
+              value: ratings[trackId] ?? 0.0,
+              label: (ratings[trackId] ?? 0.0).toStringAsFixed(0),
+              onChanged: (newRating) => _updateRating(trackId, newRating),
+            ),
+          ),
+          Text(
+            (ratings[trackId] ?? 0.0).toStringAsFixed(0),
+            style: const TextStyle(fontSize: 16),
+          ),
+        ],
       ),
     );
   }
@@ -204,6 +199,11 @@ class _DetailsPageState extends State<DetailsPage> {
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
+    String formattedDate = widget.isBandcamp
+        ? releaseDate != null
+            ? DateFormat('d MMMM yyyy').format(releaseDate!)
+            : 'Unknown Date'
+        : DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']));
 
     return Scaffold(
       appBar: AppBar(
@@ -233,28 +233,10 @@ class _DetailsPageState extends State<DetailsPage> {
                       children: [
                         _buildInfoRow("Artist", widget.album['artistName'] ?? 'Unknown Artist'),
                         _buildInfoRow("Album", widget.album['collectionName'] ?? 'Unknown Album'),
-                        _buildInfoRow("Release Date", _formatReleaseDate()),
+                        _buildInfoRow("Release Date", formattedDate),
                         _buildInfoRow("Duration", formatDuration(albumDurationMillis)),
                         const SizedBox(height: 8),
                         _buildInfoRow("Rating", averageRating.toStringAsFixed(2), fontSize: 20),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () async {
-                            await UserData.saveAlbum(widget.album);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Album saved successfully'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                          ),
-                          child: const Text('Save Album', style: TextStyle(color: Colors.white)),
-                        ),
                       ],
                     ),
                   ),
@@ -276,13 +258,23 @@ class _DetailsPageState extends State<DetailsPage> {
                         
                         return DataRow(
                           cells: [
-                            DataCell(Text(track['trackNumber'].toString())),
-                            DataCell(_buildTrackTitle(
-                              widget.isBandcamp ? track['title'] : track['trackName'],
-                              MediaQuery.of(context).size.width * titleWidthFactor,
-                            )),
+                            DataCell(Text(track['trackNumber']?.toString() ?? '')),
+                            DataCell(
+                              Tooltip(
+                                message: widget.isBandcamp ? track['title'] : track['trackName'],
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
+                                  ),
+                                  child: Text(
+                                    widget.isBandcamp ? track['title'] : track['trackName'],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ),
                             DataCell(Text(formatDuration(duration))),
-                            DataCell(_buildRatingSlider(trackId)),
+                            DataCell(_buildTrackSlider(trackId)),
                           ],
                         );
                       }).toList(),
@@ -321,30 +313,6 @@ class _DetailsPageState extends State<DetailsPage> {
           Text(
             value,
             style: TextStyle(fontSize: fontSize),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRatingSlider(int trackId) {
-    return SizedBox(
-      width: 150,
-      child: Row(
-        children: [
-          Expanded(
-            child: Slider(
-              value: ratings[trackId] ?? 0.0,
-              min: 0,
-              max: 10,
-              divisions: 10,
-              label: (ratings[trackId] ?? 0.0).toStringAsFixed(0),
-              onChanged: (newRating) => _updateRating(trackId, newRating),
-            ),
-          ),
-          Text(
-            (ratings[trackId] ?? 0.0).toStringAsFixed(0),
-            style: const TextStyle(fontSize: 16),
           ),
         ],
       ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'user_data.dart';
-import 'saved_album_details_page.dart';
-import 'bandcamp_saved_album_page.dart';
+import 'saved_album_page.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -98,21 +97,15 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   void _openSavedAlbumDetails(int index) {
     final album = savedAlbums[index];
-    final url = album['url'];
-
-    if (url != null && url.contains('bandcamp.com')) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => BandcampSavedAlbumPage(album: album)),
-      );
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => SavedAlbumDetailsPage(album: album)),
-      );
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SavedAlbumPage(
+          album: album,
+          isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
+        ),
+      ),
+    );
   }
 
   void _onReorder(int oldIndex, int newIndex) {

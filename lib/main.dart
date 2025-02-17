@@ -131,25 +131,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Clear All Data'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  bool? confirm = await _showConfirmDialog();
-                  if (confirm == true) {
-                    await UserData.clearAllData();
-                    if (mounted) {
-                      setState(() {
-                        searchResults = [];
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('All data cleared')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.file_download),
                 title: const Text('Import Data'),
                 onTap: () async {
@@ -171,6 +152,25 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 onTap: () {
                   Navigator.pop(context);
                   UserData.exportData(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('Clear All Data'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  bool? confirm = await _showConfirmDialog();
+                  if (confirm == true) {
+                    await UserData.clearAllData();
+                    if (mounted) {
+                      setState(() {
+                        searchResults = [];
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('All data cleared')),
+                      );
+                    }
+                  }
                 },
               ),
             ],
