@@ -3,10 +3,32 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'app_theme.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-class SharedPreferencesPage extends StatelessWidget {
+class SharedPreferencesPage extends StatefulWidget {
   const SharedPreferencesPage({super.key});
+
+  @override
+  _SharedPreferencesPageState createState() => _SharedPreferencesPageState();
+}
+
+class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
+  String? appVersion;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        appVersion = packageInfo.version;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,43 +36,37 @@ class SharedPreferencesPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('SharedPreferences'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            ElevatedButton(
-              onPressed: () {
-                exportSharedPreferencesToJson(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.lightTheme.colorScheme
-                    .primary, // Use the light purple color defined in app_theme.dart
-              ),
-              child: const Text(
-                'Exportar',
-                style: TextStyle(
-                  color: Colors.white, // White text
+      body: ListView(
+        children: [
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                ElevatedButton(
+                  onPressed: () => exportSharedPreferencesToJson(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                  child: const Text('Exportar', style: TextStyle(color: Colors.white)),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                importSharedPreferencesFromJson(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.lightTheme.colorScheme
-                    .primary, // Use the light purple color defined in app_theme.dart
-              ),
-              child: const Text(
-                'Importar',
-                style: TextStyle(
-                  color: Colors.white, // White text
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => importSharedPreferencesFromJson(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                  child: const Text('Importar', style: TextStyle(color: Colors.white)),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Divider(),
+          ListTile(
+            title: const Text('About'),
+            subtitle: Text('Version $appVersion'),
+            leading: const Icon(Icons.info_outline),
+          ),
+        ],
       ),
     );
   }

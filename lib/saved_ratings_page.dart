@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_details_page.dart';
 import 'bandcamp_saved_album_page.dart';
-import 'footer.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -220,7 +219,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     ),
                   ),
                 ),
-      bottomNavigationBar: const Footer(),
     );
   }
 }

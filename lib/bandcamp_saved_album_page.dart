@@ -3,9 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
-import 'bandcamp_parser.dart';
-import 'footer.dart';
-import 'app_theme.dart';
+import 'main.dart';
 import 'user_data.dart';
 import 'logging.dart';
 
@@ -51,8 +49,8 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        final tracksData = BandcampParser.extractTracks(document);
-        final releaseDateData = BandcampParser.extractReleaseDate(document);
+        final tracksData = BandcampService.extractTracks(document);       // Cambiado de BandcampParser a BandcampService
+        final releaseDateData = BandcampService.extractReleaseDate(document); // Cambiado de BandcampParser a BandcampService
 
         for (var track in tracksData) {
           final trackId = track['trackId'];
@@ -270,10 +268,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                     ElevatedButton(
                       onPressed: _saveAlbum,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Theme.of(context).brightness == Brightness.dark
-                                ? AppTheme.darkTheme.colorScheme.primary
-                                : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                       ),
                       child: const Text(
                         'Save Album',
@@ -366,10 +361,7 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                     ElevatedButton(
                       onPressed: _launchRateYourMusic,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Theme.of(context).brightness == Brightness.dark
-                                ? AppTheme.darkTheme.colorScheme.primary
-                                : AppTheme.lightTheme.colorScheme.primary,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                       ),
                       child: const Text(
                         'Rate on RateYourMusic',
@@ -377,7 +369,6 @@ class _BandcampSavedAlbumPageState extends State<BandcampSavedAlbumPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Footer(),
                   ],
                 ),
               ),
