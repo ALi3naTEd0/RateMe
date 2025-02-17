@@ -1,99 +1,101 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'logging.dart';
 
 class UserData {
+  static const String _savedAlbumsKey = 'saved_albums';
+  static const String _savedAlbumOrderKey = 'saved_album_order';
+  static const String _ratingsPrefix = 'saved_ratings_';
+
   static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
-    List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
+      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      
+      List<Map<String, dynamic>> albums = savedAlbums
+          .map((albumJson) => jsonDecode(albumJson) as Map<String, dynamic>)
+          .toList();
 
-    List<Map<String, dynamic>> savedAlbums = [];
-    Map<String, Map<String, dynamic>> albumMap = {};
+      albums.sort((a, b) {
+        int indexA = albumOrder.indexOf(a['collectionId'].toString());
+        int indexB = albumOrder.indexOf(b['collectionId'].toString());
+        return indexA.compareTo(indexB);
+      });
 
-    if (savedAlbumsJson != null) {
-      for (String json in savedAlbumsJson) {
-        Map<String, dynamic> album = jsonDecode(json);
-        albumMap[album['collectionId'].toString()] = album;
-      }
+      return albums;
+    } catch (e, stackTrace) {
+      Logging.severe('Error getting saved albums', e, stackTrace);
+      return [];
     }
-
-    if (albumOrder != null) {
-      for (String id in albumOrder) {
-        if (albumMap.containsKey(id)) {
-          savedAlbums.add(albumMap[id]!);
-        }
-      }
-    }
-
-    return savedAlbums;
   }
 
   static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(
       int albumId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedRatingsJson =
-        prefs.getStringList('saved_ratings_$albumId');
-
-    List<Map<String, dynamic>> savedRatings = [];
-
-    if (savedRatingsJson != null) {
-      for (String json in savedRatingsJson) {
-        savedRatings.add(jsonDecode(json));
-      }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String key = '${_ratingsPrefix}$albumId';
+      
+      // Debug log para ver qué estamos recuperando
+      Logging.info('Getting ratings for album: $albumId');
+      Logging.info('Using key: $key');
+      
+      List<String> ratings = prefs.getStringList(key) ?? [];
+      Logging.info('Retrieved ratings: $ratings');
+      
+      final decodedRatings = ratings
+          .map((r) => jsonDecode(r) as Map<String, dynamic>)
+          .toList();
+      
+      Logging.info('Decoded ratings: $decodedRatings');
+      return decodedRatings;
+    } catch (e, stackTrace) {
+      Logging.severe('Error getting saved ratings for album $albumId', e, stackTrace);
+      return [];
     }
-
-    return savedRatings;
   }
 
   static Future<void> saveAlbum(Map<String, dynamic> album) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums') ?? [];
-    List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder') ?? [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      String albumJson = jsonEncode(album);
 
-    String albumJson = jsonEncode(album);
-    String albumId = album['collectionId'].toString();
-
-    int existingIndex = savedAlbumsJson.indexWhere((json) {
-      Map<String, dynamic> existingAlbum = jsonDecode(json);
-      return existingAlbum['collectionId'] == album['collectionId'];
-    });
-
-    if (existingIndex != -1) {
-      Map<String, dynamic> existingAlbum =
-          jsonDecode(savedAlbumsJson[existingIndex]);
-      existingAlbum.addAll(album);
-      savedAlbumsJson[existingIndex] = jsonEncode(existingAlbum);
-    } else {
-      savedAlbumsJson.add(albumJson);
-      albumOrder.add(albumId);
+      if (!savedAlbums.contains(albumJson)) {
+        savedAlbums.add(albumJson);
+        await prefs.setStringList(_savedAlbumsKey, savedAlbums);
+        
+        String albumId = album['collectionId'].toString();
+        List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
+        if (!albumOrder.contains(albumId)) {
+          albumOrder.add(albumId);
+          await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
+        }
+      }
+    } catch (e, stackTrace) {
+      Logging.severe('Error saving album', e, stackTrace);
+      rethrow;
     }
-
-    await prefs.setStringList('saved_albums', savedAlbumsJson);
-    await prefs.setStringList('savedAlbumsOrder', albumOrder);
   }
 
   static Future<void> deleteAlbum(Map<String, dynamic> album) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
-    List<String>? albumOrder = prefs.getStringList('savedAlbumsOrder');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      String albumJson = jsonEncode(album);
+      
+      savedAlbums.removeWhere((saved) => saved == albumJson);
+      await prefs.setStringList(_savedAlbumsKey, savedAlbums);
 
-    if (savedAlbumsJson != null && albumOrder != null) {
-      List<Map<String, dynamic>> savedAlbums = [];
+      String albumId = album['collectionId'].toString();
+      List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
+      albumOrder.remove(albumId);
+      await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
 
-      for (String json in savedAlbumsJson) {
-        savedAlbums.add(jsonDecode(json));
-      }
-
-      savedAlbums.removeWhere(
-          (savedAlbum) => savedAlbum['collectionId'] == album['collectionId']);
-      albumOrder.remove(album['collectionId'].toString());
-
-      savedAlbumsJson = savedAlbums.map((album) => jsonEncode(album)).toList();
-
-      await prefs.setStringList('saved_albums', savedAlbumsJson);
-      await prefs.setStringList('savedAlbumsOrder', albumOrder);
-
-      await _deleteRatings(album['collectionId']);
+      await prefs.remove('${_ratingsPrefix}${album['collectionId']}');
+    } catch (e, stackTrace) {
+      Logging.severe('Error deleting album', e, stackTrace);
+      rethrow;
     }
   }
 
@@ -103,8 +105,13 @@ class UserData {
   }
 
   static Future<void> saveAlbumOrder(List<String> albumIds) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('savedAlbumsOrder', albumIds);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_savedAlbumOrderKey, albumIds);
+    } catch (e, stackTrace) {
+      Logging.severe('Error saving album order', e, stackTrace);
+      rethrow;
+    }
   }
 
   static Future<List<String>> getSavedAlbumOrder() async {
@@ -115,27 +122,44 @@ class UserData {
 
   static Future<void> saveRating(
       int albumId, int trackId, double rating) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> savedRatingsJson =
-        prefs.getStringList('saved_ratings_$albumId') ?? [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String key = '${_ratingsPrefix}$albumId';
+      
+      // Debug log para ver qué valores estamos guardando
+      Logging.info('Saving rating - Album: $albumId, Track: $trackId, Rating: $rating');
+      Logging.info('Using key: $key');
 
-    int trackIndex = savedRatingsJson.indexWhere((json) {
-      Map<String, dynamic> ratingData = jsonDecode(json);
-      return ratingData['trackId'] == trackId;
-    });
+      List<String> ratings = prefs.getStringList(key) ?? [];
+      Logging.info('Existing ratings: $ratings');
+      
+      Map<String, dynamic> ratingData = {
+        'trackId': trackId,
+        'rating': rating,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
 
-    if (trackIndex != -1) {
-      Map<String, dynamic> ratingData =
-          jsonDecode(savedRatingsJson[trackIndex]);
-      ratingData['rating'] = rating;
-      savedRatingsJson[trackIndex] = jsonEncode(ratingData);
-    } else {
-      Map<String, dynamic> ratingData = {'trackId': trackId, 'rating': rating};
-      String ratingJson = jsonEncode(ratingData);
-      savedRatingsJson.add(ratingJson);
+      int index = ratings.indexWhere((r) {
+        Map<String, dynamic> saved = jsonDecode(r);
+        return saved['trackId'] == trackId;
+      });
+
+      if (index != -1) {
+        ratings[index] = jsonEncode(ratingData);
+      } else {
+        ratings.add(jsonEncode(ratingData));
+      }
+
+      await prefs.setStringList(key, ratings);
+      Logging.info('Saved ratings successfully: ${ratings.toString()}');
+      
+      // Verificar inmediatamente después de guardar
+      List<String>? verifyRatings = prefs.getStringList(key);
+      Logging.info('Verification - Retrieved ratings: ${verifyRatings.toString()}');
+    } catch (e, stackTrace) {
+      Logging.severe('Error saving rating', e, stackTrace);
+      rethrow;
     }
-
-    await prefs.setStringList('saved_ratings_$albumId', savedRatingsJson);
   }
 
   static Future<Map<String, dynamic>?> getSavedAlbumById(int albumId) async {
@@ -194,23 +218,90 @@ class UserData {
   }
 
   static Future<Map<int, double>?> getRatings(int albumId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedRatingsJson =
-        prefs.getStringList('saved_ratings_$albumId');
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String key = '${_ratingsPrefix}$albumId';  // Usar el mismo prefijo que en saveRating
+      List<String>? savedRatings = prefs.getStringList(key);
 
-    if (savedRatingsJson != null) {
-      Map<int, double> savedRatings = {};
+      if (savedRatings != null && savedRatings.isNotEmpty) {
+        Map<int, double> ratingsMap = {};
+        
+        for (String ratingJson in savedRatings) {
+          Map<String, dynamic> rating = jsonDecode(ratingJson);
+          int trackId = rating['trackId'];
+          double ratingValue = rating['rating'].toDouble();
+          ratingsMap[trackId] = ratingValue;
+        }
 
-      for (String json in savedRatingsJson) {
-        Map<String, dynamic> rating = jsonDecode(json);
-        int trackId = rating['trackId'];
-        double ratingValue = rating['rating'];
-        savedRatings[trackId] = ratingValue;
+        return ratingsMap;
       }
-
-      return savedRatings;
+    } catch (e, stackTrace) {
+      Logging.severe('Error getting ratings for album $albumId', e, stackTrace);
     }
-
     return null;
+  }
+
+  // Método para verificar las calificaciones guardadas (debug)
+  static Future<void> debugPrintRatings(int albumId) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String key = '${_ratingsPrefix}$albumId';
+      List<String>? savedRatings = prefs.getStringList(key);
+      
+      Logging.info('Debug: Ratings for album $albumId');
+      Logging.info('Key used: $key');
+      Logging.info('Raw saved ratings: $savedRatings');
+      
+      if (savedRatings != null) {
+        for (String rating in savedRatings) {
+          Logging.info('Rating entry: $rating');
+        }
+      }
+    } catch (e, stackTrace) {
+      Logging.severe('Error debugging ratings', e, stackTrace);
+    }
+  }
+
+  // Método para inspeccionar todas las keys y valores en SharedPreferences
+  static Future<void> inspectAllData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final allKeys = prefs.getKeys();
+      
+      Logging.info('=== INSPECTING ALL SHARED PREFERENCES DATA ===');
+      Logging.info('Total keys found: ${allKeys.length}');
+      
+      for (String key in allKeys) {
+        if (key.startsWith(_ratingsPrefix)) {
+          final ratings = prefs.getStringList(key);
+          Logging.info('Rating Key: $key');
+          Logging.info('Rating Values: $ratings');
+          
+          if (ratings != null) {
+            for (String rating in ratings) {
+              Logging.info('  Decoded rating: ${jsonDecode(rating)}');
+            }
+          }
+        } else {
+          final value = prefs.get(key);
+          Logging.info('Key: $key');
+          Logging.info('Value: $value');
+        }
+      }
+      Logging.info('=== END INSPECTION ===');
+    } catch (e, stackTrace) {
+      Logging.severe('Error inspecting data', e, stackTrace);
+    }
+  }
+
+  static Future<void> clearAllData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      Logging.info('All user data cleared');
+    } catch (e, stackTrace) {
+      Logging.severe('Error clearing all data', e, stackTrace);
+      rethrow;
+    }
   }
 }
