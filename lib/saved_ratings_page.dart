@@ -136,6 +136,51 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     UserData.saveAlbumOrder(albumIds);
   }
 
+  void _showShareDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final shareWidget = ShareWidget(
+          key: ShareWidget.shareKey,
+          title: 'Saved Albums',
+          albums: savedAlbums,
+        );
+        return AlertDialog(
+          content: SingleChildScrollView(
+            child: shareWidget,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  if (mounted && path != null) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Image saved to: $path')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error saving image: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Image'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -158,7 +203,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   await UserData.exportData(context);
                   break;
                 case 'share':
-                  // TODO: Implementar share de la lista completa
+                  _showShareDialog(context);
                   break;
               }
             },
