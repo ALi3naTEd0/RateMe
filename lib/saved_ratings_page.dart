@@ -134,83 +134,57 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           ? const Center(child: CircularProgressIndicator())
           : savedAlbums.isEmpty
               ? const Center(child: Text('No saved albums found'))
-              : ConstrainedBox(
-                  constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width),
-                  child: SingleChildScrollView(
-                    child: SizedBox(
-                      height: MediaQuery.of(context).size.height,
-                      child: ReorderableListView(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        onReorder: _onReorder,
-                        children: savedAlbums.map((album) {
-                          return ListTile(
-                            key: Key(album['collectionId'].toString()),
-                            leading: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                        color: isDarkTheme
-                                            ? Colors.white
-                                            : Colors.black),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      album['averageRating']
-                                              ?.toStringAsFixed(2) ??
-                                          'N/A',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDarkTheme
-                                            ? Colors.white
-                                            : Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Image.network(
-                                  album['artworkUrl100'],
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(Icons.album),
-                                ),
-                              ],
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  itemCount: savedAlbums.length,
+                  onReorder: _onReorder,
+                  itemBuilder: (context, index) {
+                    final album = savedAlbums[index];
+                    return ListTile(
+                      key: Key(album['collectionId'].toString()),
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: isDarkTheme ? Colors.white : Colors.black),
                             ),
-                            title: Text(album['collectionName'] ?? 'N/A'),
-                            subtitle: Text(album['artistName'] ?? 'N/A'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: () =>
-                                      _deleteAlbum(savedAlbums.indexOf(album)),
-                                  child: const Icon(Icons.delete),
+                            child: Center(
+                              child: Text(
+                                album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkTheme ? Colors.white : Colors.black,
                                 ),
-                                const SizedBox(width: 16),
-                              ],
+                              ),
                             ),
-                            onTap: () {
-                              _openSavedAlbumDetails(savedAlbums.indexWhere(
-                                  (a) =>
-                                      a['collectionId'] ==
-                                      album['collectionId']));
-                            },
-                          );
-                        }).toList(),
+                          ),
+                          const SizedBox(width: 8),
+                          Image.network(
+                            album['artworkUrl100'],
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.album),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
+                      title: Text(album['collectionName'] ?? 'N/A'),
+                      subtitle: Text(album['artistName'] ?? 'N/A'),
+                      trailing: GestureDetector(
+                        onTap: () => _deleteAlbum(index),
+                        child: const Icon(Icons.delete),
+                      ),
+                      onTap: () => _openSavedAlbumDetails(index),
+                    );
+                  },
                 ),
     );
   }
