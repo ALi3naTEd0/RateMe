@@ -8,6 +8,7 @@ url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')
 depends=(
     'gtk3'
+    'zenity'
     'adwaita-icon-theme'
     'libglvnd'
     'pcre2'
