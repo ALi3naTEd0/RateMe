@@ -14,6 +14,8 @@ depends=(
     'openssl'
     'libsecret'
     'hicolor-icon-theme'
+    'xcursor-themes'
+    'gnome-themes-extra'
 )
 makedepends=(
     'git'
@@ -60,9 +62,13 @@ package() {
         cp -r "$pkgdir/usr/lib/$pkgname/plugins/"* "$pkgdir/usr/lib/$pkgname/lib/"
     fi
     
-    # Crear launcher script con path de bibliotecas
+    # Crear launcher script con configuración de entorno
     cat > "$pkgdir/usr/bin/$pkgname" << EOF
 #!/bin/sh
+export GDK_BACKEND=x11
+export GTK_THEME=Adwaita
+export XCURSOR_THEME=Adwaita
+export XCURSOR_SIZE=24
 export LD_LIBRARY_PATH="/usr/lib/$pkgname/lib:\$LD_LIBRARY_PATH"
 exec /usr/lib/$pkgname/$pkgname "\$@"
 EOF
