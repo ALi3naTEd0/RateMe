@@ -487,6 +487,97 @@ class UserData {
     }
   }
 
+  static Future<void> exportAlbum(BuildContext context, Map<String, dynamic> album) async {
+    try {
+      // Obtener ratings del álbum
+      final albumId = album['collectionId'];
+      final ratings = await getSavedAlbumRatings(albumId);
+      
+      final exportData = {
+        'album': album,
+        'ratings': ratings,
+        'exportDate': DateTime.now().toIso8601String(),
+        'version': '1.0',
+      };
+
+      String? selectedDir = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select folder to save album data',
+        initialDirectory: await _getDocumentsPath(),
+      );
+
+      if (selectedDir != null) {
+        final safeName = album['collectionName']
+            .toString()
+            .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+        final filePath = path.join(selectedDir, 'album_$safeName.json');
+        final file = File(filePath);
+        
+        await file.writeAsString(jsonEncode(exportData), flush: true);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Album exported to: $filePath'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error exporting album: $e')),
+        );
+      }
+    }
+  }
+
+  static Future<Map<String, dynamic>?> importAlbum(BuildContext context) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        dialogTitle: 'Select album file to import',
+      );
+
+      if (result?.files.single.path != null) {
+        final file = File(result!.files.single.path!);
+        final jsonData = await file.readAsString();
+        final data = jsonDecode(jsonData);
+
+        if (data['version'] == '1.0' && data['album'] != null) {
+          final album = data['album'];
+          await saveAlbum(album);
+
+          if (data['ratings'] != null) {
+            final albumId = album['collectionId'];
+            for (var rating in data['ratings']) {
+              await saveRating(
+                albumId,
+                rating['trackId'],
+                rating['rating'].toDouble(),
+              );
+            }
+          }
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Album imported successfully')),
+            );
+          }
+          return data['album'];
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error importing album: $e')),
+        );
+      }
+    }
+    return null;
+  }
+
   static Future<List<CustomList>> getCustomLists() async {
     try {
       final prefs = await SharedPreferences.getInstance();
