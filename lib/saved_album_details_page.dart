@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'footer.dart';
-import 'app_theme.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'user_data.dart';
 import 'package:intl/intl.dart';
 import 'logging.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SavedAlbumDetailsPage extends StatefulWidget {
   final dynamic album;
@@ -242,10 +240,7 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
               ElevatedButton(
                 onPressed: _launchRateYourMusic,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).brightness == Brightness.dark
-                          ? AppTheme.darkTheme.colorScheme.primary
-                          : AppTheme.lightTheme.colorScheme.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                 ),
                 child: const Text(
                   'RateYourMusic.com',
@@ -253,12 +248,18 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
                 ),
               ),
               const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _saveAlbum,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                ),
+                child: const Text('Save Album', style: TextStyle(color: Colors.white)),
+              ),
               const SizedBox(height: 100),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: const Footer(),
     );
   }
 
@@ -303,6 +304,18 @@ class _SavedAlbumDetailsPageState extends State<SavedAlbumDetailsPage> {
       }
     } catch (error, stackTrace) {
       Logging.severe('Error launching RateYourMusic', error, stackTrace);
+    }
+  }
+
+  void _saveAlbum() async {
+    await UserData.saveAlbum(widget.album);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Album saved successfully'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 }
