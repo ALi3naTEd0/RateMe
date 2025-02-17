@@ -125,7 +125,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   void _showOptionsDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) { // Usar dialogContext en lugar de context
         return AlertDialog(
           title: const Text('Options'),
           content: Column(
@@ -135,13 +135,18 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 leading: const Icon(Icons.file_download),
                 title: const Text('Import Data'),
                 onTap: () async {
-                  Navigator.pop(context);
-                  final success = await UserData.importData(context);
+                  Navigator.pop(dialogContext);
+                  
+                  // Usar un BuildContext que sabemos que está vivo
+                  if (!mounted) return;
+                  final scaffoldContext = context;
+                  
+                  final success = await UserData.importData(scaffoldContext);
                   if (success && mounted) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SavedRatingsPage(),
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Data imported successfully!'),
+                        duration: Duration(seconds: 2),
                       ),
                     );
                   }
@@ -150,16 +155,24 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               ListTile(
                 leading: const Icon(Icons.file_upload),
                 title: const Text('Export Data'),
-                onTap: () {
-                  Navigator.pop(context);
-                  UserData.exportData(context);
+                onTap: () async {
+                  Navigator.pop(dialogContext);
+                  
+                  if (!mounted) return;
+                  final scaffoldContext = context;
+                  
+                  await UserData.exportData(scaffoldContext);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.delete),
                 title: const Text('Clear All Data'),
                 onTap: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
+                  
+                  if (!mounted) return;
+                  final scaffoldContext = context;
+                  
                   bool? confirm = await _showConfirmDialog();
                   if (confirm == true) {
                     await UserData.clearAllData();
@@ -167,7 +180,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                       setState(() {
                         searchResults = [];
                       });
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                         const SnackBar(content: Text('All data cleared')),
                       );
                     }
@@ -178,7 +191,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Close'),
             ),
           ],
