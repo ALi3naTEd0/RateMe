@@ -7,13 +7,17 @@ import 'package:intl/intl.dart';  // Agregamos este import
 import 'dart:convert';
 import 'dart:async';
 // Removemos la importación de footer.dart
-import 'saved_preferences_page.dart';
+// Remove import 'saved_preferences_page.dart'
 import 'saved_ratings_page.dart';
-import 'shared_preferences_page.dart';
 import 'logging.dart';
 import 'details_page.dart';  // Nuevo import
 // Remover imports de bandcamp_details_page.dart y album_details_page.dart
 // Remove import of search_page.dart
+import 'package:file_picker/file_picker.dart';
+import 'data_export.dart';  // Mantener las funciones de exportación/importación separadas
+import 'data_import.dart';
+import 'user_data.dart';  // Agregar esta importación
+import 'package:path_provider/path_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +94,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RateMe',
+      debugShowCheckedModeBanner: false, // Agregar esta línea
       theme: isDarkMode ? darkTheme : lightTheme,  // Usamos las definiciones locales
       home: MusicRatingHomePage(
         toggleTheme: toggleTheme,
@@ -118,6 +123,85 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   List<dynamic> searchResults = [];
   Timer? _debounce;
 
+  void _showOptionsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Options'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('Clear All Data'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  bool? confirm = await _showConfirmDialog();
+                  if (confirm == true) {
+                    await UserData.clearAllData();
+                    if (mounted) {
+                      setState(() {
+                        searchResults = [];
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('All data cleared')),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download),
+                title: const Text('Import Data'),
+                onTap: () {
+                  Navigator.pop(context);
+                  importSharedPreferencesFromJson(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_upload),
+                title: const Text('Export Data'),
+                onTap: () {
+                  Navigator.pop(context);
+                  exportSharedPreferencesToJson(context);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _showConfirmDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: const Text('Are you sure you want to delete all data? This cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -145,19 +229,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 onChanged: (_) => widget.toggleTheme(),
                 activeColor: Theme.of(context).colorScheme.secondary,
               ),
-            ),
-          ),
-          Tooltip(
-            message: 'Shared Preferences',
-            child: IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SharedPreferencesPage()),
-                );
-              },
             ),
           ),
         ],
@@ -206,11 +277,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const SavedPreferencesPage()),
-        ),
-        child: const Icon(Icons.delete),
+        onPressed: _showOptionsDialog,
+        child: const Icon(Icons.settings), // Cambiar de more_vert a settings
       ),
     );
   }

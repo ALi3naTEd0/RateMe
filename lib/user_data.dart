@@ -35,20 +35,8 @@ class UserData {
     try {
       final prefs = await SharedPreferences.getInstance();
       String key = '${_ratingsPrefix}$albumId';
-      
-      // Debug log para ver qué estamos recuperando
-      Logging.info('Getting ratings for album: $albumId');
-      Logging.info('Using key: $key');
-      
       List<String> ratings = prefs.getStringList(key) ?? [];
-      Logging.info('Retrieved ratings: $ratings');
-      
-      final decodedRatings = ratings
-          .map((r) => jsonDecode(r) as Map<String, dynamic>)
-          .toList();
-      
-      Logging.info('Decoded ratings: $decodedRatings');
-      return decodedRatings;
+      return ratings.map((r) => jsonDecode(r) as Map<String, dynamic>).toList();
     } catch (e, stackTrace) {
       Logging.severe('Error getting saved ratings for album $albumId', e, stackTrace);
       return [];
@@ -81,18 +69,31 @@ class UserData {
   static Future<void> deleteAlbum(Map<String, dynamic> album) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      String albumJson = jsonEncode(album);
       
-      savedAlbums.removeWhere((saved) => saved == albumJson);
+      // Obtener y filtrar álbumes guardados
+      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      String albumId = album['collectionId'].toString();
+      
+      // Filtrar por collectionId en lugar de comparar el JSON completo
+      savedAlbums.removeWhere((savedAlbumJson) {
+        Map<String, dynamic> savedAlbum = jsonDecode(savedAlbumJson);
+        return savedAlbum['collectionId'].toString() == albumId;
+      });
+      
+      // Guardar la lista actualizada
       await prefs.setStringList(_savedAlbumsKey, savedAlbums);
 
-      String albumId = album['collectionId'].toString();
+      // Actualizar orden de álbumes
       List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
       albumOrder.remove(albumId);
       await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
 
-      await prefs.remove('${_ratingsPrefix}${album['collectionId']}');
+      // Eliminar ratings
+      await prefs.remove('${_ratingsPrefix}$albumId');
+
+      Logging.info('Album deleted - ID: $albumId');
+      Logging.info('Remaining albums: ${savedAlbums.length}');
+      Logging.info('Remaining order entries: ${albumOrder.length}');
     } catch (e, stackTrace) {
       Logging.severe('Error deleting album', e, stackTrace);
       rethrow;
@@ -125,13 +126,7 @@ class UserData {
     try {
       final prefs = await SharedPreferences.getInstance();
       String key = '${_ratingsPrefix}$albumId';
-      
-      // Debug log para ver qué valores estamos guardando
-      Logging.info('Saving rating - Album: $albumId, Track: $trackId, Rating: $rating');
-      Logging.info('Using key: $key');
-
       List<String> ratings = prefs.getStringList(key) ?? [];
-      Logging.info('Existing ratings: $ratings');
       
       Map<String, dynamic> ratingData = {
         'trackId': trackId,
@@ -151,11 +146,6 @@ class UserData {
       }
 
       await prefs.setStringList(key, ratings);
-      Logging.info('Saved ratings successfully: ${ratings.toString()}');
-      
-      // Verificar inmediatamente después de guardar
-      List<String>? verifyRatings = prefs.getStringList(key);
-      Logging.info('Verification - Retrieved ratings: ${verifyRatings.toString()}');
     } catch (e, stackTrace) {
       Logging.severe('Error saving rating', e, stackTrace);
       rethrow;

@@ -244,6 +244,7 @@ class _DetailsPageState extends State<DetailsPage> {
                           _buildInfoRow("Album", widget.album['collectionName'] ?? 'Unknown Album'),
                           _buildInfoRow("Release Date", _formatReleaseDate()),
                           _buildInfoRow("Duration", formatDuration(albumDurationMillis)),
+                          const SizedBox(height: 8), // Espacio adicional antes del rating
                           _buildInfoRow("Rating", averageRating.toStringAsFixed(2), fontSize: 20),
                         ],
                       ),
@@ -322,7 +323,10 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Widget _buildInfoRow(String label, String value, {double fontSize = 16}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      // Reducir el padding vertical para los rows de información básica
+      padding: EdgeInsets.symmetric(
+        vertical: label == "Rating" ? 8.0 : 2.0, // Más espacio solo para Rating
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
