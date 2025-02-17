@@ -215,13 +215,14 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       appBar: AppBar(
         title: const Text('Rate Me!'),
         centerTitle: true,
-        leadingWidth: MediaQuery.of(context).size.width * 0.2,
         leading: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Expanded(
               child: IconButton(
-                icon: const Icon(Icons.library_music),
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.library_music_outlined), // Biblioteca
                 tooltip: 'All Saved Albums',
                 onPressed: () => Navigator.push(
                   context,
@@ -231,7 +232,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             ),
             Expanded(
               child: IconButton(
-                icon: const Icon(Icons.folder_special),
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.format_list_bulleted), // Listas
                 tooltip: 'Custom Lists',
                 onPressed: () => Navigator.push(
                   context,
@@ -239,26 +241,21 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 ),
               ),
             ),
+            Expanded(
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.settings), // Configuración
+                onPressed: _showOptionsDialog,
+              ),
+            ),
           ],
         ),
+        leadingWidth: 120, // Dar más espacio para los tres iconos
         actions: [
-          SizedBox(
-            width: MediaQuery.of(context).size.width * 0.85 / 3,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Switch(
-                  value: widget.themeBrightness == Brightness.dark,
-                  onChanged: (_) => widget.toggleTheme(),
-                  activeColor: Theme.of(context).colorScheme.secondary,
-                ),
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.settings),
-                  onPressed: _showOptionsDialog,
-                ),
-              ],
-            ),
+          Switch(
+            value: widget.themeBrightness == Brightness.dark,
+            onChanged: (_) => widget.toggleTheme(),
+            activeColor: Theme.of(context).colorScheme.secondary,
           ),
         ],
       ),

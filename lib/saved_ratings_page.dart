@@ -178,9 +178,19 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                       ),
                       title: Text(album['collectionName'] ?? 'N/A'),
                       subtitle: Text(album['artistName'] ?? 'N/A'),
-                      trailing: GestureDetector(
-                        onTap: () => _deleteAlbum(index),
-                        child: const Icon(Icons.delete),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _openSavedAlbumDetails(index),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => _deleteAlbum(index),
+                          ),
+                          const Icon(Icons.drag_handle),
+                        ],
                       ),
                       onTap: () => _openSavedAlbumDetails(index),
                     );
