@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'custom_lists_page.dart';  // Única importación necesaria para CustomList
+import 'package:file_picker/file_picker.dart';  // Agregar esta importación
 
 class UserData {
   static const String _savedAlbumsKey = 'saved_albums';
@@ -242,41 +243,125 @@ class UserData {
     }
   }
 
+  static Future<String> _getDocumentsPath() async {
+    if (Platform.isWindows) {
+      // En Windows: C:\Users\<username>\Documents
+      return path.join(Platform.environment['USERPROFILE'] ?? '', 'Documents');
+    } else if (Platform.isMacOS) {
+      // En MacOS: /Users/<username>/Documents
+      return path.join(Platform.environment['HOME'] ?? '', 'Documents');
+    } else {
+      // En Linux y otros: /home/<username>/Documents
+      return path.join(Platform.environment['HOME'] ?? '', 'Documents');
+    }
+  }
+
+  static Future<String?> _showFilePicker({
+    required String dialogTitle,
+    required String fileName,
+    required String initialDirectory,
+    bool isSave = true,
+  }) async {
+    try {
+      if (isSave) {
+        return await FilePicker.platform.saveFile(
+          dialogTitle: dialogTitle,
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          initialDirectory: initialDirectory,
+        );
+      } else {
+        final result = await FilePicker.platform.pickFiles(
+          dialogTitle: dialogTitle,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          initialDirectory: initialDirectory,
+        );
+        return result?.files.single.path;
+      }
+    } catch (e) {
+      // Si falla FilePicker (por ejemplo, por falta de zenity),
+      // usar directamente Documents
+      final documentsPath = await _getDocumentsPath();
+      return path.join(documentsPath, fileName);
+    }
+  }
+
   static Future<void> exportData(BuildContext context) async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       Map<String, dynamic> data = prefs.getKeys().fold({}, (previousValue, key) {
         previousValue[key] = prefs.get(key);
         return previousValue;
       });
 
-      String jsonData = jsonEncode(data);
+      String initialDirectory = await _getDocumentsPath();
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final defaultFileName = 'rateme_backup_$timestamp.json';
       
-      // Obtener el directorio Documents del usuario
-      String homeDirectory = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
-      String documentsPath = path.join(homeDirectory, 'Documents');
-      Directory documentsDir = Directory(documentsPath);
-      if (!documentsDir.existsSync()) {
-        documentsDir.createSync(recursive: true);
+      // Mostrar diálogo para seleccionar la ubicación
+      String? selectedDir = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select folder to save backup',
+        initialDirectory: initialDirectory,
+      );
+
+      if (selectedDir == null) {
+        selectedDir = initialDirectory; // Usar Documents por defecto si no se selecciona nada
       }
 
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final file = File(path.join(documentsPath, 'rateme_backup_$timestamp.json'));
+      final filePath = path.join(selectedDir, defaultFileName);
+      final file = File(filePath);
       
-      await file.writeAsString(jsonData, flush: true);
+      await file.writeAsString(jsonEncode(data), flush: true);
 
       if (context.mounted) {
+        // Mostrar SnackBar en lugar de diálogo
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Backup saved to: ${file.path}'),
-            duration: const Duration(seconds: 5),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Backup created successfully!'),
+                      Text(
+                        filePath,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            width: MediaQuery.of(context).size.width * 0.9,
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating backup: $e')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Error creating backup: $e'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -284,31 +369,60 @@ class UserData {
 
   static Future<bool> importData(BuildContext context) async {
     try {
-      String homeDirectory = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
-      String documentsPath = path.join(homeDirectory, 'Documents');
-      Directory documentsDir = Directory(documentsPath);
-      
-      if (!documentsDir.existsSync()) {
-        throw Exception('Documents directory not found');
+      String initialDirectory = await _getDocumentsPath();
+      final scaffoldContext = context;  // Guardar referencia al contexto
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Select backup file to import',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        initialDirectory: initialDirectory,
+      );
+
+      if (result?.files.single.path == null) {
+        ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+          const SnackBar(content: Text('Import cancelled')),
+        );
+        return false;
       }
 
-      final backupFiles = documentsDir
-          .listSync()
-          .whereType<File>()
-          .where((file) => file.path.contains('rateme_backup_') && file.path.endsWith('.json'))
-          .toList();
-
-      if (backupFiles.isEmpty) {
-        throw Exception('No backup files found in Documents folder');
-      }
-
-      final latestBackup = backupFiles.reduce((a, b) => 
-        a.lastModifiedSync().isAfter(b.lastModifiedSync()) ? a : b);
-      
-      String jsonData = await latestBackup.readAsString();
+      final file = File(result!.files.single.path!);
+      String jsonData = await file.readAsString();
       Map<String, dynamic> data = jsonDecode(jsonData);
-      SharedPreferences prefs = await SharedPreferences.getInstance();
 
+      bool? confirm = await showDialog<bool>(
+        context: scaffoldContext,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirm Import'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('This will replace all your current data.'),
+              const SizedBox(height: 8),
+              Text('File: ${file.path}', style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              child: const Text('Import'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) {
+        return false;
+      }
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       await Future.forEach(data.entries, (MapEntry<String, dynamic> entry) async {
         final key = entry.key;
@@ -325,19 +439,50 @@ class UserData {
         }
       });
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Data restored from: ${latestBackup.path}')),
-        );
-      }
+      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Data restored successfully!'),
+                    Text(
+                      file.path,
+                      style: const TextStyle(fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
       return true;
 
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error importing data: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Error importing data: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return false;
     }
   }
