@@ -1,9 +1,10 @@
 [Desktop Entry]
-Name=Rate Me!
-Comment=A Music Rating App
-Exec=rateme
+Version=1.0
+Type=Application
+Name=Rate Me
+Comment=Aplicación de calificación musical
+Exec=/usr/bin/rateme
 Icon=rateme
 Terminal=false
-Type=Application
-Categories=AudioVideo;Player
+Categories=Audio;Music;Utility;
 StartupWMClass=RateMe
