@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'custom_lists_page.dart';  // Única importación necesaria para CustomList
 import 'package:file_picker/file_picker.dart';  // Agregar esta importación
+import 'package:path_provider/path_provider.dart';  // Agregar esta importación
 
 class UserData {
   static const String _savedAlbumsKey = 'saved_albums';
@@ -244,14 +245,14 @@ class UserData {
   }
 
   static Future<String> _getDocumentsPath() async {
-    if (Platform.isWindows) {
-      // En Windows: C:\Users\<username>\Documents
+    if (Platform.isAndroid) {
+      final directory = await getExternalStorageDirectory();
+      return directory?.path ?? (await getApplicationDocumentsDirectory()).path;
+    } else if (Platform.isWindows) {
       return path.join(Platform.environment['USERPROFILE'] ?? '', 'Documents');
     } else if (Platform.isMacOS) {
-      // En MacOS: /Users/<username>/Documents
       return path.join(Platform.environment['HOME'] ?? '', 'Documents');
     } else {
-      // En Linux y otros: /home/<username>/Documents
       return path.join(Platform.environment['HOME'] ?? '', 'Documents');
     }
   }

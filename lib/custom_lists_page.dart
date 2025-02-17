@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_page.dart';
+import 'share_widget.dart';  // Agregar esta importación
 
 // Modelo CustomList
 class CustomList {
@@ -320,6 +321,51 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     ).then((_) => _loadAlbums());
   }
 
+  void _showShareDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final shareWidget = ShareWidget(
+          key: ShareWidget.shareKey,
+          title: widget.list.name,
+          albums: albums,
+        );
+        return AlertDialog(
+          content: SingleChildScrollView(
+            child: shareWidget,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  if (mounted && path != null) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Image saved to: $path')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error saving image: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Image'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -356,7 +402,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   await UserData.exportData(context);
                   break;
                 case 'share':
-                  // TODO: Implementar share de la lista específica
+                  _showShareDialog(context);
                   break;
               }
             },
