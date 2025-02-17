@@ -154,9 +154,18 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               ListTile(
                 leading: const Icon(Icons.file_download),
                 title: const Text('Import Data'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  importSharedPreferencesFromJson(context);
+                  final success = await importSharedPreferencesFromJson(context);
+                  if (success && mounted) {
+                    // En lugar de reemplazar, mostrar un mensaje de éxito
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Data imported successfully'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 },
               ),
               ListTile(
