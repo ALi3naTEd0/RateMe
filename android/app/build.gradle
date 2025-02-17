@@ -10,13 +10,15 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    compileSdkVersion flutter.compileSdkVersion
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = '11'
     }
 
     defaultConfig {
@@ -28,13 +30,21 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        minSdkVersion = 21  // Establecer explícitamente a 21 (Android 5.0)
+        targetSdkVersion = flutter.targetSdkVersion
+        versionCode = 1     // Asegurarse de que estos valores estén definidos
+        versionName = "1.0"
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            // Usar debug signing para desarrollo
+            signingConfig signingConfigs.debug
+            // Desactivar minificación y shrinking
+            minifyEnabled false
+            shrinkResources false
+            // Ya no necesitamos proguard
+            // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
