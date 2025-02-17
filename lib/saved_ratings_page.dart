@@ -143,6 +143,59 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Saved Ratings'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.settings),
+            onSelected: (value) async {
+              switch (value) {
+                case 'import':
+                  final success = await UserData.importData(context);
+                  if (success && mounted) {
+                    setState(() => _loadSavedAlbums());
+                  }
+                  break;
+                case 'export':
+                  await UserData.exportData(context);
+                  break;
+                case 'share':
+                  // TODO: Implementar share de la lista completa
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'import',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_download),
+                    SizedBox(width: 8),
+                    Text('Import Data'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'export',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_upload),
+                    SizedBox(width: 8),
+                    Text('Export Data'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share),
+                    SizedBox(width: 8),
+                    Text('Share as Image'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
