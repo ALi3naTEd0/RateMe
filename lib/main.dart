@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';  // Reemplazar share_extend
+import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -367,7 +367,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 onTap: () async {
                   Navigator.pop(context);
                   try {
-                    await Share.shareXFiles([XFile(imagePath)]);  // Reemplazar ShareExtend.share
+                    await Share.shareXFiles([XFile(imagePath)]);
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -546,13 +546,13 @@ class BandcampService {
         String albumName = titleParts.isNotEmpty ? titleParts[0].trim() : title;
         String artistName = titleParts.length > 1 ? titleParts[1].trim() : artist;
 
-        // Extraer o generar un ID consistente para el álbum
+        // Extract or generate a consistent ID for the album
         int albumId = albumData?['id'] ?? 
                      albumData?['current']?['id'] ?? 
-                     url.hashCode;  // Usar URL como fallback
+                     url.hashCode;  // Use URL as fallback
 
         return {
-          'collectionId': albumId,  // Usar el ID real de Bandcamp
+          'collectionId': albumId,  // Use real Bandcamp ID
           'collectionName': albumName,
           'artistName': artistName,
           'artworkUrl100': artworkUrl,
@@ -569,7 +569,7 @@ class BandcampService {
   static List<Map<String, dynamic>> extractTracks(dynamic document) {
     List<Map<String, dynamic>> tracks = [];
     try {
-      // Obtener el JSON-LD directamente
+      // Get JSON-LD directly
       var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
       if (ldJsonScript != null) {
         var ldJson = jsonDecode(ldJsonScript.text);
@@ -596,7 +596,7 @@ class BandcampService {
         }
       }
 
-      // Si no hay JSON-LD, buscar en TralbumData (fallback)
+      // If no JSON-LD, look in TralbumData (fallback)
       var scriptTags = document.getElementsByTagName('script');
       Map<String, dynamic>? trackInfo;
 

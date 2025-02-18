@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';  // Reemplazar share_extend
+import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'user_data.dart';
 import 'saved_album_page.dart';
