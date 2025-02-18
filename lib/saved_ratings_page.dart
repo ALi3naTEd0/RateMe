@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:share_extend/share_extend.dart';
+import 'package:share_plus/share_plus.dart';  // Reemplazar share_extend
 import 'dart:io';
 import 'user_data.dart';
 import 'saved_album_page.dart';
@@ -140,7 +140,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   void _handleImageShare(String imagePath) async {
     try {
-      await ShareExtend.share(imagePath, "image");
+      await Share.shareXFiles([XFile(imagePath)]);  // Reemplazar ShareExtend.share
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
-import 'package:share_extend/share_extend.dart';
+import 'package:share_plus/share_plus.dart';  // Reemplazar share_extend
 import 'dart:io';
 
 // Model for custom album lists
@@ -325,7 +325,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   void _handleImageShare(String imagePath) async {
     try {
-      await ShareExtend.share(imagePath, "image");
+      await Share.shareXFiles([XFile(imagePath)]);  // Reemplazar ShareExtend.share
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
