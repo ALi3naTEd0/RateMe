@@ -4,17 +4,15 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'user_data.dart';
 import 'package:file_picker/file_picker.dart';
 
-// Widget for sharing albums and lists as images
 class ShareWidget extends StatefulWidget {
-  final Map<String, dynamic>? album;
+  final Map<String, dynamic>? album;  // Make optional
   final List<dynamic>? tracks;
   final Map<int, double>? ratings;
   final double? averageRating;
-  final String? title;
-  final List<Map<String, dynamic>>? albums;
+  final String? title;  // New: for custom title
+  final List<Map<String, dynamic>>? albums;  // New: for collections
 
   static final GlobalKey<_ShareWidgetState> shareKey = GlobalKey();
 
@@ -39,7 +37,8 @@ class ShareWidget extends StatefulWidget {
 class _ShareWidgetState extends State<ShareWidget> {
   final _boundaryKey = GlobalKey();
 
-  Future<String?> saveAsImage() async {
+  // Method to be called from outside
+  Future<String> saveAsImage() async {
     try {
       await Future.delayed(const Duration(milliseconds: 200));
       final boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary;
@@ -47,56 +46,40 @@ class _ShareWidgetState extends State<ShareWidget> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
 
-      // Generate filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final safeName = widget.album?['collectionName']
           ?.toString()
-          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') ?? 'shared_list';
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final defaultFileName = 'RateMe_${safeName}_$timestamp.png';
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') ?? 'album';
+      final fileName = 'RateMe_${safeName}_$timestamp.png';
 
-      // Permitir al usuario elegir ubicación
-      String? filePath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save image as',
-        fileName: defaultFileName,
-        type: FileType.custom,
-        allowedExtensions: ['png'],
-        lockParentWindow: true,
-      );
-
-      if (filePath != null) {
+      // On Android, save directly to Downloads
+      if (Platform.isAndroid) {
+        final downloadPath = '/storage/emulated/0/Download';
+        final filePath = '$downloadPath/$fileName';
         final file = File(filePath);
         await file.writeAsBytes(pngBytes);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Image saved successfully!'),
-                        Text(
-                          filePath,
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
+        
+        // Force MediaStore update to make it visible immediately
+        await File(filePath).setLastModified(DateTime.now());
+        
         return filePath;
+      } else {
+        // For desktop and other platforms, use FilePicker
+        final String? savePath = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save image as',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['png'],
+        );
+
+        if (savePath != null) {
+          final file = File(savePath);
+          await file.writeAsBytes(pngBytes);
+          return file.path;
+        }
       }
-      return null;
+      
+      throw Exception('Failed to save image');
     } catch (e) {
       rethrow;
     }
@@ -251,7 +234,7 @@ class _ShareWidgetState extends State<ShareWidget> {
                 ),
                 // Duration
                 SizedBox(
-                  width: 70, // Fixed width to align ratings
+                  width: 70, // Fixed width for duration to align ratings
                   child: Text(
                     formatDuration(duration),
                     textAlign: TextAlign.right,
