@@ -562,13 +562,50 @@ class UserData {
         final jsonData = await file.readAsString();
         final data = jsonDecode(jsonData);
 
-        if (data['version'] == '1.0' && data['album'] != null) {
-          final album = data['album'];
-          await saveAlbum(album);
+        if (!data.containsKey('version') || !data.containsKey('album')) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid album file format'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return null;
+        }
 
-          if (data['ratings'] != null) {
-            final albumId = album['collectionId'];
-            for (var rating in data['ratings']) {
+        if (data['version'] != '1.0') {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Unsupported album file version'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return null;
+        }
+
+        final album = data['album'];
+        if (!album.containsKey('collectionId') || 
+            !album.containsKey('collectionName') || 
+            !album.containsKey('artistName')) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid album data format'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return null;
+        }
+
+        // Guardar solo los ratings, no el álbum
+        if (data['ratings'] != null) {
+          final albumId = album['collectionId'];
+          for (var rating in data['ratings']) {
+            if (rating.containsKey('trackId') && rating.containsKey('rating')) {
               await saveRating(
                 albumId,
                 rating['trackId'],
@@ -576,19 +613,17 @@ class UserData {
               );
             }
           }
-
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Album imported successfully')),
-            );
-          }
-          return data['album'];
         }
+
+        return data['album'];
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error importing album: $e')),
+          SnackBar(
+            content: Text('Error importing album: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
