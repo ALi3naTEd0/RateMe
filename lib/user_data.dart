@@ -4,11 +4,12 @@ import 'logging.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'custom_lists_page.dart';  // Única importación necesaria para CustomList
-import 'package:file_picker/file_picker.dart';  // Agregar esta importación
-import 'package:path_provider/path_provider.dart';  // Agregar esta importación
+import 'custom_lists_page.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class UserData {
+  // Storage keys for SharedPreferences
   static const String _savedAlbumsKey = 'saved_albums';
   static const String _savedAlbumOrderKey = 'saved_album_order';
   static const String _ratingsPrefix = 'saved_ratings_';
@@ -77,25 +78,20 @@ class UserData {
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Obtener y filtrar álbumes guardados
       List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
       String albumId = album['collectionId'].toString();
       
-      // Filtrar por collectionId en lugar de comparar el JSON completo
       savedAlbums.removeWhere((savedAlbumJson) {
         Map<String, dynamic> savedAlbum = jsonDecode(savedAlbumJson);
         return savedAlbum['collectionId'].toString() == albumId;
       });
       
-      // Guardar la lista actualizada
       await prefs.setStringList(_savedAlbumsKey, savedAlbums);
 
-      // Actualizar orden de álbumes
       List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
       albumOrder.remove(albumId);
       await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
 
-      // Eliminar ratings
       await prefs.remove('${_ratingsPrefix}$albumId');
     } catch (e, stackTrace) {
       Logging.severe('Error deleting album', e, stackTrace);
@@ -188,32 +184,17 @@ class UserData {
   }
 
   static Future<void> exportRatings(String filePath) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedAlbumsJson = prefs.getStringList('saved_albums');
-
-    if (savedAlbumsJson != null) {
-      Map<int, List<Map<String, dynamic>>> ratingsMap = {};
-      for (String json in savedAlbumsJson) {
-        Map<String, dynamic> album = jsonDecode(json);
-        int albumId = album['collectionId'];
-        List<Map<String, dynamic>> ratings =
-            await getSavedAlbumRatings(albumId);
-        ratingsMap[albumId] = ratings;
-      }
-
-      // Write ratingsMap to file
-      // Example implementation for writing to file omitted for brevity
-    }
+    // TODO: Implement export ratings functionality
   }
 
   static Future<void> importRatings(String filePath) async {
-    // Example implementation for importing ratings from file omitted for brevity
+    // TODO: Implement import ratings functionality
   }
 
   static Future<Map<int, double>?> getRatings(int albumId) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String key = '${_ratingsPrefix}$albumId';  // Usar el mismo prefijo que en saveRating
+      String key = '${_ratingsPrefix}$albumId';
       List<String>? savedRatings = prefs.getStringList(key);
 
       if (savedRatings != null && savedRatings.isNotEmpty) {
@@ -249,7 +230,6 @@ class UserData {
       final directory = await getExternalStorageDirectory();
       return directory?.path ?? (await getApplicationDocumentsDirectory()).path;
     } else if (Platform.isLinux) {
-      // En Linux, intentamos obtener HOME/Documents
       final home = Platform.environment['HOME'];
       if (home != null) {
         final documentsDir = Directory('$home/Documents');
@@ -257,7 +237,6 @@ class UserData {
           return documentsDir.path;
         }
       }
-      // Si no encontramos Documents, usamos HOME
       return Platform.environment['HOME'] ?? '/home/${Platform.environment['USER']}';
     } else if (Platform.isWindows) {
       return path.join(Platform.environment['USERPROFILE'] ?? '', 'Documents');
@@ -293,8 +272,6 @@ class UserData {
         return result?.files.single.path;
       }
     } catch (e) {
-      // Si falla FilePicker (por ejemplo, por falta de zenity),
-      // usar directamente Documents
       final documentsPath = await _getDocumentsPath();
       return path.join(documentsPath, fileName);
     }
@@ -313,7 +290,6 @@ class UserData {
       
       String? filePath;
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        // En sistemas de escritorio, usar un solo diálogo
         filePath = await FilePicker.platform.saveFile(
           dialogTitle: 'Save backup as',
           fileName: defaultFileName,
@@ -322,7 +298,6 @@ class UserData {
           lockParentWindow: true,
         );
       } else {
-        // En móvil, usar directorio por defecto
         final defaultDir = await getExternalStorageDirectory();
         filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
       }
@@ -353,7 +328,6 @@ class UserData {
     try {
       FilePickerResult? result;
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        // En sistemas de escritorio, usar un solo diálogo
         result = await FilePicker.platform.pickFiles(
           dialogTitle: 'Select backup file to import',
           type: FileType.custom,
@@ -362,7 +336,6 @@ class UserData {
           withData: false,
         );
       } else {
-        // En móvil, usar selección simple
         result = await FilePicker.platform.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['json'],
@@ -601,7 +574,6 @@ class UserData {
           return null;
         }
 
-        // Guardar solo los ratings, no el álbum
         if (data['ratings'] != null) {
           final albumId = album['collectionId'];
           for (var rating in data['ratings']) {
@@ -646,7 +618,6 @@ class UserData {
       final prefs = await SharedPreferences.getInstance();
       List<String> lists = prefs.getStringList(_customListsKey) ?? [];
       
-      // Update existing or add new
       int index = lists.indexWhere((json) {
         CustomList existing = CustomList.fromJson(jsonDecode(json));
         return existing.id == list.id;
@@ -685,7 +656,6 @@ class UserData {
   static Future<String?> saveImage(BuildContext context, String defaultFileName) async {
     try {
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        // En sistemas de escritorio, usar un solo diálogo para seleccionar ubicación y nombre
         return await FilePicker.platform.saveFile(
           dialogTitle: 'Save image as',
           fileName: defaultFileName,
@@ -694,7 +664,6 @@ class UserData {
           lockParentWindow: true,
         );
       } else {
-        // Para móviles, usar directorio por defecto
         final defaultDir = await getExternalStorageDirectory();
         return path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
       }

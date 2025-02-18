@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_page.dart';
-import 'share_widget.dart';  // Agregar esta importación
-import 'package:share_extend/share_extend.dart'; // Cambiar share_plus por share_extend
+import 'share_widget.dart';
+import 'package:share_extend/share_extend.dart';
 import 'dart:io';
 
-// Modelo CustomList
+// Model for custom album lists
 class CustomList {
   final String id;
   final String name;
@@ -45,7 +45,7 @@ class CustomList {
   );
 }
 
-// Página de listas personalizadas
+// Custom lists management page
 class CustomListsPage extends StatefulWidget {
   const CustomListsPage({super.key});
 
@@ -254,7 +254,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
   }
 }
 
-// Página de detalles de una lista
+// List details page
 class CustomListDetailsPage extends StatefulWidget {
   final CustomList list;
 

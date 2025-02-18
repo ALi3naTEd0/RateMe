@@ -3,17 +3,18 @@ import 'package:flutter/rendering.dart';
 import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;  // Verificar que esta importación exista
-import 'user_data.dart';  // Agregar esta importación
-import 'package:file_picker/file_picker.dart';  // Agregar esta importación
+import 'package:path/path.dart' as path;
+import 'user_data.dart';
+import 'package:file_picker/file_picker.dart';
 
+// Widget for sharing albums and lists as images
 class ShareWidget extends StatefulWidget {
-  final Map<String, dynamic>? album;  // Hacer opcional
+  final Map<String, dynamic>? album;
   final List<dynamic>? tracks;
   final Map<int, double>? ratings;
   final double? averageRating;
-  final String? title;  // Nuevo: para título personalizado
-  final List<Map<String, dynamic>>? albums;  // Nuevo: para colecciones
+  final String? title;
+  final List<Map<String, dynamic>>? albums;
 
   static final GlobalKey<_ShareWidgetState> shareKey = GlobalKey();
 
@@ -38,7 +39,6 @@ class ShareWidget extends StatefulWidget {
 class _ShareWidgetState extends State<ShareWidget> {
   final _boundaryKey = GlobalKey();
 
-  // Método para ser llamado desde fuera
   Future<String?> saveAsImage() async {
     try {
       await Future.delayed(const Duration(milliseconds: 200));
@@ -47,7 +47,7 @@ class _ShareWidgetState extends State<ShareWidget> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
 
-      // Generar nombre de archivo
+      // Generate filename
       final safeName = widget.album?['collectionName']
           ?.toString()
           .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') ?? 'shared_list';
@@ -192,7 +192,7 @@ class _ShareWidgetState extends State<ShareWidget> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Cabecera del álbum
+        // Album header
         Row(
           children: [
             Image.network(
@@ -229,7 +229,7 @@ class _ShareWidgetState extends State<ShareWidget> {
           ],
         ),
         const Divider(height: 32),
-        // Lista de tracks
+        // Track list
         ...widget.tracks!.map((track) {
           final trackId = track['trackId'];
           final rating = widget.ratings![trackId] ?? 0.0;
@@ -239,7 +239,7 @@ class _ShareWidgetState extends State<ShareWidget> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                // Número de track
+                // Track number
                 SizedBox(
                   width: 30,
                   child: Text(
@@ -247,17 +247,16 @@ class _ShareWidgetState extends State<ShareWidget> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                // Título
+                // Title
                 Expanded(
                   child: Text(
                     track['title'] ?? track['trackName'] ?? 'Unknown Track',
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // Duración
+                // Duration
                 SizedBox(
-                  width:
-                      70, // Ancho fijo para la duración para alinear los ratings
+                  width: 70, // Fixed width to align ratings
                   child: Text(
                     formatDuration(duration),
                     textAlign: TextAlign.right,

@@ -4,25 +4,24 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'user_data.dart';
 import 'logging.dart';
-import 'main.dart';  // Agregamos import para usar BandcampService
-import 'custom_lists_page.dart';  // Única importación necesaria para CustomList y CustomListsPage
+import 'main.dart';
+import 'custom_lists_page.dart';
 import 'share_widget.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:io';
-import 'package:share_extend/share_extend.dart';  // Cambiar a share_extend
+import 'package:share_extend/share_extend.dart';
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
   final bool isBandcamp;
-  final Map<int, double>? initialRatings;  // Agregar este parámetro
+  final Map<int, double>? initialRatings;
 
   const DetailsPage({
     super.key, 
     required this.album,
     this.isBandcamp = true,
-    this.initialRatings,  // Agregar este parámetro
+    this.initialRatings,
   });
 
   @override
@@ -40,12 +39,10 @@ class _DetailsPageState extends State<DetailsPage> {
   @override
   void initState() {
     super.initState();
-    // Cambiar el orden de inicialización
     _initialize();
   }
 
   Future<void> _initialize() async {
-    // 1. Cargar los ratings primero
     if (widget.initialRatings != null) {
       ratings = Map.from(widget.initialRatings!);
       calculateAverageRating();
@@ -53,14 +50,12 @@ class _DetailsPageState extends State<DetailsPage> {
       await _loadRatings();
     }
 
-    // 2. Luego cargar los tracks
     if (widget.isBandcamp) {
       await _fetchBandcampTracks();
     } else {
       await _fetchItunesTracks();
     }
 
-    // 3. Actualizar estado final
     if (mounted) {
       setState(() {
         isLoading = false;
@@ -95,12 +90,10 @@ class _DetailsPageState extends State<DetailsPage> {
         final tracksData = BandcampService.extractTracks(document);
         final releaseDateData = BandcampService.extractReleaseDate(document);
 
-        // Cargar los ratings existentes antes de actualizar los tracks
         final albumId = widget.album['collectionId'];
         final savedRatings = await UserData.getSavedAlbumRatings(albumId);
         Map<int, double> ratingsMap = {};
         
-        // Convertir los ratings guardados a un mapa para acceso rápido
         for (var rating in savedRatings) {
           ratingsMap[rating['trackId']] = rating['rating'].toDouble();
         }
@@ -108,7 +101,6 @@ class _DetailsPageState extends State<DetailsPage> {
         if (mounted) {
           setState(() {
             tracks = tracksData;
-            // Asignar los ratings guardados a cada track o 0.0 si no existe
             for (var track in tracksData) {
               final trackId = track['trackId'];
               ratings[trackId] = ratingsMap[trackId] ?? 0.0;
@@ -139,7 +131,6 @@ class _DetailsPageState extends State<DetailsPage> {
       if (mounted) {
         setState(() {
           tracks = trackList;
-          // No inicializar los ratings a 0 aquí, ya deberían estar cargados
           releaseDate = DateTime.parse(widget.album['releaseDate']);
         });
       }
@@ -283,11 +274,9 @@ class _DetailsPageState extends State<DetailsPage> {
                           children: [
                             ElevatedButton(
                               onPressed: () async {
-                                // Primero guardar el álbum
                                 await UserData.saveAlbum(widget.album);
                                 
                                 if (!mounted) return;
-                                // Luego mostrar diálogo para elegir/crear lista
                                 _showAddToListDialog(context);
                               },
                               style: ElevatedButton.styleFrom(
@@ -424,7 +413,6 @@ class _DetailsPageState extends State<DetailsPage> {
                 
                 final album = await UserData.importAlbum(context);
                 if (album != null && mounted) {
-                  // No guardar el álbum automáticamente, solo cargar los ratings
                   final albumId = album['collectionId'];
                   final savedRatings = await UserData.getSavedAlbumRatings(albumId);
                   
@@ -433,7 +421,6 @@ class _DetailsPageState extends State<DetailsPage> {
                     ratingsMap[rating['trackId']] = rating['rating'].toDouble();
                   }
                   
-                  // Navegar a la nueva página
                   if (mounted) {
                     await Navigator.of(navigationContext).pushReplacement(
                       MaterialPageRoute(
@@ -584,7 +571,7 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context); // Cerrar el diálogo de opciones
+    Navigator.pop(context);
     showDialog(
       context: context,
       builder: (context) {
