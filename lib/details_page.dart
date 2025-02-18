@@ -10,7 +10,7 @@ import 'logging.dart';
 import 'main.dart';
 import 'custom_lists_page.dart';
 import 'share_widget.dart';
-import 'package:share_extend/share_extend.dart';
+import 'package:share_plus/share_plus.dart';
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -681,7 +681,7 @@ class _DetailsPageState extends State<DetailsPage> {
 
   void _handleImageShare(String imagePath) async {
     try {
-      await ShareExtend.share(imagePath, "image");
+      await Share.shareXFiles([XFile(imagePath)]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

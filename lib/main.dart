@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_extend/share_extend.dart';
+import 'package:share_plus/share_plus.dart';  // Reemplazar share_extend
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -367,7 +367,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 onTap: () async {
                   Navigator.pop(context);
                   try {
-                    await ShareExtend.share(imagePath, "image");
+                    await Share.shareXFiles([XFile(imagePath)]);  // Reemplazar ShareExtend.share
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
