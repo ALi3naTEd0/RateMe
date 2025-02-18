@@ -524,8 +524,6 @@ class UserData {
 
   static Future<Map<String, dynamic>?> importAlbum(BuildContext context) async {
     try {
-      Logging.severe('Starting album import process');
-      
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -535,38 +533,24 @@ class UserData {
       if (result?.files.single.path != null) {
         final file = File(result!.files.single.path!);
         final jsonData = await file.readAsString();
-        Logging.severe('Raw JSON data: $jsonData');
-        
         final data = jsonDecode(jsonData);
-        Logging.severe('Parsed data structure: ${data.runtimeType}');
-        Logging.severe('Data keys: ${data.keys.toList()}');
 
         if (!data.containsKey('version') || !data.containsKey('album')) {
-          Logging.severe('Missing required keys. Available keys: ${data.keys.toList()}');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid album file format'),
-                backgroundColor: Colors.red,
-              ),
+              const SnackBar(content: Text('Invalid album file format')),
             );
           }
           return null;
         }
 
-        Logging.severe('Album data: ${data['album']}');
-        
         final album = data['album'];
         if (!album.containsKey('collectionId') || 
             !album.containsKey('collectionName') || 
             !album.containsKey('artistName')) {
-          Logging.severe('Missing album fields. Available fields: ${album.keys.toList()}');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid album data format'),
-                backgroundColor: Colors.red,
-              ),
+              const SnackBar(content: Text('Invalid album data format')),
             );
           }
           return null;
@@ -574,9 +558,6 @@ class UserData {
 
         if (data['ratings'] != null) {
           final albumId = album['collectionId'];
-          Logging.severe('Processing ratings for albumId: $albumId');
-          Logging.severe('Ratings data: ${data['ratings']}');
-          
           for (var rating in data['ratings']) {
             if (rating.containsKey('trackId') && rating.containsKey('rating')) {
               await saveRating(
@@ -590,14 +571,11 @@ class UserData {
 
         return data['album'];
       }
-    } catch (e, stackTrace) {
-      Logging.severe('Error importing album', e, stackTrace);
+    } catch (error) {
+      Logging.severe('Error importing album', error);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error importing album: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error importing album: $error')),
         );
       }
     }
