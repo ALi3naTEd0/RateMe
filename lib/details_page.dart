@@ -43,6 +43,7 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<void> _initialize() async {
+    // Load ratings first
     if (widget.initialRatings != null) {
       ratings = Map.from(widget.initialRatings!);
       calculateAverageRating();
@@ -50,12 +51,14 @@ class _DetailsPageState extends State<DetailsPage> {
       await _loadRatings();
     }
 
+    // Then load tracks
     if (widget.isBandcamp) {
       await _fetchBandcampTracks();
     } else {
       await _fetchItunesTracks();
     }
 
+    // Final update
     if (mounted) {
       setState(() {
         isLoading = false;
@@ -66,18 +69,23 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<void> _loadRatings() async {
-    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
-    List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
-    Map<int, double> ratingsMap = {};
-    for (var rating in savedRatings) {
-      ratingsMap[rating['trackId']] = rating['rating'];
-    }
+    try {
+      int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+      List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
+      
+      Map<int, double> ratingsMap = {};
+      for (var rating in savedRatings) {
+        ratingsMap[rating['trackId']] = rating['rating'].toDouble();
+      }
 
-    if (mounted) {
-      setState(() {
-        ratings = ratingsMap;
-        calculateAverageRating();
-      });
+      if (mounted) {
+        setState(() {
+          ratings = ratingsMap;
+          calculateAverageRating();
+        });
+      }
+    } catch (e) {
+      Logging.severe('Error loading ratings', e);
     }
   }
 
@@ -87,34 +95,95 @@ class _DetailsPageState extends State<DetailsPage> {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        final tracksData = BandcampService.extractTracks(document);
-        final releaseDateData = BandcampService.extractReleaseDate(document);
-
-        final albumId = widget.album['collectionId'];
-        final savedRatings = await UserData.getSavedAlbumRatings(albumId);
-        Map<int, double> ratingsMap = {};
+        var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
         
-        for (var rating in savedRatings) {
-          ratingsMap[rating['trackId']] = rating['rating'].toDouble();
-        }
+        if (ldJsonScript != null) {
+          final ldJson = jsonDecode(ldJsonScript.text);
+          
+          if (ldJson != null && ldJson['track'] != null) {
+            var trackItems = ldJson['track']['itemListElement'] as List;
+            List<Map<String, dynamic>> tracksData = [];
 
-        if (mounted) {
-          setState(() {
-            tracks = tracksData;
-            for (var track in tracksData) {
-              final trackId = track['trackId'];
-              ratings[trackId] = ratingsMap[trackId] ?? 0.0;
+            final albumId = widget.album['collectionId'];
+            final oldRatingsByPosition = await UserData.migrateAlbumRatings(albumId);
+            
+            for (int i = 0; i < trackItems.length; i++) {
+              var item = trackItems[i];
+              var track = item['item'];
+              var props = track['additionalProperty'] as List;
+              
+              var trackIdProp = props.firstWhere(
+                (p) => p['name'] == 'track_id',
+                orElse: () => {'value': null}
+              );
+              int trackId = trackIdProp['value'];
+              int position = i + 1;
+
+              if (oldRatingsByPosition.containsKey(position)) {
+                final oldRating = oldRatingsByPosition[position];
+                if (oldRating != null) {
+                  double rating = (oldRating['rating'] as num).toDouble();
+                  await UserData.saveNewRating(albumId, trackId, position, rating);
+                  ratings[trackId] = rating;
+                }
+              }
+
+              tracksData.add({
+                'trackId': trackId,
+                'trackNumber': position,
+                'title': track['name'],
+                'duration': _parseDuration(track['duration']),
+                'position': position,
+              });
             }
-            releaseDate = releaseDateData;
-            isLoading = false;
-            calculateAlbumDuration();
-            calculateAverageRating();
-          });
+
+            if (mounted) {
+              setState(() {
+                tracks = tracksData;
+                try {
+                  releaseDate = DateFormat("d MMMM yyyy HH:mm:ss 'GMT'")
+                      .parse(ldJson['datePublished']);
+                } catch (e) {
+                  try {
+                    releaseDate = DateTime.parse(ldJson['datePublished']);
+                  } catch (e) {
+                    releaseDate = DateTime.now();
+                  }
+                }
+                isLoading = false;
+                calculateAlbumDuration();
+                calculateAverageRating();
+              });
+            }
+          }
         }
       }
     } catch (error, stackTrace) {
       Logging.severe('Error fetching Bandcamp tracks', error, stackTrace);
-      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  int _parseDuration(String isoDuration) {
+    try {
+      if (isoDuration.isEmpty) return 0;
+
+      // Extract numbers between letters using regex
+      final regex = RegExp(r'(\d+)(?=[HMS])');
+      final matches = regex.allMatches(isoDuration);
+      final parts = matches.map((m) => int.parse(m.group(1)!)).toList();
+
+      int totalMillis = 0;
+      if (parts.length >= 3) {  // H:M:S
+        totalMillis = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
+      } else if (parts.length == 2) {  // M:S
+        totalMillis = ((parts[0] * 60) + parts[1]) * 1000;
+      } else if (parts.length == 1) {  // S
+        totalMillis = parts[0] * 1000;
+      }
+      return totalMillis;
+    } catch (e) {
+      Logging.severe('Error parsing duration: $isoDuration - $e');
+      return 0;
     }
   }
 
@@ -229,6 +298,54 @@ class _DetailsPageState extends State<DetailsPage> {
         ),
       ),
     );
+  }
+
+  Future<bool> _verifyAlbumImport(Map<String, dynamic> importedAlbum) async {
+    // Normalize strings for comparison
+    String currentArtist = widget.album['artistName'].toString().toLowerCase();
+    String currentAlbum = widget.album['collectionName'].toString().toLowerCase();
+    String importArtist = importedAlbum['artistName'].toString().toLowerCase();
+    String importAlbum = importedAlbum['collectionName'].toString().toLowerCase();
+
+    // Check if albums match (case insensitive)
+    if (currentArtist == importArtist && currentAlbum == importAlbum) {
+      return true;
+    }
+
+    // Show warning dialog for different albums
+    bool? proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Different Album'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('The imported album is different from the current one:'),
+            const SizedBox(height: 8),
+            Text('Current: ${widget.album['artistName']} - ${widget.album['collectionName']}'),
+            Text('Import: ${importedAlbum['artistName']} - ${importedAlbum['collectionName']}'),
+            const SizedBox(height: 16),
+            const Text('Do you want to switch to the imported album?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Switch Album'),
+          ),
+        ],
+      ),
+    );
+
+    return proceed ?? false;
   }
 
   @override
@@ -413,6 +530,10 @@ class _DetailsPageState extends State<DetailsPage> {
                 
                 final album = await UserData.importAlbum(context);
                 if (album != null && mounted) {
+                  // Verify album before importing
+                  final shouldProceed = await _verifyAlbumImport(album);
+                  if (!shouldProceed) return;
+
                   final albumId = album['collectionId'];
                   final savedRatings = await UserData.getSavedAlbumRatings(albumId);
                   

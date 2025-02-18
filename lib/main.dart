@@ -117,18 +117,131 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   List<dynamic> searchResults = [];
   Timer? _debounce;
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Rate Me!'),
+        centerTitle: true,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Expanded(
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.library_music_outlined),
+                tooltip: 'All Saved Albums',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
+                ),
+              ),
+            ),
+            Expanded(
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.format_list_bulleted),
+                tooltip: 'Custom Lists',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CustomListsPage()),
+                ),
+              ),
+            ),
+            Expanded(
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.file_download),
+                tooltip: 'Import Album',
+                onPressed: () async {
+                  final album = await UserData.importAlbum(context);
+                  if (album != null && mounted) {
+                    _showAlbumDetails(context, album);
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        leadingWidth: 120,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.storage),
+            tooltip: 'Backup Options',
+            onPressed: _showOptionsDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'About Rate Me!',
+            onPressed: () => _showAboutDialog(context),
+          ),
+          Switch(
+            value: widget.themeBrightness == Brightness.dark,
+            onChanged: (_) => widget.toggleTheme(),
+            activeColor: Theme.of(context).colorScheme.secondary,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0),
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.85,
+              child: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search Albums or Paste URL',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () => _performSearch(searchController.text),
+                  ),
+                ),
+                onChanged: _onSearchChanged,
+                maxLength: 255,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: searchResults.length,
+              itemBuilder: (context, index) {
+                final album = searchResults[index];
+                return ListTile(
+                  leading: Image.network(
+                    album['artworkUrl100'],
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.album),
+                  ),
+                  title: Text(album['collectionName']),
+                  subtitle: Text(album['artistName']),
+                  onTap: () => _showAlbumDetails(context, album),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showOptionsDialog() {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Options'),
+          title: const Text('Backup Options'),  // Keep original title
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
                 leading: const Icon(Icons.file_download),
-                title: const Text('Import Data'),
+                title: const Text('Import Backup'),
                 onTap: () async {
                   Navigator.pop(dialogContext);
                   
@@ -148,7 +261,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               ),
               ListTile(
                 leading: const Icon(Icons.file_upload),
-                title: const Text('Export Data'),
+                title: const Text('Export Backup'),
                 onTap: () async {
                   Navigator.pop(dialogContext);
                   
@@ -216,107 +329,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rate Me!'),
-        centerTitle: true,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Expanded(
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.library_music_outlined),
-                tooltip: 'All Saved Albums',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
-                ),
-              ),
-            ),
-            Expanded(
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.format_list_bulleted),
-                tooltip: 'Custom Lists',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CustomListsPage()),
-                ),
-              ),
-            ),
-            Expanded(
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.settings),
-                onPressed: _showOptionsDialog,
-              ),
-            ),
-          ],
-        ),
-        leadingWidth: 120,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showAboutDialog(context),
-          ),
-          Switch(
-            value: widget.themeBrightness == Brightness.dark,
-            onChanged: (_) => widget.toggleTheme(),
-            activeColor: Theme.of(context).colorScheme.secondary,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 32),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0),
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width * 0.85,
-              child: TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search Albums or Paste URL',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => _performSearch(searchController.text),
-                  ),
-                ),
-                onChanged: _onSearchChanged,
-                maxLength: 255,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: searchResults.length,
-              itemBuilder: (context, index) {
-                final album = searchResults[index];
-                return ListTile(
-                  leading: Image.network(
-                    album['artworkUrl100'],
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.album),
-                  ),
-                  title: Text(album['collectionName']),
-                  subtitle: Text(album['artistName']),
-                  onTap: () => _showAlbumDetails(context, album),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _handleImageSave(String imagePath) async {
     showModalBottomSheet(
       context: context,
@@ -377,15 +389,14 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('About RateMe'),
+          title: const Text('About Rate Me!'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Version: 1.0.0'),
+              const Text('Version: 1.0.0-1'),
               const SizedBox(height: 8),
-              Text('License: GPL-3.0'),
-              const SizedBox(height: 8),
+              const Text('License: GPL-3.0'),
               InkWell(
                 child: Text(
                   'GitHub Repository',
@@ -535,8 +546,13 @@ class BandcampService {
         String albumName = titleParts.isNotEmpty ? titleParts[0].trim() : title;
         String artistName = titleParts.length > 1 ? titleParts[1].trim() : artist;
 
+        // Extraer o generar un ID consistente para el álbum
+        int albumId = albumData?['id'] ?? 
+                     albumData?['current']?['id'] ?? 
+                     url.hashCode;  // Usar URL como fallback
+
         return {
-          'collectionId': DateTime.now().millisecondsSinceEpoch,
+          'collectionId': albumId,  // Usar el ID real de Bandcamp
           'collectionName': albumName,
           'artistName': artistName,
           'artworkUrl100': artworkUrl,
@@ -553,6 +569,34 @@ class BandcampService {
   static List<Map<String, dynamic>> extractTracks(dynamic document) {
     List<Map<String, dynamic>> tracks = [];
     try {
+      // Obtener el JSON-LD directamente
+      var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
+      if (ldJsonScript != null) {
+        var ldJson = jsonDecode(ldJsonScript.text);
+        if (ldJson != null && ldJson['track'] != null && ldJson['track']['itemListElement'] != null) {
+          var trackItems = ldJson['track']['itemListElement'] as List;
+          
+          for (var item in trackItems) {
+            var track = item['item'];
+            var props = track['additionalProperty'] as List;
+            var trackIdProp = props.firstWhere(
+              (p) => p['name'] == 'track_id',
+              orElse: () => {'value': null}
+            );
+
+            tracks.add({
+              'trackId': trackIdProp['value'],
+              'trackNumber': item['position'],
+              'title': track['name'],
+              'duration': _parseDuration(track['duration']),
+            });
+          }
+          
+          return tracks;
+        }
+      }
+
+      // Si no hay JSON-LD, buscar en TralbumData (fallback)
       var scriptTags = document.getElementsByTagName('script');
       Map<String, dynamic>? trackInfo;
 
@@ -639,11 +683,21 @@ class BandcampService {
           });
         }
       }
+
+      // Ensure consistent trackId generation
+      for (int i = 0; i < tracks.length; i++) {
+        // Use track title as part of the ID to maintain consistency
+        String titleHash = tracks[i]['title'].toString().hashCode.toString();
+        tracks[i]['trackId'] = int.parse('${DateTime.now().year}$titleHash');
+      }
+
+      Logging.severe('Generated track IDs: ${tracks.map((t) => '${t['title']}: ${t['trackId']}')}');
+      
+      return tracks;
     } catch (e) {
-      print('Error extracting tracks: $e');
+      Logging.severe('Error extracting tracks: $e');
+      return [];
     }
-    
-    return tracks;
   }
 
   static int _parseDuration(String duration) {

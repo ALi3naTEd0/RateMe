@@ -105,36 +105,100 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   Future<void> _fetchBandcampTracks() async {
     final url = widget.album['url'];
     try {
-      final currentRatings = Map<int, double>.from(ratings);
-      
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        final tracksData = BandcampService.extractTracks(document);
-
-        if (currentRatings.isNotEmpty && tracksData.length == currentRatings.length) {
-          var sortedRatings = currentRatings.entries.toList()
-            ..sort((a, b) => a.value.compareTo(b.value));
-          
-          for (int i = 0; i < tracksData.length; i++) {
-            tracksData[i]['trackId'] = sortedRatings[i].key;
-          }
-        }
+        var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
         
-        final releaseDateData = BandcampService.extractReleaseDate(document);
+        if (ldJsonScript != null) {
+          final ldJson = jsonDecode(ldJsonScript.text);
+          
+          if (ldJson != null && ldJson['track'] != null && ldJson['track']['itemListElement'] != null) {
+            List<Map<String, dynamic>> tracksData = [];
+            var trackItems = ldJson['track']['itemListElement'] as List;
 
-        if (mounted) {
-          setState(() {
-            tracks = tracksData;
-            releaseDate = releaseDateData;
-            isLoading = false;
-            calculateAlbumDuration();
-          });
+            final albumId = widget.album['collectionId'];
+            final savedRatings = await UserData.getSavedAlbumRatings(albumId);
+            
+            for (int i = 0; i < trackItems.length; i++) {
+              var item = trackItems[i];
+              var track = item['item'];
+
+              var props = track['additionalProperty'] as List;
+              var trackIdProp = props.firstWhere(
+                (p) => p['name'] == 'track_id',
+                orElse: () => {'value': 0}
+              );
+              int trackId = trackIdProp['value'];
+
+              String duration = track['duration'] ?? '';
+              int durationMillis = _parseDuration(duration);
+
+              tracksData.add({
+                'trackId': trackId,
+                'trackNumber': i + 1,
+                'title': track['name'],
+                'duration': durationMillis,
+              });
+
+              var savedRating = savedRatings.firstWhere(
+                (r) => r['trackId'] == trackId,
+                orElse: () => {'rating': 0.0},
+              );
+              
+              if (savedRating != null) {
+                ratings[trackId] = savedRating['rating'].toDouble();
+              }
+            }
+
+            if (mounted) {
+              setState(() {
+                tracks = tracksData;
+                try {
+                  String dateStr = ldJson['datePublished'];
+                  releaseDate = DateFormat("d MMMM yyyy HH:mm:ss 'GMT'").parse(dateStr);
+                } catch (e) {
+                  try {
+                    releaseDate = DateTime.parse(ldJson['datePublished'].replaceAll(' GMT', 'Z'));
+                  } catch (e) {
+                    releaseDate = DateTime.now();
+                  }
+                }
+                isLoading = false;
+                calculateAlbumDuration();
+                calculateAverageRating();
+              });
+            }
+          }
         }
       }
     } catch (error, stackTrace) {
       Logging.severe('Error fetching Bandcamp tracks', error, stackTrace);
       if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  int _parseDuration(String isoDuration) {
+    try {
+      if (isoDuration.isEmpty) return 0;
+
+      // Extract numbers between letters using regex
+      final regex = RegExp(r'(\d+)(?=[HMS])');
+      final matches = regex.allMatches(isoDuration);
+      final parts = matches.map((m) => int.parse(m.group(1)!)).toList();
+
+      int totalMillis = 0;
+      if (parts.length >= 3) {  // H:M:S
+        totalMillis = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
+      } else if (parts.length == 2) {  // M:S
+        totalMillis = ((parts[0] * 60) + parts[1]) * 1000;
+      } else if (parts.length == 1) {  // S
+        totalMillis = parts[0] * 1000;
+      }
+      return totalMillis;
+    } catch (e) {
+      Logging.severe('Error parsing duration: $isoDuration - $e');
+      return 0;
     }
   }
 
