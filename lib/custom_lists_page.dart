@@ -10,7 +10,7 @@ class CustomList {
   final String id;
   final String name;
   String description;
-  final List<String> albumIds;
+  List<String> albumIds;  // Removed final to allow modification
   final DateTime createdAt;
   DateTime updatedAt;
 
@@ -22,9 +22,20 @@ class CustomList {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : 
-    this.albumIds = albumIds ?? [],
-    this.createdAt = createdAt ?? DateTime.now(),
-    this.updatedAt = updatedAt ?? DateTime.now();
+    albumIds = albumIds ?? [],
+    createdAt = createdAt ?? DateTime.now(),
+    updatedAt = updatedAt ?? DateTime.now();
+
+  void cleanupAlbumIds() {
+    // Remove nulls, empty strings and invalid IDs
+    albumIds.removeWhere((id) => 
+      id == null || 
+      id.isEmpty || 
+      int.tryParse(id) == null
+    );
+    // Remove duplicates
+    albumIds = albumIds.toSet().toList();
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -35,14 +46,18 @@ class CustomList {
     'updatedAt': updatedAt.toIso8601String(),
   };
 
-  factory CustomList.fromJson(Map<String, dynamic> json) => CustomList(
-    id: json['id'],
-    name: json['name'],
-    description: json['description'],
-    albumIds: List<String>.from(json['albumIds']),
-    createdAt: DateTime.parse(json['createdAt']),
-    updatedAt: DateTime.parse(json['updatedAt']),
-  );
+  factory CustomList.fromJson(Map<String, dynamic> json) {
+    final list = CustomList(
+      id: json['id'],
+      name: json['name'],
+      description: json['description'],
+      albumIds: List<String>.from(json['albumIds']),
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+    list.cleanupAlbumIds(); // Clean IDs when loading
+    return list;
+  }
 }
 
 // Custom lists management page
@@ -68,6 +83,10 @@ class _CustomListsPageState extends State<CustomListsPage> {
     if (mounted) {
       setState(() {
         lists = loadedLists;
+        // Clean all lists when loading
+        for (var list in lists) {
+          list.cleanupAlbumIds();
+        }
         isLoading = false;
       });
     }
@@ -76,7 +95,6 @@ class _CustomListsPageState extends State<CustomListsPage> {
   Future<void> _createNewList() async {
     final nameController = TextEditingController();
     final descController = TextEditingController();
-
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -128,7 +146,6 @@ class _CustomListsPageState extends State<CustomListsPage> {
   Future<void> _editList(CustomList list) async {
     final nameController = TextEditingController(text: list.name);
     final descController = TextEditingController(text: list.description);
-
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -279,6 +296,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   Future<void> _loadAlbums() async {
     List<Map<String, dynamic>> loadedAlbums = [];
+    widget.list.cleanupAlbumIds(); // Clean list before loading
     for (String albumId in widget.list.albumIds) {
       final album = await UserData.getSavedAlbumById(int.parse(albumId));
       if (album != null) {
@@ -290,9 +308,12 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         }
         album['averageRating'] = averageRating;
         loadedAlbums.add(album);
+      } else {
+        // Remove invalid album ID
+        widget.list.albumIds.remove(albumId);
+        await UserData.saveCustomList(widget.list);
       }
     }
-
     if (mounted) {
       setState(() {
         albums = loadedAlbums;
@@ -424,7 +445,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -506,7 +526,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                     setState(() {
                       final album = albums.removeAt(oldIndex);
                       albums.insert(newIndex, album);
-                      
                       widget.list.albumIds.clear();
                       widget.list.albumIds.addAll(
                         albums.map((a) => a['collectionId'].toString()),

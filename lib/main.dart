@@ -176,10 +176,13 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             tooltip: 'About Rate Me!',
             onPressed: () => _showAboutDialog(context),
           ),
-          Switch(
-            value: widget.themeBrightness == Brightness.dark,
-            onChanged: (_) => widget.toggleTheme(),
-            activeColor: Theme.of(context).colorScheme.secondary,
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: widget.themeBrightness == Brightness.dark,
+              onChanged: (_) => widget.toggleTheme(),
+              activeColor: Theme.of(context).colorScheme.secondary,
+            ),
           ),
         ],
       ),
@@ -395,8 +398,11 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Version: 1.0.0-1'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
+              const SizedBox(height: 12),
               const Text('License: GPL-3.0'),
+              const SizedBox(height: 12),
               InkWell(
                 child: Text(
                   'GitHub Repository',
