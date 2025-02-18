@@ -524,6 +524,8 @@ class UserData {
 
   static Future<Map<String, dynamic>?> importAlbum(BuildContext context) async {
     try {
+      Logging.severe('Starting album import process');
+      
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -533,9 +535,14 @@ class UserData {
       if (result?.files.single.path != null) {
         final file = File(result!.files.single.path!);
         final jsonData = await file.readAsString();
+        Logging.severe('Raw JSON data: $jsonData');
+        
         final data = jsonDecode(jsonData);
+        Logging.severe('Parsed data structure: ${data.runtimeType}');
+        Logging.severe('Data keys: ${data.keys.toList()}');
 
         if (!data.containsKey('version') || !data.containsKey('album')) {
+          Logging.severe('Missing required keys. Available keys: ${data.keys.toList()}');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -547,22 +554,13 @@ class UserData {
           return null;
         }
 
-        if (data['version'] != '1.0') {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Unsupported album file version'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return null;
-        }
-
+        Logging.severe('Album data: ${data['album']}');
+        
         final album = data['album'];
         if (!album.containsKey('collectionId') || 
             !album.containsKey('collectionName') || 
             !album.containsKey('artistName')) {
+          Logging.severe('Missing album fields. Available fields: ${album.keys.toList()}');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -576,6 +574,9 @@ class UserData {
 
         if (data['ratings'] != null) {
           final albumId = album['collectionId'];
+          Logging.severe('Processing ratings for albumId: $albumId');
+          Logging.severe('Ratings data: ${data['ratings']}');
+          
           for (var rating in data['ratings']) {
             if (rating.containsKey('trackId') && rating.containsKey('rating')) {
               await saveRating(
@@ -589,7 +590,8 @@ class UserData {
 
         return data['album'];
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      Logging.severe('Error importing album', e, stackTrace);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -675,5 +677,92 @@ class UserData {
       }
       return null;
     }
+  }
+
+  static Future<void> migrateRatings(int albumId, List<Map<String, dynamic>> tracks) async {
+    final prefs = await SharedPreferences.getInstance();
+    final oldRatingsKey = '${_ratingsPrefix}$albumId';
+    final oldRatings = prefs.getStringList(oldRatingsKey) ?? [];
+
+    if (oldRatings.isEmpty) return;
+
+    // Create new ratings with correct track IDs
+    List<Map<String, dynamic>> newRatings = [];
+    for (var track in tracks) {
+      final position = track['position'];
+      final trackId = track['trackId'];
+      
+      // Find old rating by position
+      final oldRating = oldRatings.map((r) => jsonDecode(r)).firstWhere(
+        (r) => r['position'] == position,
+        orElse: () => null,
+      );
+
+      if (oldRating != null) {
+        newRatings.add({
+          'trackId': trackId,
+          'rating': oldRating['rating'],
+          'timestamp': oldRating['timestamp'],
+        });
+      }
+    }
+
+    // Save new ratings
+    await prefs.setStringList(
+      oldRatingsKey,
+      newRatings.map((r) => jsonEncode(r)).toList(),
+    );
+  }
+
+  static Future<Map<int, Map<String, dynamic>>> migrateAlbumRatings(int albumId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final ratingsKey = 'saved_ratings_$albumId';
+    Map<int, Map<String, dynamic>> ratingsByPosition = {};
+    
+    final oldRatingsJson = prefs.getStringList(ratingsKey) ?? [];
+    if (oldRatingsJson.isEmpty) return ratingsByPosition;
+
+    final oldRatings = oldRatingsJson.map((r) => jsonDecode(r)).toList();
+    
+    for (var rating in oldRatings) {
+      if (rating['position'] != null) {
+        ratingsByPosition[rating['position'] as int] = rating as Map<String, dynamic>;
+      }
+    }
+
+    return ratingsByPosition;
+  }
+
+  static Future<void> saveNewRating(
+    int albumId, 
+    int trackId, 
+    int position,
+    double rating,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final ratingsKey = 'saved_ratings_$albumId';
+    
+    final ratingData = {
+      'trackId': trackId,
+      'position': position,
+      'rating': rating,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    List<String> ratings = prefs.getStringList(ratingsKey) ?? [];
+    
+    // Actualizar o agregar nuevo rating
+    int index = ratings.indexWhere((r) {
+      Map<String, dynamic> saved = jsonDecode(r);
+      return saved['trackId'] == trackId || saved['position'] == position;
+    });
+
+    if (index != -1) {
+      ratings[index] = jsonEncode(ratingData);
+    } else {
+      ratings.add(jsonEncode(ratingData));
+    }
+
+    await prefs.setStringList(ratingsKey, ratings);
   }
 }
