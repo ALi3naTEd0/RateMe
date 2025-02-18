@@ -171,11 +171,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             tooltip: 'Backup Options',
             onPressed: _showOptionsDialog,
           ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'About Rate Me!',
-            onPressed: () => _showAboutDialog(context),
-          ),
           Transform.scale(
             scale: 0.8,
             child: Switch(
@@ -238,7 +233,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Backup Options'),  // Keep original title
+          title: const Text('Backup Options'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -267,11 +262,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 title: const Text('Export Backup'),
                 onTap: () async {
                   Navigator.pop(dialogContext);
-                  
                   if (!mounted) return;
-                  final scaffoldContext = context;
-                  
-                  await UserData.exportData(scaffoldContext);
+                  await UserData.exportData(context);
                 },
               ),
               ListTile(
@@ -279,18 +271,13 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 title: const Text('Clear All Data'),
                 onTap: () async {
                   Navigator.pop(dialogContext);
-                  
                   if (!mounted) return;
-                  final scaffoldContext = context;
-                  
                   bool? confirm = await _showConfirmDialog();
                   if (confirm == true) {
                     await UserData.clearAllData();
                     if (mounted) {
-                      setState(() {
-                        searchResults = [];
-                      });
-                      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                      setState(() => searchResults = []);
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('All data cleared')),
                       );
                     }
