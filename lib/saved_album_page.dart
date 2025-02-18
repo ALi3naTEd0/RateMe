@@ -626,7 +626,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context); // Close options dialog
+    Navigator.pop(context);
     showDialog(
       context: context,
       builder: (context) {
@@ -638,9 +638,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           averageRating: averageRating,
         );
         return AlertDialog(
-          content: SingleChildScrollView(
-            child: shareWidget,
-          ),
+          content: SingleChildScrollView(child: shareWidget),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

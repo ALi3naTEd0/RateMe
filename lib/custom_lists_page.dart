@@ -366,9 +366,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
           albums: albums,
         );
         return AlertDialog(
-          content: SingleChildScrollView(
-            child: shareWidget,
-          ),
+          content: SingleChildScrollView(child: shareWidget),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -380,49 +378,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   final path = await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              ListTile(
-                                leading: const Icon(Icons.download),
-                                title: const Text('Save to Downloads'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  try {
-                                    final downloadDir = Directory('/storage/emulated/0/Download');
-                                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                    final newPath = '${downloadDir.path}/$fileName';
-                                    await File(path).copy(newPath);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Saved to Downloads: $fileName')),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Error saving file: $e')),
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.share),
-                                title: const Text('Share Image'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  _handleImageShare(path);
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Image saved to: $path')),
                     );
                   }
                 } catch (e) {
@@ -434,7 +391,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   }
                 }
               },
-              child: const Text('Save & Share'),
+              child: const Text('Save Image'),
             ),
           ],
         );
