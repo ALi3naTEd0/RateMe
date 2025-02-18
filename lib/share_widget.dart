@@ -54,19 +54,14 @@ class _ShareWidgetState extends State<ShareWidget> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final defaultFileName = 'RateMe_${safeName}_$timestamp.png';
 
-      String? filePath;
-      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        filePath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save image as',
-          fileName: defaultFileName,
-          type: FileType.custom,
-          allowedExtensions: ['png'],
-          lockParentWindow: true,
-        );
-      } else {
-        final defaultDir = await getExternalStorageDirectory();
-        filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
-      }
+      // Permitir al usuario elegir ubicación
+      String? filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save image as',
+        fileName: defaultFileName,
+        type: FileType.custom,
+        allowedExtensions: ['png'],
+        lockParentWindow: true,
+      );
 
       if (filePath != null) {
         final file = File(filePath);
