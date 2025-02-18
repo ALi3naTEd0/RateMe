@@ -9,6 +9,9 @@ import 'logging.dart';
 import 'main.dart';  // Agregamos import para usar BandcampService
 import 'custom_lists_page.dart';  // Única importación necesaria para CustomList y CustomListsPage
 import 'share_widget.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
+import 'package:share_extend/share_extend.dart';  // Cambiar a share_extend
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -519,13 +522,25 @@ class _DetailsPageState extends State<DetailsPage> {
     });
   }
 
+  void _handleImageShare(String imagePath) async {
+    try {
+      await ShareExtend.share(imagePath, "image");
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing: $e')),
+        );
+      }
+    }
+  }
+
   void _showShareDialog(BuildContext context) {
     Navigator.pop(context); // Cerrar el diálogo de opciones
     showDialog(
       context: context,
       builder: (context) {
         final shareWidget = ShareWidget(
-          key: ShareWidget.shareKey, // Usar la key estática
+          key: ShareWidget.shareKey,
           album: widget.album,
           tracks: tracks,
           ratings: ratings,
@@ -543,12 +558,52 @@ class _DetailsPageState extends State<DetailsPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  // Llamar a saveAsImage mediante la GlobalKey
                   final path = await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Image saved to: $path')),
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ListTile(
+                                leading: const Icon(Icons.download),
+                                title: const Text('Save to Downloads'),
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  try {
+                                    final downloadDir = Directory('/storage/emulated/0/Download');
+                                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                    final newPath = '${downloadDir.path}/$fileName';
+                                    await File(path).copy(newPath);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error saving file: $e')),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.share),
+                                title: const Text('Share Image'),
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  _handleImageShare(path);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     );
                   }
                 } catch (e) {
@@ -560,7 +615,7 @@ class _DetailsPageState extends State<DetailsPage> {
                   }
                 }
               },
-              child: const Text('Save Image'),
+              child: const Text('Save & Share'),
             ),
           ],
         );

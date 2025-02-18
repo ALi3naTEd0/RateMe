@@ -248,6 +248,17 @@ class UserData {
     if (Platform.isAndroid) {
       final directory = await getExternalStorageDirectory();
       return directory?.path ?? (await getApplicationDocumentsDirectory()).path;
+    } else if (Platform.isLinux) {
+      // En Linux, intentamos obtener HOME/Documents
+      final home = Platform.environment['HOME'];
+      if (home != null) {
+        final documentsDir = Directory('$home/Documents');
+        if (await documentsDir.exists()) {
+          return documentsDir.path;
+        }
+      }
+      // Si no encontramos Documents, usamos HOME
+      return Platform.environment['HOME'] ?? '/home/${Platform.environment['USER']}';
     } else if (Platform.isWindows) {
       return path.join(Platform.environment['USERPROFILE'] ?? '', 'Documents');
     } else if (Platform.isMacOS) {
@@ -297,72 +308,42 @@ class UserData {
         return previousValue;
       });
 
-      String initialDirectory = await _getDocumentsPath();
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final defaultFileName = 'rateme_backup_$timestamp.json';
       
-      // Mostrar diálogo para seleccionar la ubicación
-      String? selectedDir = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select folder to save backup',
-        initialDirectory: initialDirectory,
-      );
-
-      if (selectedDir == null) {
-        selectedDir = initialDirectory; // Usar Documents por defecto si no se selecciona nada
+      String? filePath;
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // En sistemas de escritorio, usar un solo diálogo
+        filePath = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save backup as',
+          fileName: defaultFileName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          lockParentWindow: true,
+        );
+      } else {
+        // En móvil, usar directorio por defecto
+        final defaultDir = await getExternalStorageDirectory();
+        filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
       }
 
-      final filePath = path.join(selectedDir, defaultFileName);
-      final file = File(filePath);
-      
-      await file.writeAsString(jsonEncode(data), flush: true);
+      if (filePath != null) {
+        final file = File(filePath);
+        await file.writeAsString(jsonEncode(data), flush: true);
 
-      if (context.mounted) {
-        // Mostrar SnackBar en lugar de diálogo
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Backup created successfully!'),
-                      Text(
-                        filePath,
-                        style: const TextStyle(fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Backup saved to: $filePath'),
+              duration: const Duration(seconds: 4),
             ),
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-            width: MediaQuery.of(context).size.width * 0.9,
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('Error creating backup: $e'),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text('Error creating backup: $e')),
         );
       }
     }
@@ -370,18 +351,26 @@ class UserData {
 
   static Future<bool> importData(BuildContext context) async {
     try {
-      String initialDirectory = await _getDocumentsPath();
-      final scaffoldContext = context;  // Guardar referencia al contexto
-
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Select backup file to import',
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        initialDirectory: initialDirectory,
-      );
+      FilePickerResult? result;
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // En sistemas de escritorio, usar un solo diálogo
+        result = await FilePicker.platform.pickFiles(
+          dialogTitle: 'Select backup file to import',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          lockParentWindow: true,
+          withData: false,
+        );
+      } else {
+        // En móvil, usar selección simple
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
+      }
 
       if (result?.files.single.path == null) {
-        ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Import cancelled')),
         );
         return false;
@@ -392,7 +381,7 @@ class UserData {
       Map<String, dynamic> data = jsonDecode(jsonData);
 
       bool? confirm = await showDialog<bool>(
-        context: scaffoldContext,
+        context: context,
         builder: (context) => AlertDialog(
           title: const Text('Confirm Import'),
           content: Column(
@@ -440,7 +429,7 @@ class UserData {
         }
       });
 
-      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -490,7 +479,6 @@ class UserData {
 
   static Future<void> exportAlbum(BuildContext context, Map<String, dynamic> album) async {
     try {
-      // Obtener ratings del álbum
       final albumId = album['collectionId'];
       final ratings = await getSavedAlbumRatings(albumId);
       
@@ -501,24 +489,52 @@ class UserData {
         'version': '1.0',
       };
 
-      String? selectedDir = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select folder to save album data',
-        initialDirectory: await _getDocumentsPath(),
-      );
+      final safeName = album['collectionName']
+          .toString()
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      final defaultFileName = 'album_$safeName.json';
 
-      if (selectedDir != null) {
-        final safeName = album['collectionName']
-            .toString()
-            .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-        final filePath = path.join(selectedDir, 'album_$safeName.json');
+      String? filePath;
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        filePath = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save album as',
+          fileName: defaultFileName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          lockParentWindow: true,
+        );
+      } else {
+        final defaultDir = await getExternalStorageDirectory();
+        filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
+      }
+
+      if (filePath != null) {
         final file = File(filePath);
-        
         await file.writeAsString(jsonEncode(exportData), flush: true);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Album exported to: $filePath'),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Album exported successfully!'),
+                        Text(
+                          filePath,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               duration: const Duration(seconds: 4),
             ),
           );
@@ -628,6 +644,32 @@ class UserData {
     } catch (e, stackTrace) {
       Logging.severe('Error deleting custom list', e, stackTrace);
       rethrow;
+    }
+  }
+
+  static Future<String?> saveImage(BuildContext context, String defaultFileName) async {
+    try {
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // En sistemas de escritorio, usar un solo diálogo para seleccionar ubicación y nombre
+        return await FilePicker.platform.saveFile(
+          dialogTitle: 'Save image as',
+          fileName: defaultFileName,
+          type: FileType.custom,
+          allowedExtensions: ['png'],
+          lockParentWindow: true,
+        );
+      } else {
+        // Para móviles, usar directorio por defecto
+        final defaultDir = await getExternalStorageDirectory();
+        return path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting save location: $e')),
+        );
+      }
+      return null;
     }
   }
 }

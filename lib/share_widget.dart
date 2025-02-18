@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;  // Verificar que esta importación exista
+import 'user_data.dart';  // Agregar esta importación
+import 'package:file_picker/file_picker.dart';  // Agregar esta importación
 
 class ShareWidget extends StatefulWidget {
   final Map<String, dynamic>? album;  // Hacer opcional
@@ -37,7 +39,7 @@ class _ShareWidgetState extends State<ShareWidget> {
   final _boundaryKey = GlobalKey();
 
   // Método para ser llamado desde fuera
-  Future<String> saveAsImage() async {
+  Future<String?> saveAsImage() async {
     try {
       await Future.delayed(const Duration(milliseconds: 200));
       final boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary;
@@ -45,16 +47,61 @@ class _ShareWidgetState extends State<ShareWidget> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
 
-      final documentsPath = await _getDocumentsPath();
+      // Generar nombre de archivo
       final safeName = widget.album?['collectionName']
-          .toString()
-          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+          ?.toString()
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') ?? 'shared_list';
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      // Corregir el nombre del archivo removiendo el guion bajo extra
-      final file = File(path.join(documentsPath, 'RateMe_${safeName}_${timestamp}.png'));
-      await file.writeAsBytes(pngBytes);
+      final defaultFileName = 'RateMe_${safeName}_$timestamp.png';
 
-      return file.path;
+      String? filePath;
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        filePath = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save image as',
+          fileName: defaultFileName,
+          type: FileType.custom,
+          allowedExtensions: ['png'],
+          lockParentWindow: true,
+        );
+      } else {
+        final defaultDir = await getExternalStorageDirectory();
+        filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
+      }
+
+      if (filePath != null) {
+        final file = File(filePath);
+        await file.writeAsBytes(pngBytes);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Image saved successfully!'),
+                        Text(
+                          filePath,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return filePath;
+      }
+      return null;
     } catch (e) {
       rethrow;
     }

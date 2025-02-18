@@ -78,34 +78,51 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
       return previousValue;
     });
 
-    String jsonData = jsonEncode(data);
+    final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+    final defaultFileName = 'rateme_preferences_$timestamp.json';
 
-    String? path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Seleccione dónde guardar el archivo JSON',
-      fileName: 'shared_preferences.json',
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-    );
+    String? filePath;
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save preferences as',
+        fileName: defaultFileName,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        lockParentWindow: true,
+      );
+    } else {
+      final defaultDir = await getExternalStorageDirectory();
+      filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
+    }
 
-    if (path != null) {
-      File file = File(path);
-      await file.writeAsString(jsonData);
+    if (filePath != null) {
+      File file = File(filePath);
+      await file.writeAsString(jsonEncode(data));
 
       if (context.mounted) {
-        // Check if the widget is still mounted
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Los datos de SharedPreferences se han exportado correctamente en: $path'),
-          ),
-        );
-      }
-    } else {
-      if (context.mounted) {
-        // Check if the widget is still mounted
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se seleccionó ningún archivo para guardar.'),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Preferences exported successfully!'),
+                      Text(
+                        filePath,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 4),
           ),
         );
       }

@@ -3,9 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
-import 'package:intl/intl.dart';  // Agregamos este import
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';  // Agregar
+import 'package:share_extend/share_extend.dart'; // Cambiar share_plus por share_extend
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 // Removemos la importación de footer.dart
 // Remove import 'saved_preferences_page.dart'
 import 'saved_ratings_page.dart';
@@ -265,6 +268,10 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         ),
         leadingWidth: 120, // Dar más espacio para los tres iconos
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showAboutDialog(context),
+          ),
           Switch(
             value: widget.themeBrightness == Brightness.dark,
             onChanged: (_) => widget.toggleTheme(),
@@ -316,6 +323,103 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _handleImageSave(String imagePath) async {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.download),
+                title: const Text('Save to Downloads'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    final downloadDir = Directory('/storage/emulated/0/Download');
+                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                    final newPath = '${downloadDir.path}/$fileName';
+                    await File(imagePath).copy(newPath);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error saving file: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('Share Image'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await ShareExtend.share(imagePath, "image");
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error sharing: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('About RateMe'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Version: 1.0.0'),
+              const SizedBox(height: 8),
+              Text('License: MIT'),
+              const SizedBox(height: 8),
+              InkWell(
+                child: Text(
+                  'GitHub Repository',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline
+                  ),
+                ),
+                onTap: () async {
+                  final uri = Uri.parse('https://github.com/tuuser/RateMe');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Close'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
     );
   }
 
