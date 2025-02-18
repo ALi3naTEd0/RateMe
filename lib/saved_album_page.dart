@@ -8,7 +8,7 @@ import 'user_data.dart';
 import 'logging.dart';
 import 'main.dart';
 import 'share_widget.dart';
-import 'custom_lists_page.dart';  // Agregar esta importación para CustomList
+import 'custom_lists_page.dart';
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -35,14 +35,14 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   @override
   void initState() {
     super.initState();
-    // Realizar la inicialización de manera secuencial
+    // Initialize in sequence
     _initialize();
   }
 
   Future<void> _initialize() async {
-    // 1. Primero cargar los ratings
+    // 1. Load ratings first 
     await _loadRatings();
-    // 2. Luego cargar los tracks según corresponda
+    // 2. Then load tracks based on source
     if (widget.isBandcamp) {
       await _fetchBandcampTracks();
     } else {
@@ -354,12 +354,12 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   Future<void> _showAddToListDialog(BuildContext context) async {
-    // Variable para forzar actualización del FutureBuilder
+    // Key to force FutureBuilder update
     var refreshKey = ValueKey(DateTime.now());
 
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(  // Envolver en StatefulBuilder
+      builder: (context) => StatefulBuilder(  // Wrap in StatefulBuilder
         builder: (context, setState) => AlertDialog(
           title: const Text('Manage Lists'),
           content: Column(
@@ -375,7 +375,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               ),
               const Divider(),
               FutureBuilder<List<CustomList>>(
-                key: refreshKey,  // Usar key para forzar reconstrucción
+                key: refreshKey,  // Use key to force rebuild
                 future: UserData.getCustomLists(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
@@ -401,7 +401,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                               }
                               await UserData.saveCustomList(list);
                               
-                              // Actualizar UI inmediatamente
+                              // Update UI immediately
                               setState(() {
                                 refreshKey = ValueKey(DateTime.now());
                               });
@@ -562,12 +562,12 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context); // Cerrar el diálogo de opciones
+    Navigator.pop(context); // Close options dialog
     showDialog(
       context: context,
       builder: (context) {
         final shareWidget = ShareWidget(
-          key: ShareWidget.shareKey,  // Usar la key estática
+          key: ShareWidget.shareKey,
           album: widget.album,
           tracks: tracks,
           ratings: ratings,

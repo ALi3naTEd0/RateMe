@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:share_extend/share_extend.dart'; // Cambiar share_plus por share_extend
+import 'package:share_extend/share_extend.dart';
 import 'dart:io';
 import 'user_data.dart';
 import 'saved_album_page.dart';
@@ -107,7 +107,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
         ),
       ),
-    ).then((_) => _loadSavedAlbums());  // Recargar al volver
+    ).then((_) => _loadSavedAlbums());  // Reload when returning
   }
 
   Widget _buildAlbumActions(int index) {

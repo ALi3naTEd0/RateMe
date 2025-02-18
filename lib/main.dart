@@ -4,29 +4,22 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';  // Agregar
-import 'package:share_extend/share_extend.dart'; // Cambiar share_plus por share_extend
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_extend/share_extend.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
-// Removemos la importación de footer.dart
-// Remove import 'saved_preferences_page.dart'
 import 'saved_ratings_page.dart';
 import 'logging.dart';
-import 'details_page.dart';  // Nuevo import
-// Remover imports de bandcamp_details_page.dart y album_details_page.dart
-// Remove import of search_page.dart
+import 'details_page.dart';
 import 'package:file_picker/file_picker.dart';
-import 'user_data.dart';  // Agregar esta importación
+import 'user_data.dart';
 import 'package:path_provider/path_provider.dart';
-import 'custom_lists_page.dart';  // Actualizar esta importación
+import 'custom_lists_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Configura el sistema de logging
   Logging.setupLogging();
-
   runApp(const MyApp());
 }
 
@@ -40,7 +33,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool isDarkMode = false;
 
-  // Integramos las definiciones de tema desde app_theme.dart
   final ThemeData lightTheme = ThemeData.light().copyWith(
     colorScheme: const ColorScheme.light().copyWith(
       primary: const Color(0xFF864AF9),
@@ -96,8 +88,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RateMe',
-      debugShowCheckedModeBanner: false, // Agregar esta línea
-      theme: isDarkMode ? darkTheme : lightTheme,  // Usamos las definiciones locales
+      debugShowCheckedModeBanner: false,
+      theme: isDarkMode ? darkTheme : lightTheme,
       home: MusicRatingHomePage(
         toggleTheme: toggleTheme,
         themeBrightness: isDarkMode ? Brightness.dark : Brightness.light,
@@ -128,7 +120,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   void _showOptionsDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) { // Usar dialogContext en lugar de context
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Options'),
           content: Column(
@@ -140,7 +132,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 onTap: () async {
                   Navigator.pop(dialogContext);
                   
-                  // Usar un BuildContext que sabemos que está vivo
                   if (!mounted) return;
                   final scaffoldContext = context;
                   
@@ -238,7 +229,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             Expanded(
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.library_music_outlined), // Biblioteca
+                icon: const Icon(Icons.library_music_outlined),
                 tooltip: 'All Saved Albums',
                 onPressed: () => Navigator.push(
                   context,
@@ -249,7 +240,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             Expanded(
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.format_list_bulleted), // Listas
+                icon: const Icon(Icons.format_list_bulleted),
                 tooltip: 'Custom Lists',
                 onPressed: () => Navigator.push(
                   context,
@@ -260,13 +251,13 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             Expanded(
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.settings), // Configuración
+                icon: const Icon(Icons.settings),
                 onPressed: _showOptionsDialog,
               ),
             ),
           ],
         ),
-        leadingWidth: 120, // Dar más espacio para los tres iconos
+        leadingWidth: 120,
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -281,7 +272,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       ),
       body: Column(
         children: [
-          const SizedBox(height: 32), // Más espacio arriba
+          const SizedBox(height: 32),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
             child: SizedBox(
@@ -393,7 +384,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             children: [
               Text('Version: 1.0.0'),
               const SizedBox(height: 8),
-              Text('License: GPL-3.0'),  // Cambiar a GPL3
+              Text('License: GPL-3.0'),
               const SizedBox(height: 8),
               InkWell(
                 child: Text(
@@ -404,7 +395,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                   ),
                 ),
                 onTap: () async {
-                  // Actualizar la URL del repositorio
                   final uri = Uri.parse('https://github.com/ALi3naTEd0/RateMe');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
@@ -424,7 +414,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
     );
   }
 
-  // Add search methods from SearchPage
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
@@ -441,7 +430,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
     if (query.contains('bandcamp.com')) {
       _fetchBandcampAlbumInfo(query);
     } else {
-      // Volver al método original que era más efectivo
       _fetchiTunesAlbums(query);
     }
   }
@@ -494,8 +482,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
 
   Color _getStarIconColor(Brightness themeBrightness) {
     return themeBrightness == Brightness.light
-        ? const Color(0xFF864AF9)  // Light theme primary color
-        : const Color(0xFF5E35B1); // Dark theme primary color
+        ? const Color(0xFF864AF9)
+        : const Color(0xFF5E35B1);
   }
 }
 
@@ -506,15 +494,12 @@ class BandcampService {
       if (response.statusCode == 200) {
         var document = parse(response.body);
 
-        // Extraer datos del meta OG y datos específicos de Bandcamp
         var scriptTags = document.getElementsByTagName('script');
         Map<String, dynamic>? albumData;
 
-        // Buscar el script con los datos del álbum
         for (var script in scriptTags) {
           String content = script.text;
           if (content.contains('data-tralbum')) {
-            // Encontrar el objeto JSON del álbum
             final regex = RegExp(r'data-tralbum="([^"]*)"');
             final match = regex.firstMatch(content);
             if (match != null) {
@@ -531,7 +516,6 @@ class BandcampService {
           }
         }
 
-        // Extraer información básica del álbum
         String title = document
                 .querySelector('meta[property="og:title"]')
                 ?.attributes['content'] ??
@@ -547,7 +531,6 @@ class BandcampService {
                 ?.attributes['content'] ??
             '';
 
-        // Limpiar el título si contiene ", by "
         List<String> titleParts = title.split(', by ');
         String albumName = titleParts.isNotEmpty ? titleParts[0].trim() : title;
         String artistName = titleParts.length > 1 ? titleParts[1].trim() : artist;
@@ -558,7 +541,7 @@ class BandcampService {
           'artistName': artistName,
           'artworkUrl100': artworkUrl,
           'url': url,
-          'albumData': albumData, // Guardamos los datos completos para usar en extractTracks
+          'albumData': albumData,
         };
       }
       throw Exception('Failed to load Bandcamp album');
@@ -573,7 +556,6 @@ class BandcampService {
       var scriptTags = document.getElementsByTagName('script');
       Map<String, dynamic>? trackInfo;
 
-      // Primer intento: buscar en data-tralbum
       for (var script in scriptTags) {
         String content = script.text;
         if (content.contains('data-tralbum')) {
@@ -605,7 +587,6 @@ class BandcampService {
         }
       }
 
-      // Segundo intento: buscar en TralbumData
       for (var script in scriptTags) {
         String content = script.text;
         if (content.contains('TralbumData')) {
@@ -634,7 +615,6 @@ class BandcampService {
         }
       }
 
-      // Tercer intento: parsear directamente la tabla de tracks
       var trackRows = document.querySelectorAll('table#track_table tr.track_row_view');
       if (trackRows.isNotEmpty) {
         for (int i = 0; i < trackRows.length; i++) {
@@ -678,7 +658,6 @@ class BandcampService {
         return (hours * 3600 + minutes * 60 + seconds) * 1000;
       }
 
-      // Try parsing MM:SS format
       final parts = duration.split(':');
       if (parts.length == 2) {
         final minutes = int.tryParse(parts[0]) ?? 0;
