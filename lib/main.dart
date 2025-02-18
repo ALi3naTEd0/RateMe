@@ -397,7 +397,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Version: 1.0.0-1'),
+              const Text('Version: 1.0.0+1'),
               const SizedBox(height: 12),
               const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
               const SizedBox(height: 12),
