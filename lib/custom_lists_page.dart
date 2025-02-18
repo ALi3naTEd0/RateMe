@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';  // Agregar esta importación
+import 'package:share_extend/share_extend.dart'; // Cambiar share_plus por share_extend
+import 'dart:io';
 
 // Modelo CustomList
 class CustomList {
@@ -321,6 +323,18 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     ).then((_) => _loadAlbums());
   }
 
+  void _handleImageShare(String imagePath) async {
+    try {
+      await ShareExtend.share(imagePath, "image");
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing: $e')),
+        );
+      }
+    }
+  }
+
   void _showShareDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -345,8 +359,49 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   final path = await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Image saved to: $path')),
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ListTile(
+                                leading: const Icon(Icons.download),
+                                title: const Text('Save to Downloads'),
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  try {
+                                    final downloadDir = Directory('/storage/emulated/0/Download');
+                                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                    final newPath = '${downloadDir.path}/$fileName';
+                                    await File(path).copy(newPath);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error saving file: $e')),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.share),
+                                title: const Text('Share Image'),
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  _handleImageShare(path);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     );
                   }
                 } catch (e) {
@@ -358,7 +413,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   }
                 }
               },
-              child: const Text('Save Image'),
+              child: const Text('Save & Share'),
             ),
           ],
         );
