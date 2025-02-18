@@ -393,7 +393,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             children: [
               Text('Version: 1.0.0'),
               const SizedBox(height: 8),
-              Text('License: MIT'),
+              Text('License: GPL-3.0'),  // Cambiar a GPL3
               const SizedBox(height: 8),
               InkWell(
                 child: Text(
@@ -404,7 +404,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                   ),
                 ),
                 onTap: () async {
-                  final uri = Uri.parse('https://github.com/tuuser/RateMe');
+                  // Actualizar la URL del repositorio
+                  final uri = Uri.parse('https://github.com/ALi3naTEd0/RateMe');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
                   }
