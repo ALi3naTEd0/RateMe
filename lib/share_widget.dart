@@ -52,34 +52,30 @@ class _ShareWidgetState extends State<ShareWidget> {
           .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') ?? 'album';
       final fileName = 'RateMe_${safeName}_$timestamp.png';
 
-      // On Android, save directly to Downloads
       if (Platform.isAndroid) {
-        final downloadPath = '/storage/emulated/0/Download';
-        final filePath = '$downloadPath/$fileName';
-        final file = File(filePath);
-        await file.writeAsBytes(pngBytes);
-        
-        // Force MediaStore update to make it visible immediately
-        await File(filePath).setLastModified(DateTime.now());
-        
-        return filePath;
+        // Create temporary file for Android
+        final tempDir = await getTemporaryDirectory();
+        final tempPath = '${tempDir.path}/$fileName';
+        final tempFile = File(tempPath);
+        await tempFile.writeAsBytes(pngBytes);
+        return tempPath;
       } else {
-        // For desktop and other platforms, use FilePicker
+        // For desktop platforms, use FilePicker
         final String? savePath = await FilePicker.platform.saveFile(
           dialogTitle: 'Save image as',
           fileName: fileName,
           type: FileType.custom,
           allowedExtensions: ['png'],
+          lockParentWindow: true,
         );
 
         if (savePath != null) {
           final file = File(savePath);
           await file.writeAsBytes(pngBytes);
-          return file.path;
+          return savePath;
         }
+        throw Exception('No save location selected');
       }
-      
-      throw Exception('Failed to save image');
     } catch (e) {
       rethrow;
     }
@@ -245,7 +241,7 @@ class _ShareWidgetState extends State<ShareWidget> {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    rating.toStringAsFixed(1),
+                    rating.toInt().toString(), // Cambiado de toStringAsFixed(1) a toInt()
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       color: rating > 0

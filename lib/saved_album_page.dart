@@ -4,6 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:html/parser.dart' show parse;
+import 'dart:io'; // For Platform, File and Directory
+import 'package:share_plus/share_plus.dart'; // For Share and XFile
+import 'package:flutter/services.dart';  // Add this import for MethodChannel
 import 'user_data.dart';
 import 'logging.dart';
 import 'main.dart';
@@ -279,9 +282,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               onChanged: (newRating) => _updateRating(trackId, newRating),
             ),
           ),
-          Text(
-            (ratings[trackId] ?? 0.0).toStringAsFixed(0),
-            style: const TextStyle(fontSize: 16),
+          SizedBox(
+            width: 25, // Fixed width for rating number
+            child: Text(
+              (ratings[trackId] ?? 0).toStringAsFixed(0), // Remove decimal places
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.end,
+            ),
           ),
         ],
       ),
@@ -363,21 +370,50 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Track No.')),
-                        DataColumn(label: Text('Title')),
-                        DataColumn(label: Text('Length')),
-                        DataColumn(label: Text('Rating')),
+                      columnSpacing: 12,  // Reduce spacing between columns
+                      headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      columns: [
+                        DataColumn(
+                          label: SizedBox(
+                            width: 35,  // Reducido de 40
+                            child: Center(child: Text('No.')),
+                          ),
+                          numeric: true,
+                        ),
+                        DataColumn(
+                          label: Text('Title'),
+                          // Default alignment (left)
+                        ),
+                        DataColumn(
+                          label: Container(
+                            width: 70,
+                            alignment: Alignment.center,  // Asegura alineación central
+                            child: Text('Length', textAlign: TextAlign.center),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Container(
+                            width: 175,
+                            alignment: Alignment.center,  // Asegura alineación central
+                            child: Text('Rating', textAlign: TextAlign.center),
+                          ),
+                        ),
                       ],
                       rows: tracks.map((track) {
                         final trackId = track['trackId'] ?? 0;
                         final duration = widget.isBandcamp 
                             ? track['duration'] ?? 0
                             : track['trackTimeMillis'] ?? 0;
-                        
                         return DataRow(
                           cells: [
-                            DataCell(Text(track['trackNumber']?.toString() ?? '')),
+                            DataCell(
+                              SizedBox(
+                                width: 35,  // Reducido de 40
+                                child: Center(
+                                  child: Text(track['trackNumber']?.toString() ?? ''),
+                                ),
+                              ),
+                            ),
                             DataCell(
                               Tooltip(
                                 message: widget.isBandcamp ? track['title'] : track['trackName'],
@@ -392,7 +428,15 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                 ),
                               ),
                             ),
-                            DataCell(Text(formatDuration(duration))),
+                            DataCell(
+                              SizedBox(
+                                width: 70,
+                                child: Text(
+                                  formatDuration(duration),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
                             DataCell(_buildTrackSlider(trackId)),
                           ],
                         );
@@ -420,7 +464,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   Future<void> _showAddToListDialog(BuildContext context) async {
     // Key to force FutureBuilder update
     var refreshKey = ValueKey(DateTime.now());
-
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(  // Wrap in StatefulBuilder
@@ -474,7 +517,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(value == true 
-                                      ? 'Added to "${list.name}"'
+                                      ? 'Added to "${list.name}"' 
                                       : 'Removed from "${list.name}"'
                                     ),
                                     duration: const Duration(seconds: 1),
@@ -505,7 +548,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   Future<void> _showCreateListDialog() async {
     final nameController = TextEditingController();
     final descController = TextEditingController();
-
     final createResult = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -626,7 +668,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context);
+    Navigator.pop(context);  // Close options dialog
     showDialog(
       context: context,
       builder: (context) {
@@ -650,9 +692,76 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   final path = await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Image saved to: $path')),
-                    );
+                    if (!mounted) return;
+                    
+                    if (Platform.isAndroid) {
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                ListTile(
+                                  leading: const Icon(Icons.download),
+                                  title: const Text('Save to Downloads'),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    try {
+                                      final downloadDir = Directory('/storage/emulated/0/Download');
+                                      final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                      final newPath = '${downloadDir.path}/$fileName';
+                                      // Copy from temp to Downloads
+                                      await File(path).copy(newPath);
+                                      
+                                      // Scan file with MediaScanner
+                                      const platform = MethodChannel('com.example.rateme/media_scanner');
+                                      try {
+                                        await platform.invokeMethod('scanFile', {'path': newPath});
+                                      } catch (e) {
+                                        print('MediaScanner error: $e');
+                                      }
+                                      
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error saving file: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.share),
+                                  title: const Text('Share Image'),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    try {
+                                      await Share.shareXFiles([XFile(path)]);
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error sharing: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Image saved to: $path')),
+                      );
+                    }
                   }
                 } catch (e) {
                   if (mounted) {
@@ -663,7 +772,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   }
                 }
               },
-              child: const Text('Save Image'),
+              child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
             ),
           ],
         );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';  // Add this import for MethodChannel
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' show parse;
@@ -422,11 +423,33 @@ class _DetailsPageState extends State<DetailsPage> {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Track No.')),
-                        DataColumn(label: Text('Title')),
-                        DataColumn(label: Text('Length')),
-                        DataColumn(label: Text('Rating')),
+                      columnSpacing: 12,
+                      headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      columns: [
+                        DataColumn(
+                          label: SizedBox(
+                            width: 35,  // Reducido de 40
+                            child: Center(child: Text('No.')),
+                          ),
+                          numeric: true,
+                        ),
+                        DataColumn(
+                          label: Center(child: Text('Title')),
+                        ),
+                        DataColumn(
+                          label: Container(
+                            width: 65,  // Reducido de 70
+                            alignment: Alignment.center,
+                            child: Text('Length', textAlign: TextAlign.center),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Container(
+                            width: 160,  // Reducido de 175
+                            alignment: Alignment.center,
+                            child: Text('Rating', textAlign: TextAlign.center),
+                          ),
+                        ),
                       ],
                       rows: tracks.map((track) {
                         final trackId = track['trackId'] ?? 0;
@@ -436,13 +459,28 @@ class _DetailsPageState extends State<DetailsPage> {
                         
                         return DataRow(
                           cells: [
-                            DataCell(Text(track['trackNumber'].toString())),
+                            DataCell(
+                              SizedBox(
+                                width: 35,  // Reducido de 40
+                                child: Center(
+                                  child: Text(track['trackNumber'].toString()),
+                                ),
+                              ),
+                            ),
                             DataCell(_buildTrackTitle(
                               widget.isBandcamp ? track['title'] : track['trackName'],
                               MediaQuery.of(context).size.width * titleWidthFactor,
                             )),
-                            DataCell(Text(formatDuration(duration))),
-                            DataCell(_buildRatingSlider(trackId)),
+                            DataCell(
+                              SizedBox(
+                                width: 70,
+                                child: Text(
+                                  formatDuration(duration),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            DataCell(_buildTrackSlider(trackId)),
                           ],
                         );
                       }).toList(),
@@ -487,24 +525,28 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
-  Widget _buildRatingSlider(int trackId) {
+  Widget _buildTrackSlider(int trackId) {
     return SizedBox(
       width: 150,
       child: Row(
         children: [
           Expanded(
             child: Slider(
-              value: ratings[trackId] ?? 0.0,
               min: 0,
               max: 10,
               divisions: 10,
+              value: ratings[trackId] ?? 0.0,
               label: (ratings[trackId] ?? 0.0).toStringAsFixed(0),
               onChanged: (newRating) => _updateRating(trackId, newRating),
             ),
           ),
-          Text(
-            (ratings[trackId] ?? 0.0).toStringAsFixed(0),
-            style: const TextStyle(fontSize: 16),
+          SizedBox(
+            width: 25, // Fixed width for rating number
+            child: Text(
+              (ratings[trackId] ?? 0).toStringAsFixed(0), // Remove decimal places
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.end,
+            ),
           ),
         ],
       ),
@@ -692,7 +734,7 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context);
+    Navigator.pop(context);  // Close options dialog
     showDialog(
       context: context,
       builder: (context) {
@@ -704,9 +746,7 @@ class _DetailsPageState extends State<DetailsPage> {
           averageRating: averageRating,
         );
         return AlertDialog(
-          content: SingleChildScrollView(
-            child: shareWidget,
-          ),
+          content: SingleChildScrollView(child: shareWidget),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -718,50 +758,77 @@ class _DetailsPageState extends State<DetailsPage> {
                   final path = await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              ListTile(
-                                leading: const Icon(Icons.download),
-                                title: const Text('Save to Downloads'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  try {
-                                    final downloadDir = Directory('/storage/emulated/0/Download');
-                                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                    final newPath = '${downloadDir.path}/$fileName';
-                                    await File(path).copy(newPath);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Saved to Downloads: $fileName')),
-                                      );
+                    if (!mounted) return;
+                    
+                    if (Platform.isAndroid) {
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                ListTile(
+                                  leading: const Icon(Icons.download),
+                                  title: const Text('Save to Downloads'),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    try {
+                                      final downloadDir = Directory('/storage/emulated/0/Download');
+                                      final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                      final newPath = '${downloadDir.path}/$fileName';
+                                      
+                                      // Copy from temp to Downloads
+                                      await File(path).copy(newPath);
+                                      
+                                      // Escanear archivo con MediaScanner
+                                      const platform = MethodChannel('com.example.rateme/media_scanner');
+                                      try {
+                                        await platform.invokeMethod('scanFile', {'path': newPath});
+                                      } catch (e) {
+                                        print('MediaScanner error: $e');
+                                      }
+                                      
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error saving file: $e')),
+                                        );
+                                      }
                                     }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Error saving file: $e')),
-                                      );
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.share),
+                                  title: const Text('Share Image'),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    try {
+                                      await Share.shareXFiles([XFile(path)]);
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error sharing: $e')),
+                                        );
+                                      }
                                     }
-                                  }
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.share),
-                                title: const Text('Share Image'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  _handleImageShare(path);
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Image saved to: $path')),
+                      );
+                    }
                   }
                 } catch (e) {
                   if (mounted) {
@@ -772,7 +839,7 @@ class _DetailsPageState extends State<DetailsPage> {
                   }
                 }
               },
-              child: const Text('Save & Share'),
+              child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
             ),
           ],
         );
