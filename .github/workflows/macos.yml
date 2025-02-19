@@ -5,10 +5,10 @@ name: macOS Build
 "on":
   push:
     branches:
-      - main
+      - rateme
   pull_request:
     branches:
-      - main
+      - rateme
 
 jobs:
   build:
