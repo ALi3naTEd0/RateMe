@@ -32,12 +32,12 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.1
-  path: 1.9.0  # Pin to version that Flutter SDK uses
+  path: ^1.9.1  # Usar la versión que necesitas en Linux
   path_provider: ^2.1.1
   url_launcher: ^6.2.1
   shared_preferences: ^2.2.3
   file_picker: ^9.0.0
-  share_plus: ^10.1.4
+  share_plus: 7.2.1  # Downgrade to a version compatible with Dart 3.3.1
   html: ^0.15.4
   intl: ^0.20.0
   logging: ^1.2.0
