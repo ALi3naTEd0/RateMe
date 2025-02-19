@@ -1,3 +1,5 @@
+<img src="https://github.com/ALi3naTEd0/RateMe/blob/rateme/assets/rateme.png" width="200">
+
 # Rate Me!
 
 ![Version](https://img.shields.io/badge/version-1.0.0--1-blue)
