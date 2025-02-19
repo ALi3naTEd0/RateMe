@@ -287,62 +287,34 @@ class UserData {
       final fileName = 'rateme_backup_$timestamp.json';
 
       if (Platform.isAndroid) {
-        showModalBottomSheet(
-          context: context,
-          builder: (BuildContext context) {
-            return SafeArea(
-              child: Column(
+        final downloadDir = await getDownloadsDirectory();
+        final filePath = '${downloadDir.path}/$fileName';
+        final file = File(filePath);
+        await file.writeAsString(jsonData);
+
+        // Escanear archivo con MediaScanner
+        const platform = MethodChannel('com.example.rateme/media_scanner');
+        try {
+          await platform.invokeMethod('scanFile', {'path': filePath});
+        } catch (e) {
+          print('MediaScanner error: $e');
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  ListTile(
-                    leading: const Icon(Icons.download),
-                    title: const Text('Save to Downloads'),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      try {
-                        final downloadDir = await getDownloadsDirectory();
-                        final filePath = '${downloadDir.path}/$fileName';
-                        final file = File(filePath);
-                        await file.writeAsString(jsonData);
-                        
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Saved to Downloads: $fileName')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error saving file: $e')),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.share),
-                    title: const Text('Share JSON'),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      try {
-                        final tempDir = await getTemporaryDirectory();
-                        final tempFile = File('${tempDir.path}/$fileName');
-                        await tempFile.writeAsString(jsonData);
-                        await Share.shareXFiles([XFile(tempFile.path)]);
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error sharing: $e')),
-                          );
-                        }
-                      }
-                    },
-                  ),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Backup saved successfully'),
+                  Text(fileName, style: const TextStyle(fontSize: 12)),
+                  Text('Path: $filePath', style: const TextStyle(fontSize: 12)),
                 ],
               ),
-            );
-          },
-        );
+            ),
+          );
+        }
       } else {
         // En desktop usar file_picker para guardar
         final String? outputFile = await FilePicker.platform.saveFile(
@@ -853,9 +825,18 @@ class UserData {
 
   static Future<Directory> getDownloadsDirectory() async {
     if (Platform.isAndroid) {
-      // Use public Downloads directory directly
+      // Usar directamente el directorio de descargas público
       return Directory('/storage/emulated/0/Download');
+    } else if (Platform.isIOS) {
+      final directory = await getApplicationDocumentsDirectory();
+      return Directory('${directory.path}/Downloads');
+    } else if (Platform.isLinux || Platform.isMacOS) {
+      final home = Platform.environment['HOME'];
+      return Directory('$home/Downloads');
+    } else if (Platform.isWindows) {
+      final userProfile = Platform.environment['USERPROFILE'];
+      return Directory('$userProfile\\Downloads');
     }
-    return await getApplicationDocumentsDirectory();
+    return getApplicationDocumentsDirectory();
   }
 }
