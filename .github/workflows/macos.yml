@@ -1,0 +1,52 @@
+---
+name: macOS Build
+
+"on":
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions: write-all
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.19.3
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "RateMe" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "RateMe.app" 200 190 \
+            --hide-extension "RateMe.app" \
+            --app-drop-link 600 185 \
+            "RateMe.dmg" \
+            "build/macos/Build/Products/Release/RateMe.app"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: RateMe-macOS
+          path: RateMe.dmg
