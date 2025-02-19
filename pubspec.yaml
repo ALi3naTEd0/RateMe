@@ -32,7 +32,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.1
-  path: ^1.9.1  # Usar la versión que necesitas en Linux
+  path: ^1.9.1  # Keep latest version for local development
   path_provider: ^2.1.1
   url_launcher: ^6.2.1
   shared_preferences: ^2.2.3
