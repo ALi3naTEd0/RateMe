@@ -17,6 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Debug Info
+        run: |
+          pwd
+          ls -la
+          flutter --version
+
       - name: Install create-dmg
         run: brew install create-dmg
 
