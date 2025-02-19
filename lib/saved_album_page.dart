@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher.dart';  // This includes all URL launching functions
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:html/parser.dart' show parse;
@@ -246,13 +246,18 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     
     try {
       final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        throw 'Could not launch $url';
-      }
+      // Use external application to show browser chooser
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
     } catch (error, stackTrace) {
       Logging.severe('Error launching RateYourMusic', error, stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open RateYourMusic')),
+        );
+      }
     }
   }
 
