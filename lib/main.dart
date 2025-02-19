@@ -121,7 +121,13 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rate Me!'),
+        title: const Text(
+          'Rate Me!',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
         centerTitle: true,
         leading: Row(
           mainAxisSize: MainAxisSize.min,

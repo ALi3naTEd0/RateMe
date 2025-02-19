@@ -20,11 +20,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.rateme"
-        minSdkVersion = 21
-        targetSdkVersion = flutter.targetSdkVersion
-        versionCode = 1
-        versionName = "1.0"
+        applicationId "com.example.rateme"
+        minSdkVersion 21
+        targetSdkVersion 33
+        versionCode 1
+        versionName "1.0"
     }
 
     buildTypes {
