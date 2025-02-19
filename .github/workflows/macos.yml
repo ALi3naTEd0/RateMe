@@ -1,4 +1,5 @@
 ---
+# Workflow for building and releasing macOS DMG
 name: macOS Build
 
 "on":
@@ -11,11 +12,13 @@ name: macOS Build
 
 jobs:
   build:
+    name: Build macOS DMG
     runs-on: macos-latest
     permissions: write-all
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Debug Info
         run: |
