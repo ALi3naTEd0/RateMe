@@ -20,6 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.19.3
+
       - name: Debug Info
         run: |
           pwd
@@ -28,12 +34,6 @@ jobs:
 
       - name: Install create-dmg
         run: brew install create-dmg
-
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.19.3
 
       - name: Install dependencies
         run: flutter pub get
