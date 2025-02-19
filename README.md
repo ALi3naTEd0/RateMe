@@ -1,6 +1,6 @@
 # Rate Me!
 
-![Version](https://img.shields.io/badge/version-0.0.9--6-blue)
+![Version](https://img.shields.io/badge/version-1.0.0--1-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green)
 ![Downloads](https://img.shields.io/github/downloads/ALi3naTEd0/RateMe/total)
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
