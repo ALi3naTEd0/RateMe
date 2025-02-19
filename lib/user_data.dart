@@ -287,7 +287,6 @@ class UserData {
       final fileName = 'rateme_backup_$timestamp.json';
 
       if (Platform.isAndroid) {
-        // Mostrar bottom sheet para elegir acción
         showModalBottomSheet(
           context: context,
           builder: (BuildContext context) {
@@ -301,7 +300,7 @@ class UserData {
                     onTap: () async {
                       Navigator.pop(context);
                       try {
-                        final downloadDir = Directory('/storage/emulated/0/Download');
+                        final downloadDir = await getDownloadsDirectory();
                         final filePath = '${downloadDir.path}/$fileName';
                         final file = File(filePath);
                         await file.writeAsString(jsonData);
