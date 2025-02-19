@@ -25,6 +25,9 @@ jobs:
         with:
           channel: stable
           flutter-version: 3.19.3
+          cache: true
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash
+          cache-path: ${{ runner.tool_cache }}/flutter/cache
 
       - name: Enable macOS
         run: flutter config --enable-macos-desktop
