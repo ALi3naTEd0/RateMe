@@ -7,11 +7,23 @@
 
 namespace {
 
+/// Window attribute that enables dark mode window decorations.
+///
+/// Redefined in case the developer's machine has a Windows SDK older than
+/// version 10.0.22000.0.
+/// See: https://docs.microsoft.com/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
 /// Registry key for app theme preference.
+///
+/// A value of 0 indicates apps should use dark mode. A non-zero or missing
+/// value indicates apps should use light mode.
 constexpr const wchar_t kGetPreferredBrightnessRegKey[] =
-    L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+  L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
 constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme";
 
 // The number of Win32Window objects that currently exist.
@@ -26,6 +38,7 @@ int Scale(int source, double scale_factor) {
 }
 
 // Dynamically loads the |EnableNonClientDpiScaling| from the User32 module.
+// This API is only needed for PerMonitor V1 awareness mode.
 void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   HMODULE user32_module = LoadLibraryA("User32.dll");
   if (!user32_module) {
@@ -73,7 +86,6 @@ class WindowClassRegistrar {
 
 WindowClassRegistrar* WindowClassRegistrar::instance_ = nullptr;
 
-// Keep original implementation unchanged
 const wchar_t* WindowClassRegistrar::GetWindowClass() {
   if (!class_registered_) {
     WNDCLASS window_class{};
@@ -112,8 +124,7 @@ bool Win32Window::Create(const wchar_t* title, const Point& origin,
                         const Size& size) {
   Destroy();
 
-  const wchar_t* window_class =
-      WindowClassRegistrar::GetInstance()->GetWindowClass();
+  WNDCLASS window_class = RegisterWindowClass();
 
   const POINT target_point = {static_cast<LONG>(origin.x),
                             static_cast<LONG>(origin.y)};
@@ -122,20 +133,15 @@ bool Win32Window::Create(const wchar_t* title, const Point& origin,
   double scale_factor = dpi / 96.0;
 
   HWND window = CreateWindow(
-      window_class, title,
+      window_class.lpszClassName, title,
       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
-      nullptr, nullptr, GetModuleHandle(nullptr), this);
+      nullptr, nullptr, window_class.hInstance, this);
 
   if (!window) {
     return false;
   }
-
-  window_handle_ = window;
-
-  // SetWindowLongPtr to store |this| pointer.
-  SetWindowLongPtr(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
   UpdateTheme(window);
 
@@ -148,22 +154,22 @@ bool Win32Window::Show() {
 
 // static
 LRESULT CALLBACK Win32Window::WndProc(HWND const window,
-                                     UINT const message,
-                                     WPARAM const wparam,
-                                     LPARAM const lparam) noexcept {
+                                      UINT const message,
+                                      WPARAM const wparam,
+                                      LPARAM const lparam) noexcept {
   if (message == WM_NCCREATE) {
     auto window_struct = reinterpret_cast<CREATESTRUCT*>(lparam);
     SetWindowLongPtr(window, GWLP_USERDATA,
-                    reinterpret_cast<LONG_PTR>(window_struct->lpCreateParams));
+                     reinterpret_cast<LONG_PTR>(window_struct->lpCreateParams));
 
     auto that = static_cast<Win32Window*>(window_struct->lpCreateParams);
     EnableFullDpiSupportIfAvailable(window);
     that->window_handle_ = window;
+  } else if (Win32Window* that = GetThisFromHandle(window)) {
+    return that->MessageHandler(window, message, wparam, lparam);
   }
 
-  Win32Window* that = GetThisFromHandle(window);
-  return that ? that->MessageHandler(window, message, wparam, lparam)
-              : DefWindowProc(window, message, wparam, lparam);
+  return DefWindowProc(window, message, wparam, lparam);
 }
 
 LRESULT
