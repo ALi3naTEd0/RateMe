@@ -1,8 +1,8 @@
-# Maintainer: ALi3naTEd0 <ALi3naTEd0@protonmail.com>
+# Maintainer: Eduardo Fortuny <alienmind@rateme.dev>
 pkgname=rateme
-pkgver=0.0.9
-pkgrel=6
-pkgdesc="Aplicación de calificación musical"
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Music rating application"
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')

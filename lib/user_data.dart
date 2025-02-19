@@ -7,6 +7,8 @@ import 'package:path/path.dart' as path;
 import 'custom_lists_page.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';  // Añadir este import para MethodChannel
 
 class UserData {
   // Storage keys for SharedPreferences
@@ -279,46 +281,91 @@ class UserData {
 
   static Future<void> exportData(BuildContext context) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      Map<String, dynamic> data = prefs.getKeys().fold({}, (previousValue, key) {
-        previousValue[key] = prefs.get(key);
-        return previousValue;
-      });
-
+      final data = await _getAllData();
+      final jsonData = jsonEncode(data);
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final defaultFileName = 'rateme_backup_$timestamp.json';
-      
-      String? filePath;
-      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        filePath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save backup as',
-          fileName: defaultFileName,
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-          lockParentWindow: true,
+      final fileName = 'rateme_backup_$timestamp.json';
+
+      if (Platform.isAndroid) {
+        // Mostrar bottom sheet para elegir acción
+        showModalBottomSheet(
+          context: context,
+          builder: (BuildContext context) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Save to Downloads'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        final downloadDir = Directory('/storage/emulated/0/Download');
+                        final filePath = '${downloadDir.path}/$fileName';
+                        final file = File(filePath);
+                        await file.writeAsString(jsonData);
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Saved to Downloads: $fileName')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error saving file: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.share),
+                    title: const Text('Share JSON'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        final tempDir = await getTemporaryDirectory();
+                        final tempFile = File('${tempDir.path}/$fileName');
+                        await tempFile.writeAsString(jsonData);
+                        await Share.shareXFiles([XFile(tempFile.path)]);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error sharing: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
         );
       } else {
-        final defaultDir = await getExternalStorageDirectory();
-        filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
-      }
+        // En desktop usar file_picker para guardar
+        final String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save backup as',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
 
-      if (filePath != null) {
-        final file = File(filePath);
-        await file.writeAsString(jsonEncode(data), flush: true);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Backup saved to: $filePath'),
-              duration: const Duration(seconds: 4),
-            ),
-          );
+        if (outputFile != null) {
+          await File(outputFile).writeAsString(jsonData);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Backup saved successfully!')),
+            );
+          }
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating backup: $e')),
+          SnackBar(content: Text('Error exporting data: $e')),
         );
       }
     }
@@ -454,7 +501,6 @@ class UserData {
     try {
       final albumId = album['collectionId'];
       final ratings = await getSavedAlbumRatings(albumId);
-      
       final exportData = {
         'album': album,
         'ratings': ratings,
@@ -465,52 +511,100 @@ class UserData {
       final safeName = album['collectionName']
           .toString()
           .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-      final defaultFileName = 'album_$safeName.json';
+      final fileName = 'album_$safeName.json';
 
-      String? filePath;
-      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        filePath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save album as',
-          fileName: defaultFileName,
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-          lockParentWindow: true,
-        );
-      } else {
-        final defaultDir = await getExternalStorageDirectory();
-        filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
-      }
+      if (Platform.isAndroid) {
+        showModalBottomSheet(
+          context: context,
+          builder: (BuildContext context) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Save to Downloads'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        final downloadDir = await getDownloadsDirectory();
+                        final filePath = '${downloadDir.path}/$fileName';
+                        final file = File(filePath);
+                        await file.writeAsString(jsonEncode(exportData));
 
-      if (filePath != null) {
-        final file = File(filePath);
-        await file.writeAsString(jsonEncode(exportData), flush: true);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Album exported successfully!'),
-                        Text(
-                          filePath,
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
+                        // Scan file with MediaScanner
+                        const platform = MethodChannel('com.example.rateme/media_scanner');
+                        try {
+                          await platform.invokeMethod('scanFile', {'path': filePath});
+                        } catch (e) {
+                          print('MediaScanner error: $e');
+                        }
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Saved to Downloads'),
+                                  Text(fileName, style: const TextStyle(fontSize: 12)),
+                                  Text('Path: $filePath', style: const TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error saving file: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.share),
+                    title: const Text('Share JSON'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        final tempDir = await getTemporaryDirectory();
+                        final tempFile = File('${tempDir.path}/$fileName');
+                        await tempFile.writeAsString(jsonEncode(exportData));
+                        await Share.shareXFiles([XFile(tempFile.path)]);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error sharing: $e')),
+                          );
+                        }
+                      }
+                    },
                   ),
                 ],
               ),
-              duration: const Duration(seconds: 4),
-            ),
-          );
+            );
+          },
+        );
+      } else {
+        // En desktop usar file_picker para guardar
+        final String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save album as',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
+
+        if (outputFile != null) {
+          await File(outputFile).writeAsString(jsonEncode(exportData));
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Album exported successfully!')),
+            );
+          }
         }
       }
     } catch (e) {
@@ -644,8 +738,8 @@ class UserData {
           lockParentWindow: true,
         );
       } else {
-        final defaultDir = await getExternalStorageDirectory();
-        return path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
+        final downloadDir = await getDownloadsDirectory();
+        return path.join(downloadDir.path, defaultFileName);
       }
     } catch (e) {
       if (context.mounted) {
@@ -742,5 +836,27 @@ class UserData {
     }
 
     await prefs.setStringList(ratingsKey, ratings);
+  }
+
+  static Future<Map<String, dynamic>> _getAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> data = {};
+    
+    for (String key in prefs.getKeys()) {
+      dynamic value = prefs.get(key);
+      if (value != null) {
+        data[key] = value;
+      }
+    }
+    
+    return data;
+  }
+
+  static Future<Directory> getDownloadsDirectory() async {
+    if (Platform.isAndroid) {
+      // Use public Downloads directory directly
+      return Directory('/storage/emulated/0/Download');
+    }
+    return await getApplicationDocumentsDirectory();
   }
 }

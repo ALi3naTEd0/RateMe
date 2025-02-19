@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'user_data.dart';
 import 'logging.dart';
-import 'main.dart';
 import 'custom_lists_page.dart';
 import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';

@@ -1,5 +1,6 @@
 name: rateme
-description: "A Music Rating App."
+description: Rate your music albums.
+# No olvidar actualizar PKGBUILD cuando se cambie esta versión
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -33,19 +34,12 @@ dependencies:
   http: ^1.2.1
   path: ^1.9.1
   path_provider: ^2.1.1
-  path_provider_windows: ^2.2.1
-  flutter_xlider: ^3.5.0
   url_launcher: ^6.2.1
   shared_preferences: ^2.2.3
-  file_selector: ^1.0.3
   file_picker: ^9.0.0
-  file_saver: ^0.2.13
-  permission_handler: ^11.3.1
   share_plus: ^10.1.4
   html: ^0.15.4
-  csv: ^6.0.0
   intl: ^0.20.0
-  json_annotation: ^4.0.1
   logging: ^1.2.0
   flutter_launcher_icons: ^0.14.3
 

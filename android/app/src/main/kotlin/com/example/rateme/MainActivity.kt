@@ -1,6 +1,7 @@
 package com.example.rateme
 
 import android.media.MediaScannerConnection
+import android.os.Environment
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -11,17 +12,21 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "scanFile") {
-                val path = call.argument<String>("path")
-                if (path != null) {
-                    MediaScannerConnection.scanFile(this, arrayOf(path), null) { _, _ -> 
+            when (call.method) {
+                "scanFile" -> {
+                    val path = call.argument<String>("path")
+                    if (path != null) {
+                        MediaScannerConnection.scanFile(
+                            context,
+                            arrayOf(path),
+                            null
+                        ) { _, _ -> }
                         result.success(null)
+                    } else {
+                        result.error("INVALID_PATH", "Path cannot be null", null)
                     }
-                } else {
-                    result.error("NULL_PATH", "Path cannot be null", null)
                 }
-            } else {
-                result.notImplemented()
+                else -> result.notImplemented()
             }
         }
     }

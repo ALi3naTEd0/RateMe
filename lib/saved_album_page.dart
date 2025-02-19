@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';  // This includes all URL launching functions
+import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:html/parser.dart' show parse;
-import 'dart:io'; // For Platform, File and Directory
-import 'package:share_plus/share_plus.dart'; // For Share and XFile
-import 'package:flutter/services.dart';  // Add this import for MethodChannel
+import 'dart:io';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
 import 'user_data.dart';
 import 'logging.dart';
-import 'main.dart';
 import 'share_widget.dart';
 import 'custom_lists_page.dart';
 
