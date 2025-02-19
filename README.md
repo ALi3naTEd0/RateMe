@@ -47,7 +47,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 git clone https://github.com/ALi3naTEd0/RateMe.git
 cd RateMe
 makepkg -si
-``
+```
 
 ## Features
 
