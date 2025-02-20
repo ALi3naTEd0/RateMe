@@ -30,7 +30,16 @@ jobs:
             liblzma-dev \
             libunwind-dev \
             libgcrypt20-dev \
-            libfuse-dev
+            libfuse-dev \
+            ruby \
+            ruby-dev \
+            rubygems \
+            build-essential \
+            libfuse2
+          sudo gem install fpm
+          wget -O appimage-builder-x86_64.AppImage https://github.com/AppImageCrafters/appimage-builder/releases/download/v1.1.0/appimage-builder-1.1.0-x86_64.AppImage
+          chmod +x appimage-builder-x86_64.AppImage
+          sudo mv appimage-builder-x86_64.AppImage /usr/local/bin/appimage-builder
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -47,85 +56,34 @@ jobs:
           flutter pub run flutter_launcher_icons  # Generar iconos primero
           flutter build linux --release
 
-      - name: Create DEB package
+      - name: Package Linux
         run: |
-          mkdir -p packaging/debian/rateme/DEBIAN
-          mkdir -p packaging/debian/rateme/usr/bin
-          mkdir -p packaging/debian/rateme/usr/share/applications
-          mkdir -p packaging/debian/rateme/usr/share/icons/hicolor/512x512/apps
+          mkdir -p dist
+          # Use fpm to create DEB and RPM packages
+          fpm -s dir -t deb \
+            -p dist/rateme.deb \
+            -n rateme \
+            -v 1.0.0 \
+            --description "Music rating and organization app" \
+            -C build/linux/x64/release/bundle \
+            usr/
 
-          cp -r build/linux/x64/release/bundle/* packaging/debian/rateme/usr/bin/
-          cp assets/icon/icon.png packaging/debian/rateme/usr/share/icons/hicolor/512x512/apps/rateme.png
-
-          cat > packaging/debian/rateme/usr/share/applications/rateme.desktop << EOF
-          [Desktop Entry]
-          Name=RateMe
-          Exec=rateme
-          Icon=rateme
-          Type=Application
-          Categories=Audio;
-          EOF
-
-          cat > packaging/debian/rateme/DEBIAN/control << EOF
-          Package: rateme
-          Version: 1.0.0
-          Section: sound
-          Priority: optional
-          Architecture: amd64
-          Maintainer: Eduardo Antonio Fortuny Ruvalcaba
-          Description: Music rating and organization app
-          EOF
-
-          dpkg-deb --build packaging/debian/rateme
+          fpm -s dir -t rpm \
+            -p dist/rateme.rpm \
+            -n rateme \
+            -v 1.0.0 \
+            --description "Music rating and organization app" \
+            -C build/linux/x64/release/bundle \
+            usr/
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-deb
-          path: packaging/debian/rateme.deb
-
-      - name: Create RPM package
-        run: |
-          mkdir -p packaging/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cp -r build/linux/x64/release/bundle/* packaging/rpm/BUILD/
-          cp assets/icon/icon.png packaging/rpm/BUILD/rateme.png
-
-          cat > packaging/rpm/SPECS/rateme.spec << EOF
-          Name:           rateme
-          Version:        1.0.0
-          Release:        1%{?dist}
-          Summary:        Music rating and organization app
-          License:        GPL-3.0
-          
-          %description
-          A Flutter application for rating and organizing music albums
-          
-          %install
-          mkdir -p %{buildroot}/usr/bin
-          mkdir -p %{buildroot}/usr/share/applications
-          mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
-          cp -r %{_builddir}/* %{buildroot}/usr/bin/
-          cp %{_builddir}/rateme.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/rateme.png
-          
-          cat > %{buildroot}/usr/share/applications/rateme.desktop << EOL
-          [Desktop Entry]
-          Name=RateMe
-          Exec=rateme
-          Icon=rateme
-          Type=Application
-          Categories=Audio;
-          EOL
-          
-          %files
-          /usr/bin/*
-          /usr/share/applications/rateme.desktop
-          /usr/share/icons/hicolor/512x512/apps/rateme.png
-          EOF
-
-          rpmbuild --define "_topdir $(pwd)/packaging/rpm" -bb packaging/rpm/SPECS/rateme.spec
+          path: dist/rateme.deb
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-rpm
-          path: packaging/rpm/RPMS/x86_64/rateme-1.0.0-1.*.rpm
+          path: dist/rateme.rpm
