@@ -33,8 +33,7 @@ dependencies:
     sdk: flutter
   http: ^1.2.1
   path: 1.9.0
-  url_launcher_linux: 3.0.6
-  url_launcher: 6.1.14  # Fijar versión específica
+  url_launcher: 6.1.11  # Versión estable tanto para X11 como Wayland
   path_provider: ^2.1.1
   shared_preferences: ^2.2.3
   file_picker: ^8.0.5  # Downgrade to version compatible with Dart SDK 3.3.1
@@ -56,7 +55,7 @@ dev_dependencies:
   json_serializable: ^6.8.0
 
 dependency_overrides:
-  path: 1.9.0  # Forzar esta versión para los builds en CI
+  path: 1.9.0
   url_launcher_platform_interface: ^2.0.3
 
 flutter_launcher_icons:

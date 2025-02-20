@@ -70,22 +70,21 @@ jobs:
           cat > packaging/linux/usr/share/applications/rateme.desktop << EOF
           [Desktop Entry]
           Name=RateMe
-          Exec=rateme
+          Exec=env GDK_BACKEND=x11 rateme
           Icon=rateme
           Type=Application
           Categories=Audio;
           EOF
 
-          # Create packages with dependencies
+          # Create packages with correct dependencies
           fpm -s dir -t deb \
             -p dist/rateme.deb \
             -n rateme \
             -v 1.0.0 \
             --description "Music rating and organization app" \
+            -d "libc6 (>= 2.34)" \
+            -d "libglib2.0-0 (>= 2.72.0)" \
             -d "libgtk-3-0" \
-            -d "libsecret-1-0" \
-            -d "libjsoncpp25" \
-            -d "libglib2.0-0" \
             -C packaging/linux .
 
           fpm -s dir -t rpm \
@@ -93,10 +92,9 @@ jobs:
             -n rateme \
             -v 1.0.0 \
             --description "Music rating and organization app" \
+            -d "glibc >= 2.34" \
+            -d "glib2 >= 2.72.0" \
             -d "gtk3" \
-            -d "libsecret" \
-            -d "jsoncpp" \
-            -d "glib2" \
             -C packaging/linux .
 
       - name: Upload DEB
