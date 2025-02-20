@@ -15,25 +15,38 @@ jobs:
           flutter-version: '3.19.3'
           channel: 'stable'
           
-      - name: Build Flutter
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev
+          sudo apt-get install -y ninja-build libgtk-3-dev rpm
+          # Install appimage-builder
+          sudo wget https://github.com/AppImage/pkg2appimage/releases/download/continuous/pkg2appimage-1807-x86_64.AppImage -O /usr/local/bin/pkg2appimage
+          sudo chmod +x /usr/local/bin/pkg2appimage
+
+      - name: Build Flutter
+        run: |
           flutter config --enable-linux-desktop
           flutter pub get
           flutter build linux --release
-          
+
       - name: Build AppImage
         run: |
-          # Get AppImage tools
-          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-          chmod +x appimagetool
-          
-          # Build AppImage using our config
-          ./appimagetool -v AppDir RateMe.AppImage
-          
-      - name: Upload AppImage
+          # Use appimage-builder with our config
+          appimage-builder --recipe linux/AppImageBuilder.yml
+
+      - name: Build DEB & RPM
+        run: |
+          cd build/linux/x64/release
+          cmake -DCMAKE_INSTALL_PREFIX=/usr ../../../linux
+          make
+          cpack -G DEB
+          cpack -G RPM
+
+      - name: Upload Packages
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-AppImage
-          path: RateMe.AppImage
+          name: linux-packages
+          path: |
+            *.AppImage
+            build/linux/x64/release/*.deb
+            build/linux/x64/release/*.rpm
