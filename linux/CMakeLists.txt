@@ -144,6 +144,15 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
+# Instalar .desktop y el ícono usando los archivos existentes
+install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
+  DESTINATION "share/applications"
+  COMPONENT Runtime)
+
+install(FILES "${CMAKE_SOURCE_DIR}/../assets/rateme.png"
+  DESTINATION "share/icons/hicolor/512x512/apps"
+  COMPONENT Runtime)
+
 # Packaging configuration
 set(CPACK_GENERATOR "DEB;RPM")
 set(CPACK_PACKAGE_NAME "rateme")
