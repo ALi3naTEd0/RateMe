@@ -42,21 +42,9 @@ jobs:
           flutter config --enable-linux-desktop
           flutter pub get
           flutter pub run flutter_launcher_icons
-          
-          # Asegurarnos de que el directorio assets existe y tiene la imagen
-          ls -la assets/
-          echo "Contenido del directorio assets:"
-          pwd
-          find . -name "app-icon.png"
-          
           export GDK_BACKEND=x11
           flutter build linux --release
           cd build/linux/x64/release
-          
-          # Copiar assets necesarios
-          mkdir -p ../../../../assets
-          cp ../../../../assets/app-icon.png ../../../../assets/
-          
           cpack -G DEB -V
           cpack -G RPM -V
 
