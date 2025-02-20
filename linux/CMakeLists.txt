@@ -108,37 +108,27 @@ install(CODE "
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
-# Configurar RPATH primero
+# Configuración unificada de RPATH
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-set(CMAKE_INSTALL_RPATH "$ORIGIN/lib:$ORIGIN/../lib/rateme")
+set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib/rateme")
 
-# Modificar la instalación del binario para usar /usr/bin
+# Instalación de binario y bibliotecas en ubicaciones fijas
 install(TARGETS ${BINARY_NAME} 
-  RUNTIME DESTINATION "bin"  # Cambiado de ${CMAKE_INSTALL_PREFIX} a "bin"
-  COMPONENT Runtime)
-
-install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  RUNTIME DESTINATION "bin"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_LIBRARY}" 
   DESTINATION "lib/rateme"
   COMPONENT Runtime)
 
-# Modificar la instalación de bibliotecas
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
-  get_filename_component(name ${bundled_library} NAME)
   install(FILES "${bundled_library}"
-    DESTINATION "lib/rateme"  # Cambiar a una ruta relativa al binario
-    RENAME "${name}"
+    DESTINATION "lib/rateme"
     COMPONENT Runtime)
 endforeach(bundled_library)
 
-# Agregar RPATH correcto para encontrar las bibliotecas
-set_target_properties(${BINARY_NAME}
-  PROPERTIES
-  BUILD_WITH_INSTALL_RPATH TRUE
-  INSTALL_RPATH "$ORIGIN/lib/${BINARY_NAME}"
-)
+install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  COMPONENT Runtime)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
