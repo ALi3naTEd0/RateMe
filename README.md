@@ -39,7 +39,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-v1.0.0.exe)    | Maybe?  | [Arch](#arch-install)  | [APK-Universal](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.apk)       | Maybe?       |
+| [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-v1.0.0.exe)    | [DMG](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.dmg)  | [Arch](#arch-install)  | [APK-Universal](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.apk)       | Maybe?       |
 | [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-portable.zip)     |              |              | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-arm64-v8a-release.apk)             |              |
 |              |              |              | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-armeabi-v7a-release.apk)      |              |
 |              |              |              | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-x86_64-release.apk)               |              |
