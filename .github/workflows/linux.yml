@@ -27,7 +27,7 @@ jobs:
       - name: Build Linux
         run: |
           flutter doctor -v
-          flutter pub clean
+          flutter clean
           flutter config --enable-linux-desktop
           flutter pub get
           flutter build linux --release
