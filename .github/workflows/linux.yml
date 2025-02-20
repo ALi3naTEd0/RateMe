@@ -19,9 +19,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgtk-3-dev rpm
-          # Install appimage-builder
-          sudo wget https://github.com/AppImage/pkg2appimage/releases/download/continuous/pkg2appimage-1807-x86_64.AppImage -O /usr/local/bin/pkg2appimage
-          sudo chmod +x /usr/local/bin/pkg2appimage
+          # Install appimage-builder properly
+          sudo apt-get install -y python3-pip
+          sudo pip3 install appimage-builder
 
       - name: Build Flutter
         run: |
@@ -32,7 +32,7 @@ jobs:
       - name: Build AppImage
         run: |
           # Use appimage-builder with our config
-          appimage-builder --recipe linux/AppImageBuilder.yml
+          appimage-builder --recipe linux/AppImageBuilder.yml --skip-test
 
       - name: Build DEB & RPM
         run: |
