@@ -63,6 +63,10 @@ jobs:
           ls -la build/macos/Build/Products/Release/RateMe.app/Contents/
           ls -la build/macos/Build/Products/Release/RateMe.app/Contents/Resources/
           ls -la build/macos/Build/Products/Release/RateMe.app/Contents/Frameworks/
+          # Verificar permisos
+          codesign --verify -vvvv build/macos/Build/Products/Release/RateMe.app
+          # Verificar que la app sea ejecutable
+          chmod +x build/macos/Build/Products/Release/RateMe.app/Contents/MacOS/rateme
 
       - name: Create DMG
         run: |
