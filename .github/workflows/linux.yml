@@ -76,12 +76,15 @@ jobs:
           Categories=Audio;
           EOF
 
-          # Create packages
+          # Create packages with dependencies
           fpm -s dir -t deb \
             -p dist/rateme.deb \
             -n rateme \
             -v 1.0.0 \
             --description "Music rating and organization app" \
+            -d "libgtk-3-0" \
+            -d "libsecret-1-0" \
+            -d "libjsoncpp25" \
             -C packaging/linux .
 
           fpm -s dir -t rpm \
@@ -89,6 +92,9 @@ jobs:
             -n rateme \
             -v 1.0.0 \
             --description "Music rating and organization app" \
+            -d "gtk3" \
+            -d "libsecret" \
+            -d "jsoncpp" \
             -C packaging/linux .
 
       - name: Upload DEB
