@@ -85,6 +85,7 @@ jobs:
             -d "libgtk-3-0" \
             -d "libsecret-1-0" \
             -d "libjsoncpp25" \
+            -d "libglib2.0-0" \
             -C packaging/linux .
 
           fpm -s dir -t rpm \
@@ -95,6 +96,7 @@ jobs:
             -d "gtk3" \
             -d "libsecret" \
             -d "jsoncpp" \
+            -d "glib2" \
             -C packaging/linux .
 
       - name: Upload DEB
