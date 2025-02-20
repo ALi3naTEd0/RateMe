@@ -68,3 +68,49 @@ jobs:
         with:
           name: RateMe-deb
           path: packaging/debian/rateme.deb
+
+      - name: Create RPM package
+        run: |
+          mkdir -p packaging/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp -r build/linux/x64/release/bundle/* packaging/rpm/BUILD/
+          cp assets/icon/icon.png packaging/rpm/BUILD/rateme.png
+
+          cat > packaging/rpm/SPECS/rateme.spec << EOF
+          Name:           rateme
+          Version:        1.0.0
+          Release:        1%{?dist}
+          Summary:        Music rating and organization app
+          License:        GPL-3.0
+          
+          %description
+          A Flutter application for rating and organizing music albums
+          
+          %install
+          mkdir -p %{buildroot}/usr/bin
+          mkdir -p %{buildroot}/usr/share/applications
+          mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
+          cp -r %{_builddir}/* %{buildroot}/usr/bin/
+          cp %{_builddir}/rateme.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/rateme.png
+          
+          cat > %{buildroot}/usr/share/applications/rateme.desktop << EOL
+          [Desktop Entry]
+          Name=RateMe
+          Exec=rateme
+          Icon=rateme
+          Type=Application
+          Categories=Audio;
+          EOL
+          
+          %files
+          /usr/bin/*
+          /usr/share/applications/rateme.desktop
+          /usr/share/icons/hicolor/512x512/apps/rateme.png
+          EOF
+
+          rpmbuild --define "_topdir $(pwd)/packaging/rpm" -bb packaging/rpm/SPECS/rateme.spec
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-rpm
+          path: packaging/rpm/RPMS/x86_64/rateme-1.0.0-1.*.rpm
