@@ -144,13 +144,18 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
-# Instalar .desktop y el ícono
+# Definir ruta absoluta al directorio de assets
+set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../assets")
+get_filename_component(ASSETS_DIR ${ASSETS_DIR} ABSOLUTE)
+
+# Instalar .desktop y el ícono usando rutas absolutas
 install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
   DESTINATION "share/applications"
   COMPONENT Runtime)
 
-install(FILES "icons/rateme.png"
+install(FILES "${ASSETS_DIR}/app-icon.png"
   DESTINATION "share/icons/hicolor/512x512/apps"
+  RENAME "rateme.png"
   COMPONENT Runtime)
 
 # Packaging configuration

@@ -44,11 +44,7 @@ jobs:
           flutter pub run flutter_launcher_icons
           export GDK_BACKEND=x11
           flutter build linux --release
-          # Crear directorio y copiar ícono después del build
           cd build/linux/x64/release
-          mkdir -p icons
-          wget -O icons/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
-          ls -la icons/
           cpack -G DEB -V
           cpack -G RPM -V
 
