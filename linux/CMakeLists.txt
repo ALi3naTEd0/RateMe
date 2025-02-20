@@ -149,7 +149,7 @@ install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
   DESTINATION "share/applications"
   COMPONENT Runtime)
 
-install(FILES "${CMAKE_BINARY_DIR}/icons/rateme.png"
+install(FILES "icons/rateme.png"
   DESTINATION "share/icons/hicolor/512x512/apps"
   COMPONENT Runtime)
 

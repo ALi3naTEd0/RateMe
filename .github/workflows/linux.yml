@@ -36,13 +36,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Download icon
-        run: |
-          wget -O rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
-          mkdir -p build/linux/x64/release/icons
-          cp rateme.png build/linux/x64/release/icons/
-          ls -la build/linux/x64/release/icons/
-
       - name: Build and Package Linux
         run: |
           flutter clean
@@ -51,10 +44,12 @@ jobs:
           flutter pub run flutter_launcher_icons
           export GDK_BACKEND=x11
           flutter build linux --release
+          # Crear directorio y copiar ícono después del build
           cd build/linux/x64/release
-          ls -la
+          mkdir -p icons
+          wget -O icons/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
           ls -la icons/
-          cpack -G DEB
+          cpack -G DEB -V
           cpack -G RPM -V
 
       - name: Upload DEB
