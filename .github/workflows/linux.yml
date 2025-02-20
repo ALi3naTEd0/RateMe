@@ -38,8 +38,10 @@ jobs:
 
       - name: Download icon
         run: |
-          mkdir -p assets
-          wget -O assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
+          wget -O rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
+          mkdir -p build/linux/x64/release/icons
+          cp rateme.png build/linux/x64/release/icons/
+          ls -la build/linux/x64/release/icons/
 
       - name: Build and Package Linux
         run: |
@@ -50,8 +52,10 @@ jobs:
           export GDK_BACKEND=x11
           flutter build linux --release
           cd build/linux/x64/release
+          ls -la
+          ls -la icons/
           cpack -G DEB
-          cpack -G RPM
+          cpack -G RPM -V
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
