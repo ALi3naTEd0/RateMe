@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GDK_BACKEND: x11
+      DISPLAY: :99
 
     steps:
       - uses: actions/checkout@v4
@@ -35,11 +38,17 @@ jobs:
             ruby-dev \
             rubygems \
             build-essential \
-            libfuse2
+            libfuse2 \
+            libwayland-dev \
+            xvfb
           sudo gem install fpm
           wget -O appimage-builder-x86_64.AppImage https://github.com/AppImageCrafters/appimage-builder/releases/download/v1.1.0/appimage-builder-1.1.0-x86_64.AppImage
           chmod +x appimage-builder-x86_64.AppImage
           sudo mv appimage-builder-x86_64.AppImage /usr/local/bin/appimage-builder
+
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -54,6 +63,7 @@ jobs:
           flutter config --enable-linux-desktop
           flutter pub get
           flutter pub run flutter_launcher_icons  # Generar iconos primero
+          export GDK_BACKEND=x11
           flutter build linux --release
 
       - name: Package Linux
