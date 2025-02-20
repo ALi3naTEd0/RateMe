@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     name: Build macOS DMG
-    runs-on: macos-13
+    runs-on: macos-latest
     permissions: write-all
 
     steps:
@@ -45,6 +45,12 @@ jobs:
           flutter pub run flutter_launcher_icons:main -f pubspec.yaml
           flutter build macos --release
 
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
+      - name: Build package
+        run: flutter_distributor package --platform macos --targets dmg
+
       - name: Create DMG
         run: |
           cd build/macos/Build/Products/Release
@@ -63,3 +69,9 @@ jobs:
         with:
           name: RateMe-macOS
           path: build/macos/Build/Products/Release/RateMe.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/**/*.dmg
