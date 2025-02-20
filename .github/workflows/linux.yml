@@ -22,11 +22,13 @@ jobs:
           flutter config --enable-linux-desktop
           flutter build linux --release
           
-          # Crear directorio de build y ejecutar cmake desde ahí
+          # Build e instalación con CMake
           mkdir -p build/linux/packaging
           cd build/linux/packaging
           cmake ../../../linux -DCMAKE_BUILD_TYPE=Release
-          cpack -G DEB
+          cmake --build .
+          make install
+          cpack -G DEB -V
           
       - name: Upload DEB
         uses: actions/upload-artifact@v4
