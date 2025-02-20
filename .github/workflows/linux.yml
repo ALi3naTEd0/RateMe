@@ -20,14 +20,12 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.3'  # Específica la versión exacta
+          flutter-version: '3.19.3'
           channel: 'stable'
           cache: true
 
       - name: Build Linux
         run: |
-          flutter doctor -v  # Para ver la versión instalada
-          flutter clean
           flutter config --enable-linux-desktop
           flutter pub get
           flutter build linux --release
