@@ -16,17 +16,17 @@ env:
 jobs:
   build:
     name: Build macOS DMG
-    runs-on: macos-latest
+    runs-on: macos-13
     permissions: write-all
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Temporarily modify path version for macOS
+      - name: Install build tools
         run: |
-          sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
-          cat pubspec.yaml | grep path
+          brew install create-dmg
+          brew install swift-format
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -35,13 +35,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install create-dmg
-        run: brew install create-dmg
-
-      - name: Disable macOS Code Signing
+      - name: Configure Xcode
         run: |
-          sudo defaults write com.apple.dt.Xcode DisableAutomaticCodeSigning -bool YES
           sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          sudo xcodebuild -license accept
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
+
+      - name: Fix path version
+        run: |
+          sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
+          cat pubspec.yaml | grep path
 
       - name: Build macOS
         run: |
@@ -51,9 +54,11 @@ jobs:
           flutter build macos --release
           ls -la build/macos/Build/Products/Release/RateMe.app/Contents/MacOS/
 
-      - name: Create DMG
+      - name: Prepare for Distribution
         run: |
-          ln -sf /Applications "build/macos/Build/Products/Release/Applications"
+          cd build/macos/Build/Products/Release
+          chmod +x RateMe.app/Contents/MacOS/*
+          ln -sf /Applications Applications
           create-dmg \
             --volname "RateMe" \
             --window-pos 200 120 \
@@ -62,10 +67,10 @@ jobs:
             --app-drop-link 600 185 \
             --icon "RateMe.app" 200 190 \
             "RateMe.dmg" \
-            "build/macos/Build/Products/Release/RateMe.app"
+            "RateMe.app"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-macOS
-          path: RateMe.dmg
+          path: build/macos/Build/Products/Release/RateMe.dmg
