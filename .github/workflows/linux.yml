@@ -15,26 +15,25 @@ jobs:
           flutter-version: '3.19.3'
           channel: 'stable'
           
-      - name: Build and Package
+      - name: Build Flutter
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgtk-3-dev
-          
-          # Build Flutter
           flutter config --enable-linux-desktop
           flutter pub get
           flutter build linux --release
           
-          # Build package in staging directory
-          cd build/linux/x64/release
-          mkdir -p debian
-          cmake -DCMAKE_INSTALL_PREFIX=/usr ../../../linux
-          make
-          DESTDIR=debian cmake --install .
-          cpack -G DEB
+      - name: Build AppImage
+        run: |
+          # Get AppImage tools
+          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
           
-      - name: Upload DEB
+          # Build AppImage using our config
+          ./appimagetool -v AppDir RateMe.AppImage
+          
+      - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-deb
-          path: build/linux/x64/release/*.deb
+          name: RateMe-AppImage
+          path: RateMe.AppImage
