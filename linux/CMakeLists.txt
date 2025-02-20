@@ -174,5 +174,7 @@ set(CPACK_PACKAGE_NAME "rateme")
 set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Music rating and organization app")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0")
+set(CPACK_SET_DESTDIR ON)
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
 include(CPack)

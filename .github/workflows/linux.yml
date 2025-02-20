@@ -25,21 +25,13 @@ jobs:
           flutter pub get
           flutter build linux --release
           
-          # Create staging directory for packaging
+          # Build package in staging directory
           cd build/linux/x64/release
-          mkdir -p staging/usr/bin
-          mkdir -p staging/usr/lib
-          mkdir -p staging/usr/share/applications
-          mkdir -p staging/usr/share/icons/hicolor/512x512/apps
-          
-          # Copy files to staging
-          cp intermediates_do_not_run/rateme staging/usr/bin/
-          cp -r lib/* staging/usr/lib/
-          cp ../../../../linux/runner/rateme.desktop staging/usr/share/applications/
-          cp ../../../../assets/app-icon.png staging/usr/share/icons/hicolor/512x512/apps/rateme.png
-          
-          # Build package from staging
-          DESTDIR=staging cpack -G DEB -V
+          mkdir -p debian
+          cmake -DCMAKE_INSTALL_PREFIX=/usr ../../../linux
+          make
+          DESTDIR=debian cmake --install .
+          cpack -G DEB
           
       - name: Upload DEB
         uses: actions/upload-artifact@v4
