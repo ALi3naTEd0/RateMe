@@ -1,0 +1,18 @@
+output: dist/
+releases:
+  - name: linux
+    jobs:
+      - name: release-linux
+        package:
+          platform: linux
+          targets: [deb, rpm, appimage]
+          build_args:
+            dart-define:
+              APP_ENV: prod
+
+  - name: macos
+    jobs:
+      - name: release-macos
+        package:
+          platform: macos
+          target: dmg
