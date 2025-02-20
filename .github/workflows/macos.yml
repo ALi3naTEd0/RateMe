@@ -3,12 +3,8 @@
 name: macOS Build
 
 on:
-  push:
-    branches:
-      - rateme
-  pull_request:
-    branches:
-      - rateme
+  workflow_dispatch:  # Esto permite ejecución manual desde la interfaz de GitHub
+  # Ya no se ejecutará automáticamente con push/pull_request
 
 env:
   FLUTTER_VERSION: '3.19.3'
