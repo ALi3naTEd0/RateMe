@@ -108,6 +108,10 @@ install(CODE "
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
+# Configurar RPATH primero
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "$ORIGIN/lib:$ORIGIN/../lib/rateme")
+
 # Modificar la instalación del binario para usar /usr/bin
 install(TARGETS ${BINARY_NAME} 
   RUNTIME DESTINATION "bin"  # Cambiado de ${CMAKE_INSTALL_PREFIX} a "bin"
@@ -116,14 +120,15 @@ install(TARGETS ${BINARY_NAME}
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 
-install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+install(FILES "${FLUTTER_LIBRARY}" 
+  DESTINATION "lib/rateme"
   COMPONENT Runtime)
 
 # Modificar la instalación de bibliotecas
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
   get_filename_component(name ${bundled_library} NAME)
   install(FILES "${bundled_library}"
-    DESTINATION "lib/${BINARY_NAME}"  # Cambiar a una ruta relativa al binario
+    DESTINATION "lib/rateme"  # Cambiar a una ruta relativa al binario
     RENAME "${name}"
     COMPONENT Runtime)
 endforeach(bundled_library)
