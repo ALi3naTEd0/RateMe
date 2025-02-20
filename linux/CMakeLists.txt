@@ -100,6 +100,15 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
 endif()
 
+# Set installation prefix based on build type - THIS MUST COME FIRST
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+  set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/bundle")
+  set(CPACK_PACKAGING_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/bundle")
+else()
+  set(CMAKE_INSTALL_PREFIX "/usr")
+  set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+endif()
+
 # Start with a clean build bundle directory every time.
 install(CODE "
   file(REMOVE_RECURSE \"${BUILD_BUNDLE_DIR}/\")
@@ -144,10 +153,6 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
-# Adjust installation for packaging
-set(CMAKE_INSTALL_PREFIX "/usr")
-set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
-
 install(TARGETS ${BINARY_NAME} 
   RUNTIME DESTINATION "bin"
   COMPONENT Runtime
@@ -157,8 +162,10 @@ install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
   DESTINATION "share/applications"
   COMPONENT Runtime)
 
-install(FILES "resources/rateme.png"
+# Fix icon path to use assets directory
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/app-icon.png"
   DESTINATION "share/icons/hicolor/512x512/apps"
+  RENAME "rateme.png"
   COMPONENT Runtime)
 
 # Basic CPack configuration
