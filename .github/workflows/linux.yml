@@ -101,6 +101,10 @@ jobs:
             -d "libcairo2" \
             -d "libpango-1.0-0" \
             -d "libpangocairo-1.0-0" \
+            -d "gvfs" \
+            -d "xdg-user-dirs" \
+            -d "dbus-x11" \
+            -d "gvfs-backends" \
             -C packaging/linux .
 
           fpm -s dir -t rpm \
@@ -115,6 +119,9 @@ jobs:
             -d "at-spi2-atk" \
             -d "cairo" \
             -d "pango" \
+            -d "gvfs" \
+            -d "xdg-user-dirs" \
+            -d "dbus-x11" \
             -C packaging/linux .
 
       - name: Upload DEB
