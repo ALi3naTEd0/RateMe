@@ -59,22 +59,36 @@ jobs:
       - name: Package Linux
         run: |
           mkdir -p dist
-          # Use fpm to create DEB and RPM packages
+          mkdir -p packaging/linux/{usr/bin,usr/share/applications,usr/share/icons/hicolor/512x512/apps}
+          
+          # Copy files to packaging directory
+          cp -r build/linux/x64/release/bundle/* packaging/linux/usr/bin/
+          cp assets/icon/icon.png packaging/linux/usr/share/icons/hicolor/512x512/apps/rateme.png
+          
+          # Create desktop entry
+          cat > packaging/linux/usr/share/applications/rateme.desktop << EOF
+          [Desktop Entry]
+          Name=RateMe
+          Exec=rateme
+          Icon=rateme
+          Type=Application
+          Categories=Audio;
+          EOF
+
+          # Create packages
           fpm -s dir -t deb \
             -p dist/rateme.deb \
             -n rateme \
             -v 1.0.0 \
             --description "Music rating and organization app" \
-            -C build/linux/x64/release/bundle \
-            usr/
+            -C packaging/linux .
 
           fpm -s dir -t rpm \
             -p dist/rateme.rpm \
             -n rateme \
             -v 1.0.0 \
             --description "Music rating and organization app" \
-            -C build/linux/x64/release/bundle \
-            usr/
+            -C packaging/linux .
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
