@@ -26,10 +26,10 @@ jobs:
       - name: Install build tools
         run: |
           brew install create-dmg
-          # Fix cocoapods installation
+          # Install cocoapods with formula flag to avoid warnings
           rm -f /usr/local/bin/pod
-          brew install cocoapods
-          brew link --overwrite cocoapods
+          brew install --formula cocoapods
+          brew link --overwrite --formula cocoapods
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -46,6 +46,8 @@ jobs:
         run: |
           flutter pub get
           flutter config --enable-macos-desktop
+          # Generate icons for macOS
+          flutter pub run flutter_launcher_icons:main -f pubspec.yaml
           flutter build macos --release
 
       - name: Create DMG
