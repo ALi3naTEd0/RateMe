@@ -20,6 +20,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Temporarily modify path version for macOS
+        run: |
+          sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
+          cat pubspec.yaml | grep path
+
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
