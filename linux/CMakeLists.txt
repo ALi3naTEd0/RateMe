@@ -146,10 +146,10 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
-# Definir ruta absoluta al directorio raíz del proyecto y assets
+# Definir ruta absoluta al directorio raíz del proyecto
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 
-# Instalar .desktop y el ícono usando rutas absolutas
+# Instalar .desktop y el ícono
 install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
   DESTINATION "share/applications"
   COMPONENT Runtime)
