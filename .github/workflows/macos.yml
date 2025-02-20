@@ -26,10 +26,9 @@ jobs:
       - name: Install build tools
         run: |
           brew install create-dmg
-          # Install cocoapods with formula flag to avoid warnings
           rm -f /usr/local/bin/pod
-          brew install --formula cocoapods
-          brew link --overwrite --formula cocoapods
+          brew install cocoapods
+          brew link --overwrite cocoapods
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
