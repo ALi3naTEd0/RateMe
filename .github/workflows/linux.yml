@@ -95,6 +95,12 @@ jobs:
             -d "libc6 (>= 2.34)" \
             -d "libglib2.0-0 (>= 2.72.0)" \
             -d "libgtk-3-0" \
+            -d "libglib2.0-bin" \
+            -d "libatk1.0-0" \
+            -d "libatk-bridge2.0-0" \
+            -d "libcairo2" \
+            -d "libpango-1.0-0" \
+            -d "libpangocairo-1.0-0" \
             -C packaging/linux .
 
           fpm -s dir -t rpm \
@@ -105,6 +111,10 @@ jobs:
             -d "glibc >= 2.34" \
             -d "glib2 >= 2.72.0" \
             -d "gtk3" \
+            -d "atk" \
+            -d "at-spi2-atk" \
+            -d "cairo" \
+            -d "pango" \
             -C packaging/linux .
 
       - name: Upload DEB
