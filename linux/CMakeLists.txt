@@ -143,3 +143,17 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Packaging configuration
+set(CPACK_PACKAGE_NAME "rateme")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Music rating and organization app")
+set(CPACK_PACKAGE_VENDOR "RateMe")
+
+# DEB specific
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name <your.email@example.com>")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0")
+
+# Generator
+set(CPACK_GENERATOR "DEB")
+include(CPack)
