@@ -144,16 +144,28 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
-# Packaging configuration
+# Adjust installation for packaging
+set(CMAKE_INSTALL_PREFIX "/usr")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+
+install(TARGETS ${BINARY_NAME} 
+  RUNTIME DESTINATION "bin"
+  COMPONENT Runtime
+  PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
+
+install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
+  DESTINATION "share/applications"
+  COMPONENT Runtime)
+
+install(FILES "resources/rateme.png"
+  DESTINATION "share/icons/hicolor/512x512/apps"
+  COMPONENT Runtime)
+
+# Basic CPack configuration
+set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "rateme")
 set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Music rating and organization app")
-set(CPACK_PACKAGE_VENDOR "RateMe")
-
-# DEB specific
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name <your.email@example.com>")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0")
 
-# Generator
-set(CPACK_GENERATOR "DEB")
 include(CPack)
