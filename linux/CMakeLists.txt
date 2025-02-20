@@ -106,20 +106,15 @@ install(CODE "
   " COMPONENT Runtime)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
-set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/rateme")
-set(INSTALL_BUNDLE_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
+set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
-# Configuración unificada de RPATH
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib/rateme")
-
-# Instalación de componentes en orden
-install(TARGETS ${BINARY_NAME} 
-  RUNTIME DESTINATION "${INSTALL_BUNDLE_BIN_DIR}"
+install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
-install(FILES "${FLUTTER_LIBRARY}" 
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  COMPONENT Runtime)
+
+install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
@@ -127,9 +122,6 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
-
-install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
-  COMPONENT Runtime)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
@@ -151,37 +143,3 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
-
-# Definir ruta al directorio raíz del proyecto
-get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
-
-# Instalar .desktop y el ícono de la manera más simple posible
-install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
-  DESTINATION "share/applications"
-  COMPONENT Runtime)
-
-install(FILES "${PROJECT_ROOT}/assets/app-icon.png"
-  DESTINATION "share/icons/hicolor/512x512/apps"
-  RENAME "rateme.png"
-  COMPONENT Runtime)
-
-# Packaging configuration
-set(CPACK_GENERATOR "DEB;RPM")
-set(CPACK_PACKAGE_NAME "rateme")
-set(CPACK_PACKAGE_VERSION "1.0.0")
-set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Music rating and organization app")
-set(CPACK_PACKAGE_CONTACT "your.email@example.com")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name <your.email@example.com>")
-set(CPACK_DEBIAN_PACKAGE_SECTION "audio")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
-
-# Dependencias más completas (en una sola línea)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0, libatk1.0-0, libatk-bridge2.0-0, dbus-x11, libx11-6, libxrandr2, libxinerama1, libxi6, libxcursor1, libxfixes3, libasound2, libcairo2, libpango-1.0-0, libpangocairo-1.0-0")
-
-set(CPACK_RPM_PACKAGE_REQUIRES "gtk3, glib2, atk, at-spi2-atk, dbus-x11, libX11, libXrandr, libXinerama, libXi, libXcursor, libXfixes, alsa-lib, cairo, pango")
-
-# Ajustar los paths de instalación
-set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
-
-include(CPack)
