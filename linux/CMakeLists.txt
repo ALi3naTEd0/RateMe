@@ -150,11 +150,14 @@ set(CPACK_PACKAGE_NAME "rateme")
 set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_RELEASE 1)
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Music rating and organization app")
-set(CPACK_PACKAGE_CONTACT "your.email@example.com")  # Requerido para DEB
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name <your.email@example.com>")  # Requerido para DEB
+set(CPACK_PACKAGE_CONTACT "your.email@example.com")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name <your.email@example.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "audio")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0 (>= 2.72.0), xdg-utils, dbus-x11")
-set(CPACK_RPM_PACKAGE_REQUIRES "gtk3, glib2 >= 2.72.0, xdg-utils, dbus-x11")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)  # Desactivar detección automática
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0, libatk1.0-0, libatk-bridge2.0-0, dbus-x11")
+set(CPACK_RPM_PACKAGE_REQUIRES "gtk3, glib2, atk, at-spi2-atk, dbus-x11")
+
+# Ajustar los paths de instalación
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
 include(CPack)
