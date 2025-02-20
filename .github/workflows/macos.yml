@@ -58,7 +58,11 @@ jobs:
         run: flutter pub run flutter_launcher_icons
 
       - name: Build macOS
-        run: flutter build macos --release
+        run: |
+          flutter build macos --release
+          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/
+          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/Resources/
+          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/Frameworks/
 
       - name: Create DMG
         run: |
