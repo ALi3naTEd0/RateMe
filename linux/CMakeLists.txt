@@ -77,15 +77,25 @@ target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
 
+# Set consistent output directory for all build types
+set_target_properties(${BINARY_NAME}
+  PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bundle/bin"
+)
+
 # Only the install-generated bundle's copy of the executable will launch
 # correctly, since the resources must in the right relative locations. To avoid
 # people trying to run the unbundled copy, put it in a subdirectory instead of
 # the default top-level location.
-set_target_properties(${BINARY_NAME}
-  PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/intermediates_do_not_run"
-)
 
+# Keep installation simple and consistent
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/bundle")
+
+install(TARGETS ${BINARY_NAME}
+  RUNTIME DESTINATION bin
+  COMPONENT Runtime
+  PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
+)
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
