@@ -26,7 +26,7 @@ jobs:
       - name: Install build tools
         run: |
           brew install create-dmg
-          brew install swift-format
+          brew install cocoapods
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -35,30 +35,19 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Xcode
-        run: |
-          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-          sudo xcodebuild -license accept
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
-
       - name: Fix path version
         run: |
           sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
-          cat pubspec.yaml | grep path
 
       - name: Build macOS
         run: |
-          flutter config --enable-macos-desktop
           flutter pub get
-          flutter pub run flutter_launcher_icons
+          flutter config --enable-macos-desktop
           flutter build macos --release
-          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/MacOS/
 
-      - name: Prepare for Distribution
+      - name: Create DMG
         run: |
           cd build/macos/Build/Products/Release
-          chmod +x RateMe.app/Contents/MacOS/*
-          ln -sf /Applications Applications
           create-dmg \
             --volname "RateMe" \
             --window-pos 200 120 \
