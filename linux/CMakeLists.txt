@@ -170,39 +170,10 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name <your.email@example.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "audio")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
 
-# Dependencias más completas
-set(CPACK_DEBIAN_PACKAGE_DEPENDS 
-  "libgtk-3-0, 
-   libglib2.0-0, 
-   libatk1.0-0, 
-   libatk-bridge2.0-0, 
-   dbus-x11, 
-   libx11-6,
-   libxrandr2,
-   libxinerama1,
-   libxi6,
-   libxcursor1,
-   libxfixes3,
-   libasound2,
-   libcairo2,
-   libpango-1.0-0,
-   libpangocairo-1.0-0")
+# Dependencias más completas (en una sola línea)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0, libatk1.0-0, libatk-bridge2.0-0, dbus-x11, libx11-6, libxrandr2, libxinerama1, libxi6, libxcursor1, libxfixes3, libasound2, libcairo2, libpango-1.0-0, libpangocairo-1.0-0")
 
-set(CPACK_RPM_PACKAGE_REQUIRES 
-  "gtk3, 
-   glib2, 
-   atk, 
-   at-spi2-atk, 
-   dbus-x11,
-   libX11,
-   libXrandr,
-   libXinerama,
-   libXi,
-   libXcursor,
-   libXfixes,
-   alsa-lib,
-   cairo,
-   pango")
+set(CPACK_RPM_PACKAGE_REQUIRES "gtk3, glib2, atk, at-spi2-atk, dbus-x11, libX11, libXrandr, libXinerama, libXi, libXcursor, libXfixes, alsa-lib, cairo, pango")
 
 # Ajustar los paths de instalación
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
