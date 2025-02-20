@@ -119,11 +119,21 @@ install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# Modificar la instalación de bibliotecas
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
+  get_filename_component(name ${bundled_library} NAME)
   install(FILES "${bundled_library}"
-    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    DESTINATION "lib/${BINARY_NAME}"  # Cambiar a una ruta relativa al binario
+    RENAME "${name}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+# Agregar RPATH correcto para encontrar las bibliotecas
+set_target_properties(${BINARY_NAME}
+  PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  INSTALL_RPATH "$ORIGIN/lib/${BINARY_NAME}"
+)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
