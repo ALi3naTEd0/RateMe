@@ -19,32 +19,11 @@ jobs:
           sudo apt-get install -y \
             ninja-build \
             libgtk-3-dev \
-            dpkg-dev \
-            rpm \
             cmake \
             pkg-config \
-            libsecret-1-dev \
-            libjsoncpp-dev \
-            xclip \
-            gtk+-3.0 \
             clang \
             libglib2.0-dev \
-            libblkid-dev \
-            liblzma-dev \
-            libunwind-dev \
-            libgcrypt20-dev \
-            libfuse-dev \
-            ruby \
-            ruby-dev \
-            rubygems \
-            build-essential \
-            libfuse2 \
-            libwayland-dev \
             xvfb
-          sudo gem install fpm
-          wget -O appimage-builder-x86_64.AppImage https://github.com/AppImageCrafters/appimage-builder/releases/download/v1.1.0/appimage-builder-1.1.0-x86_64.AppImage
-          chmod +x appimage-builder-x86_64.AppImage
-          sudo mv appimage-builder-x86_64.AppImage /usr/local/bin/appimage-builder
 
       - name: Start Xvfb
         run: |
@@ -57,81 +36,26 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build Linux
+      - name: Build and Package Linux
         run: |
           flutter clean
           flutter config --enable-linux-desktop
           flutter pub get
-          flutter pub run flutter_launcher_icons  # Generar iconos primero
+          flutter pub run flutter_launcher_icons
           export GDK_BACKEND=x11
           flutter build linux --release
-
-      - name: Package Linux
-        run: |
-          mkdir -p dist
-          mkdir -p packaging/linux/{usr/bin,usr/share/applications,usr/share/icons/hicolor/512x512/apps}
-          
-          # Copy files to packaging directory
-          cp -r build/linux/x64/release/bundle/* packaging/linux/usr/bin/
-          wget -O packaging/linux/usr/share/icons/hicolor/512x512/apps/rateme.png \
-            https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
-          
-          # Create desktop entry with X11 backend
-          cat > packaging/linux/usr/share/applications/rateme.desktop << EOF
-          [Desktop Entry]
-          Name=RateMe
-          Exec=env GDK_BACKEND=x11 rateme
-          Icon=rateme
-          Type=Application
-          Categories=Audio;
-          EOF
-
-          # Create packages with correct dependencies
-          fpm -s dir -t deb \
-            -p dist/rateme.deb \
-            -n rateme \
-            -v 1.0.0 \
-            --description "Music rating and organization app" \
-            -d "libc6 (>= 2.34)" \
-            -d "libglib2.0-0 (>= 2.72.0)" \
-            -d "libgtk-3-0" \
-            -d "libglib2.0-bin" \
-            -d "libatk1.0-0" \
-            -d "libatk-bridge2.0-0" \
-            -d "libcairo2" \
-            -d "libpango-1.0-0" \
-            -d "libpangocairo-1.0-0" \
-            -d "gvfs" \
-            -d "xdg-user-dirs" \
-            -d "dbus-x11" \
-            -d "gvfs-backends" \
-            -C packaging/linux .
-
-          fpm -s dir -t rpm \
-            -p dist/rateme.rpm \
-            -n rateme \
-            -v 1.0.0 \
-            --description "Music rating and organization app" \
-            -d "glibc >= 2.34" \
-            -d "glib2 >= 2.72.0" \
-            -d "gtk3" \
-            -d "atk" \
-            -d "at-spi2-atk" \
-            -d "cairo" \
-            -d "pango" \
-            -d "gvfs" \
-            -d "xdg-user-dirs" \
-            -d "dbus-x11" \
-            -C packaging/linux .
+          cd build/linux/x64/release
+          cpack -G DEB
+          cpack -G RPM
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-deb
-          path: dist/rateme.deb
+          path: build/linux/x64/release/rateme-1.0.0-Linux.deb
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-rpm
-          path: dist/rateme.rpm
+          path: build/linux/x64/release/rateme-1.0.0-Linux.rpm
