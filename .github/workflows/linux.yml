@@ -36,6 +36,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Download icon
+        run: |
+          mkdir -p assets
+          wget -O assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
+
       - name: Build and Package Linux
         run: |
           flutter clean
