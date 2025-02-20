@@ -48,7 +48,7 @@ jobs:
           flutter config --enable-macos-desktop
           flutter pub get
           flutter pub run flutter_launcher_icons
-          flutter build macos --no-codesign
+          flutter build macos --release
           ls -la build/macos/Build/Products/Release/RateMe.app/Contents/MacOS/
 
       - name: Create DMG
