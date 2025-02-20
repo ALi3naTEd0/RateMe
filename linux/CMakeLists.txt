@@ -106,24 +106,25 @@ install(CODE "
   " COMPONENT Runtime)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
-set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/rateme")
+set(INSTALL_BUNDLE_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
 
 # Configuración unificada de RPATH
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib/rateme")
 
-# Instalación de binario y bibliotecas en ubicaciones fijas
+# Instalación de componentes en orden
 install(TARGETS ${BINARY_NAME} 
-  RUNTIME DESTINATION "bin"
+  RUNTIME DESTINATION "${INSTALL_BUNDLE_BIN_DIR}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_LIBRARY}" 
-  DESTINATION "lib/rateme"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
   install(FILES "${bundled_library}"
-    DESTINATION "lib/rateme"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
 
