@@ -2,13 +2,16 @@
 # Workflow for building and releasing macOS DMG
 name: macOS Build
 
-"on":
+on:
   push:
     branches:
       - rateme
   pull_request:
     branches:
       - rateme
+
+env:
+  FLUTTER_VERSION: '3.19.3'
 
 jobs:
   build:
@@ -18,70 +21,45 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Temporarily modify path version for macOS
-        run: |
-          sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
-          cat pubspec.yaml | grep path
-
-      - name: Install Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          flutter-version: '3.19.3'  # Use newer Flutter version that supports path 1.9.1
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
           cache: true
-          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash
-          cache-path: ${{ runner.tool_cache }}/flutter/cache
-
-      - name: Enable macOS
-        run: flutter config --enable-macos-desktop
-
-      - name: Debug Info
-        run: |
-          pwd
-          ls -la
-          flutter --version
-          flutter doctor -v
-          flutter config
 
       - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Disable macOS Code Signing
         run: |
-          brew update
-          brew install create-dmg
-          create-dmg --version
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate icons
-        run: flutter pub run flutter_launcher_icons
+          sudo defaults write com.apple.dt.Xcode DisableAutomaticCodeSigning -bool YES
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 
       - name: Build macOS
         run: |
-          flutter build macos --release
-          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/
-          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/Resources/
-          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/Frameworks/
-          # Verificar permisos
-          codesign --verify -vvvv build/macos/Build/Products/Release/RateMe.app
-          # Verificar que la app sea ejecutable
-          chmod +x build/macos/Build/Products/Release/RateMe.app/Contents/MacOS/rateme
+          flutter config --enable-macos-desktop
+          flutter pub get
+          flutter pub run flutter_launcher_icons
+          flutter build macos --no-codesign
+          ls -la build/macos/Build/Products/Release/RateMe.app/Contents/MacOS/
 
       - name: Create DMG
         run: |
+          ln -sf /Applications "build/macos/Build/Products/Release/Applications"
           create-dmg \
             --volname "RateMe" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
-            --icon "RateMe.app" 200 190 \
-            --hide-extension "RateMe.app" \
             --app-drop-link 600 185 \
+            --icon "RateMe.app" 200 190 \
             "RateMe.dmg" \
             "build/macos/Build/Products/Release/RateMe.app"
 
-      - name: Upload DMG artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-macOS
