@@ -5,10 +5,7 @@ releases:
       - name: release-linux
         package:
           platform: linux
-          targets: [deb, rpm, appimage]
-          build_args:
-            dart-define:
-              APP_ENV: prod
+          targets: [deb]  # Por ahora solo .deb para probar
 
   - name: macos
     jobs:
