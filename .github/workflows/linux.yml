@@ -64,7 +64,7 @@ jobs:
           # Copy files to packaging directory
           cp -r build/linux/x64/release/bundle/* packaging/linux/usr/bin/
           wget -O packaging/linux/usr/share/icons/hicolor/512x512/apps/rateme.png \
-            https://github.com/ALi3naTEd0/RateMe/blob/rateme/assets/app-icon.png
+            https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
           
           # Create desktop entry
           cat > packaging/linux/usr/share/applications/rateme.desktop << EOF
