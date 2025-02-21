@@ -19,12 +19,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build tools
-        run: |
-          brew install create-dmg
-          rm -f /usr/local/bin/pod
-          brew install cocoapods
-          brew link --overwrite cocoapods
+      - name: Install create-dmg
+        run: brew install create-dmg
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -32,10 +28,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
-
-      - name: Fix path version
-        run: |
-          sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
 
       - name: Create entitlements file
         run: |
@@ -48,67 +40,30 @@ jobs:
               <true/>
               <key>com.apple.security.network.client</key>
               <true/>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Update Info.plist
-        run: |
-          cat > macos/Runner/Info.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleDevelopmentRegion</key>
-              <string>$(DEVELOPMENT_LANGUAGE)</string>
-              <key>CFBundleExecutable</key>
-              <string>$(EXECUTABLE_NAME)</string>
-              <key>CFBundleIconFile</key>
-              <string></string>
-              <key>CFBundleIdentifier</key>
-              <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-              <key>CFBundleInfoDictionaryVersion</key>
-              <string>6.0</string>
-              <key>CFBundleName</key>
-              <string>Rate Me</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>$(FLUTTER_BUILD_NAME)</string>
-              <key>CFBundleVersion</key>
-              <string>$(FLUTTER_BUILD_NUMBER)</string>
-              <key>LSMinimumSystemVersion</key>
-              <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-              <key>NSHighResolutionCapable</key>
+              <key>com.apple.security.files.user-selected.read-write</key>
               <true/>
-              <key>NSMainNibFile</key>
-              <string>MainMenu</string>
-              <key>NSPrincipalClass</key>
-              <string>NSApplication</string>
+              <key>com.apple.security.inherit</key>
+              <true/>
           </dict>
           </plist>
           EOF
 
       - name: Build macOS
         run: |
-          flutter pub get
           flutter config --enable-macos-desktop
-          # Generate icons for macOS
-          flutter pub run flutter_launcher_icons:main -f pubspec.yaml
+          flutter pub get
           flutter build macos --release
 
-      - name: Install flutter_distributor
-        run: dart pub global activate flutter_distributor
-
-      - name: Build package
-        run: flutter_distributor package --platform macos --targets dmg
-
-      - name: Create DMG
+      - name: Prepare and Create DMG
         run: |
           cd build/macos/Build/Products/Release
+          chmod -R +x "Rate Me.app"
+          mkdir -p "DMG Contents"
+          cp -r "Rate Me.app" "DMG Contents/"
+          ln -s /Applications "DMG Contents/Applications"
+          
           create-dmg \
             --volname "Rate Me" \
-            --volicon "../../../../../assets/rateme.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
@@ -116,16 +71,10 @@ jobs:
             --hide-extension "Rate Me.app" \
             --app-drop-link 600 185 \
             "RateMe.dmg" \
-            "Rate Me.app"
+            "DMG Contents/"
 
-      - name: Upload Artifact
+      - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-macOS
           path: build/macos/Build/Products/Release/RateMe.dmg
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-dmg
-          path: dist/**/*.dmg
