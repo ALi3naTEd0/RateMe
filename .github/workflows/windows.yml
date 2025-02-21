@@ -32,9 +32,11 @@ jobs:
       - name: Create Portable Directory
         shell: pwsh
         run: |
-          # Copy release files directly
-          New-Item -ItemType Directory -Path "Rate Me" -Force
-          Copy-Item "build\windows\x64\runner\Release\*" -Destination "Rate Me\" -Recurse
+          # Create app directory first
+          $appDir = "Rate Me"
+          New-Item -ItemType Directory -Path $appDir
+          # Copy release files into app directory
+          Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
 
       - name: Upload Portable Package
         uses: actions/upload-artifact@v4
