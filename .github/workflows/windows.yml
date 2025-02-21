@@ -32,11 +32,17 @@ jobs:
       - name: Create Portable Directory
         shell: pwsh
         run: |
-          # Create app directory first
+          # Create app directory with proper name
           $appDir = "Rate Me"
           New-Item -ItemType Directory -Path $appDir
-          # Copy release files into app directory
+          # Copy release files into Rate Me directory
           Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
+
+      - name: Debug Directory Structure
+        shell: pwsh
+        run: |
+          Write-Host "Directory structure:"
+          Get-ChildItem -Path "Rate Me" -Recurse | Format-Table
 
       - name: Upload Portable Package
         uses: actions/upload-artifact@v4
