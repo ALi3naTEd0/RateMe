@@ -29,6 +29,16 @@ jobs:
           flutter pub get
           flutter build windows --release
 
+      - name: Create ZIP
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath RateMe-Windows.zip
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-Windows
+          path: RateMe-Windows.zip
+
       - name: Create Portable Directory
         shell: pwsh
         run: |

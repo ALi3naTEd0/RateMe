@@ -55,12 +55,14 @@ jobs:
         run: |
           cd build/macos/Build/Products/Release
           create-dmg \
-            --volname "RateMe" \
+            --volname "RateMe Installer" \
+            --volicon "RateMe.app/Contents/Resources/AppIcon.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
-            --app-drop-link 600 185 \
             --icon "RateMe.app" 200 190 \
+            --hide-extension "RateMe.app" \
+            --app-drop-link 600 185 \
             "RateMe.dmg" \
             "RateMe.app"
 
