@@ -29,10 +29,13 @@ jobs:
           flutter pub get
           flutter build windows --release
 
-      - name: Create Portable ZIP
+      - name: Create Portable Package
         shell: pwsh
         run: |
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "RateMe-Portable.zip"
+          $portableDir = "RateMe-Portable"
+          New-Item -ItemType Directory -Path $portableDir
+          Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "$portableDir\" -Recurse
+          Compress-Archive -Path $portableDir -DestinationPath "RateMe-Windows-Portable.zip" -Force
 
       - name: Install Inno Setup
         run: |
@@ -45,14 +48,14 @@ jobs:
           New-Item -ItemType Directory -Path "installers\Output" -Force
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
 
-      - name: Upload Portable Version
+      - name: Upload Portable Package
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-Windows-Portable
-          path: RateMe-Portable.zip
+          name: RateMe-Portable
+          path: RateMe-Windows-Portable.zip
 
-      - name: Upload Installer
+      - name: Upload Setup Package
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-Windows-Setup
+          name: RateMe-Setup
           path: installers/Output/RateMe-Setup.exe
