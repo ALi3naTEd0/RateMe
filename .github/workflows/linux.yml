@@ -17,6 +17,9 @@ jobs:
           
       - name: Install Dependencies
         run: |
+          # Import required GPG keys
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C
+          
           sudo apt-get update
           sudo apt-get install -y \
             ninja-build \
@@ -28,7 +31,8 @@ jobs:
             python3-pip \
             libgdk-pixbuf2.0-dev \
             cmake \
-            pkg-config
+            pkg-config \
+            fuse
           sudo pip3 install appimage-builder
 
       - name: Build Flutter
@@ -39,8 +43,11 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Create required directories
+          # Create required directories and setup build env
           mkdir -p AppDir
+          sudo mkdir -p /var/cache/apt/archives/partial
+          sudo chmod -R 777 /var/cache/apt/archives/partial
+          
           # Run appimage-builder from project root
           cd $GITHUB_WORKSPACE
           appimage-builder --recipe linux/packaging/AppImageBuilder.yml --skip-tests
