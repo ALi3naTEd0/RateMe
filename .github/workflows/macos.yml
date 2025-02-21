@@ -16,10 +16,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure macOS build
+      - name: Disable Code Signing
         run: |
-          defaults write com.apple.security.xcbuildsystem.allownetworkbuild -bool true
-          defaults write com.apple.security.temporary-exception.files.absolute-path.read-write -bool true
+          sudo defaults write com.apple.dt.Xcode DisableAutomaticCodeSigning -bool YES
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          defaults write com.apple.dt.Xcode IDESkipMacroValidation -bool YES
+          
+          # Modify project settings
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = "-"/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' macos/Runner.xcodeproj/project.pbxproj
 
       - name: Build and Package
         run: |
@@ -30,13 +36,8 @@ jobs:
           
           cd build/macos/Build/Products/Release
           
-          # Create temp directory for DMG
-          mkdir -p "RateMe"
-          cp -R "Rate Me.app" "RateMe/"
-          ln -s /Applications "RateMe/Applications"
-          
-          # Create DMG without codesigning
-          hdiutil create -volname "Rate Me" -srcfolder "RateMe" -ov -format UDZO "RateMe.dmg"
+          # Create DMG
+          hdiutil create -format UDBZ -volname "Rate Me" -srcfolder "Rate Me.app" -ov RateMe.dmg
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
