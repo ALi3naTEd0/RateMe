@@ -37,6 +37,58 @@ jobs:
         run: |
           sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
 
+      - name: Create entitlements file
+        run: |
+          cat > macos/Runner/Release.entitlements << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.app-sandbox</key>
+              <true/>
+              <key>com.apple.security.network.client</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Update Info.plist
+        run: |
+          cat > macos/Runner/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>$(DEVELOPMENT_LANGUAGE)</string>
+              <key>CFBundleExecutable</key>
+              <string>$(EXECUTABLE_NAME)</string>
+              <key>CFBundleIconFile</key>
+              <string></string>
+              <key>CFBundleIdentifier</key>
+              <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>Rate Me</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>$(FLUTTER_BUILD_NAME)</string>
+              <key>CFBundleVersion</key>
+              <string>$(FLUTTER_BUILD_NUMBER)</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>NSMainNibFile</key>
+              <string>MainMenu</string>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
+          </dict>
+          </plist>
+          EOF
+
       - name: Build macOS
         run: |
           flutter pub get
@@ -55,16 +107,16 @@ jobs:
         run: |
           cd build/macos/Build/Products/Release
           create-dmg \
-            --volname "RateMe Installer" \
-            --volicon "RateMe.app/Contents/Resources/AppIcon.icns" \
+            --volname "Rate Me" \
+            --volicon "../../../../../assets/rateme.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
-            --icon "RateMe.app" 200 190 \
-            --hide-extension "RateMe.app" \
+            --icon "Rate Me.app" 200 190 \
+            --hide-extension "Rate Me.app" \
             --app-drop-link 600 185 \
             "RateMe.dmg" \
-            "RateMe.app"
+            "Rate Me.app"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
