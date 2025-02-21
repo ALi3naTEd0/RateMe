@@ -35,19 +35,16 @@ jobs:
           flutter build linux --release
 
       - name: Package AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          # Setup FUSE access without needing modprobe
-          sudo apt-get install -y fuse
-          
-          # Make AppImages executable without FUSE
-          export APPIMAGE_EXTRACT_AND_RUN=1
-          
-          # Download linuxdeploy
+          # Download tools to temp directory
+          mkdir -p tools
+          cd tools
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
-          
-          # Make them executable
           chmod +x linuxdeploy*.AppImage
+          cd ..
           
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
@@ -59,8 +56,8 @@ jobs:
           cp linux/rateme.desktop AppDir/usr/share/applications/
           cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rateme.png
           
-          # Create AppImage
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin gtk --output appimage
+          # Create AppImage using extract-and-run mode
+          ./tools/linuxdeploy-x86_64.AppImage --appdir AppDir --plugin gtk --output appimage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
