@@ -1,5 +1,5 @@
 # Project-level configuration.
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
@@ -54,48 +54,21 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 
-add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
-
-# Define the application target. To change its name, change BINARY_NAME above,
-# not the value here, or `flutter run` will no longer work.
-#
-# Any new source files that you add to the application should be added here.
-add_executable(${BINARY_NAME}
-  "main.cc"
-  "my_application.cc"
-  "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
-)
-
-# Apply the standard set of build settings. This can be removed for applications
-# that need different build settings.
-apply_standard_settings(${BINARY_NAME})
-
-# Add dependency libraries. Add any application-specific dependencies here.
-target_link_libraries(${BINARY_NAME} PRIVATE flutter)
-target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
+# Application build; see runner/CMakeLists.txt.
+add_subdirectory("runner")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
-
-# Set consistent output directory for all build types
-set_target_properties(${BINARY_NAME}
-  PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bundle/bin"
-)
 
 # Only the install-generated bundle's copy of the executable will launch
 # correctly, since the resources must in the right relative locations. To avoid
 # people trying to run the unbundled copy, put it in a subdirectory instead of
 # the default top-level location.
-
-# Keep installation simple and consistent
-set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/bundle")
-
-install(TARGETS ${BINARY_NAME}
-  RUNTIME DESTINATION bin
-  COMPONENT Runtime
-  PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
+set_target_properties(${BINARY_NAME}
+  PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/intermediates_do_not_run"
 )
+
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
@@ -105,86 +78,40 @@ include(flutter/generated_plugins.cmake)
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build
 # directory.
-set(BUILD_BUNDLE_DIR "${PROJECT_BINARY_DIR}/bundle")
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+set(BUILD_BUNDLE_DIR "${CMAKE_BINARY_DIR}/bundle")
+set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}")
 
-# Set installation prefix based on build type - THIS MUST COME FIRST
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-  set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/bundle")
-  set(CPACK_PACKAGING_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/bundle")
-else()
-  set(CMAKE_INSTALL_PREFIX "/usr")
-  set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
-endif()
-
-# Start with a clean build bundle directory every time.
-install(CODE "
-  file(REMOVE_RECURSE \"${BUILD_BUNDLE_DIR}/\")
-  " COMPONENT Runtime)
-
-set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
-set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-
-install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+install(TARGETS ${BINARY_NAME} 
+  RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  BUNDLE DESTINATION .
   COMPONENT Runtime)
 
-install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
-  COMPONENT Runtime)
-
-install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-  COMPONENT Runtime)
+install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${CMAKE_INSTALL_PREFIX}/data")
+install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
 
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
   install(FILES "${bundled_library}"
-    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
     COMPONENT Runtime)
 endforeach(bundled_library)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"
-   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+   DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
    COMPONENT Runtime)
 
 # Fully re-copy the assets directory on each build to avoid having stale files
 # from a previous install.
 set(FLUTTER_ASSET_DIR_NAME "flutter_assets")
 install(CODE "
-  file(REMOVE_RECURSE \"${INSTALL_BUNDLE_DATA_DIR}/${FLUTTER_ASSET_DIR_NAME}\")
+  file(REMOVE_RECURSE \"${CMAKE_INSTALL_PREFIX}/data/${FLUTTER_ASSET_DIR_NAME}\")
   " COMPONENT Runtime)
 install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
-  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/data" COMPONENT Runtime)
 
 # Install the AOT library on non-Debug builds only.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
-  install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  install(FILES "${AOT_LIBRARY}" DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
     COMPONENT Runtime)
 endif()
-
-install(TARGETS ${BINARY_NAME} 
-  RUNTIME DESTINATION "bin"
-  COMPONENT Runtime
-  PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
-
-install(FILES "${PROJECT_SOURCE_DIR}/runner/rateme.desktop"
-  DESTINATION "share/applications"
-  COMPONENT Runtime)
-
-# Fix icon path to use assets directory
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/app-icon.png"
-  DESTINATION "share/icons/hicolor/512x512/apps"
-  RENAME "rateme.png"
-  COMPONENT Runtime)
-
-# Basic CPack configuration
-set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "rateme")
-set(CPACK_PACKAGE_VERSION "1.0.0")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Music rating and organization app")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libglib2.0-0")
-set(CPACK_SET_DESTDIR ON)
-set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
-
-include(CPack)
