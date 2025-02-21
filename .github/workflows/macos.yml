@@ -58,9 +58,6 @@ jobs:
         run: |
           cd build/macos/Build/Products/Release
           chmod -R +x "Rate Me.app"
-          mkdir -p "DMG Contents"
-          cp -r "Rate Me.app" "DMG Contents/"
-          ln -s /Applications "DMG Contents/Applications"
           
           create-dmg \
             --volname "Rate Me" \
@@ -68,10 +65,10 @@ jobs:
             --window-size 800 400 \
             --icon-size 100 \
             --icon "Rate Me.app" 200 190 \
-            --hide-extension "Rate Me.app" \
             --app-drop-link 600 185 \
+            --no-internet-enable \
             "RateMe.dmg" \
-            "DMG Contents/"
+            "Rate Me.app"
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
