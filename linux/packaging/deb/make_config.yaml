@@ -1,4 +1,6 @@
-build: true
-depends:
-  - libgtk-3-0
-  - libglu1-mesa
+deb:
+  build: true
+  dependencies:
+    - libgtk-3-0
+    - libglu1-mesa
+  arch: amd64

@@ -1,4 +1,6 @@
-build: true
-depends:
-  - gtk3
-  - mesa-libGL
+rpm:
+  build: true
+  dependencies:
+    - gtk3
+    - mesa-libGL
+  arch: x86_64
