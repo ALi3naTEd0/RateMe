@@ -28,21 +28,19 @@ jobs:
           flutter config --enable-windows-desktop
           flutter pub get
           flutter build windows --release
-          # Debug: Mostrar la ruta actual y contenido
-          pwd
-          dir
-          dir build\windows\x64\runner\Release
+          # Lista el contenido para debug
+          Get-ChildItem -Recurse build\windows\x64\runner\Release
 
       - name: Install Inno Setup
         run: |
           choco install innosetup -y
 
       - name: Create Installer
+        shell: pwsh
         run: |
-          # Usar ruta absoluta
-          New-Item -ItemType Directory -Path "D:\a\RateMe\RateMe\installers\Output" -Force
-          cd D:\a\RateMe\RateMe
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' .\installers\inno_setup_script.iss
+          # Crear directorio Output y ejecutar Inno Setup desde el directorio del proyecto
+          New-Item -ItemType Directory -Path "installers\Output" -Force
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

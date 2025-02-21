@@ -42,19 +42,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Main executable and DLLs in root directory
-Source: "..\build\windows\x64\runner\Release\RateMe.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\build\windows\x64\runner\Release\*.dll"; DestDir: "{app}"; Flags: ignoreversion
-
-; Keep directory structure for data and assets
-Source: "..\build\windows\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\build\windows\x64\runner\Release\flutter_assets\*"; DestDir: "{app}\flutter_assets"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Debug - usar ruta simple primero
-Source: "..\build\windows\x64\runner\Release\*.*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Usar rutas absolutas
-Source: "D:\a\RateMe\RateMe\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Single source that copies everything
+Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
