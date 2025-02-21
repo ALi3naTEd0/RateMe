@@ -51,6 +51,23 @@ cd RateMe
 makepkg -si
 ```
 
+### Installation on macOS
+
+1. Download the RateMe-Debug.zip file from the latest release
+2. Double-click the zip file to extract it
+3. Drag and drop "rateme.app" to your Applications folder
+4. The first time you run the app:
+   - Right-click (or Control-click) on the app
+   - Select "Open" from the menu
+   - Click "Open" in the security dialog
+
+Note: Since this is an unsigned debug build, macOS will show a security warning on first launch. This is normal and you can safely run the app after following the steps above.
+
+Troubleshooting: If you get a "App is damaged" message:
+```bash
+xattr -cr "/Applications/rateme.app"
+```
+
 ## Features
 
 - **Album Search**: Easily find albums by entering the artist's name, album title, or iTunes, Apple Music, or Bandcamp URL.
