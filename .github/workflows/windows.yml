@@ -32,15 +32,15 @@ jobs:
       - name: Create Portable Directory
         shell: pwsh
         run: |
-          # Create RateMe folder with the release files
-          New-Item -ItemType Directory -Path "RateMe"
-          Copy-Item "build\windows\x64\runner\Release\*" -Destination "RateMe\" -Recurse
+          # Copy release files directly
+          New-Item -ItemType Directory -Path "Rate Me" -Force
+          Copy-Item "build\windows\x64\runner\Release\*" -Destination "Rate Me\" -Recurse
 
       - name: Upload Portable Package
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Portable
-          path: RateMe/
+          path: "Rate Me"
 
       - name: Install Inno Setup
         run: |
