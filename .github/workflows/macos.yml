@@ -19,11 +19,14 @@ jobs:
       - name: Build App Bundle
         run: |
           flutter config --enable-macos-desktop
+          
+          # Disable code signing in Xcode project
+          /usr/libexec/PlistBuddy -c "Set :CODE_SIGNING_REQUIRED NO" macos/Runner.xcodeproj/project.pbxproj
+          /usr/libexec/PlistBuddy -c "Set :CODE_SIGNING_ALLOWED NO" macos/Runner.xcodeproj/project.pbxproj
+          
           flutter clean
           flutter pub get
-          
-          # Build without signing and with debug symbols
-          flutter build macos --debug --no-codesign
+          flutter build macos --debug
           
           cd build/macos/Build/Products/Debug
           echo "Contents of Debug directory:"
