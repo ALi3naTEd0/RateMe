@@ -12,20 +12,37 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'  # Changed from 'zulu' to 'temurin'
+          distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
+
+      - name: Verify Java installation
+        run: |
+          echo "Java version:"
+          java -version
+          echo "JAVA_HOME:"
+          echo $JAVA_HOME
+          ls -la $JAVA_HOME
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.3'
           channel: 'stable'
-          
+          cache: true
+
+      - name: Configure Gradle
+        run: |
+          mkdir -p $HOME/.gradle
+          echo "org.gradle.java.home=$JAVA_HOME" >> $HOME/.gradle/gradle.properties
+          echo "Current gradle.properties:"
+          cat $HOME/.gradle/gradle.properties
+
       # First build universal APK
       - name: Build Universal APK
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --verbose
           
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
