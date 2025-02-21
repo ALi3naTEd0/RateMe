@@ -28,6 +28,8 @@ jobs:
           flutter config --enable-windows-desktop
           flutter pub get
           flutter build windows --release
+          # Debug: mostrar estructura de directorios
+          dir build\windows\x64\runner\Release
 
       - name: Install Inno Setup
         run: |

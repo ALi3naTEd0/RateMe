@@ -50,6 +50,9 @@ Source: "..\build\windows\x64\runner\Release\*.dll"; DestDir: "{app}"; Flags: ig
 Source: "..\build\windows\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\build\windows\x64\runner\Release\flutter_assets\*"; DestDir: "{app}\flutter_assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+; Debug - usar ruta simple primero
+Source: "..\build\windows\x64\runner\Release\*.*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
