@@ -26,7 +26,10 @@ jobs:
             libglu1-mesa-dev \
             cmake \
             pkg-config \
-            fuse3
+            fuse3 \
+            qt5-default \
+            qttools5-dev-tools \
+            libqt5svg5-dev
 
       - name: Build Flutter
         run: |
@@ -48,13 +51,12 @@ jobs:
 
       - name: Build AppImage
         env:
-          QMAKE: /usr/bin/qmake
+          QMAKE: /usr/lib/qt5/bin/qmake
         run: |
           wget -c "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
           chmod a+x linuxdeployqt-continuous-x86_64.AppImage
-          export PATH="/usr/lib/x86_64-linux-gnu/qt5/bin:$PATH"
-          export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH"
-          ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract-and-run AppDir/usr/share/applications/rateme.desktop -bundle-non-qt-libs -verbose=2
+          export VERSION=1.0.0
+          ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract-and-run AppDir/usr/share/applications/rateme.desktop -bundle-non-qt-libs
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
