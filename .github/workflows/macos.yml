@@ -60,26 +60,39 @@ jobs:
           echo "Creating DMG from: $PWD"
           ls -la
           
-          # Create temporary DMG
-          hdiutil create -size 100m -fs HFS+ -volname "Rate Me" -temporary -o tmp.dmg
+          # Force unmount any existing volumes
+          hdiutil detach /Volumes/"Rate Me" -force || true
           
-          # Mount the temporary DMG
-          hdiutil attach tmp.dmg -mountpoint /Volumes/"Rate Me"
+          # Create temporary DMG
+          hdiutil create -size 200m -fs HFS+ -volname "Rate Me" -o tmp.dmg
+          
+          # Mount and wait
+          hdiutil attach tmp.dmg
+          sleep 3
           
           # Copy the app bundle
-          cp -R "Rate Me.app" /Volumes/"Rate Me"
+          cp -R "Rate Me.app" /Volumes/"Rate Me"/
+          sleep 2
           
           # Create Applications symlink
-          ln -s /Applications /Volumes/"Rate Me"/Applications
+          ln -s /Applications /Volumes/"Rate Me"/
+          sleep 2
           
-          # Unmount
-          hdiutil detach /Volumes/"Rate Me"
+          # Unmount with retry
+          attempts=0
+          while [ $attempts -lt 5 ]; do
+            if hdiutil detach /Volumes/"Rate Me" -force; then
+              break
+            fi
+            sleep 2
+            attempts=$((attempts + 1))
+          done
           
           # Convert to compressed DMG
           hdiutil convert tmp.dmg -format UDZO -o RateMe.dmg
           
           # Clean up
-          rm tmp.dmg
+          rm -f tmp.dmg
           
           echo "DMG creation completed"
           ls -la RateMe.dmg
