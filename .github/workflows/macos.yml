@@ -17,33 +17,35 @@ jobs:
           cache: true
 
       - name: Build App Bundle
+        env:
+          DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+          MACOSX_DEPLOYMENT_TARGET: "10.14"
         run: |
+          # Setup architectures
+          echo "Setting up build environment..."
+          defaults write com.apple.dt.Xcode IDEBuildOperationMaxNumberOfConcurrentCompileTasks 4
+          
+          # Enable desktop builds
           flutter config --enable-macos-desktop
           
-          # Configure build settings for universal binary
-          plutil -replace MACOSX_DEPLOYMENT_TARGET -string "10.14" macos/Runner.xcodeproj/project.pbxproj
-          
-          # Build without signing
-          cd macos
-          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = "-"/g' Runner.xcodeproj/project.pbxproj
-          
-          # Build for both architectures
-          cd ..
+          # Clean and get dependencies
           flutter clean
           flutter pub get
-          flutter build macos --release --universal
           
+          # Build universal binary
+          echo "Building universal binary..."
+          flutter build macos \
+            --release \
+            --no-codesign \
+            --dart-define=FLUTTER_BUILD_NAME=1.0.0 \
+            --dart-define=FLUTTER_BUILD_NUMBER=1
+          
+          echo "Checking build output..."
           cd build/macos/Build/Products/Release
-          echo "Contents of Release directory:"
           ls -la
           
-          if [ ! -d "rateme.app" ]; then
-            echo "Error: rateme.app not found!"
-            exit 1
-          fi
-          
           # Create zip with verbose output
-          ditto -v -c -k --sequesterRsrc --keepParent "rateme.app" "RateMe-Universal.zip"
+          ditto -v -c -k --sequesterRsrc --keepParent "Rate Me.app" "RateMe-Universal.zip"
 
       - name: Upload App
         uses: actions/upload-artifact@v4
