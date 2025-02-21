@@ -37,8 +37,8 @@ jobs:
           New-Item -ItemType Directory -Path $appDir
           # Copy all files into RateMe directory
           Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
-          # Create zip with descriptive name
-          Compress-Archive -Path $appDir -DestinationPath "RateMe-Windows-Portable.zip"
+          # Create descriptive zip name
+          Compress-Archive -Path $appDir -DestinationPath "RateMe-Portable.zip"
           Remove-Item -Path $appDir -Recurse -Force
 
       - name: Install Inno Setup
@@ -55,8 +55,8 @@ jobs:
       - name: Upload Portable Package
         uses: actions/upload-artifact@v4
         with:
-          name: Windows-Portable
-          path: RateMe-Windows-Portable.zip
+          name: RateMe-Portable
+          path: RateMe-Portable.zip
 
       - name: Upload Setup Package
         uses: actions/upload-artifact@v4
