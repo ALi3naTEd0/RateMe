@@ -26,8 +26,22 @@ jobs:
           flutter build macos --debug --no-codesign
           
           cd build/macos/Build/Products/Debug
-          # Create a zip instead of DMG for testing
-          ditto -c -k --sequesterRsrc --keepParent "Rate Me.app" "RateMe-Debug.zip"
+          echo "Contents of Debug directory:"
+          ls -la
+          
+          if [ ! -d "Rate Me.app" ]; then
+            echo "Error: Rate Me.app not found!"
+            echo "Contents of parent directory:"
+            cd ..
+            ls -la
+            exit 1
+          fi
+          
+          # Create zip with verbose output
+          ditto -v -c -k --sequesterRsrc --keepParent "Rate Me.app" "RateMe-Debug.zip"
+          
+          echo "Created zip file:"
+          ls -la RateMe-Debug.zip
 
       - name: Upload App
         uses: actions/upload-artifact@v4
