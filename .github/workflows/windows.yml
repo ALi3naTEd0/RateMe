@@ -35,6 +35,8 @@ jobs:
 
       - name: Create Installer
         run: |
+          # Create Output directory first
+          New-Item -ItemType Directory -Path "installers/Output" -Force
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers/inno_setup_script.iss
 
       - name: Upload Artifacts
