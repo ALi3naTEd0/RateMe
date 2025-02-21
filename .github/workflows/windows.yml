@@ -32,10 +32,8 @@ jobs:
       - name: Create Portable Package
         shell: pwsh
         run: |
-          $portableDir = "RateMe-Portable"
-          New-Item -ItemType Directory -Path $portableDir
-          Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "$portableDir\" -Recurse
-          Compress-Archive -Path $portableDir -DestinationPath "RateMe-Windows-Portable.zip" -Force
+          # Comprimir directamente los archivos de Release
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "RateMe-Windows-Portable.zip" -Force
 
       - name: Install Inno Setup
         run: |
