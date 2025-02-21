@@ -1,0 +1,11 @@
+build: true
+base: ubuntu:22.04
+output: rateme.AppImage
+version: 1.0.0
+arch: x64
+resources:
+  icon: assets/app-icon.png
+  desktop: linux/rateme.desktop
+dependencies:
+  - libgtk-3-0
+  - libglu1-mesa
