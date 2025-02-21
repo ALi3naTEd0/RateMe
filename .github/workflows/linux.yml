@@ -18,10 +18,11 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev rpm
-          # Install appimage-builder properly
-          sudo apt-get install -y python3-pip
-          sudo pip3 install appimage-builder
+          sudo apt-get install -y ninja-build libgtk-3-0 libglu1-mesa \
+            rpm fakeroot dpkg-dev libgtk-3-dev desktop-file-utils \
+            python3-pip libgdk-pixbuf2.0-dev
+          sudo pip3 install setuptools
+          sudo pip3 install flutter_distributor
 
       - name: Build Flutter
         run: |
@@ -29,24 +30,16 @@ jobs:
           flutter pub get
           flutter build linux --release
 
-      - name: Build AppImage
+      - name: Create Distribution Packages
         run: |
-          # Use appimage-builder with our config
-          appimage-builder --recipe linux/AppImageBuilder.yml --skip-test
-
-      - name: Build DEB & RPM
-        run: |
-          cd build/linux/x64/release
-          cmake -DCMAKE_INSTALL_PREFIX=/usr ../../../linux
-          make
-          cpack -G DEB
-          cpack -G RPM
+          # Use flutter_distributor to create all packages
+          flutter_distributor package --platform linux --targets appimage,deb,rpm
 
       - name: Upload Packages
         uses: actions/upload-artifact@v4
         with:
           name: linux-packages
           path: |
-            *.AppImage
-            build/linux/x64/release/*.deb
-            build/linux/x64/release/*.rpm
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.rpm

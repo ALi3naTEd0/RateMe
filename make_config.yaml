@@ -1,0 +1,16 @@
+linux:
+  appImage:
+    build: true
+    depends:
+      - libgtk-3-0
+      - libglu1-mesa
+  deb:
+    build: true
+    depends:
+      - libgtk-3-0
+      - libglu1-mesa
+  rpm:
+    build: true
+    depends:
+      - gtk3
+      - mesa-libGL
