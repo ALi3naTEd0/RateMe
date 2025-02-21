@@ -38,7 +38,10 @@ jobs:
           flutter build linux --release
 
       - name: Create AppImage
-        run: appimage-builder --recipe linux/packaging/AppImageBuilder.yml
+        run: |
+          # Run appimage-builder from project root
+          cd $GITHUB_WORKSPACE
+          appimage-builder --recipe linux/packaging/AppImageBuilder.yml --skip-tests
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
