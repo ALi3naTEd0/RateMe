@@ -33,7 +33,8 @@ DisableProgramGroupPage=yes
 ;PrivilegesRequired=lowest
 OutputDir=Output
 OutputBaseFilename=RateMe-Setup
-SetupIconFile=..\assets\app-icon.png
+; Comment out or remove SetupIconFile line if you don't have an .ico file; Cambiado de app-icon.png a rateme.ico
+SetupIconFile=..\assets\rateme.ico  ; Descomentar y usar el ico existente
 SolidCompression=yes
 WizardStyle=modern
 
