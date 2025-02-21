@@ -32,14 +32,10 @@ jobs:
       - name: Create Portable Package
         shell: pwsh
         run: |
-          # Create directory with app name
-          $appDir = "RateMe"
+          # Create and populate app directory
+          $appDir = "RateMe-Portable"
           New-Item -ItemType Directory -Path $appDir
-          # Copy all files into RateMe directory
           Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
-          # Create descriptive zip name
-          Compress-Archive -Path $appDir -DestinationPath "RateMe-Portable.zip"
-          Remove-Item -Path $appDir -Recurse -Force
 
       - name: Install Inno Setup
         run: |
@@ -55,8 +51,8 @@ jobs:
       - name: Upload Portable Package
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-Portable
-          path: RateMe-Portable.zip
+          name: portable
+          path: RateMe-Portable
 
       - name: Upload Setup Package
         uses: actions/upload-artifact@v4
