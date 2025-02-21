@@ -28,17 +28,14 @@ jobs:
           cd ..
           flutter clean
           flutter pub get
-          flutter build macos --debug \
-            --dart-define=FLUTTER_BUILD_MODE=debug \
-            --build-name=1.0.0 \
-            --build-number=1
+          flutter build macos --debug
           
           cd build/macos/Build/Products/Debug
           echo "Contents of Debug directory:"
           ls -la
           
-          if [ ! -d "Rate Me.app" ]; then
-            echo "Error: Rate Me.app not found!"
+          if [ ! -d "rateme.app" ]; then
+            echo "Error: rateme.app not found!"
             echo "Contents of parent directory:"
             cd ..
             ls -la
@@ -46,7 +43,7 @@ jobs:
           fi
           
           # Create zip with verbose output
-          ditto -v -c -k --sequesterRsrc --keepParent "Rate Me.app" "RateMe-Debug.zip"
+          ditto -v -c -k --sequesterRsrc --keepParent "rateme.app" "RateMe-Debug.zip"
           
           echo "Created zip file:"
           ls -la RateMe-Debug.zip
