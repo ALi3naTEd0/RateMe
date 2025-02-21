@@ -17,6 +17,12 @@ jobs:
           wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool
           sudo mv appimagetool /usr/local/bin/
+          
+      - name: Download Icon
+        run: |
+          wget -O icon.png "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/icon.png"
+          mkdir -p assets
+          mv icon.png assets/
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -34,17 +40,18 @@ jobs:
       - name: Create DEB Package
         run: |
           mkdir -p debian/DEBIAN
-          mkdir -p debian/usr/local/bin
+          mkdir -p debian/usr/bin
           mkdir -p debian/usr/share/applications
           mkdir -p debian/usr/share/icons/hicolor/256x256/apps
           
-          cp -r build/linux/x64/release/bundle/* debian/usr/local/bin/
+          cp -r build/linux/x64/release/bundle/* debian/usr/bin/
+          cp assets/icon.png debian/usr/share/icons/hicolor/256x256/apps/rateme.png
           
           cat > debian/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0
           Architecture: amd64
-          Maintainer: Your Name <your.email@example.com>
+          Maintainer: ALi3naTEd0
           Description: Rate Me Application
            A cross-platform rate calculator application.
           EOF
@@ -52,21 +59,19 @@ jobs:
           cat > debian/usr/share/applications/rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
-          Exec=/usr/local/bin/rate_me
+          Exec=/usr/bin/rate_me
           Icon=rateme
           Type=Application
           Categories=Utility;
           EOF
           
-          cp assets/icon.png debian/usr/share/icons/hicolor/256x256/apps/rateme.png
-          
+          chmod 755 debian/usr/bin/rate_me
           dpkg-deb --build debian
           mv debian.deb RateMe.deb
 
       - name: Create RPM Package
         run: |
-          mkdir -p ~/rpmbuild/{SPECS,BUILD,RPMS,SOURCES}
-          cp -r build/linux/x64/release/bundle/* ~/rpmbuild/BUILD/
+          mkdir -p ~/rpmbuild/{SPECS,BUILD,BUILDROOT,RPMS,SOURCES}
           
           cat > ~/rpmbuild/SPECS/rateme.spec << EOF
           Name: rateme
@@ -74,30 +79,47 @@ jobs:
           Release: 1
           Summary: Rate Me Application
           License: Proprietary
+          BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
           
           %description
           A cross-platform rate calculator application.
           
           %install
-          mkdir -p %{buildroot}/usr/local/bin
-          cp -r . %{buildroot}/usr/local/bin/
+          mkdir -p %{buildroot}/usr/bin
+          mkdir -p %{buildroot}/usr/share/applications
+          mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
+          cp -r %{_builddir}/* %{buildroot}/usr/bin/
+          cp %{_builddir}/../../../assets/icon.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/rateme.png
+          
+          cat > %{buildroot}/usr/share/applications/rateme.desktop << EOL
+          [Desktop Entry]
+          Name=Rate Me
+          Exec=/usr/bin/rate_me
+          Icon=rateme
+          Type=Application
+          Categories=Utility;
+          EOL
           
           %files
-          /usr/local/bin/*
+          /usr/bin/*
+          /usr/share/applications/rateme.desktop
+          /usr/share/icons/hicolor/256x256/apps/rateme.png
           EOF
           
+          cp -r build/linux/x64/release/bundle/* ~/rpmbuild/BUILD/
           rpmbuild -bb ~/rpmbuild/SPECS/rateme.spec
           cp ~/rpmbuild/RPMS/x86_64/rateme-1.0.0-1.x86_64.rpm ./RateMe.rpm
 
       - name: Create AppImage
         run: |
-          mkdir -p AppDir
-          cp -r build/linux/x64/release/bundle/* AppDir/
-          cp assets/icon.png AppDir/
+          mkdir -p AppDir/usr/{bin,share/{applications,icons/hicolor/256x256/apps}}
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/
+          cp assets/icon.png AppDir/.DirIcon
           
           cat > AppDir/AppRun << EOF
           #!/bin/sh
-          cd "\$(dirname "\$0")"
+          cd "\$(dirname "\$0")/usr/bin"
           exec ./rate_me
           EOF
           
@@ -112,7 +134,7 @@ jobs:
           Categories=Utility;
           EOF
           
-          appimagetool AppDir RateMe.AppImage
+          ARCH=x86_64 appimagetool AppDir RateMe.AppImage
 
       - name: Upload Packages
         uses: actions/upload-artifact@v4
