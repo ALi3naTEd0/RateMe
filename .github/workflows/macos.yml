@@ -56,8 +56,22 @@ jobs:
 
       - name: Prepare and Create DMG
         run: |
+          echo "Current directory: $PWD"
           cd build/macos/Build/Products/Release
+          echo "Changed to Release directory: $PWD"
+          echo "Listing directory contents:"
+          ls -la
+          
+          if [ ! -d "Rate Me.app" ]; then
+            echo "Error: Rate Me.app not found!"
+            exit 1
+          fi
+          
           chmod -R +x "Rate Me.app"
+          echo "Made app executable"
+          
+          # Create a temporary mount point
+          mkdir -p ./mount
           
           create-dmg \
             --volname "Rate Me" \
@@ -65,10 +79,19 @@ jobs:
             --window-size 800 400 \
             --icon-size 100 \
             --icon "Rate Me.app" 200 190 \
+            --hide-extension "Rate Me.app" \
             --app-drop-link 600 185 \
-            --no-internet-enable \
+            --debug \
             "RateMe.dmg" \
             "Rate Me.app"
+          
+          DMG_RESULT=$?
+          echo "create-dmg exit code: $DMG_RESULT"
+          
+          if [ $DMG_RESULT -ne 0 ]; then
+            echo "DMG creation failed"
+            exit 1
+          fi
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
