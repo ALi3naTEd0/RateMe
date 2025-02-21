@@ -17,9 +17,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Inno Setup
+      - name: Download Icon
         run: |
-          choco install innosetup -y
+          $iconUrl = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.ico"
+          $outputPath = "assets/rateme.ico"
+          Invoke-WebRequest -Uri $iconUrl -OutFile $outputPath
 
       - name: Build Windows
         run: |
@@ -27,18 +29,18 @@ jobs:
           flutter pub get
           flutter build windows --release
 
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+
       - name: Create Installer
         run: |
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers/inno_setup_script.iss
 
-      - name: Upload Portable
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-Windows-Portable
-          path: build/windows/x64/runner/Release/
-
-      - name: Upload Installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-Windows-Setup
-          path: Output/RateMe-Setup.exe
+          name: windows-artifacts
+          path: |
+            build/windows/x64/runner/Release/
+            installers/Output/*.exe
