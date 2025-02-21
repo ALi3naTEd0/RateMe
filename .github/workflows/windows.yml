@@ -29,25 +29,16 @@ jobs:
           flutter pub get
           flutter build windows --release
 
-      - name: Create ZIP
-        run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath RateMe-Windows.zip
-
-      - name: Upload ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-Windows
-          path: RateMe-Windows.zip
-
-      - name: Create Portable Directory and ZIP
+      # Create and upload portable version
+      - name: Create Portable Package
         shell: pwsh
         run: |
-          # First create the directory structure
+          # Create directory structure
           $appDir = "Rate Me"
           New-Item -ItemType Directory -Path $appDir
           Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
           
-          # Create ZIP preserving the directory structure
+          # Create ZIP preserving directory structure
           Compress-Archive -Path "Rate Me" -DestinationPath "RateMe-Portable.zip"
 
       - name: Upload Portable Package
@@ -56,6 +47,7 @@ jobs:
           name: RateMe-Portable
           path: RateMe-Portable.zip
 
+      # Create and upload installer version
       - name: Install Inno Setup
         run: |
           choco install innosetup -y
@@ -63,7 +55,6 @@ jobs:
       - name: Create Installer
         shell: pwsh
         run: |
-          # Create Output directory and run Inno Setup from project directory
           New-Item -ItemType Directory -Path "installers\Output" -Force
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
 
