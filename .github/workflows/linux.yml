@@ -39,6 +39,8 @@ jobs:
 
       - name: Create AppImage
         run: |
+          # Create required directories
+          mkdir -p AppDir
           # Run appimage-builder from project root
           cd $GITHUB_WORKSPACE
           appimage-builder --recipe linux/packaging/AppImageBuilder.yml --skip-tests

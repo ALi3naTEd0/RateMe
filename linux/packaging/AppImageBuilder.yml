@@ -1,11 +1,13 @@
 version: 1
 script:
-  - cp -r build/linux/x64/release/bundle/* $TARGET_APPDIR/
-  - cp assets/app-icon.png $TARGET_APPDIR/rateme.png
-  - cp linux/rateme.desktop $TARGET_APPDIR/
+  # Ensure directories exist and copy files
+  - mkdir -p "$TARGET_APPDIR"
+  - cp -r build/linux/x64/release/bundle/* "$TARGET_APPDIR/"
+  - cp assets/app-icon.png "$TARGET_APPDIR/rateme.png"
+  - cp linux/rateme.desktop "$TARGET_APPDIR/"
 
 AppDir:
-  path: $TARGET_APPDIR
+  path: AppDir
   app_info:
     id: com.ali3nated0.rateme
     name: Rate Me
