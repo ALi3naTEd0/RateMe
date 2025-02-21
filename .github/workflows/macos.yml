@@ -16,37 +16,22 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Create entitlements file
+      - name: Build macOS
         run: |
-          cat > macos/Runner/Release.entitlements << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>com.apple.security.app-sandbox</key>
-              <true/>
-              <key>com.apple.security.network.client</key>
-              <true/>
-              <key>com.apple.security.files.user-selected.read-write</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Install flutter_distributor
-        run: |
-          dart pub global activate flutter_distributor
-          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
-
-      - name: Build and Package
-        run: |
+          flutter config --enable-macos-desktop
           flutter clean
           flutter pub get
-          flutter config --enable-macos-desktop
-          flutter_distributor package --platform macos --targets dmg --skip-clean
+          flutter build macos --release
+          
+      - name: Package DMG
+        run: |
+          cd build/macos/Build/Products/Release
+          # Create DMG with simple hdiutil commands
+          hdiutil create -format UDZO -srcfolder "Rate Me.app" -volname "Rate Me" RateMe.dmg
+          ls -la RateMe.dmg
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-macOS
-          path: dist/*/macos/rate-me*.dmg
+          path: build/macos/Build/Products/Release/RateMe.dmg
