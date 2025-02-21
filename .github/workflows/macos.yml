@@ -20,36 +20,33 @@ jobs:
         run: |
           flutter config --enable-macos-desktop
           
-          # Modify Xcode build settings
+          # Configure build settings for universal binary
+          plutil -replace MACOSX_DEPLOYMENT_TARGET -string "10.14" macos/Runner.xcodeproj/project.pbxproj
+          
+          # Build without signing
           cd macos
           sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = "-"/g' Runner.xcodeproj/project.pbxproj
           
-          # Build without signing
+          # Build for both architectures
           cd ..
           flutter clean
           flutter pub get
-          flutter build macos --debug
+          flutter build macos --release --universal
           
-          cd build/macos/Build/Products/Debug
-          echo "Contents of Debug directory:"
+          cd build/macos/Build/Products/Release
+          echo "Contents of Release directory:"
           ls -la
           
           if [ ! -d "rateme.app" ]; then
             echo "Error: rateme.app not found!"
-            echo "Contents of parent directory:"
-            cd ..
-            ls -la
             exit 1
           fi
           
           # Create zip with verbose output
-          ditto -v -c -k --sequesterRsrc --keepParent "rateme.app" "RateMe-Debug.zip"
-          
-          echo "Created zip file:"
-          ls -la RateMe-Debug.zip
+          ditto -v -c -k --sequesterRsrc --keepParent "rateme.app" "RateMe-Universal.zip"
 
       - name: Upload App
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-macOS-Debug
-          path: build/macos/Build/Products/Debug/RateMe-Debug.zip
+          name: RateMe-macOS-Universal
+          path: build/macos/Build/Products/Release/RateMe-Universal.zip

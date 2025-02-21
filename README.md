@@ -53,7 +53,7 @@ makepkg -si
 
 ### Installation on macOS
 
-1. Download the RateMe-macOS.zip file from the latest release
+1. Download the RateMe-Universal.zip file from the latest release
 2. Double-click the zip file to extract it
 3. Drag and drop "rateme.app" to your Applications folder
 4. The first time you run the app:
@@ -61,11 +61,13 @@ makepkg -si
    - Select "Open" from the menu
    - Click "Open" in the security dialog
 
-Note: Since this is an unsigned debug build, macOS will show a security warning on first launch. This is normal and you can safely run the app after following the steps above.
+Note: This is a universal build that works on both Intel and Apple Silicon Macs running macOS 10.14 or later.
 
-Troubleshooting: If you get a "App is damaged" message:
+Troubleshooting: If you get a "App is damaged" or "not supported" message:
 ```bash
+# Open Terminal and run:
 xattr -cr "/Applications/rateme.app"
+codesign --force --deep --sign - "/Applications/rateme.app"
 ```
 
 ## Features
