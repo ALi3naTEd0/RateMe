@@ -26,7 +26,8 @@ jobs:
             libglu1-mesa-dev \
             cmake \
             pkg-config \
-            patchelf
+            fuse \
+            appstream
 
       - name: Build Flutter
         run: |
@@ -36,10 +37,10 @@ jobs:
 
       - name: Package AppDir
         run: |
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/lib
+          mkdir -p AppDir/usr/{bin,lib}
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/metainfo
           
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           cp linux/rateme.desktop AppDir/usr/share/applications/
@@ -53,16 +54,19 @@ jobs:
 
       - name: Build AppImage
         env:
-          ARCH: x86_64
-          VERSION: 1.0.0
+          VERBOSE: 1
         run: |
-          # Download the AppImage tool directly
-          wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
+          # Get linuxdeploy and extract it
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
           
-          # Create the AppImage without FUSE
-          export NO_APPIMAGE_EXTRACT=1
-          sudo ./appimagetool --comp gzip AppDir RateMe.AppImage
+          # Configure FUSE
+          sudo modprobe fuse || true
+          sudo chmod 666 /dev/fuse || true
+          sudo chown root:$USER /dev/fuse || true
+          
+          # Run with debugging
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir -e AppDir/usr/bin/rateme -d AppDir/usr/share/applications/rateme.desktop -i AppDir/usr/share/icons/hicolor/256x256/apps/rateme.png --output appimage -v2
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
