@@ -36,10 +36,11 @@ jobs:
 
       - name: Package AppImage
         run: |
-          # Setup FUSE
-          sudo modprobe fuse
-          sudo chmod 666 /dev/fuse
-          sudo chown root:$USER /dev/fuse
+          # Setup FUSE access without needing modprobe
+          sudo apt-get install -y fuse
+          
+          # Make AppImages executable without FUSE
+          export APPIMAGE_EXTRACT_AND_RUN=1
           
           # Download linuxdeploy
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
