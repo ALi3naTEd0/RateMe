@@ -39,26 +39,22 @@ jobs:
           name: RateMe-Windows
           path: RateMe-Windows.zip
 
-      - name: Create Portable Directory
+      - name: Create Portable Directory and ZIP
         shell: pwsh
         run: |
-          # Create app directory with proper name
+          # First create the directory structure
           $appDir = "Rate Me"
           New-Item -ItemType Directory -Path $appDir
-          # Copy release files into Rate Me directory
           Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
-
-      - name: Debug Directory Structure
-        shell: pwsh
-        run: |
-          Write-Host "Directory structure:"
-          Get-ChildItem -Path "Rate Me" -Recurse | Format-Table
+          
+          # Create ZIP preserving the directory structure
+          Compress-Archive -Path "Rate Me" -DestinationPath "RateMe-Portable.zip"
 
       - name: Upload Portable Package
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Portable
-          path: "Rate Me"
+          path: RateMe-Portable.zip
 
       - name: Install Inno Setup
         run: |
