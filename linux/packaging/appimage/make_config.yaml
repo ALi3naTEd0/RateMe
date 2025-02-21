@@ -1,11 +1,18 @@
-build: true
-base: ubuntu:22.04
-output: rateme.AppImage
-version: 1.0.0
-arch: x64
-resources:
-  icon: assets/app-icon.png
-  desktop: linux/rateme.desktop
-dependencies:
-  - libgtk-3-0
-  - libglu1-mesa
+appimage:
+  build: true
+  exec: RateMe
+  entrypoint: RateMe
+  name: Rate Me
+  version: 1.0.0
+  arch: x86_64
+  desktop_entry:
+    name: Rate Me
+    comment: Music Rating App
+    categories: Utility
+    icon: rateme
+  resources:
+    icon: assets/app-icon.png
+    desktop: linux/rateme.desktop
+  depends:
+    - libgtk-3-0
+    - libglu1-mesa
