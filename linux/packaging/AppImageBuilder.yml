@@ -1,8 +1,8 @@
 version: 1
 script:
   - cp -r $BUILD_DIR/linux/x64/release/bundle/* $TARGET_APPDIR/
-  - cp $PROJECT_DIR/linux/rateme.desktop $TARGET_APPDIR/
   - cp $PROJECT_DIR/assets/app-icon.png $TARGET_APPDIR/rateme.png
+  - cp $PROJECT_DIR/linux/rateme.desktop $TARGET_APPDIR/
 
 AppDir:
   path: $TARGET_APPDIR
@@ -11,7 +11,7 @@ AppDir:
     name: Rate Me
     icon: rateme
     version: 1.0.0
-    exec: rateme
+    exec: RateMe
   apt:
     arch: amd64
     sources:
