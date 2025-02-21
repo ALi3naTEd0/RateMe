@@ -56,42 +56,33 @@ jobs:
 
       - name: Prepare and Create DMG
         run: |
-          echo "Current directory: $PWD"
           cd build/macos/Build/Products/Release
-          echo "Changed to Release directory: $PWD"
-          echo "Listing directory contents:"
+          echo "Creating DMG from: $PWD"
           ls -la
           
-          if [ ! -d "Rate Me.app" ]; then
-            echo "Error: Rate Me.app not found!"
-            exit 1
-          fi
+          # Create temporary DMG
+          hdiutil create -size 100m -fs HFS+ -volname "Rate Me" -temporary -o tmp.dmg
           
-          chmod -R +x "Rate Me.app"
-          echo "Made app executable"
+          # Mount the temporary DMG
+          hdiutil attach tmp.dmg -mountpoint /Volumes/"Rate Me"
           
-          # Create a temporary mount point
-          mkdir -p ./mount
+          # Copy the app bundle
+          cp -R "Rate Me.app" /Volumes/"Rate Me"
           
-          create-dmg \
-            --volname "Rate Me" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --icon "Rate Me.app" 200 190 \
-            --hide-extension "Rate Me.app" \
-            --app-drop-link 600 185 \
-            --debug \
-            "RateMe.dmg" \
-            "Rate Me.app"
+          # Create Applications symlink
+          ln -s /Applications /Volumes/"Rate Me"/Applications
           
-          DMG_RESULT=$?
-          echo "create-dmg exit code: $DMG_RESULT"
+          # Unmount
+          hdiutil detach /Volumes/"Rate Me"
           
-          if [ $DMG_RESULT -ne 0 ]; then
-            echo "DMG creation failed"
-            exit 1
-          fi
+          # Convert to compressed DMG
+          hdiutil convert tmp.dmg -format UDZO -o RateMe.dmg
+          
+          # Clean up
+          rm tmp.dmg
+          
+          echo "DMG creation completed"
+          ls -la RateMe.dmg
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
