@@ -53,7 +53,7 @@ makepkg -si
 
 ### Installation on macOS
 
-1. Download the RateMe-Debug.zip file from the latest release
+1. Download the RateMe-macOS.zip file from the latest release
 2. Double-click the zip file to extract it
 3. Drag and drop "rateme.app" to your Applications folder
 4. The first time you run the app:
