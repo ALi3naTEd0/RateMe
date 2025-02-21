@@ -29,13 +29,18 @@ jobs:
           flutter pub get
           flutter build windows --release
 
-      - name: Create Portable Package
+      - name: Create Portable Directory
         shell: pwsh
         run: |
-          # Create and populate app directory
-          $appDir = "RateMe-Portable"
-          New-Item -ItemType Directory -Path $appDir
-          Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
+          # Create RateMe folder with the release files
+          New-Item -ItemType Directory -Path "RateMe"
+          Copy-Item "build\windows\x64\runner\Release\*" -Destination "RateMe\" -Recurse
+
+      - name: Upload Portable Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-Portable
+          path: RateMe/
 
       - name: Install Inno Setup
         run: |
@@ -47,12 +52,6 @@ jobs:
           # Create Output directory and run Inno Setup from project directory
           New-Item -ItemType Directory -Path "installers\Output" -Force
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
-
-      - name: Upload Portable Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: portable
-          path: RateMe-Portable
 
       - name: Upload Setup Package
         uses: actions/upload-artifact@v4
