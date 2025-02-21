@@ -1,31 +1,18 @@
----
-# Workflow for building and releasing macOS DMG
 name: macOS Build
 
 on:
-  workflow_dispatch:  # Esto permite ejecución manual desde la interfaz de GitHub
-  # Ya no se ejecutará automáticamente con push/pull_request
-
-env:
-  FLUTTER_VERSION: '3.19.3'
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build macOS DMG
     runs-on: macos-latest
-    permissions: write-all
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install create-dmg
-        run: brew install create-dmg
+      - uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: '3.19.3'
           channel: 'stable'
           cache: true
 
@@ -42,63 +29,24 @@ jobs:
               <true/>
               <key>com.apple.security.files.user-selected.read-write</key>
               <true/>
-              <key>com.apple.security.inherit</key>
-              <true/>
           </dict>
           </plist>
           EOF
 
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
       - name: Build macOS
         run: |
-          flutter config --enable-macos-desktop
           flutter pub get
+          flutter config --enable-macos-desktop
           flutter build macos --release
 
-      - name: Prepare and Create DMG
-        run: |
-          cd build/macos/Build/Products/Release
-          echo "Creating DMG from: $PWD"
-          ls -la
-          
-          # Force unmount any existing volumes
-          hdiutil detach /Volumes/"Rate Me" -force || true
-          
-          # Create temporary DMG
-          hdiutil create -size 200m -fs HFS+ -volname "Rate Me" -o tmp.dmg
-          
-          # Mount and wait
-          hdiutil attach tmp.dmg
-          sleep 3
-          
-          # Copy the app bundle
-          cp -R "Rate Me.app" /Volumes/"Rate Me"/
-          sleep 2
-          
-          # Create Applications symlink
-          ln -s /Applications /Volumes/"Rate Me"/
-          sleep 2
-          
-          # Unmount with retry
-          attempts=0
-          while [ $attempts -lt 5 ]; do
-            if hdiutil detach /Volumes/"Rate Me" -force; then
-              break
-            fi
-            sleep 2
-            attempts=$((attempts + 1))
-          done
-          
-          # Convert to compressed DMG
-          hdiutil convert tmp.dmg -format UDZO -o RateMe.dmg
-          
-          # Clean up
-          rm -f tmp.dmg
-          
-          echo "DMG creation completed"
-          ls -la RateMe.dmg
+      - name: Create DMG
+        run: flutter_distributor package --platform macos --targets dmg
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-macOS
-          path: build/macos/Build/Products/Release/RateMe.dmg
+          path: dist/*/dmg/*.dmg
