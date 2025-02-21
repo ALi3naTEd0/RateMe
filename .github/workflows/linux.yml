@@ -25,7 +25,8 @@ jobs:
             libglu1-mesa \
             libglu1-mesa-dev \
             cmake \
-            pkg-config
+            pkg-config \
+            fuse3
 
       - name: Build Flutter
         run: |
@@ -35,6 +36,11 @@ jobs:
 
       - name: Package AppImage
         run: |
+          # Setup FUSE
+          sudo modprobe fuse
+          sudo chmod 666 /dev/fuse
+          sudo chown root:$USER /dev/fuse
+          
           # Download linuxdeploy
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
