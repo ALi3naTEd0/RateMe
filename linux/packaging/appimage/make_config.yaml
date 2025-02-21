@@ -1,5 +1,10 @@
 appimage:
   build: true
+  version: 1.0.0
+  file_name: RateMe
+  name: Rate Me
+  exec: RateMe
+  icon: assets/app-icon.png
   dependencies:
     - libgtk-3-0
     - libglu1-mesa

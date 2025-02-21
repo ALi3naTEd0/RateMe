@@ -1,16 +1,10 @@
 output: dist/
+channel: stable
+version: 1.0.0
 releases:
-  - name: dev
+  - name: stable
     jobs:
-      - name: release-linux-appimage
+      - name: linux-appimage
         package:
           platform: linux
           target: appimage
-      - name: release-linux-deb
-        package:
-          platform: linux
-          target: deb
-      - name: release-linux-rpm
-        package:
-          platform: linux
-          target: rpm

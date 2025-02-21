@@ -34,15 +34,10 @@ jobs:
       - name: Create Distribution Packages
         run: |
           export PATH="$PATH":"$HOME/.pub-cache/bin"
-          flutter_distributor package --platform linux --target appimage
-          flutter_distributor package --platform linux --target deb
-          flutter_distributor package --platform linux --target rpm
+          flutter_distributor package --platform linux --target appimage --debug-mode
 
       - name: Upload Packages
         uses: actions/upload-artifact@v4
         with:
           name: linux-packages
-          path: |
-            dist/**/*.AppImage
-            dist/**/*.deb
-            dist/**/*.rpm
+          path: dist/**/*.AppImage
