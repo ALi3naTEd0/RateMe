@@ -16,19 +16,38 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build macOS
+      - name: Setup Keychain
         run: |
+          security create-keychain -p github_actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p github_actions build.keychain
+          security set-keychain-settings -t 3600 -l build.keychain
+
+      - name: Setup Development Certificate
+        run: |
+          # Create development certificate
+          security create-certificate-signing-request -k build.keychain -out cert.csr
+          security add-certificates -k build.keychain cert.csr
+          # Allow access from Flutter build
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k github_actions build.keychain
+
+      - name: Build and Package
+        run: |
+          # Update build settings
+          plutil -replace CODE_SIGN_IDENTITY -string "-" macos/Runner.xcodeproj/project.pbxproj
+          plutil -replace DEVELOPMENT_TEAM -string "" macos/Runner.xcodeproj/project.pbxproj
+          
+          # Build app
           flutter config --enable-macos-desktop
           flutter clean
           flutter pub get
           flutter build macos --release
           
-      - name: Package DMG
-        run: |
+          # Create DMG
           cd build/macos/Build/Products/Release
-          # Create DMG with simple hdiutil commands
+          # Bypass codesign verification for DMG creation
+          export CODESIGN_ALLOCATE="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/codesign_allocate"
           hdiutil create -format UDZO -srcfolder "Rate Me.app" -volname "Rate Me" RateMe.dmg
-          ls -la RateMe.dmg
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
