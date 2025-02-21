@@ -26,9 +26,10 @@ jobs:
             libglu1-mesa-dev \
             cmake \
             pkg-config \
-            qt5-qmake \
-            qtbase5-dev \
-            qttools5-dev-tools
+            libqt5core5a \
+            libqt5gui5 \
+            qt5-qmake-bin \
+            qtbase5-dev
 
       - name: Build Flutter
         run: |
@@ -38,23 +39,28 @@ jobs:
 
       - name: Package AppDir
         run: |
-          mkdir -p AppDir/usr/{bin,lib}
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-          cp linux/rateme.desktop AppDir/usr/share/applications/
-          cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rateme.png
+          cp linux/rateme.desktop AppDir/
+          cp assets/app-icon.png AppDir/rateme.png
+
+      - name: Download AppImage tools
+        run: |
+          wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          wget -c "https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage"
+          chmod +x linuxdeploy*.AppImage
 
       - name: Build AppImage
+        env:
+          ARCH: x86_64
+          VERSION: 1.0.0
         run: |
-          # Get linuxdeployqt
-          wget https://github.com/probonopd/linuxdeployqt/releases/download/7/linuxdeployqt-7-x86_64.AppImage
-          chmod +x linuxdeployqt-7-x86_64.AppImage
-          
-          # Use specific version and extract
-          ./linuxdeployqt-7-x86_64.AppImage --appimage-extract
-          export PATH=$(pwd)/squashfs-root/usr/bin:$PATH
-          
-          # Build AppImage
-          $(pwd)/squashfs-root/usr/bin/linuxdeployqt AppDir/usr/share/applications/rateme.desktop -bundle-non-qt-libs
+          export OUTPUT="RateMe-${VERSION}-${ARCH}.AppImage"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin gtk --output appimage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
