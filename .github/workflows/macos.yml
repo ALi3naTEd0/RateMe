@@ -34,19 +34,19 @@ jobs:
           EOF
 
       - name: Install flutter_distributor
-        run: dart pub global activate flutter_distributor
-
-      - name: Build macOS
         run: |
+          dart pub global activate flutter_distributor
+          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      - name: Build and Package
+        run: |
+          flutter clean
           flutter pub get
           flutter config --enable-macos-desktop
-          flutter build macos --release
-
-      - name: Create DMG
-        run: flutter_distributor package --platform macos --targets dmg
+          flutter_distributor package --platform macos --targets dmg --skip-clean
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-macOS
-          path: dist/*/dmg/*.dmg
+          path: dist/*/macos/rate-me*.dmg

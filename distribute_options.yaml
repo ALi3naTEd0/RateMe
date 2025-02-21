@@ -1,0 +1,17 @@
+output: dist/
+releases:
+  - name: rate-me
+    jobs:
+      - name: release-macos
+        package:
+          platform: macos
+          target: dmg
+          build_args:
+            dart-define:
+              APP_ENV: production
+        targets:
+          - dmg
+        flutter:
+          build_args:
+            - --release
+            - --no-tree-shake-icons
