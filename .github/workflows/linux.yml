@@ -34,30 +34,30 @@ jobs:
           flutter pub get
           flutter build linux --release
 
-      - name: Package AppImage
+      - name: Package AppDir
         run: |
-          # Download appimagetool without FUSE
-          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage"
-          chmod +x appimagetool
-          
-          # Extract appimagetool to use it without FUSE
-          ./appimagetool --appimage-extract
-          mv squashfs-root appimagetool-dir
-          
-          # Create basic AppDir structure
-          mkdir -p AppDir/usr/{bin,lib}
-          mkdir -p AppDir/usr/share/{applications,icons/hicolor/256x256/apps}
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           
           # Copy application files
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           cp linux/rateme.desktop AppDir/usr/share/applications/
           cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rateme.png
-          
-          # Create AppImage without FUSE
-          ./appimagetool-dir/AppRun AppDir RateMe.AppImage
+
+      - name: Build AppImage
+        env:
+          QMAKE: /usr/bin/qmake
+        run: |
+          wget -c "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+          chmod a+x linuxdeployqt-continuous-x86_64.AppImage
+          export PATH="/usr/lib/x86_64-linux-gnu/qt5/bin:$PATH"
+          export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH"
+          ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract-and-run AppDir/usr/share/applications/rateme.desktop -bundle-non-qt-libs -verbose=2
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Linux
-          path: Rate_Me*.AppImage
+          path: RateMe*.AppImage
