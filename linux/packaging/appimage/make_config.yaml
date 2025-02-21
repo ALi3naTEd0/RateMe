@@ -1,0 +1,4 @@
+build: true
+depends:
+  - libgtk-3-0
+  - libglu1-mesa

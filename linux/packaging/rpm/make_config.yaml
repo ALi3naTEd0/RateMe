@@ -1,0 +1,4 @@
+build: true
+depends:
+  - gtk3
+  - mesa-libGL
