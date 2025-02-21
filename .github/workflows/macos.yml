@@ -16,28 +16,61 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Disable Code Signing
+      - name: Configure Signing
         run: |
-          sudo defaults write com.apple.dt.Xcode DisableAutomaticCodeSigning -bool YES
-          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-          defaults write com.apple.dt.Xcode IDESkipMacroValidation -bool YES
+          # Create self-signed certificate for development
+          security create-keychain -p temppass build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temppass build.keychain
           
-          # Modify project settings
-          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = "-"/g' macos/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' macos/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' macos/Runner.xcodeproj/project.pbxproj
+          # Create certificate
+          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
+          CERT_PWD=build_password
+          
+          # Create temporary certificate
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 -keyout private.key -out certificate.crt -subj "/CN=Test/O=Test"
+          openssl pkcs12 -export -out $CERT_PATH -inkey private.key -in certificate.crt -password pass:$CERT_PWD
+          
+          # Add to keychain
+          security import $CERT_PATH -P $CERT_PWD -k build.keychain -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k temppass build.keychain
 
-      - name: Build and Package
+      - name: Build macOS App
         run: |
+          # Update entitlements
+          cat > macos/Runner/Release.entitlements << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.app-sandbox</key>
+              <true/>
+              <key>com.apple.security.network.client</key>
+              <true/>
+              <key>com.apple.security.files.user-selected.read-write</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
           flutter config --enable-macos-desktop
-          flutter clean
           flutter pub get
-          flutter build macos --release --no-codesign
+          flutter build macos --release
           
+          # Sign the app bundle
+          codesign --force --deep --sign - --entitlements macos/Runner/Release.entitlements "build/macos/Build/Products/Release/Rate Me.app"
+
+      - name: Create DMG
+        run: |
           cd build/macos/Build/Products/Release
-          
-          # Create DMG
-          hdiutil create -format UDBZ -volname "Rate Me" -srcfolder "Rate Me.app" -ov RateMe.dmg
+          hdiutil create -format UDZO -volname "Rate Me" -srcfolder "Rate Me.app" -ov RateMe.dmg
+          codesign --force --sign - RateMe.dmg
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
