@@ -12,7 +12,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'  # Changed from 'zulu' to 'temurin'
           java-version: '17'
 
       - name: Setup Flutter
