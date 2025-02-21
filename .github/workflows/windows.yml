@@ -28,8 +28,11 @@ jobs:
           flutter config --enable-windows-desktop
           flutter pub get
           flutter build windows --release
-          # Lista el contenido para debug
-          Get-ChildItem -Recurse build\windows\x64\runner\Release
+
+      - name: Create Portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "RateMe-Portable.zip"
 
       - name: Install Inno Setup
         run: |
@@ -42,10 +45,14 @@ jobs:
           New-Item -ItemType Directory -Path "installers\Output" -Force
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
 
-      - name: Upload Artifacts
+      - name: Upload Portable Version
         uses: actions/upload-artifact@v4
         with:
-          name: windows-artifacts
-          path: |
-            build/windows/x64/runner/Release/
-            installers/Output/*.exe
+          name: RateMe-Windows-Portable
+          path: RateMe-Portable.zip
+
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-Windows-Setup
+          path: installers/Output/RateMe-Setup.exe
