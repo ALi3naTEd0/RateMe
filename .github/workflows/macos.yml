@@ -25,6 +25,10 @@
             flutter-version: ${{ env.FLUTTER_VERSION }}
             channel: 'stable'
             cache: true
+
+        - name: Install create-dmg
+          run: |
+            brew install create-dmg
   
         - name: Build and Package
           run: |
@@ -36,15 +40,9 @@
             
             cd build/macos/Build/Products/Release
             
-            # Debug Flutter resources
-            echo "App bundle structure:"
-            ls -R rateme.app
-            
-            echo "Flutter assets:"
-            ls -la rateme.app/Contents/Frameworks/App.framework/Resources/flutter_assets || true
-            
-            echo "Frameworks:"
-            ls -la rateme.app/Contents/Frameworks || true
+            # Debug output
+            echo "Directory contents:"
+            ls -la
             
             # Create basic DMG
             create-dmg \
@@ -54,7 +52,7 @@
               --icon-size 100 \
               --app-drop-link 600 185 \
               "RateMe.dmg" \
-              "rateme.app"
+              *.app
 
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
