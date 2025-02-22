@@ -62,15 +62,17 @@
             flutter build macos --release
             
             cd build/macos/Build/Products/Release
+            ls -la
             
+            # Create DMG with proper app name
             create-dmg \
-              --volname "RateMe" \
+              --volname "Rate Me" \
               --window-pos 200 120 \
               --window-size 800 400 \
               --icon-size 100 \
               --app-drop-link 600 185 \
               "RateMe.dmg" \
-              "RateMe.app"
+              "rateme.app"
   
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
