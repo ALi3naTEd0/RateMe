@@ -18,11 +18,27 @@ jobs:
 
       - name: Basic Build
         run: |
+          flutter config --enable-macos-desktop
+          flutter clean
           flutter pub get
-          flutter build macos --debug --no-tree-shake-icons
+          flutter build macos --debug
           
+          # Verify build directory and contents
           cd build/macos/Build/Products/Debug
+          echo "Directory contents:"
+          ls -la
+          
+          if [ ! -d "Rate Me.app" ]; then
+            echo "App bundle not found! Contents of parent directories:"
+            cd ../../..
+            pwd
+            ls -la
+            exit 1
+          fi
+          
           zip -r RateMe-Debug.zip "Rate Me.app"
+          echo "Zip file created:"
+          ls -la RateMe-Debug.zip
 
       - name: Upload App
         uses: actions/upload-artifact@v4
