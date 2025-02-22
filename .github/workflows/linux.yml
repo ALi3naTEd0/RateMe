@@ -74,7 +74,7 @@ jobs:
           Categories=Audio;Music;
           EOF
           
-          # Create control file
+          # Create control file with dependencies
           cat > $PKGROOT/DEBIAN/control << EOF
           Package: rateme
           Version: ${{ env.DEB_VERSION }}
@@ -82,6 +82,7 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
+          Depends: libgtk-3-0 (>= 3.24.0), libsecret-1-0, libc6, libstdc++6
           Description: Rate your music albums
            A Flutter application for rating and organizing your music collection.
           Homepage: https://github.com/ALi3naTEd0/RateMe
