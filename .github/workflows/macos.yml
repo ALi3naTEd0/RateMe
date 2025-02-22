@@ -21,10 +21,16 @@
   
         - name: Install build tools
           run: |
-            brew install create-dmg
-            rm -f /usr/local/bin/pod
-            brew install cocoapods
-            brew link --overwrite cocoapods
+            # Update Homebrew and install dependencies
+            brew update
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install create-dmg
+            
+            # Remove and reinstall cocoapods avoiding conflicts
+            brew uninstall --ignore-dependencies cocoapods || true
+            brew cleanup
+            gem uninstall -aIx cocoapods || true
+            gem install cocoapods -v 1.13.0
+            pod setup
   
         - name: Setup Flutter
           uses: subosito/flutter-action@v2
@@ -47,19 +53,29 @@
             flutter config --enable-macos-desktop
             flutter pub run flutter_launcher_icons:main -f pubspec.yaml
             flutter build macos --release
+            
+            # Verify app name and contents
+            cd build/macos/Build/Products/Release
+            echo "Directory contents:"
+            ls -la
   
         - name: Create DMG
           run: |
             cd build/macos/Build/Products/Release
+            
+            # Show exact app name
+            APP_NAME=$(ls *.app)
+            echo "Found app: $APP_NAME"
+            
             create-dmg \
-              --volname "RateMe" \
+              --volname "Rate Me" \
               --window-pos 200 120 \
               --window-size 800 400 \
               --icon-size 100 \
-              --icon "RateMe.app" 200 190 \
+              --icon "$APP_NAME" 200 190 \
               --app-drop-link 600 185 \
               "RateMe.dmg" \
-              "Rate Me.app"
+              "$APP_NAME"
   
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
