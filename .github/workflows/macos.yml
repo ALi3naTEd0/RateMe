@@ -24,9 +24,14 @@ jobs:
           flutter build macos --release
           
           cd build/macos/Build/Products/Release
+          echo "Contents of Release directory:"
+          ls -la
           
           # Create zip with verbose output
-          ditto -v -c -k --sequesterRsrc --keepParent "rateme.app" "RateMe-Universal.zip"
+          ditto -v -c -k --sequesterRsrc --keepParent "Rate Me.app" "RateMe-Universal.zip"
+          
+          echo "Created zip file:"
+          ls -la RateMe-Universal.zip
 
       - name: Upload App
         uses: actions/upload-artifact@v4
