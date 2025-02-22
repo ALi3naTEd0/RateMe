@@ -119,24 +119,33 @@ jobs:
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
 
-          # Copy application files
+          # Copy application and library files
           cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
+          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* $PKGDIR/usr/lib/rateme/
+          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* $PKGDIR/usr/lib/rateme/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Create launcher script
+          # Create launcher script with updated LD_LIBRARY_PATH
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
+          export LD_LIBRARY_PATH=/usr/lib/rateme:$LD_LIBRARY_PATH
           exec /usr/lib/rateme/rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Create control file
+          # Create control file with updated dependencies
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libgtk-3-0 (>= 3.24.0), libsecret-1-0, libc6, libstdc++6, libglib2.0-0
+          Depends: libgtk-3-0 (>= 3.24.0), 
+            libsecret-1-0,
+            libc6,
+            libstdc++6,
+            libglib2.0-0 (>= 2.74.0),
+            libgobject-2.0-0,
+            libgio-2.0-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
