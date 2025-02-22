@@ -17,28 +17,11 @@ jobs:
           cache: true
 
       - name: Build App Bundle
-        env:
-          MACOSX_DEPLOYMENT_TARGET: "10.14"
         run: |
           flutter config --enable-macos-desktop
-          
-          # Configure build settings
-          cd macos
-          plutil -replace MACOSX_DEPLOYMENT_TARGET -string "10.14" Runner.xcodeproj/project.pbxproj
-          plutil -replace ONLY_ACTIVE_ARCH -string "NO" Runner.xcodeproj/project.pbxproj
-          plutil -replace ENABLE_BITCODE -string "NO" Runner.xcodeproj/project.pbxproj
-          plutil -replace CODE_SIGNING_REQUIRED -string "NO" Runner.xcodeproj/project.pbxproj
-          plutil -replace CODE_SIGNING_ALLOWED -string "NO" Runner.xcodeproj/project.pbxproj
-          plutil -replace CODE_SIGN_IDENTITY -string "-" Runner.xcodeproj/project.pbxproj
-          
-          cd ..
           flutter clean
           flutter pub get
-          
-          # Build for both architectures
-          flutter build macos --release \
-            --dart-define=FLUTTER_BUILD_NAME=1.0.0 \
-            --dart-define=FLUTTER_BUILD_NUMBER=1
+          flutter build macos --release
           
           cd build/macos/Build/Products/Release
           
