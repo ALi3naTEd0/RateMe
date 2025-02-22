@@ -37,40 +37,21 @@ jobs:
         run: |
           flutter config --enable-linux-desktop
           flutter pub get
-          flutter build linux --release --verbose
-          
-          echo "Build contents:"
-          ls -R build/linux/x64/release/
-
-      - name: Get Icon
-        run: |
-          wget https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png -O app-icon.png
-          ls -l app-icon.png
+          flutter build linux --release
 
       - name: Create AppImage Structure
         run: |
-          # Create AppDir structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir
+          cp -r build/linux/x64/release/bundle/* AppDir/
+          cp assets/app-icon.png AppDir/rateme.png
           
-          # Copy files
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-          cp app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rateme.png
-          ln -s usr/share/icons/hicolor/256x256/apps/rateme.png AppDir/.DirIcon
-          
-          # Create AppRun script
           cat > AppDir/AppRun << 'EOF'
           #!/bin/sh
-          SELF=$(readlink -f "$0")
-          HERE=${SELF%/*}
-          export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/rateme" "$@"
+          cd "$(dirname "$0")"
+          exec ./rateme "$@"
           EOF
           chmod +x AppDir/AppRun
           
-          # Create desktop entry
           cat > AppDir/rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
@@ -79,9 +60,6 @@ jobs:
           Type=Application
           Categories=Audio;Music;
           EOF
-          
-          echo "AppDir contents:"
-          ls -R AppDir/
 
       - name: Get AppImage Tool
         run: |
