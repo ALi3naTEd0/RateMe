@@ -26,30 +26,35 @@
             channel: 'stable'
             cache: true
 
-        - name: Build and Package
+        - name: Debug Environment
           run: |
-            # Configure Flutter
-            flutter config --enable-macos-desktop
+            echo "Current directory:"
+            pwd
+            echo "Directory contents:"
+            ls -la
+            echo "Flutter config:"
+            flutter config
+            echo "Flutter doctor:"
             flutter doctor -v
-            
-            # Clear build and get dependencies
+
+        - name: Build Debug
+          run: |
             flutter clean
             flutter pub get
-            
-            # Build debug first
-            cd macos
-            pod install
-            cd ..
-            
+            flutter config --enable-macos-desktop
             flutter build macos --debug
             
-            # Show debug build results
+            echo "Build directory contents:"
             cd build/macos/Build/Products/Debug
             ls -la
-            echo "Debug build contents:"
-            find . -type f
+            
+            if [ ! -d "rateme.app" ]; then
+              echo "App not found in expected location"
+              echo "Searching for app bundle:"
+              find ../../../.. -name "*.app" -type d
+              exit 1
 
-        - name: Upload Build
+        - name: Upload Debug Build
           uses: actions/upload-artifact@v4
           with:
             name: RateMe-macOS-Debug
