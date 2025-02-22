@@ -63,19 +63,12 @@
             flutter build macos --release
             
             cd build/macos/Build/Products/Release
-            echo "Contents of Release directory:"
-            ls -la
             
-            # Verify app name and show full details
-            APP_NAME=$(find . -maxdepth 1 -name "*.app" -type d)
-            echo "Found app bundle: $APP_NAME"
+            # Check Flutter resources
+            echo "Checking app bundle contents:"
+            ls -la "rateme.app/Contents/Frameworks/App.framework/Resources/flutter_assets"
             
-            if [ -z "$APP_NAME" ]; then
-              echo "No .app bundle found!"
-              exit 1
-            fi
-            
-            # Create DMG using found app name
+            # Create DMG
             create-dmg \
               --volname "Rate Me" \
               --window-pos 200 120 \
@@ -84,7 +77,7 @@
               --app-drop-link 600 185 \
               --no-internet-enable \
               "RateMe.dmg" \
-              "$APP_NAME"
+              "rateme.app"
 
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
