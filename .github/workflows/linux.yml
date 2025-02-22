@@ -114,50 +114,40 @@ jobs:
         run: |
           PKGDIR=rateme_1.0.0-1_amd64
           
-          # Debug: Check library locations
-          echo "Checking for required libraries:"
-          ls -l /usr/lib/x86_64-linux-gnu/libglib*
-          ls -l /usr/lib/x86_64-linux-gnu/libgobject*
+          # Debug: List all available libraries
+          echo "Available libraries:"
+          find /usr/lib/x86_64-linux-gnu -name "libglib*" -o -name "libgobject*"
           
-          # Create directory structure
+          # Create directories
           mkdir -p $PKGDIR/DEBIAN
           mkdir -p $PKGDIR/usr/lib/rateme
-          mkdir -p $PKGDIR/usr/lib/x86_64-linux-gnu
           mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
 
-          # Copy application files and dependencies
+          # Copy application files
           cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
-          cp -r /usr/lib/x86_64-linux-gnu/libglib* $PKGDIR/usr/lib/x86_64-linux-gnu/
-          cp -r /usr/lib/x86_64-linux-gnu/libgobject* $PKGDIR/usr/lib/x86_64-linux-gnu/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Debug: Check copied files
-          echo "Checking copied libraries:"
-          ls -l $PKGDIR/usr/lib/x86_64-linux-gnu/
-
-          # Create launcher script
+          # Create launcher script with direct path
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
-          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/lib/rateme:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=/usr/lib/rateme:$LD_LIBRARY_PATH
           exec /usr/lib/rateme/rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Create control file with updated dependencies
+          # Create more explicit control file
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libgtk-3-0 (>= 3.24.0), 
+          Depends: libglib2.0-0 (>= 2.74.0),
+            libgtk-3-0 (>= 3.24.0),
             libsecret-1-0,
             libc6,
-            libstdc++6,
-            libglib2.0-0 (>= 2.74.0),
-            libgobject-2.0-0,
-            libgio-2.0-0
+            libstdc++6
           Section: utils
           Priority: optional
           Description: Rate your music albums
