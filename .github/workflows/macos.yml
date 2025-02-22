@@ -56,24 +56,16 @@
             mkdir -p macos/Runner/Assets.xcassets/AppIcon.appiconset
   
         - name: Build macOS
+          env:
+            DISABLE_CODE_SIGNING: YES
           run: |
             flutter pub get
             flutter config --enable-macos-desktop
-            flutter build macos --release
+            flutter build macos --release --no-codesign
             
             cd build/macos/Build/Products/Release
             echo "Contents of Release directory:"
             ls -la
-            
-            if [ ! -d "rateme.app" ]; then
-              echo "App not found in expected location. Searching for it..."
-              find . -name "*.app" -type d
-              exit 1
-            fi
-            
-            # Verify app bundle exists and show its structure
-            echo "App bundle contents:"
-            ls -la rateme.app/Contents/
             
             # Create DMG with debug output
             create-dmg \
@@ -82,9 +74,8 @@
               --window-size 800 400 \
               --icon-size 100 \
               --app-drop-link 600 185 \
-              --verbose \
               "RateMe.dmg" \
-              "rateme.app" || echo "DMG creation failed with: $?"
+              *.app
 
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
