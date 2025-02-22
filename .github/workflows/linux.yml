@@ -137,7 +137,7 @@ jobs:
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Create control file with corrected dependencies
+          # Create control file with fixed dependencies
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
@@ -147,8 +147,7 @@ jobs:
             libgtk-3-0 (>= 3.24.0),
             libsecret-1-0,
             libc6,
-            libstdc++6,
-            libgobject-2.0-0
+            libstdc++6
           Section: utils
           Priority: optional
           Description: Rate your music albums
