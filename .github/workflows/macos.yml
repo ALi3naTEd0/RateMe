@@ -1,53 +1,65 @@
-name: macOS Build
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.3'
-          channel: 'stable'
-          cache: true
-
-      - name: Basic Build
-        run: |
-          # Enable macOS desktop explicitly
-          flutter config --enable-macos-desktop || true
-          flutter precache --macos
-          flutter doctor -v
-          
-          # Build steps
-          flutter pub get
-          flutter clean
-          flutter build macos --debug --no-tree-shake-icons
-          
-          cd build/macos/Build/Products/Debug
-          echo "Directory contents:"
-          ls -la
-          
-          if [ ! -d "Rate Me.app" ]; then
-            echo "App bundle not found! Current directory:"
-            pwd
-            ls -la
-            echo "Parent directory contents:"
-            cd ..
-            ls -la
-            exit 1
-          fi
-          
-          zip -r RateMe-Debug.zip "Rate Me.app"
-          echo "Zip file created:"
-          ls -la RateMe-Debug.zip
-
-      - name: Upload App
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-macOS-Debug
-          path: build/macos/Build/Products/Debug/RateMe-Debug.zip
+---
+  # Workflow for building and releasing macOS DMG
+  name: macOS Build
+  
+  on:
+    workflow_dispatch:  # Esto permite ejecución manual desde la interfaz de GitHub
+    # Ya no se ejecutará automáticamente con push/pull_request
+  
+  env:
+    FLUTTER_VERSION: '3.19.3'
+  
+  jobs:
+    build:
+      name: Build macOS DMG
+      runs-on: macos-13
+      permissions: write-all
+  
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+  
+        - name: Install build tools
+          run: |
+            brew install create-dmg
+            rm -f /usr/local/bin/pod
+            brew install cocoapods
+            brew link --overwrite cocoapods
+  
+        - name: Setup Flutter
+          uses: subosito/flutter-action@v2
+          with:
+            flutter-version: ${{ env.FLUTTER_VERSION }}
+            channel: 'stable'
+            cache: true
+  
+        - name: Fix path version
+          run: |
+            sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
+  
+        - name: Build macOS
+          run: |
+            flutter pub get
+            flutter config --enable-macos-desktop
+            # Generate icons for macOS
+            flutter pub run flutter_launcher_icons:main -f pubspec.yaml
+            flutter build macos --release
+  
+        - name: Create DMG
+          run: |
+            cd build/macos/Build/Products/Release
+            create-dmg \
+              --volname "RateMe" \
+              --window-pos 200 120 \
+              --window-size 800 400 \
+              --icon-size 100 \
+              --app-drop-link 600 185 \
+              --icon "RateMe.app" 200 190 \
+              "RateMe.dmg" \
+              "RateMe.app"
+  
+        - name: Upload Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: RateMe-macOS
+            path: build/macos/Build/Products/Release/RateMe.dmg
