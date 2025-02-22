@@ -37,12 +37,20 @@
           run: |
             sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
   
+        - name: Generate Icons
+          run: |
+            wget -O icon.png "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/icon.png"
+            mkdir -p macos/Runner/Assets.xcassets/AppIcon.appiconset
+            
+            # Generate different sizes
+            for size in 16 32 64 128 256 512 1024; do
+              sips -z $size $size icon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_${size}.png
+            done
+  
         - name: Build macOS
           run: |
             flutter pub get
             flutter config --enable-macos-desktop
-            # Generate icons for macOS
-            flutter pub run flutter_launcher_icons:main -f pubspec.yaml
             flutter build macos --release
   
         - name: Create DMG
@@ -53,10 +61,10 @@
               --window-pos 200 120 \
               --window-size 800 400 \
               --icon-size 100 \
+              --icon "Rate Me.app" 200 190 \
               --app-drop-link 600 185 \
-              --icon "RateMe.app" 200 190 \
               "RateMe.dmg" \
-              "RateMe.app"
+              "Rate Me.app"
   
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
