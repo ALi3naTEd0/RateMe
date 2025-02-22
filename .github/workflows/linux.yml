@@ -114,23 +114,33 @@ jobs:
         run: |
           PKGDIR=rateme_1.0.0-1_amd64
           
+          # Debug: Check library locations
+          echo "Checking for required libraries:"
+          ls -l /usr/lib/x86_64-linux-gnu/libglib*
+          ls -l /usr/lib/x86_64-linux-gnu/libgobject*
+          
           # Create directory structure
           mkdir -p $PKGDIR/DEBIAN
           mkdir -p $PKGDIR/usr/lib/rateme
+          mkdir -p $PKGDIR/usr/lib/x86_64-linux-gnu
           mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
 
-          # Copy application and library files
+          # Copy application files and dependencies
           cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
-          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* $PKGDIR/usr/lib/rateme/
-          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* $PKGDIR/usr/lib/rateme/
+          cp -r /usr/lib/x86_64-linux-gnu/libglib* $PKGDIR/usr/lib/x86_64-linux-gnu/
+          cp -r /usr/lib/x86_64-linux-gnu/libgobject* $PKGDIR/usr/lib/x86_64-linux-gnu/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Create launcher script with updated LD_LIBRARY_PATH
+          # Debug: Check copied files
+          echo "Checking copied libraries:"
+          ls -l $PKGDIR/usr/lib/x86_64-linux-gnu/
+
+          # Create launcher script
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
-          export LD_LIBRARY_PATH=/usr/lib/rateme:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/lib/rateme:$LD_LIBRARY_PATH
           exec /usr/lib/rateme/rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
