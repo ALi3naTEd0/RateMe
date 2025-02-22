@@ -28,19 +28,20 @@
 
         - name: Build and Package
           run: |
-            flutter doctor -v
-            flutter config --enable-macos-desktop
             flutter pub get
             flutter build macos --release --verbose
             
             cd build/macos/Build/Products/Release
-            pwd
+            
+            echo "Directory contents and permissions:"
             ls -la
-            find . -name "*.app"
+            
+            chmod -R +x rateme.app
+            
+            zip -r RateMe-macOS.zip rateme.app
 
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
           with:
             name: RateMe-macOS
-            path: |
-              build/macos/Build/Products/Release/*.app
+            path: build/macos/Build/Products/Release/RateMe-macOS.zip
