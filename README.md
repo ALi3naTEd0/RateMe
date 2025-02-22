@@ -40,9 +40,9 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
 | [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-v1.0.0.exe)    | [DMG](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.dmg)  | [Arch](#arch-install)  | [APK-Universal](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.apk)       | Maybe?       |
-| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-portable.zip)     |  [APP](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-macOS-Universal.zip)            |              | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-arm64-v8a-release.apk)             |              |
-|              |              |              | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-armeabi-v7a-release.apk)      |              |
-|              |              |              | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-x86_64-release.apk)               |              |
+| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-portable.zip)     |  [APP](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-macOS-Universal.zip)            |  [DEB]()            | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-arm64-v8a-release.apk)             |              |
+|              |              |   [RPM]()           | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-armeabi-v7a-release.apk)      |              |
+|              |              |   [AppImage](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.AppImage)           | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-x86_64-release.apk)               |              |
 
 ### Arch Install
 ```
@@ -50,6 +50,19 @@ git clone https://github.com/ALi3naTEd0/RateMe.git
 cd RateMe
 makepkg -si
 ```
+
+### AppImage Install
+1. Download RateMe.AppImage from the latest release
+2. Make it executable:
+```bash
+chmod +x RateMe.AppImage
+```
+3. Run it:
+```bash
+./RateMe.AppImage
+```
+
+No installation needed - the AppImage is portable and will work on most Linux distributions.
 
 <!---
 ### Installation on macOS
