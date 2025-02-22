@@ -3,144 +3,60 @@ name: Linux Build
 on:
   workflow_dispatch:
 
+env:
+  FLUTTER_VERSION: '3.19.3'
+
 jobs:
-  build:
+  build-deb:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
+      
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev
-          sudo apt-get install -y rpm
-          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-          chmod +x appimagetool
-          sudo mv appimagetool /usr/local/bin/
-          
-      - name: Download Icon
-        run: |
-          wget -O icon.png "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/icon.png"
-          mkdir -p assets
-          mv icon.png assets/
+          sudo apt-get install -y dpkg-dev debhelper
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.3'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
-      - name: Build Linux
+      - name: Build App
         run: |
           flutter config --enable-linux-desktop
-          flutter pub get
           flutter build linux --release
 
-      - name: Create DEB Package
+      - name: Create DEB Structure
         run: |
-          mkdir -p debian/DEBIAN
-          mkdir -p debian/usr/bin
-          mkdir -p debian/usr/share/applications
-          mkdir -p debian/usr/share/icons/hicolor/256x256/apps
+          mkdir -p debian/rateme/usr/bin
+          mkdir -p debian/rateme/usr/share/applications
+          mkdir -p debian/rateme/usr/share/icons/hicolor/256x256/apps
           
-          cp -r build/linux/x64/release/bundle/* debian/usr/bin/
-          cp assets/icon.png debian/usr/share/icons/hicolor/256x256/apps/rateme.png
-          
-          cat > debian/DEBIAN/control << EOF
-          Package: rateme
-          Version: 1.0.0
-          Architecture: amd64
-          Maintainer: ALi3naTEd0
-          Description: Rate Me Application
-           A cross-platform rate calculator application.
-          EOF
-          
-          cat > debian/usr/share/applications/rateme.desktop << EOF
+          cp -r build/linux/x64/release/bundle/* debian/rateme/usr/bin/
+          cp assets/app-icon.png debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
+
+      - name: Create Desktop Entry
+        run: |
+          cat > debian/rateme/usr/share/applications/rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
-          Exec=/usr/bin/rate_me
+          Exec=/usr/bin/rateme
           Icon=rateme
           Type=Application
-          Categories=Utility;
+          Categories=Audio;Music;
           EOF
-          
-          chmod 755 debian/usr/bin/rate_me
-          dpkg-deb --build debian
-          mv debian.deb RateMe.deb
 
-      - name: Create RPM Package
+      - name: Build DEB Package
         run: |
-          mkdir -p ~/rpmbuild/{SPECS,BUILD,BUILDROOT,RPMS,SOURCES}
-          
-          cat > ~/rpmbuild/SPECS/rateme.spec << EOF
-          Name: rateme
-          Version: 1.0.0
-          Release: 1
-          Summary: Rate Me Application
-          License: Proprietary
-          BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-          
-          %description
-          A cross-platform rate calculator application.
-          
-          %install
-          mkdir -p %{buildroot}/usr/bin
-          mkdir -p %{buildroot}/usr/share/applications
-          mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
-          cp -r %{_builddir}/* %{buildroot}/usr/bin/
-          cp %{_builddir}/../../../assets/icon.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/rateme.png
-          
-          cat > %{buildroot}/usr/share/applications/rateme.desktop << EOL
-          [Desktop Entry]
-          Name=Rate Me
-          Exec=/usr/bin/rate_me
-          Icon=rateme
-          Type=Application
-          Categories=Utility;
-          EOL
-          
-          %files
-          /usr/bin/*
-          /usr/share/applications/rateme.desktop
-          /usr/share/icons/hicolor/256x256/apps/rateme.png
-          EOF
-          
-          cp -r build/linux/x64/release/bundle/* ~/rpmbuild/BUILD/
-          rpmbuild -bb ~/rpmbuild/SPECS/rateme.spec
-          cp ~/rpmbuild/RPMS/x86_64/rateme-1.0.0-1.x86_64.rpm ./RateMe.rpm
+          cd debian
+          dpkg-deb --build rateme
+          mv rateme.deb ../RateMe.deb
 
-      - name: Create AppImage
-        run: |
-          mkdir -p AppDir/usr/{bin,share/{applications,icons/hicolor/256x256/apps}}
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/
-          cp assets/icon.png AppDir/.DirIcon
-          
-          cat > AppDir/AppRun << EOF
-          #!/bin/sh
-          cd "\$(dirname "\$0")/usr/bin"
-          exec ./rate_me
-          EOF
-          
-          chmod +x AppDir/AppRun
-          
-          cat > AppDir/rateme.desktop << EOF
-          [Desktop Entry]
-          Name=Rate Me
-          Exec=AppRun
-          Icon=icon
-          Type=Application
-          Categories=Utility;
-          EOF
-          
-          ARCH=x86_64 appimagetool AppDir RateMe.AppImage
-
-      - name: Upload Packages
+      - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-Linux-Packages
-          path: |
-            RateMe.deb
-            RateMe.rpm
-            RateMe.AppImage
+          name: RateMe-DEB
+          path: RateMe.deb
