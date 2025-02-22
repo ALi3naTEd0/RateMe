@@ -114,40 +114,41 @@ jobs:
         run: |
           PKGDIR=rateme_1.0.0-1_amd64
           
-          # Debug: List all available libraries
-          echo "Available libraries:"
-          find /usr/lib/x86_64-linux-gnu -name "libglib*" -o -name "libgobject*"
-          
-          # Create directories
+          # Create basic structure
           mkdir -p $PKGDIR/DEBIAN
           mkdir -p $PKGDIR/usr/lib/rateme
           mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
 
-          # Copy application files
+          # Copy application files and libraries
           cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
-          cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
+          
+          # Copy system libraries that Flutter needs
+          mkdir -p $PKGDIR/usr/lib/x86_64-linux-gnu
+          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* $PKGDIR/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* $PKGDIR/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libgio-2.0.so* $PKGDIR/usr/lib/x86_64-linux-gnu/
 
-          # Create launcher script with direct path
+          # Create launcher script with updated library path
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
-          export LD_LIBRARY_PATH=/usr/lib/rateme:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=/usr/lib/rateme:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
           exec /usr/lib/rateme/rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Create control file with fixed dependencies
+          # Set correct permissions
+          chmod -R 755 $PKGDIR/usr/lib/rateme
+          chmod -R 755 $PKGDIR/usr/lib/x86_64-linux-gnu
+
+          # Create control file with simplified dependencies
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libglib2.0-0 (>= 2.72.0),
-            libgtk-3-0 (>= 3.24.0),
-            libsecret-1-0,
-            libc6,
-            libstdc++6
+          Depends: libc6, libstdc++6, libgtk-3-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
