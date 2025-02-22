@@ -51,31 +51,18 @@
           run: |
             flutter pub get
             flutter config --enable-macos-desktop
-            flutter pub run flutter_launcher_icons:main -f pubspec.yaml
             flutter build macos --release
             
-            # Verify app name and contents
             cd build/macos/Build/Products/Release
-            echo "Directory contents:"
-            ls -la
-  
-        - name: Create DMG
-          run: |
-            cd build/macos/Build/Products/Release
-            
-            # Show exact app name
-            APP_NAME=$(ls *.app)
-            echo "Found app: $APP_NAME"
             
             create-dmg \
-              --volname "Rate Me" \
+              --volname "RateMe" \
               --window-pos 200 120 \
               --window-size 800 400 \
               --icon-size 100 \
-              --icon "$APP_NAME" 200 190 \
               --app-drop-link 600 185 \
               "RateMe.dmg" \
-              "$APP_NAME"
+              "RateMe.app"
   
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
