@@ -44,17 +44,21 @@ jobs:
 
       - name: Create AppImage Structure
         run: |
-          mkdir -p AppDir
-          cp -r build/linux/x64/release/bundle/* AppDir/
-          cp assets/app-icon.png AppDir/rateme.png
+          # Verify icon exists
+          echo "Checking for icon..."
+          ls -l assets/
           
-          cat > AppDir/AppRun << 'EOF'
-          #!/bin/sh
-          cd "$(dirname "$0")"
-          exec ./rateme "$@"
-          EOF
-          chmod +x AppDir/AppRun
+          # Create AppDir with standard structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           
+          # Copy files
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rateme.png
+          ln -s usr/share/icons/hicolor/256x256/apps/rateme.png AppDir/.DirIcon
+          
+          # Create desktop entry
           cat > AppDir/rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
@@ -63,6 +67,20 @@ jobs:
           Type=Application
           Categories=Audio;Music;
           EOF
+          
+          # Create AppRun script
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/rateme" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          echo "AppDir contents:"
+          ls -R AppDir/
 
       - name: Get AppImage Tool
         run: |
