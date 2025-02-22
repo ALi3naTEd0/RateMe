@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_install:
+	dh_auto_install
+	mkdir -p debian/rateme/usr/bin
+	mkdir -p debian/rateme/usr/share/applications
+	mkdir -p debian/rateme/usr/share/icons/hicolor/256x256/apps

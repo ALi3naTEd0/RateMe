@@ -15,7 +15,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev debhelper
+          sudo apt-get install -y dpkg-dev debhelper fakeroot
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -35,25 +35,18 @@ jobs:
           mkdir -p debian/rateme/usr/share/applications
           mkdir -p debian/rateme/usr/share/icons/hicolor/256x256/apps
           
+          # Copy files
           cp -r build/linux/x64/release/bundle/* debian/rateme/usr/bin/
           cp assets/app-icon.png debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
-
-      - name: Create Desktop Entry
-        run: |
-          cat > debian/rateme/usr/share/applications/rateme.desktop << EOF
-          [Desktop Entry]
-          Name=Rate Me
-          Exec=/usr/bin/rateme
-          Icon=rateme
-          Type=Application
-          Categories=Audio;Music;
-          EOF
+          
+          # Set permissions
+          chmod +x debian/rules
+          chmod -R 755 debian/rateme/usr/bin/*
 
       - name: Build DEB Package
         run: |
-          cd debian
-          dpkg-deb --build rateme
-          mv rateme.deb ../RateMe.deb
+          dpkg-buildpackage -us -uc -b
+          mv ../rateme_*.deb ./RateMe.deb
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
