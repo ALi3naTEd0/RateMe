@@ -42,34 +42,43 @@ jobs:
           flutter config --enable-linux-desktop
           flutter clean
           flutter pub get
-          flutter build linux --release -v
+          flutter build linux --release --verbose
 
-      - name: Create DEB Structure
+      - name: Debug Build Output
         run: |
+          echo "Build directory contents:"
+          ls -R build/linux/x64/release/bundle/
+          
+          echo "Checking binary:"
+          file build/linux/x64/release/bundle/rateme
+          ldd build/linux/x64/release/bundle/rateme || true
+
+      - name: Create Package Structure
+        run: |
+          PKGROOT=rateme_${{ env.DEB_VERSION }}_amd64
+          
           # Create directory structure
-          mkdir -p debian/rateme/DEBIAN
-          mkdir -p debian/rateme/usr/bin
-          mkdir -p debian/rateme/usr/share/applications
-          mkdir -p debian/rateme/usr/share/icons/hicolor/256x256/apps
+          mkdir -p $PKGROOT/DEBIAN
+          mkdir -p $PKGROOT/usr/bin/rateme
+          mkdir -p $PKGROOT/usr/share/applications
+          mkdir -p $PKGROOT/usr/share/icons/hicolor/256x256/apps
           
-          # Copy build files
-          cp -r build/linux/x64/release/bundle/* debian/rateme/usr/bin/
-          cp assets/app-icon.png debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
-          
-          # Create desktop file
-          cat > debian/rateme/usr/share/applications/rateme.desktop << EOF
+          # Copy application files
+          cp -r build/linux/x64/release/bundle/* $PKGROOT/usr/bin/rateme/
+          cp assets/app-icon.png $PKGROOT/usr/share/icons/hicolor/256x256/apps/rateme.png
+
+          # Create desktop entry
+          cat > $PKGROOT/usr/share/applications/rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
-          Exec=/usr/bin/rateme
+          Exec=/usr/bin/rateme/rateme
           Icon=rateme
           Type=Application
           Categories=Audio;Music;
           EOF
 
-      - name: Build DEB Package
-        run: |
           # Create control file
-          cat > debian/rateme/DEBIAN/control << EOF
+          cat > $PKGROOT/DEBIAN/control << EOF
           Package: rateme
           Version: ${{ env.DEB_VERSION }}
           Section: utils
@@ -77,23 +86,29 @@ jobs:
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
           Description: Rate your music albums
-            A Flutter application for rating and organizing your music collection.
+           A Flutter application for rating and organizing your music collection.
           Homepage: https://github.com/ALi3naTEd0/RateMe
           EOF
 
           # Set permissions
-          chmod -R 755 debian/rateme/usr/bin/*
-          chmod 644 debian/rateme/usr/share/applications/rateme.desktop
-          chmod 644 debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
+          chmod -R 755 $PKGROOT/usr/bin/rateme
+          chmod 644 $PKGROOT/usr/share/applications/rateme.desktop
+          chmod 644 $PKGROOT/usr/share/icons/hicolor/256x256/apps/rateme.png
+          chmod 755 $PKGROOT/DEBIAN/control
+
+          # Show final structure
+          echo "Package structure:"
+          ls -R $PKGROOT/
+
+      - name: Build DEB
+        run: |
+          dpkg-deb --build --root-owner-group rateme_${{ env.DEB_VERSION }}_amd64
           
-          # Build package
-          dpkg-deb --build debian/rateme
-          
-          # Move to artifact location
-          mv debian/rateme.deb RateMe-${{ env.DEB_VERSION }}.deb
+          echo "Generated package info:"
+          dpkg -I rateme_${{ env.DEB_VERSION }}_amd64.deb
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-DEB
-          path: RateMe-${{ env.DEB_VERSION }}.deb
+          path: rateme_${{ env.DEB_VERSION }}_amd64.deb
