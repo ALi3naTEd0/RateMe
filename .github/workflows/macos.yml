@@ -24,12 +24,20 @@
             # Update Homebrew and install dependencies
             brew update
             HOMEBREW_NO_AUTO_UPDATE=1 brew install create-dmg
+  
+        - name: Setup Ruby and CocoaPods
+          run: |
+            # Use system Ruby and update gems
+            sudo gem update --system
+            sudo gem install --no-document cocoapods
             
-            # Remove and reinstall cocoapods avoiding conflicts
-            brew uninstall --ignore-dependencies cocoapods || true
-            brew cleanup
-            gem uninstall -aIx cocoapods || true
-            gem install cocoapods -v 1.13.0
+            # Clean any existing pods
+            rm -rf ~/Library/Developer/Xcode/DerivedData/*
+            rm -rf ~/Library/Caches/CocoaPods/*
+            rm -rf Pods
+            rm -f Podfile.lock
+            
+            # Setup pods
             pod setup
   
         - name: Setup Flutter
