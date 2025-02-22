@@ -51,6 +51,7 @@ cd RateMe
 makepkg -si
 ```
 
+<!---
 ### Installation on macOS
 
 1. Download the RateMe-Universal.zip file from the latest release
@@ -69,6 +70,7 @@ Troubleshooting: If you get a "App is damaged" or "not supported" message:
 xattr -cr "/Applications/rateme.app"
 codesign --force --deep --sign - "/Applications/rateme.app"
 ```
+--->
 
 ## Features
 
