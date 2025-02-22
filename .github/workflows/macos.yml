@@ -16,6 +16,15 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Download Icon
+        run: |
+          wget -O AppIcon.png "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/icon.png"
+          mkdir -p macos/Runner/Assets.xcassets/AppIcon.appiconset/
+          sips -z 1024 1024 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png
+          sips -z 128 128 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png
+          sips -z 256 256 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
+          sips -z 512 512 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png
+
       - name: Build App Bundle
         run: |
           flutter config --enable-macos-desktop
