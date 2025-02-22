@@ -26,8 +26,20 @@
             channel: 'stable'
             cache: true
 
+        - name: Install create-dmg
+          run: |
+            brew install create-dmg
+
         - name: Build and Package
           run: |
+            # Check Flutter configuration
+            flutter doctor -v
+            
+            # Enable macOS desktop and verify
+            flutter config --enable-macos-desktop
+            flutter config
+            
+            # Build process
             flutter pub get
             flutter build macos --release --verbose
             
@@ -38,10 +50,19 @@
             
             chmod -R +x rateme.app
             
-            zip -r RateMe-macOS.zip rateme.app
+            create-dmg \
+              --volname "Rate Me" \
+              --window-pos 200 120 \
+              --window-size 800 400 \
+              --icon-size 100 \
+              --icon "rateme.app" 200 190 \
+              --hide-extension "rateme.app" \
+              --app-drop-link 600 185 \
+              "RateMe.dmg" \
+              "rateme.app"
 
         - name: Upload Artifact
           uses: actions/upload-artifact@v4
           with:
             name: RateMe-macOS
-            path: build/macos/Build/Products/Release/RateMe-macOS.zip
+            path: build/macos/Build/Products/Release/RateMe.dmg
