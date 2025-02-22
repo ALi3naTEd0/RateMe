@@ -32,37 +32,37 @@
 
         - name: Build and Package
           run: |
-            # Check Flutter configuration
+            # Show environment info
             flutter doctor -v
+            which flutter
+            flutter --version
             
-            # Enable macOS desktop and verify
-            flutter config --enable-macos-desktop
-            flutter config
+            # Debug build first to check for issues
+            flutter build macos --debug --verbose
             
-            # Build process
-            flutter pub get
-            flutter build macos --release --verbose
+            # If debug succeeds, try release
+            flutter build macos --release --verbose --no-tree-shake-icons
             
             cd build/macos/Build/Products/Release
-            
-            echo "Directory contents and permissions:"
+            echo "Build directory contents:"
             ls -la
             
-            chmod -R +x rateme.app
-            
-            create-dmg \
-              --volname "Rate Me" \
-              --window-pos 200 120 \
-              --window-size 800 400 \
-              --icon-size 100 \
-              --icon "rateme.app" 200 190 \
-              --hide-extension "rateme.app" \
-              --app-drop-link 600 185 \
-              "RateMe.dmg" \
-              "rateme.app"
+            # Print Xcode build logs
+            if [ -f "../../LastBuild.xcactivitylog" ]; then
+              echo "Xcode build log:"
+              cat "../../LastBuild.xcactivitylog"
+            fi
 
-        - name: Upload Artifact
+        - name: Upload Debug Build
+          if: failure()
+          uses: actions/upload-artifact@v4
+          with:
+            name: debug-build-logs
+            path: build/macos/Build/
+
+        - name: Upload Release Build
+          if: success()
           uses: actions/upload-artifact@v4
           with:
             name: RateMe-macOS
-            path: build/macos/Build/Products/Release/RateMe.dmg
+            path: build/macos/Build/Products/Release/rateme.app
