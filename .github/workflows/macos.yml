@@ -18,20 +18,26 @@ jobs:
 
       - name: Basic Build
         run: |
-          flutter config --enable-macos-desktop
-          flutter clean
-          flutter pub get
-          flutter build macos --debug
+          # Enable macOS desktop explicitly
+          flutter config --enable-macos-desktop || true
+          flutter precache --macos
+          flutter doctor -v
           
-          # Verify build directory and contents
+          # Build steps
+          flutter pub get
+          flutter clean
+          flutter build macos --debug --no-tree-shake-icons
+          
           cd build/macos/Build/Products/Debug
           echo "Directory contents:"
           ls -la
           
           if [ ! -d "Rate Me.app" ]; then
-            echo "App bundle not found! Contents of parent directories:"
-            cd ../../..
+            echo "App bundle not found! Current directory:"
             pwd
+            ls -la
+            echo "Parent directory contents:"
+            cd ..
             ls -la
             exit 1
           fi
