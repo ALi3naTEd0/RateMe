@@ -75,3 +75,89 @@ jobs:
         with:
           name: RateMe-AppImage
           path: RateMe.AppImage
+
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang \
+            pkg-config \
+            libgtk-3-dev \
+            libsecret-1-dev \
+            dpkg-dev \
+            debhelper \
+            libglib2.0-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Build App
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+          flutter build linux --release
+
+      - name: Create DEB Structure
+        run: |
+          PKGDIR=rateme_1.0.0-1_amd64
+          
+          # Create directory structure
+          mkdir -p $PKGDIR/DEBIAN
+          mkdir -p $PKGDIR/usr/lib/rateme
+          mkdir -p $PKGDIR/usr/bin
+          mkdir -p $PKGDIR/usr/share/applications
+          mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
+
+          # Copy application files
+          cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
+          cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
+
+          # Create launcher script
+          cat > $PKGDIR/usr/bin/rateme << 'EOF'
+          #!/bin/sh
+          exec /usr/lib/rateme/rateme "$@"
+          EOF
+          chmod +x $PKGDIR/usr/bin/rateme
+
+          # Create control file
+          cat > $PKGDIR/DEBIAN/control << EOF
+          Package: rateme
+          Version: 1.0.0-1
+          Architecture: amd64
+          Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
+          Depends: libgtk-3-0 (>= 3.24.0), libsecret-1-0, libc6, libstdc++6, libglib2.0-0
+          Section: utils
+          Priority: optional
+          Description: Rate your music albums
+           A Flutter application for rating and organizing your music collection.
+          EOF
+
+          # Create desktop entry
+          cat > $PKGDIR/usr/share/applications/rateme.desktop << EOF
+          [Desktop Entry]
+          Name=Rate Me
+          Exec=/usr/bin/rateme
+          Icon=rateme
+          Type=Application
+          Categories=Audio;Music;
+          EOF
+
+      - name: Build DEB
+        run: dpkg-deb --build rateme_1.0.0-1_amd64
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-DEB
+          path: rateme_1.0.0-1_amd64.deb
