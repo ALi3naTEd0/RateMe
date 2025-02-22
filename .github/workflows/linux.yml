@@ -5,6 +5,7 @@ on:
 
 env:
   FLUTTER_VERSION: '3.19.3'
+  DEB_VERSION: '1.0.0-1'
 
 jobs:
   build-deb:
@@ -70,7 +71,7 @@ jobs:
           # Create control file
           cat > debian/rateme/DEBIAN/control << EOF
           Package: rateme
-          Version: 1.0.0-1
+          Version: ${{ env.DEB_VERSION }}
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -86,13 +87,13 @@ jobs:
           chmod 644 debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
           
           # Build package
-          dpkg-deb --build debian/rateme .
+          dpkg-deb --build debian/rateme
           
-          # Rename package
-          mv rateme.deb RateMe.deb
+          # Move to artifact location
+          mv debian/rateme.deb RateMe-${{ env.DEB_VERSION }}.deb
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-DEB
-          path: RateMe.deb
+          path: RateMe-${{ env.DEB_VERSION }}.deb
