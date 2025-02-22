@@ -12,33 +12,12 @@
   jobs:
     build:
       name: Build macOS DMG
-      runs-on: macos-13
+      runs-on: macos-latest
       permissions: write-all
   
       steps:
         - name: Checkout repository
           uses: actions/checkout@v4
-  
-        - name: Install build tools
-          run: |
-            # Update Homebrew and install dependencies
-            brew update
-            HOMEBREW_NO_AUTO_UPDATE=1 brew install create-dmg
-  
-        - name: Setup Ruby and CocoaPods
-          run: |
-            # Use system Ruby and update gems
-            sudo gem update --system
-            sudo gem install --no-document cocoapods
-            
-            # Clean any existing pods
-            rm -rf ~/Library/Developer/Xcode/DerivedData/*
-            rm -rf ~/Library/Caches/CocoaPods/*
-            rm -rf Pods
-            rm -f Podfile.lock
-            
-            # Setup pods
-            pod setup
   
         - name: Setup Flutter
           uses: subosito/flutter-action@v2
@@ -47,16 +26,9 @@
             channel: 'stable'
             cache: true
   
-        - name: Fix path version
+        - name: Build and Package
           run: |
-            sed -i.bak 's/path: \^1.9.1/path: 1.9.0/' pubspec.yaml
-  
-        - name: Generate App Icons
-          run: |
-            mkdir -p macos/Runner/Assets.xcassets/AppIcon.appiconset
-  
-        - name: Build macOS
-          run: |
+            # Build app
             flutter config --enable-macos-desktop
             flutter clean
             flutter pub get
@@ -64,18 +36,23 @@
             
             cd build/macos/Build/Products/Release
             
-            # Check Flutter resources
-            echo "Checking app bundle contents:"
-            ls -la "rateme.app/Contents/Frameworks/App.framework/Resources/flutter_assets"
+            # Debug Flutter resources
+            echo "App bundle structure:"
+            ls -R rateme.app
             
-            # Create DMG
+            echo "Flutter assets:"
+            ls -la rateme.app/Contents/Frameworks/App.framework/Resources/flutter_assets || true
+            
+            echo "Frameworks:"
+            ls -la rateme.app/Contents/Frameworks || true
+            
+            # Create basic DMG
             create-dmg \
               --volname "Rate Me" \
               --window-pos 200 120 \
               --window-size 800 400 \
               --icon-size 100 \
               --app-drop-link 600 185 \
-              --no-internet-enable \
               "RateMe.dmg" \
               "rateme.app"
 
