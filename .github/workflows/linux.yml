@@ -26,7 +26,8 @@ jobs:
             libgtk-3-dev \
             liblzma-dev \
             libstdc++-12-dev \
-            libblkid-dev
+            libblkid-dev \
+            libsecret-1-dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -38,26 +39,57 @@ jobs:
       - name: Build App
         run: |
           flutter config --enable-linux-desktop
-          flutter build linux --release
+          flutter clean
+          flutter pub get
+          flutter build linux --release -v
 
       - name: Create DEB Structure
         run: |
+          # Create directory structure
+          mkdir -p debian/rateme/DEBIAN
           mkdir -p debian/rateme/usr/bin
           mkdir -p debian/rateme/usr/share/applications
           mkdir -p debian/rateme/usr/share/icons/hicolor/256x256/apps
           
-          # Copy files
+          # Copy build files
           cp -r build/linux/x64/release/bundle/* debian/rateme/usr/bin/
           cp assets/app-icon.png debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
           
-          # Set permissions
-          chmod +x debian/rules
-          chmod -R 755 debian/rateme/usr/bin/*
+          # Create desktop file
+          cat > debian/rateme/usr/share/applications/rateme.desktop << EOF
+          [Desktop Entry]
+          Name=Rate Me
+          Exec=/usr/bin/rateme
+          Icon=rateme
+          Type=Application
+          Categories=Audio;Music;
+          EOF
 
       - name: Build DEB Package
         run: |
-          dpkg-buildpackage -us -uc -b
-          mv ../rateme_*.deb ./RateMe.deb
+          # Create control file
+          cat > debian/rateme/DEBIAN/control << EOF
+          Package: rateme
+          Version: 1.0.0-1
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
+          Description: Rate your music albums
+            A Flutter application for rating and organizing your music collection.
+          Homepage: https://github.com/ALi3naTEd0/RateMe
+          EOF
+
+          # Set permissions
+          chmod -R 755 debian/rateme/usr/bin/*
+          chmod 644 debian/rateme/usr/share/applications/rateme.desktop
+          chmod 644 debian/rateme/usr/share/icons/hicolor/256x256/apps/rateme.png
+          
+          # Build package
+          dpkg-deb --build debian/rateme .
+          
+          # Rename package
+          mv rateme.deb RateMe.deb
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
