@@ -16,44 +16,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generate App Icons
+      - name: Basic Build
         run: |
-          wget -O AppIcon.png "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/icon.png"
-          
-          # Create icon directory
-          mkdir -p macos/Runner/Assets.xcassets/AppIcon.appiconset
-          
-          # Generate all required sizes
-          sips -z 16 16 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png
-          sips -z 32 32 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png
-          sips -z 64 64 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png
-          sips -z 128 128 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png
-          sips -z 256 256 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
-          sips -z 512 512 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png
-          sips -z 1024 1024 AppIcon.png --out macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png
-          
-          # Verify icons were created
-          ls -la macos/Runner/Assets.xcassets/AppIcon.appiconset/
-
-      - name: Build App Bundle
-        run: |
-          flutter config --enable-macos-desktop
-          flutter clean
           flutter pub get
-          flutter build macos --release
+          flutter build macos --debug --no-tree-shake-icons
           
-          cd build/macos/Build/Products/Release
-          echo "Contents of Release directory:"
-          ls -la
-          
-          # Create zip with verbose output
-          ditto -v -c -k --sequesterRsrc --keepParent "Rate Me.app" "RateMe-Universal.zip"
-          
-          echo "Created zip file:"
-          ls -la RateMe-Universal.zip
+          cd build/macos/Build/Products/Debug
+          zip -r RateMe-Debug.zip "Rate Me.app"
 
       - name: Upload App
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-macOS-Universal
-          path: build/macos/Build/Products/Release/RateMe-Universal.zip
+          name: RateMe-macOS-Debug
+          path: build/macos/Build/Products/Debug/RateMe-Debug.zip
