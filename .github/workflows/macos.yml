@@ -26,43 +26,31 @@
             channel: 'stable'
             cache: true
 
-        - name: Install create-dmg
-          run: |
-            brew install create-dmg
-
         - name: Build and Package
           run: |
-            # Show environment info
+            # Configure Flutter
+            flutter config --enable-macos-desktop
             flutter doctor -v
-            which flutter
-            flutter --version
             
-            # Debug build first to check for issues
-            flutter build macos --debug --verbose
+            # Clear build and get dependencies
+            flutter clean
+            flutter pub get
             
-            # If debug succeeds, try release
-            flutter build macos --release --verbose --no-tree-shake-icons
+            # Build debug first
+            cd macos
+            pod install
+            cd ..
             
-            cd build/macos/Build/Products/Release
-            echo "Build directory contents:"
+            flutter build macos --debug
+            
+            # Show debug build results
+            cd build/macos/Build/Products/Debug
             ls -la
-            
-            # Print Xcode build logs
-            if [ -f "../../LastBuild.xcactivitylog" ]; then
-              echo "Xcode build log:"
-              cat "../../LastBuild.xcactivitylog"
-            fi
+            echo "Debug build contents:"
+            find . -type f
 
-        - name: Upload Debug Build
-          if: failure()
+        - name: Upload Build
           uses: actions/upload-artifact@v4
           with:
-            name: debug-build-logs
-            path: build/macos/Build/
-
-        - name: Upload Release Build
-          if: success()
-          uses: actions/upload-artifact@v4
-          with:
-            name: RateMe-macOS
-            path: build/macos/Build/Products/Release/rateme.app
+            name: RateMe-macOS-Debug
+            path: build/macos/Build/Products/Debug/rateme.app
