@@ -58,7 +58,9 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 4. First time running:
    - Right-click (or Control+click) on RateMe in Applications
    - Select "Open" from the menu
-   - Click "Open" on the security dialog
+   - If blocked, go to System Settings -> Privacy & Security
+   - Scroll down and click "Open Anyway" next to RateMe
+   - Click "Open" on the final security dialog
 
 Note: If you see "app is damaged" message, open Terminal and run:
 ```bash
