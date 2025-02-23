@@ -116,39 +116,30 @@ jobs:
           
           # Create basic structure
           mkdir -p $PKGDIR/DEBIAN
-          mkdir -p $PKGDIR/usr/lib/rateme
           mkdir -p $PKGDIR/usr/bin
+          mkdir -p $PKGDIR/opt/rateme
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
 
-          # Copy application files and libraries
-          cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
-          
-          # Copy system libraries that Flutter needs
-          mkdir -p $PKGDIR/usr/lib/x86_64-linux-gnu
-          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* $PKGDIR/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* $PKGDIR/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libgio-2.0.so* $PKGDIR/usr/lib/x86_64-linux-gnu/
+          # Copy application files
+          cp -r build/linux/x64/release/bundle/* $PKGDIR/opt/rateme/
+          cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Create launcher script with updated library path
+          # Create launcher script
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
-          export LD_LIBRARY_PATH=/usr/lib/rateme:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-          exec /usr/lib/rateme/rateme "$@"
+          cd /opt/rateme
+          exec ./rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Set correct permissions
-          chmod -R 755 $PKGDIR/usr/lib/rateme
-          chmod -R 755 $PKGDIR/usr/lib/x86_64-linux-gnu
-
-          # Create control file with simplified dependencies
+          # Create control file
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libc6, libstdc++6, libgtk-3-0
+          Depends: libgtk-3-0, libsecret-1-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
