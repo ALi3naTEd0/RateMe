@@ -56,6 +56,7 @@ chmod +x RateMe_1.0.0-1.AppImage
 ```bash
 ./RateMe_1.0.0-1.AppImage
 ```
+No installation needed - the AppImage is portable and works on most Linux distributions.
 
 #### DEB Package (Ubuntu/Debian)
 ```bash
@@ -73,49 +74,6 @@ git clone https://github.com/ALi3naTEd0/RateMe.git
 cd RateMe
 makepkg -si
 ```
-
-No installation needed for AppImage - it's portable and works on most Linux distributions.
-
-### Arch Install
-```
-git clone https://github.com/ALi3naTEd0/RateMe.git
-cd RateMe
-makepkg -si
-```
-
-### AppImage Install
-1. Download RateMe.AppImage from the latest release
-2. Make it executable:
-```bash
-chmod +x RateMe.AppImage
-```
-3. Run it:
-```bash
-./RateMe.AppImage
-```
-
-No installation needed - the AppImage is portable and will work on most Linux distributions.
-
-<!---
-### Installation on macOS
-
-1. Download the RateMe-Universal.zip file from the latest release
-2. Double-click the zip file to extract it
-3. Drag and drop "rateme.app" to your Applications folder
-4. The first time you run the app:
-   - Right-click (or Control-click) on the app
-   - Select "Open" from the menu
-   - Click "Open" in the security dialog
-
-Note: This is a universal build that works on both Intel and Apple Silicon Macs running macOS 10.14 or later.
-
-Troubleshooting: If you get a "App is damaged" or "not supported" message:
-```bash
-# Open Terminal and run:
-xattr -cr "/Applications/rateme.app"
-codesign --force --deep --sign - "/Applications/rateme.app"
-```
---->
 
 ## Features
 
