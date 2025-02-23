@@ -44,6 +44,28 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 |              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-armeabi-v7a-release.apk)      |              |
 |              |              |   [AppImage](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe_1.0.0-1.AppImage)           | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-x86_64-release.apk)               |              |
 
+## Installation
+
+### Windows
+1. Installer: Run `RateMe-v1.0.0.exe` and follow the installation wizard
+   - Or -
+2. Portable: Extract `RateMe-portable.zip` and run `RateMe.exe`
+
+### macOS
+1. Download `RateMe.dmg`
+2. Open the DMG file
+3. Drag RateMe to your Applications folder
+4. First time running:
+   - Right-click (or Control+click) on RateMe in Applications
+   - Select "Open" from the menu
+   - Click "Open" on the security dialog
+
+Note: If you see "app is damaged" message, open Terminal and run:
+```bash
+xattr -cr /Applications/RateMe.app
+```
+Then try opening the app again. This removes macOS security quarantine.
+
 ### Linux Installation
 
 #### AppImage
