@@ -114,32 +114,36 @@ jobs:
         run: |
           PKGDIR=rateme_1.0.0-1_amd64
           
-          # Create basic structure
+          # Create structure
           mkdir -p $PKGDIR/DEBIAN
-          mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/opt/rateme
+          mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
-
-          # Copy application files
+          
+          # Copy application and libraries
           cp -r build/linux/x64/release/bundle/* $PKGDIR/opt/rateme/
+          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* $PKGDIR/opt/rateme/lib/
+          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* $PKGDIR/opt/rateme/lib/
+          cp -L /usr/lib/x86_64-linux-gnu/libgio-2.0.so* $PKGDIR/opt/rateme/lib/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Create launcher script
+          # Create launcher with library path
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
           cd /opt/rateme
+          export LD_LIBRARY_PATH=/opt/rateme/lib:$LD_LIBRARY_PATH
           exec ./rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Create control file
+          # Create control file with minimal dependencies
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libgtk-3-0, libsecret-1-0
+          Depends: libgtk-3-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
