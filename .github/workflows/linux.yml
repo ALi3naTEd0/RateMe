@@ -77,8 +77,7 @@ jobs:
           path: RateMe.AppImage
 
   build-deb:
-    # Cambiar a Ubuntu 22.04 para mayor compatibilidad
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
@@ -94,9 +93,8 @@ jobs:
             libsecret-1-dev \
             dpkg-dev \
             debhelper \
-            libglib2.0-dev \
-            libglib2.0-0 \
-            libgobject-2.0-0
+            libstdc++6 \
+            liblzma5
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -117,7 +115,7 @@ jobs:
           
           # Create structure
           mkdir -p $PKGDIR/DEBIAN
-          mkdir -p $PKGDIR/opt/rateme/lib
+          mkdir -p $PKGDIR/opt/rateme
           mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
@@ -126,21 +124,24 @@ jobs:
           cp -r build/linux/x64/release/bundle/* $PKGDIR/opt/rateme/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Create launcher script
+          # Create launcher script with proper permissions
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
           cd /opt/rateme
           exec ./rateme "$@"
           EOF
-          chmod +x $PKGDIR/usr/bin/rateme
+          chmod 755 $PKGDIR/usr/bin/rateme
 
-          # Create control file with updated dependencies
+          # Set correct permissions for opt directory
+          chmod 755 -R $PKGDIR/opt/rateme
+
+          # Create control file with all required dependencies
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libgtk-3-0, libglib2.0-0
+          Depends: libgtk-3-0, libstdc++6, liblzma5, libsecret-1-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
@@ -156,6 +157,7 @@ jobs:
           Type=Application
           Categories=Audio;Music;
           EOF
+          chmod 644 $PKGDIR/usr/share/applications/rateme.desktop
 
       - name: Build DEB
         run: dpkg-deb --build rateme_1.0.0-1_amd64
