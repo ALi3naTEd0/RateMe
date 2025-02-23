@@ -80,7 +80,7 @@ makepkg -si
 - 🎵 **Album Search**: Search iTunes or paste Bandcamp URLs to find albums
 - ⭐ **Rating System**: Rate individual tracks from 0 to 10
 - 📊 **Statistics**: View average ratings and album statistics
-- 📱 **Multi-platform Support**: Works on Android, iOS, macOS, Windows and Linux
+- 📱 **Multi-platform Support**: Works on Android, Windows, Linux and macOS
 - 🎨 **Dark/Light Theme**: Toggle between light and dark modes
 - 📁 **Custom Lists**: Create and manage custom album collections
 - 📷 **Share Images**: Generate and share album ratings as images
