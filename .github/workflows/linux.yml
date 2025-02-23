@@ -137,3 +137,21 @@ jobs:
         with:
           name: RateMe-DEB
           path: rateme_1.0.0-1_amd64.deb
+
+      # RPM build
+      - name: Build RPM Package
+        run: |
+          # Install alien for DEB to RPM conversion
+          sudo apt-get install -y alien rpm
+
+          # Convert DEB to RPM
+          sudo alien --scripts --to-rpm rateme_1.0.0-1_amd64.deb
+
+          # Fix RPM name if needed
+          mv rateme-*.rpm RateMe-1.0.0-1.x86_64.rpm
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-RPM
+          path: RateMe-1.0.0-1.x86_64.rpm
