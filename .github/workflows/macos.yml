@@ -26,22 +26,17 @@
 
         - name: Setup Build
           run: |
-            # Download app icon
-            mkdir -p assets
-            curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
-            
-            # Install ImageMagick
-            brew install imagemagick
-            
-            # Generate app icons
+            # No need to download icon, use existing one
             cd macos/Runner/Assets.xcassets/AppIcon.appiconset
-            convert ../../../../assets/app-icon.png -resize 16x16 app_icon_16.png
-            convert ../../../../assets/app-icon.png -resize 32x32 app_icon_32.png
-            convert ../../../../assets/app-icon.png -resize 64x64 app_icon_64.png
-            convert ../../../../assets/app-icon.png -resize 128x128 app_icon_128.png
-            convert ../../../../assets/app-icon.png -resize 256x256 app_icon_256.png
-            convert ../../../../assets/app-icon.png -resize 512x512 app_icon_512.png
-            convert ../../../../assets/app-icon.png -resize 1024x1024 app_icon_1024.png
+            
+            # Generate app icons from existing icon
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 16x16 app_icon_16.png
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 32x32 app_icon_32.png
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 64x64 app_icon_64.png
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 128x128 app_icon_128.png
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 256x256 app_icon_256.png
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 512x512 app_icon_512.png
+            convert ../../../Assets.xcassets/AppIcon.appiconset/app_icon_1024.png -resize 1024x1024 app_icon_1024.png
             cd ../../../../
 
             flutter config --enable-macos-desktop
