@@ -72,9 +72,13 @@
             DMG_DIR="$HOME/$APP_NAME-dmg"
             DMG_NAME="$APP_NAME.dmg"
 
-            # Create DMG structure
+            # Create DMG structure with Applications symlink
             mkdir -p "$DMG_DIR"
             cp -r "$APP_DIR" "$DMG_DIR/"
+            ln -s /Applications "$DMG_DIR/Applications"
+
+            # Set custom folder background color and layout (optional)
+            SetFile -a V "$DMG_DIR"
 
             # Create unsigned DMG
             hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_DIR" -ov -format UDZO "$HOME/$DMG_NAME"
