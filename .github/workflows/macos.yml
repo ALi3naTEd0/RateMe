@@ -10,79 +10,51 @@
     FLUTTER_VERSION: '3.19.3'
   
   jobs:
-    build-macos:
+    build-dmg:
       runs-on: macos-latest
   
       steps:
-        - name: Checkout repository
+        - name: Checkout Code
           uses: actions/checkout@v4
 
-        - name: Create Self-Signed Certificate
-          run: |
-            # Create keychain with absolute path
-            KEYCHAIN_PATH="$HOME/Library/Keychains/build.keychain-db"
-            
-            # Create and configure keychain
-            security create-keychain -p github_actions "$KEYCHAIN_PATH"
-            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
-            security default-keychain -s "$KEYCHAIN_PATH"
-            security unlock-keychain -p github_actions "$KEYCHAIN_PATH"
-            
-            # Generate certificate
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-              -keyout /tmp/RateMe.key -out /tmp/RateMe.crt \
-              -subj "/CN=RateMe Developer"
-            
-            # Convert to p12
-            openssl pkcs12 -export \
-              -in /tmp/RateMe.crt \
-              -inkey /tmp/RateMe.key \
-              -out /tmp/RateMe.p12 \
-              -name "RateMe Developer" \
-              -passout pass:github_actions
-            
-            # Configure keychain and import certificate
-            security set-keychain-settings -t 3600 "$KEYCHAIN_PATH"
-            security import /tmp/RateMe.p12 -k "$KEYCHAIN_PATH" -P github_actions -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k github_actions "$KEYCHAIN_PATH"
-
-        - name: Setup Flutter
+        - name: Install Flutter
           uses: subosito/flutter-action@v2
           with:
             flutter-version: ${{ env.FLUTTER_VERSION }}
             channel: 'stable'
             cache: true
 
-        - name: Build macOS App
+        - name: Setup Build
           run: |
             flutter config --enable-macos-desktop
             flutter pub get
             
-            # Fix bundle identifier
+            # Fix bundle identifier and add required keys
             sed -i '' 's/com.example.rateme/com.alienated.rateme/g' macos/Runner.xcodeproj/project.pbxproj
             
-            flutter build macos --release
+            # Ensure Info.plist has required keys
+            plutil -replace NSHighResolutionCapable -bool true macos/Runner/Info.plist
+            plutil -replace NSSupportsAutomaticGraphicsSwitching -bool true macos/Runner/Info.plist
+
+        - name: Build macOS App
+          run: flutter build macos --release
 
         - name: Create DMG
           run: |
-            brew install create-dmg
-            
-            # Prepare distribution folder
-            mkdir -p dist
-            cp -r build/macos/Build/Products/Release/RateMe.app dist/
-            
-            # Create DMG installer
-            create-dmg \
-              --volname "RateMe" \
-              --window-pos 200 120 \
-              --window-size 800 450 \
-              --icon-size 100 \
-              --app-drop-link 600 185 \
-              "RateMe.dmg" \
-              "dist/"
+            APP_NAME="RateMe"
+            APP_DIR="build/macos/Build/Products/Release/$APP_NAME.app"
+            DMG_DIR="$HOME/$APP_NAME-dmg"
+            DMG_NAME="$APP_NAME.dmg"
+
+            # Create DMG structure
+            mkdir -p "$DMG_DIR"
+            cp -r "$APP_DIR" "$DMG_DIR/"
+
+            # Create unsigned DMG
+            hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_DIR" -ov -format UDZO "$HOME/$DMG_NAME"
 
         - name: Upload DMG
           uses: actions/upload-artifact@v4
           with:
             name: RateMe-DMG
-            path: RateMe.dmg
+            path: ~/RateMe.dmg
