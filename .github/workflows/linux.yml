@@ -77,7 +77,8 @@ jobs:
           path: RateMe.AppImage
 
   build-deb:
-    runs-on: ubuntu-latest
+    # Cambiar a Ubuntu 22.04 para mayor compatibilidad
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       
@@ -116,34 +117,30 @@ jobs:
           
           # Create structure
           mkdir -p $PKGDIR/DEBIAN
-          mkdir -p $PKGDIR/opt/rateme
+          mkdir -p $PKGDIR/opt/rateme/lib
           mkdir -p $PKGDIR/usr/bin
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
           
-          # Copy application and libraries
+          # Copy application files
           cp -r build/linux/x64/release/bundle/* $PKGDIR/opt/rateme/
-          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* $PKGDIR/opt/rateme/lib/
-          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* $PKGDIR/opt/rateme/lib/
-          cp -L /usr/lib/x86_64-linux-gnu/libgio-2.0.so* $PKGDIR/opt/rateme/lib/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
 
-          # Create launcher with library path
+          # Create launcher script
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
           cd /opt/rateme
-          export LD_LIBRARY_PATH=/opt/rateme/lib:$LD_LIBRARY_PATH
           exec ./rateme "$@"
           EOF
           chmod +x $PKGDIR/usr/bin/rateme
 
-          # Create control file with minimal dependencies
+          # Create control file with updated dependencies
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libgtk-3-0
+          Depends: libgtk-3-0, libglib2.0-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
