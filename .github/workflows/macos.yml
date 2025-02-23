@@ -26,6 +26,20 @@
 
         - name: Setup Build
           run: |
+            # Install ImageMagick
+            brew install imagemagick
+            
+            # Generate app icons from base icon
+            cd macos/Runner/Assets.xcassets/AppIcon.appiconset
+            convert ../../../../assets/app-icon.png -resize 16x16 app_icon_16.png
+            convert ../../../../assets/app-icon.png -resize 32x32 app_icon_32.png
+            convert ../../../../assets/app-icon.png -resize 64x64 app_icon_64.png
+            convert ../../../../assets/app-icon.png -resize 128x128 app_icon_128.png
+            convert ../../../../assets/app-icon.png -resize 256x256 app_icon_256.png
+            convert ../../../../assets/app-icon.png -resize 512x512 app_icon_512.png
+            convert ../../../../assets/app-icon.png -resize 1024x1024 app_icon_1024.png
+            cd ../../../../
+
             flutter config --enable-macos-desktop
             flutter pub get
             
@@ -37,7 +51,15 @@
             plutil -replace NSSupportsAutomaticGraphicsSwitching -bool true macos/Runner/Info.plist
 
         - name: Build macOS App
-          run: flutter build macos --release
+          run: |
+            flutter config --enable-macos-desktop
+            flutter pub get
+            
+            # Disable Metal for better VM compatibility
+            defaults write com.alienated.rateme GSSupportsMetal -bool NO
+            defaults write com.alienated.rateme GSUseOpenGL -bool YES
+            
+            flutter build macos --release
 
         - name: Create DMG
           run: |
