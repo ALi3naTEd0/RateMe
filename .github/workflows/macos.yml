@@ -26,10 +26,14 @@
 
         - name: Setup Build
           run: |
+            # Download app icon
+            mkdir -p assets
+            curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
+            
             # Install ImageMagick
             brew install imagemagick
             
-            # Generate app icons from base icon
+            # Generate app icons
             cd macos/Runner/Assets.xcassets/AppIcon.appiconset
             convert ../../../../assets/app-icon.png -resize 16x16 app_icon_16.png
             convert ../../../../assets/app-icon.png -resize 32x32 app_icon_32.png
