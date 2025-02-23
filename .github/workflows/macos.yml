@@ -19,12 +19,14 @@
 
         - name: Create Self-Signed Certificate
           run: |
+            # Create keychain with absolute path
+            KEYCHAIN_PATH="$HOME/Library/Keychains/build.keychain-db"
+            
             # Create and configure keychain
-            KEYCHAIN="build.keychain"
-            security create-keychain -p github_actions "$KEYCHAIN"
-            security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-            security default-keychain -s "$KEYCHAIN"
-            security unlock-keychain -p github_actions "$KEYCHAIN"
+            security create-keychain -p github_actions "$KEYCHAIN_PATH"
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+            security default-keychain -s "$KEYCHAIN_PATH"
+            security unlock-keychain -p github_actions "$KEYCHAIN_PATH"
             
             # Generate certificate
             openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -40,9 +42,9 @@
               -passout pass:github_actions
             
             # Configure keychain and import certificate
-            security set-keychain-settings -t 3600 "$KEYCHAIN"
-            security import /tmp/RateMe.p12 -k "$KEYCHAIN" -P github_actions -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k github_actions "$KEYCHAIN"
+            security set-keychain-settings -t 3600 "$KEYCHAIN_PATH"
+            security import /tmp/RateMe.p12 -k "$KEYCHAIN_PATH" -P github_actions -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k github_actions "$KEYCHAIN_PATH"
 
         - name: Setup Flutter
           uses: subosito/flutter-action@v2
