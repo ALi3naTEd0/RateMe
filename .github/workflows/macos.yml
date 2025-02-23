@@ -3,21 +3,36 @@
   name: macOS Build
   
   on:
-    workflow_dispatch:  # Esto permite ejecución manual desde la interfaz de GitHub
-    # Ya no se ejecutará automáticamente con push/pull_request
+    workflow_dispatch:  # This allows manual execution from GitHub interface
+    # Will not run automatically on push/pull_request
   
   env:
     FLUTTER_VERSION: '3.19.3'
   
   jobs:
-    build:
-      name: Build macOS DMG
+    build-macos:
       runs-on: macos-latest
-      permissions: write-all
   
       steps:
         - name: Checkout repository
           uses: actions/checkout@v4
+
+        - name: Create Self-Signed Certificate
+          run: |
+            # Create keychain for build
+            security create-keychain -p github_actions build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p github_actions build.keychain
+            
+            # Create development certificate
+            CERT_NAME="RateMe Developer"
+            echo "Creating self-signed certificate: $CERT_NAME"
+            security create-certificate-authority \
+              -c "$CERT_NAME" \
+              -o /tmp/RateMe.keychain
+            
+            # Import certificate into keychain
+            security import /tmp/RateMe.keychain -k build.keychain
   
         - name: Setup Flutter
           uses: subosito/flutter-action@v2
@@ -26,36 +41,32 @@
             channel: 'stable'
             cache: true
 
-        - name: Flutter Info
+        - name: Build macOS App
           run: |
-            echo "Flutter version:"
-            flutter --version
-            echo "Flutter doctor:"
-            flutter doctor -v
-            echo "Flutter config:"
-            flutter config
-
-        - name: Build
-          run: |
-            # Build app
-            flutter pub get
             flutter config --enable-macos-desktop
-            flutter build macos --debug
-            
-            cd build/macos/Build/Products/Debug
-            echo "Debug build contents:"
-            ls -la
-            
-            APP_NAME=$(ls *.app)
-            echo "Found app: $APP_NAME"
+            flutter pub get
+            flutter build macos --release
 
-        - name: Package
+        - name: Create DMG
           run: |
-            cd build/macos/Build/Products/Debug
-            zip -r RateMe-Debug.zip *.app
+            brew install create-dmg
+            
+            # Prepare distribution folder
+            mkdir -p dist
+            cp -r build/macos/Build/Products/Release/RateMe.app dist/
+            
+            # Create DMG installer
+            create-dmg \
+              --volname "RateMe" \
+              --window-pos 200 120 \
+              --window-size 800 450 \
+              --icon-size 100 \
+              --app-drop-link 600 185 \
+              "RateMe.dmg" \
+              "dist/"
 
-        - name: Upload
+        - name: Upload DMG
           uses: actions/upload-artifact@v4
           with:
-            name: RateMe-macOS-Debug
-            path: build/macos/Build/Products/Debug/RateMe-Debug.zip
+            name: RateMe-DMG
+            path: RateMe.dmg
