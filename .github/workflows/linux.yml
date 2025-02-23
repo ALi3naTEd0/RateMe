@@ -70,18 +70,18 @@ jobs:
 
       - name: Build AppImage
         run: |
-          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir RateMe.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir RateMe_1.0.0-1.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-AppImage
-          path: RateMe.AppImage
+          path: RateMe_1.0.0-1.AppImage
 
       # DEB build
       - name: Build DEB Package
         run: |
-          PKGDIR=rateme_1.0.0-1_amd64
+          PKGDIR=RateMe_1.0.0-1_amd64
           
           # Create directory structure
           mkdir -p $PKGDIR/DEBIAN
@@ -136,7 +136,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-DEB
-          path: rateme_1.0.0-1_amd64.deb
+          path: RateMe_1.0.0-1_amd64.deb
 
       # RPM build
       - name: Build RPM Package
@@ -144,14 +144,12 @@ jobs:
           # Install alien for DEB to RPM conversion
           sudo apt-get install -y alien rpm
 
-          # Convert DEB to RPM
-          sudo alien --scripts --to-rpm rateme_1.0.0-1_amd64.deb
-
-          # Fix RPM name if needed
-          mv rateme-*.rpm RateMe-1.0.0-1.x86_64.rpm
+          # Convert DEB to RPM and rename to match convention
+          sudo alien --scripts --to-rpm RateMe_1.0.0-1_amd64.deb
+          mv rateme-*.rpm RateMe_1.0.0-1_x86_64.rpm
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-RPM
-          path: RateMe-1.0.0-1.x86_64.rpm
+          path: RateMe_1.0.0-1_x86_64.rpm
