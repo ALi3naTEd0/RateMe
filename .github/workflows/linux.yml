@@ -7,11 +7,11 @@ env:
   FLUTTER_VERSION: '3.19.3'
 
 jobs:
-  build-appimage:
-    runs-on: ubuntu-latest
+  build-linux:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -21,10 +21,11 @@ jobs:
             clang \
             pkg-config \
             libgtk-3-dev \
-            liblzma-dev \
-            libstdc++-12-dev \
             libsecret-1-dev \
-            fuse
+            liblzma-dev \
+            libglib2.0-dev \
+            fuse \
+            appstream
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -39,6 +40,7 @@ jobs:
           flutter pub get
           flutter build linux --release
 
+      # AppImage build
       - name: Create AppImage Structure
         run: |
           mkdir -p AppDir
@@ -76,78 +78,43 @@ jobs:
           name: RateMe-AppImage
           path: RateMe.AppImage
 
-  build-deb:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            clang \
-            pkg-config \
-            libgtk-3-dev \
-            libsecret-1-dev \
-            dpkg-dev \
-            debhelper \
-            libstdc++6 \
-            liblzma5
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
-
-      - name: Build App
-        run: |
-          flutter config --enable-linux-desktop
-          flutter pub get
-          flutter build linux --release
-
-      - name: Create DEB Structure
+      # DEB build
+      - name: Build DEB Package
         run: |
           PKGDIR=rateme_1.0.0-1_amd64
           
-          # Create structure
+          # Create directory structure
           mkdir -p $PKGDIR/DEBIAN
-          mkdir -p $PKGDIR/opt/rateme
           mkdir -p $PKGDIR/usr/bin
+          mkdir -p $PKGDIR/usr/lib/rateme
           mkdir -p $PKGDIR/usr/share/applications
           mkdir -p $PKGDIR/usr/share/icons/hicolor/256x256/apps
           
-          # Copy application files
-          cp -r build/linux/x64/release/bundle/* $PKGDIR/opt/rateme/
+          # Copy files
+          cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
           cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
-
-          # Create launcher script with proper permissions
+          
+          # Create launcher
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
           #!/bin/sh
-          cd /opt/rateme
+          cd /usr/lib/rateme
           exec ./rateme "$@"
           EOF
           chmod 755 $PKGDIR/usr/bin/rateme
 
-          # Set correct permissions for opt directory
-          chmod 755 -R $PKGDIR/opt/rateme
-
-          # Create control file with all required dependencies
+          # Create control file
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
           Version: 1.0.0-1
           Architecture: amd64
           Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
-          Depends: libgtk-3-0, libstdc++6, liblzma5, libsecret-1-0
+          Depends: libgtk-3-0, libsecret-1-0
           Section: utils
           Priority: optional
           Description: Rate your music albums
            A Flutter application for rating and organizing your music collection.
           EOF
-
+          
           # Create desktop entry
           cat > $PKGDIR/usr/share/applications/rateme.desktop << EOF
           [Desktop Entry]
@@ -159,8 +126,11 @@ jobs:
           EOF
           chmod 644 $PKGDIR/usr/share/applications/rateme.desktop
 
-      - name: Build DEB
-        run: dpkg-deb --build rateme_1.0.0-1_amd64
+          # Set permissions
+          chmod 755 -R $PKGDIR/usr/lib/rateme
+          
+          # Build DEB
+          dpkg-deb --build $PKGDIR
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
