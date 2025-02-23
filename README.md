@@ -14,6 +14,7 @@
 - [Introduction](#introduction)
 - [Screenshots](#screenshots)
 - [Downloads](#downloads)
+- [Installation](#installation)
 - [Features](#features)
 - [Technologies Used](#technologies-used)
 - [Getting Started](#getting-started)
