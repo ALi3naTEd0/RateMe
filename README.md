@@ -77,15 +77,18 @@ makepkg -si
 
 ## Features
 
-- **Album Search**: Easily find albums by entering the artist's name, album title, or iTunes, Apple Music, or Bandcamp URL.
-- **Song Rating**: Rate each song within an album on a scale of 0 to 10, expressing your opinions on each track in detail.
-- **Average Rating Calculation**: The app dynamically calculates an average rating for each album based on the individual song ratings.
-- **Album Details**: Access detailed information about each album, including the artist's name, album title, release date, and total album duration.
-- **Saved History**: Access your saved ratings history to review past ratings and make any necessary edits.
-- **Edit Old Saved Ratings**: Modify or update previously saved ratings for albums and songs, giving you the flexibility to refine your ratings over time.
-- **Export and Import Data**: Export and import your rating data to back it up or transfer it between devices.
-- **No Login Required**: Start using the app immediately without the need to log in or authenticate.
-- **Bandcamp Integration**: Support for Bandcamp links allows you to search and rate albums directly from Bandcamp.
+- 🎵 **Album Search**: Search iTunes or paste Bandcamp URLs to find albums
+- ⭐ **Rating System**: Rate individual tracks from 0 to 10
+- 📊 **Statistics**: View average ratings and album statistics
+- 📱 **Multi-platform Support**: Works on Android, iOS, macOS, Windows and Linux
+- 🎨 **Dark/Light Theme**: Toggle between light and dark modes
+- 📁 **Custom Lists**: Create and manage custom album collections
+- 📷 **Share Images**: Generate and share album ratings as images
+- 💾 **Data Management**:
+  - Import/Export complete data backups
+  - Import/Export individual album data
+  - Backup data in JSON format
+- 🌐 **External Integration**: Quick access to RateYourMusic for additional info
 
 ## Technologies Used
 
@@ -115,50 +118,24 @@ This Flutter project follows a modular architecture and uses the Provider patter
 
 ### Main Components
 
-1. **MusicRatingApp**: The main widget of the application. It handles the global theme state (light/dark) and persists it using SharedPreferences.
-2. **SearchPage**: Allows users to search for albums on iTunes or enter Bandcamp URLs. It uses debouncing to optimize API calls.
-3. **SavedRatingsPage**: Displays saved albums and their ratings. Allows reordering the list and deleting albums.
-4. **AlbumDetailsPage**: Shows details of an iTunes album, including tracks and their individual ratings. Allows users to rate tracks and save the album.
-5. **BandcampSavedAlbumPage**: Displays details of a Bandcamp album, including tracks and their ratings. Supports rating tracks and saving the album.
-6. **UserData**: Utility class for handling data persistence using SharedPreferences. Manages saving and retrieving album data and ratings.
+1. **MusicRatingApp**: Main widget handling theme state and persistence
+2. **SearchPage**: Album search interface with iTunes/Bandcamp support
+3. **SavedRatingsPage**: Album list management and ratings display
+4. **CustomListsPage**: Custom collections management
+5. **DetailsPage**: Album details and rating interface
+6. **UserData**: Data persistence and management utility
 
 ### Data Handling
 
-- **SharedPreferences**: Used to locally store saved albums, ratings, and user preferences.
-- **HTTP**: Used to make requests to the iTunes API and retrieve album information.
-- **HTML Parser**: Utilized to parse Bandcamp album pages and extract relevant information.
-
-### Services
-
-- **BandcampService**: Handles the logic for obtaining album information from Bandcamp.
-- **BandcampParser**: Extracts track information and release date from Bandcamp HTML pages.
-
-### Themes
-
-- **AppTheme**: Defines the light and dark themes of the application.
-
-### Reusable UI Components
-
-- **Footer**: Reusable footer widget used across various screens.
-
-### Key Features
-
-1. Album search on iTunes and Bandcamp
-2. Saving albums and ratings
-3. Viewing saved albums and their details
-4. Rating individual tracks for both iTunes and Bandcamp albums
-5. Calculating average rating per album
-6. Switching between light/dark themes
-7. Exporting and importing preferences
-8. Integration with RateYourMusic for additional album information
+- **SharedPreferences**: Local storage for albums, ratings, and preferences
+- **HTTP**: API requests to iTunes and JSON parsing for Bandcamp
+- **HTML**: Extraction of structured data from Bandcamp pages
 
 ### External Integrations
 
-- **iTunes API**: Used to fetch album and track information for iTunes albums.
-- **Bandcamp**: Web scraping is used to fetch album and track information from Bandcamp pages.
-- **RateYourMusic**: Provides a link to search for the album on RateYourMusic for additional ratings and reviews.
-
-This architecture allows for a clear separation of concerns, facilitating project maintenance and scalability. It also provides a consistent user experience across different music platforms (iTunes and Bandcamp) while maintaining platform-specific data retrieval methods.
+- **iTunes API**: Album and track information via official API
+- **Bandcamp**: Album and track information via embedded JSON-LD data
+- **RateYourMusic**: Additional album information lookup
 
 ## Development
 
@@ -198,20 +175,15 @@ The GPL-3.0 is a strong copyleft license that requires any derivative software t
 
 ## Acknowledgements
 
-- [http](https://pub.dev/packages/http) - Used for making HTTP requests to the iTunes API
-- [shared_preferences](https://pub.dev/packages/shared_preferences) - Used for storing simple data locally
-- [provider](https://pub.dev/packages/provider) - Used for state management in the application
-- [html](https://pub.dev/packages/html) - Used for parsing HTML content from Bandcamp pages
-- [path_provider](https://pub.dev/packages/path_provider) - Used for finding commonly used locations on the filesystem
-- [flutter_xlider](https://pub.dev/packages/flutter_xlider) - Used for creating customizable range sliders
-- [url_launcher](https://pub.dev/packages/url_launcher) - Used for launching URLs in the mobile platform
-- [file_selector](https://pub.dev/packages/file_selector) - Used for selecting files or directories
-- [file_picker](https://pub.dev/packages/file_picker) - Used for picking files from the device storage
-- [file_saver](https://pub.dev/packages/file_saver) - Used for saving files to the device
-- [permission_handler](https://pub.dev/packages/permission_handler) - Used for handling runtime permissions
-- [share_plus](https://pub.dev/packages/share_plus) - Used for sharing content from the app
-- [csv](https://pub.dev/packages/csv) - Used for parsing and encoding CSV data
-- [intl](https://pub.dev/packages/intl) - Used for internationalization and localization
+- [http](https://pub.dev/packages/http) - HTTP requests and API integration
+- [shared_preferences](https://pub.dev/packages/shared_preferences) - Local data storage
+- [html](https://pub.dev/packages/html) - HTML parsing for structured data
+- [url_launcher](https://pub.dev/packages/url_launcher) - External URL handling
+- [intl](https://pub.dev/packages/intl) - Date formatting
+- [path_provider](https://pub.dev/packages/path_provider) - File system access
+- [file_picker](https://pub.dev/packages/file_picker) - File selection dialogs
+- [share_plus](https://pub.dev/packages/share_plus) - Content sharing
+- [package_info_plus](https://pub.dev/packages/package_info_plus) - App version info
 
 ## Contact
 
