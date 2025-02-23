@@ -24,15 +24,25 @@
             security default-keychain -s build.keychain
             security unlock-keychain -p github_actions build.keychain
             
-            # Create development certificate
+            # Create self-signed certificate
             CERT_NAME="RateMe Developer"
             echo "Creating self-signed certificate: $CERT_NAME"
-            security create-certificate-authority \
-              -c "$CERT_NAME" \
-              -o /tmp/RateMe.keychain
             
-            # Import certificate into keychain
-            security import /tmp/RateMe.keychain -k build.keychain
+            # Generate certificate
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout /tmp/RateMe.key -out /tmp/RateMe.crt \
+              -subj "/CN=$CERT_NAME"
+            
+            # Convert to p12 format
+            openssl pkcs12 -export \
+              -in /tmp/RateMe.crt \
+              -inkey /tmp/RateMe.key \
+              -out /tmp/RateMe.p12 \
+              -name "$CERT_NAME" \
+              -passout pass:github_actions
+            
+            # Import into keychain
+            security import /tmp/RateMe.p12 -k build.keychain -P github_actions -T /usr/bin/codesign
   
         - name: Setup Flutter
           uses: subosito/flutter-action@v2
