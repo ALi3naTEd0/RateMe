@@ -52,6 +52,23 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
    - Or -
 2. Portable: Extract `RateMe-portable.zip` and run `RateMe.exe`
 
+### Android
+1. Choose the correct version:
+   - APK-Universal: Works on most devices
+   - APK-arm64-v8a: Modern phones (2017+)
+   - APK-armeabi-v7a: Older phones
+   - APK-x86_64: Some tablets/ChromeOS
+
+2. Install:
+   - Download the chosen APK
+   - If "Install from unknown sources" appears:
+     1. Go to Settings > Security
+     2. Enable "Unknown sources" or
+     3. Allow "Install unknown apps" for your browser
+   - Open the downloaded APK and follow the steps
+
+Note: If you're not sure which version to use, install APK-Universal
+
 ### macOS
 1. Download `RateMe.dmg`
 2. Open the DMG file
