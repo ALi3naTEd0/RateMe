@@ -44,6 +44,38 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 |              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-armeabi-v7a-release.apk)      |              |
 |              |              |   [AppImage](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe_1.0.0-1.AppImage)           | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-x86_64-release.apk)               |              |
 
+### Linux Installation
+
+#### AppImage
+1. Download `RateMe_1.0.0-1.AppImage`
+2. Make it executable:
+```bash
+chmod +x RateMe_1.0.0-1.AppImage
+```
+3. Run it:
+```bash
+./RateMe_1.0.0-1.AppImage
+```
+
+#### DEB Package (Ubuntu/Debian)
+```bash
+sudo apt install ./RateMe_1.0.0-1_amd64.deb
+```
+
+#### RPM Package (Fedora/RHEL)
+```bash
+sudo dnf install ./RateMe_1.0.0-1_x86_64.rpm
+```
+
+#### Arch Linux
+```bash
+git clone https://github.com/ALi3naTEd0/RateMe.git
+cd RateMe
+makepkg -si
+```
+
+No installation needed for AppImage - it's portable and works on most Linux distributions.
+
 ### Arch Install
 ```
 git clone https://github.com/ALi3naTEd0/RateMe.git
