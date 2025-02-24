@@ -32,6 +32,21 @@
 
 Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and manage your favorite albums effortlessly. With **Rate Me!**, you can explore a wide variety of albums, rate each song individually, and get an overall view of the album's quality based on your personal ratings.
 
+## Features
+
+- 🎵 **Album Search**: Search iTunes or paste Bandcamp URLs to find albums
+- ⭐ **Rating System**: Rate individual tracks from 0 to 10
+- 📊 **Statistics**: View average ratings and album statistics
+- 📱 **Multi-platform Support**: Works on Android, Windows, Linux and macOS
+- 🎨 **Dark/Light Theme**: Toggle between light and dark modes
+- 📁 **Custom Lists**: Create and manage custom album collections
+- 📷 **Share Images**: Generate and share album ratings as images
+- 💾 **Data Management**:
+  - Import/Export complete data backups
+  - Import/Export individual album data
+  - Backup data in JSON format
+- 🌐 **External Integration**: Quick access to RateYourMusic for additional info
+
 ## Screenshots
 
 | | | |
@@ -49,7 +64,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Installation
 
 ### Windows
-1. Installer: Run `RateMe-v1.0.0.exe` and follow the installation wizard
+1. Installer: Run `RateMe_{version}.exe` and follow the installation wizard
    - Or -
 2. Portable: Extract `RateMe-portable.zip` and run `RateMe.exe`
 
@@ -90,7 +105,7 @@ Then try opening the app again. This removes macOS security quarantine.
 ### Linux Installation
 
 #### AppImage
-1. Download `RateMe_1.0.0-1.AppImage`
+1. Download `RateMe_{version}.AppImage`
 2. Make it executable:
 ```bash
 chmod +x RateMe_1.0.0-1.AppImage
@@ -117,21 +132,6 @@ git clone https://github.com/ALi3naTEd0/RateMe.git
 cd RateMe
 makepkg -si
 ```
-
-## Features
-
-- 🎵 **Album Search**: Search iTunes or paste Bandcamp URLs to find albums
-- ⭐ **Rating System**: Rate individual tracks from 0 to 10
-- 📊 **Statistics**: View average ratings and album statistics
-- 📱 **Multi-platform Support**: Works on Android, Windows, Linux and macOS
-- 🎨 **Dark/Light Theme**: Toggle between light and dark modes
-- 📁 **Custom Lists**: Create and manage custom album collections
-- 📷 **Share Images**: Generate and share album ratings as images
-- 💾 **Data Management**:
-  - Import/Export complete data backups
-  - Import/Export individual album data
-  - Backup data in JSON format
-- 🌐 **External Integration**: Quick access to RateYourMusic for additional info
 
 ## Technologies Used
 
