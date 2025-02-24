@@ -44,6 +44,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: |
+            rateme-universal
+            linux-AppImage
+            RateMe-DMG
+            RateMe-Setup
           path: dist
       - uses: softprops/action-gh-release@v1
         with:
