@@ -6,6 +6,7 @@
 #define MyAppPublisher "ALi3naTEd0"
 #define MyAppURL "https://github.com/ALi3naTEd0/RateMe"
 #define MyAppExeName "rateme.exe"
+#define MyAppIconPath "..\assets\rateme.ico"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -31,7 +32,7 @@ DisableProgramGroupPage=yes
 ;PrivilegesRequired=lowest
 OutputDir=Output
 OutputBaseFilename=RateMe_{#MyAppVersion}
-SetupIconFile=..\assets\rateme.ico
+SetupIconFile={#MyAppIconPath}
 SolidCompression=yes
 WizardStyle=modern
 

@@ -28,9 +28,18 @@ jobs:
 
       - name: Download Icon
         run: |
+          mkdir -p assets
           $iconUrl = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.ico"
           $outputPath = "assets/rateme.ico"
+          Write-Host "Downloading icon from: $iconUrl"
           Invoke-WebRequest -Uri $iconUrl -OutFile $outputPath
+          
+          if (Test-Path $outputPath) {
+              Write-Host "Icon downloaded successfully to: $outputPath"
+          } else {
+              Write-Error "Failed to download icon"
+              exit 1
+          }
 
       - name: Build Windows
         run: |
