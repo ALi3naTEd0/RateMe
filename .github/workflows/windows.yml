@@ -28,7 +28,11 @@ jobs:
 
       - name: Download Icon
         run: |
-          mkdir -p assets
+          # Create assets directory if it doesn't exist (and don't fail if it does)
+          if (!(Test-Path "assets")) {
+              New-Item -ItemType Directory -Path "assets" -Force
+          }
+          
           $iconUrl = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.ico"
           $outputPath = "assets/rateme.ico"
           Write-Host "Downloading icon from: $iconUrl"
@@ -36,6 +40,7 @@ jobs:
           
           if (Test-Path $outputPath) {
               Write-Host "Icon downloaded successfully to: $outputPath"
+              Get-ChildItem -Path "assets" -Recurse
           } else {
               Write-Error "Failed to download icon"
               exit 1
