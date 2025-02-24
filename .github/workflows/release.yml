@@ -42,9 +42,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Create dist directory
-        run: mkdir -p dist
-
       - uses: actions/download-artifact@v4
         with:
           pattern: |
@@ -56,30 +53,10 @@ jobs:
             rateme-DEB
             rateme-RPM
           path: dist
-
-      - name: List dist contents
-        run: |
-          echo "Contents of dist directory:"
-          ls -la dist
-          echo "All artifacts downloaded:"
-          find dist -type f
-          
-      - name: Prepare Release Files
-        run: |
-          cd dist || exit 1
-          echo "Moving files from subdirectories..."
-          for d in */; do
-            if [ -d "$d" ]; then
-              echo "Processing directory: $d"
-              cp -v $d/* ./ || echo "Warning: Copy from $d failed"
-            fi
-          done
-          echo "Final contents:"
-          ls -la
           
       - uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
           draft: true
-          files: dist/*
+          files: dist/**/*
