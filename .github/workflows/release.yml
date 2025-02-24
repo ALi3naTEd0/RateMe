@@ -19,6 +19,7 @@ on:
           - macos
 
 jobs:
+  # Platform builds - run in parallel when their condition is met
   android-build:
     if: ${{ inputs.platforms == 'all' || inputs.platforms == 'android' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
@@ -47,13 +48,26 @@ jobs:
     with:
       version: ${{ github.event.inputs.version }}
 
+  # Release creation - runs after all selected builds are complete
   create-release:
-    if: always()
-    # ...rest of release job...
+    if: |
+      !failure() &&
+      (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
+      (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
+      (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
+      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped')
+    needs: [android-build, linux-build, windows-build, macos-build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Debug Needs Context
+        run: |
+          echo "Android build result: ${{ needs.android-build.result }}"
+          echo "Linux build result: ${{ needs.linux-build.result }}"
+          echo "Windows build result: ${{ needs.windows-build.result }}"
+          echo "macOS build result: ${{ needs.macos-build.result }}"
+
       - uses: actions/download-artifact@v4
         with:
           pattern: |
