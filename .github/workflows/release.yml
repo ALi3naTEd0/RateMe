@@ -28,7 +28,6 @@ jobs:
 
   linux-build:
     if: ${{ inputs.platforms == 'all' || inputs.platforms == 'linux' }}
-    needs: android-build
     uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
     secrets: inherit
     with:
@@ -36,7 +35,6 @@ jobs:
 
   windows-build:
     if: ${{ inputs.platforms == 'all' || inputs.platforms == 'windows' }}
-    needs: linux-build
     uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
     secrets: inherit
     with:
@@ -44,20 +42,14 @@ jobs:
 
   macos-build:
     if: ${{ inputs.platforms == 'all' || inputs.platforms == 'macos' }}
-    needs: windows-build
     uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}
 
   create-release:
-    if: |
-      always() &&
-      (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
-      (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
-      (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
-      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped')
-    needs: [android-build, linux-build, windows-build, macos-build]
+    if: always()
+    # ...rest of release job...
     runs-on: ubuntu-latest
     permissions:
       contents: write
