@@ -92,8 +92,8 @@ jobs:
           
       - uses: softprops/action-gh-release@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # Add explicit token
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
-          draft: true
+          draft: false  # Changed from true to false
           files: dist/**/*
