@@ -76,10 +76,10 @@ jobs:
 
       - name: Create DMG
         run: |
-          APP_NAME="rateme"
+          APP_NAME="RateMe"
           APP_DIR="build/macos/Build/Products/Release/$APP_NAME.app"
           DMG_DIR="$HOME/$APP_NAME-dmg"
-          DMG_NAME="rateme_${{ inputs.version || github.event.inputs.version }}.dmg"
+          DMG_NAME="RateMe_${{ inputs.version || github.event.inputs.version }}.dmg"
 
           mkdir -p "$DMG_DIR"
           cp -r "$APP_DIR" "$DMG_DIR/"
@@ -92,5 +92,5 @@ jobs:
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-DMG
-          path: ~/rateme_${{ inputs.version || github.event.inputs.version }}.dmg
+          name: RateMe-DMG
+          path: ~/RateMe_${{ inputs.version || github.event.inputs.version }}.dmg
