@@ -1,4 +1,4 @@
-<img src="https://github.com/ALi3naTEd0/RateMe/blob/rateme/assets/rateme.png" width="200">
+<img src="assets/rateme.png" width="200">
 
 # Rate Me!
 
