@@ -56,15 +56,15 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](../../releases/latest/download/RateMe_1.0.1-1.exe)    | [DMG](../../releases/latest/download/RateMe_1.0.1-1.dmg)  |  [DEB](../../releases/latest/download/RateMe_1.0.1-1_amd64.deb) | [APK-Universal](../../releases/latest/download/RateMe_1.0.1-1.apk)       | Maybe?       |
-| [Portable](../../releases/latest/download/RateMe-portable.zip)     |              |  [RPM](../../releases/latest/download/RateMe_1.0.1-1_x86_64.rpm)            | [APK-arm64-v8a](../../releases/latest/download/RateMe_1.0.1-1_arm64-v8a.apk)             |              |
-|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/latest/download/RateMe_1.0.1-1_armeabi-v7a.apk)      |              |
-|              |              |   [AppImage](../../releases/latest/download/RateMe_1.0.1-1.AppImage)           | [APK-x86_x64](../../releases/latest/download/RateMe_1.0.1-1_x86_64.apk)               |              |
+| [Installer](../../releases/download/v1.0.1-1/RateMe_1.0.1-1.exe)    | [DMG](../../releases/download/v1.0.1-1/RateMe_1.0.1-1.dmg)  |  [DEB](../../releases/download/v1.0.1-1/RateMe_1.0.1-1_amd64.deb) | [APK-Universal](../../releases/download/v1.0.1-1/RateMe_1.0.1-1.apk)       | Maybe?       |
+| [Portable](../../releases/download/v1.0.1-1/RateMe-portable.zip)     |              |  [RPM](../../releases/download/v1.0.1-1/RateMe_1.0.1-1_x86_64.rpm)            | [APK-arm64-v8a](../../releases/download/v1.0.1-1/RateMe_1.0.1-1_arm64-v8a.apk)             |              |
+|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/download/v1.0.1-1/RateMe_1.0.1-1_armeabi-v7a.apk)      |              |
+|              |              |   [AppImage](../../releases/download/v1.0.1-1/RateMe_1.0.1-1.AppImage)           | [APK-x86_x64](../../releases/download/v1.0.1-1/RateMe_1.0.1-1_x86_64.apk)               |              |
 
 ## Installation
 
 ### Windows
-1. Installer: Run `RateMe_{version}.exe` and follow the installation wizard
+1. Installer: Run `RateMe_1.0.1-1.exe` and follow the installation wizard
    - Or -
 2. Portable: Extract `RateMe-portable.zip` and run `RateMe.exe`
 
@@ -105,7 +105,7 @@ Then try opening the app again. This removes macOS security quarantine.
 ### Linux Installation
 
 #### AppImage
-1. Download `RateMe_{version}.AppImage`
+1. Download `RateMe_1.0.1-1.AppImage`
 2. Make it executable:
 ```bash
 chmod +x RateMe_1.0.0-1.AppImage
