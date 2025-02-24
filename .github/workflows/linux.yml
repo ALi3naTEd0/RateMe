@@ -84,6 +84,12 @@ jobs:
         run: |
           ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
 
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-AppImage
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
