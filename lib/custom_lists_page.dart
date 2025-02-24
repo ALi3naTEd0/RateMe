@@ -8,7 +8,7 @@ import 'dart:io';
 // Model for custom album lists
 class CustomList {
   final String id;
-  final String name;
+  String name;  // Removed final to allow modification
   String description;
   List<String> albumIds;  // Removed final to allow modification
   final DateTime createdAt;
@@ -178,10 +178,13 @@ class _CustomListsPageState extends State<CustomListsPage> {
     );
 
     if (result == true && nameController.text.isNotEmpty) {
-      list.description = descController.text;
-      list.updatedAt = DateTime.now();
+      setState(() {
+        list.name = nameController.text; // Update list name
+        list.description = descController.text;
+        list.updatedAt = DateTime.now();
+      });
       await UserData.saveCustomList(list);
-      _loadLists();
+      await _loadLists(); // Ensure list is reloaded
     }
   }
 
