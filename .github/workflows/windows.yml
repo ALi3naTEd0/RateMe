@@ -47,12 +47,6 @@ jobs:
           flutter pub get
           flutter build windows --release
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-binary
-          path: build/windows/x64/runner/Release/
-
       # Create and upload portable version
       - name: Create Portable Package
         shell: pwsh

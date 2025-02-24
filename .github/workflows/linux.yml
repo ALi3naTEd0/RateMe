@@ -90,12 +90,6 @@ jobs:
           name: linux-AppImage
           path: RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-binary
-          path: build/linux/x64/release/bundle/
-
       # DEB build
       - name: Build DEB Package
         run: |
