@@ -7,15 +7,26 @@ on:
         description: "Version to build"
         required: true
         default: "1.0.0-1"
+      platforms:
+        description: "Platforms to build"
+        required: true
+        type: choice
+        options:
+          - all
+          - android
+          - desktop
+          - mobile
 
 jobs:
   android-build:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'android' || inputs.platforms == 'mobile' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}
 
   linux-build:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'desktop' }}
     needs: android-build
     uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
     secrets: inherit
@@ -23,6 +34,7 @@ jobs:
       version: ${{ github.event.inputs.version }}
 
   windows-build:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'desktop' }}
     needs: linux-build
     uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
     secrets: inherit
@@ -30,6 +42,7 @@ jobs:
       version: ${{ github.event.inputs.version }}
 
   macos-build:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'desktop' }}
     needs: windows-build
     uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
     secrets: inherit
@@ -37,6 +50,12 @@ jobs:
       version: ${{ github.event.inputs.version }}
 
   create-release:
+    if: |
+      always() &&
+      (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
+      (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
+      (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
+      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped')
     needs: [android-build, linux-build, windows-build, macos-build]
     runs-on: ubuntu-latest
     permissions:
