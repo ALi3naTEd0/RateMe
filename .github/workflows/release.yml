@@ -50,9 +50,24 @@ jobs:
             RateMe-DMG
             RateMe-Setup
           path: dist
+          
+      - name: Create All-in-One ZIP
+        run: |
+          cd dist
+          zip -r RateMe_${{ github.event.inputs.version }}_all.zip *
+          cd ..
+          
+      - name: Upload All-in-One ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-All
+          path: dist/RateMe_${{ github.event.inputs.version }}_all.zip
+          
       - uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
           draft: true
-          files: dist/**/*
+          files: |
+            dist/**/*
+            dist/RateMe_${{ github.event.inputs.version }}_all.zip
