@@ -46,7 +46,7 @@ jobs:
         with:
           pattern: |
             rateme-universal
-            linux-AppImage
+            rateme-AppImage
             RateMe-DMG
             RateMe-Setup
           path: dist
