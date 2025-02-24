@@ -75,25 +75,32 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: |
-            rateme-universal
-            rateme-AppImage
-            RateMe-DMG
-            RateMe-Setup
-            RateMe-Portable
-            rateme-DEB
-            rateme-RPM
           path: dist
+          pattern: '**/*'  # Download all artifacts without filtering
+          merge-multiple: true
           
-      - name: List artifacts
+      - name: List and organize artifacts
         run: |
-          echo "Content of dist directory:"
+          echo "Initial dist content:"
           ls -la dist/
           
+          # Move all nested files to root
+          find dist -mindepth 2 -type f -exec mv -t dist/ {} +
+          
+          # Remove empty directories
+          find dist -type d -empty -delete
+          
+          echo "Final dist content:"
+          ls -la dist/
+          
+          # Show file details
+          echo "Found artifacts with details:"
+          cd dist && ls -lh *
+
       - uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
-          draft: false  # Changed from true to false
+          draft: false
           files: dist/**/*
