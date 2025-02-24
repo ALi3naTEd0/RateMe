@@ -51,7 +51,7 @@ jobs:
   # Release creation - runs after all selected builds are complete
   create-release:
     if: |
-      !failure() &&
+      !cancelled() && !failure() &&
       (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
       (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
       (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Debug Needs Context
         run: |
@@ -80,7 +81,12 @@ jobs:
             rateme-RPM
           path: dist
           
+      - name: List artifacts
+        run: ls -R dist/
+          
       - uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
