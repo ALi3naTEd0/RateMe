@@ -9,71 +9,48 @@ on:
         default: "1.0.0-1"
 
 jobs:
-  build:
-    strategy:
-      # Matrix strategy for parallel builds
-      matrix:
-        platform: [android, linux, windows, macos]
-        include:
-          # Android build config
-          - platform: android
-            os: ubuntu-latest
-            build-command: flutter build apk --release
-            artifact-name: rateme-universal
-            artifact-path: build/app/outputs/flutter-apk/RateMe_*.apk
+  android:
+    uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
 
-          # Linux build config
-          - platform: linux
-            os: ubuntu-22.04
-            build-command: flutter build linux --release
-            artifact-name: rateme-AppImage
-            artifact-path: RateMe_*.AppImage
+  linux:
+    uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
 
-          # Windows build config
-          - platform: windows
-            os: windows-latest
-            build-command: flutter build windows --release
-            artifact-name: RateMe-Setup
-            artifact-path: installers/Output/RateMe_*.exe
+  windows:
+    uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
 
-          # macOS build config
-          - platform: macos
-            os: macos-latest
-            build-command: flutter build macos --release
-            artifact-name: RateMe-DMG
-            artifact-path: ~/RateMe_*.dmg
-      fail-fast: false
+  macos:
+    uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
 
-    runs-on: ${{ matrix.os }}
+  create-release:
+    needs: [android, linux, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/download-artifact@v4
         with:
-          flutter-version: '3.19.3'
-          channel: 'stable'
-          cache: true
+          pattern: |
+            rateme-universal
+            rateme-AppImage
+            RateMe-DMG
+            RateMe-Setup
+          path: dist
           
-      # Install platform-specific dependencies
-      - name: Setup Platform
-        shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "android" ]; then
-            sudo apt-get update
-            sudo apt-get install -y java-common
-          elif [ "${{ matrix.platform }}" = "linux" ]; then
-            sudo apt-get update
-            sudo apt-get install -y cmake ninja-build clang pkg-config libgtk-3-dev
-          elif [ "${{ matrix.platform }}" = "macos" ]; then
-            brew install imagemagick create-dmg
-          fi
-
-      # Run platform build command
-      - name: Build
-        run: ${{ matrix.build-command }}
-
-      # Upload artifacts
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+      - uses: softprops/action-gh-release@v1
         with:
-          name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.artifact-path }}
+          tag_name: v${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          draft: true
+          files: dist/**/*
