@@ -2,7 +2,7 @@
 
 # Rate Me!
 
-![Version](https://img.shields.io/badge/version-1.0.0--1-blue)
+![Version](https://img.shields.io/badge/version-${VERSION}-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green)
 ![Downloads](https://img.shields.io/github/downloads/ALi3naTEd0/RateMe/total)
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
@@ -40,10 +40,10 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-Setup.zip)    | [DMG](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-DMG.zip)  |  [DEB](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-DEB.zip) | [APK-Universal](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-universal.zip)       | Maybe?       |
-| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-Portable.zip)     |              |  [RPM](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-RPM.zip)            | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-arm64-v8a.zip)             |              |
-|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-armeabi-v7a.zip)      |              |
-|              |              |   [AppImage](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-AppImage.zip)           | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-x86_64.zip)               |              |
+| [Installer](../../releases/latest/download/RateMe-Setup.zip)    | [DMG](../../releases/latest/download/RateMe-DMG.zip)  |  [DEB](../../releases/latest/download/rateme-DEB.zip) | [APK-Universal](../../releases/latest/download/rateme-universal.zip)       | Maybe?       |
+| [Portable](../../releases/latest/download/RateMe-Portable.zip)     |              |  [RPM](../../releases/latest/download/rateme-RPM.zip)            | [APK-arm64-v8a](../../releases/latest/download/rateme-arm64-v8a.zip)             |              |
+|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/latest/download/rateme-armeabi-v7a.zip)      |              |
+|              |              |   [AppImage](../../releases/latest/download/rateme-AppImage.zip)           | [APK-x86_x64](../../releases/latest/download/rateme-x86_64.zip)               |              |
 
 ## Installation
 
