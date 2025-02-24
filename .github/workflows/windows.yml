@@ -81,6 +81,8 @@ jobs:
 
       - name: Create Installer
         shell: pwsh
+        env:
+          VERSION: ${{ inputs.version || github.event.inputs.version }}
         run: |
           New-Item -ItemType Directory -Path "installers\Output" -Force
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss

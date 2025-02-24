@@ -10,28 +10,28 @@ on:
 
 jobs:
   android-build:
-    uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@main
+    uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}
 
   linux-build:
     needs: android-build
-    uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@main
+    uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}
 
   windows-build:
     needs: linux-build
-    uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@main
+    uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}
 
   macos-build:
     needs: windows-build
-    uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@main
+    uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}

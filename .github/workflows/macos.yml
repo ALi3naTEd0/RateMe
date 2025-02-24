@@ -1,101 +1,96 @@
----
-  # Workflow for building and releasing macOS DMG
-  name: macOS Build
-  
-  on:
-    workflow_dispatch:  # This allows manual execution from GitHub interface
-    workflow_call:
-      inputs:
-        version:
-          description: "Version to build"
-          required: true
-          type: string
-  
-  env:
-    FLUTTER_VERSION: '3.19.3'
-  
-  jobs:
-    build-dmg:
-      runs-on: macos-latest
-  
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
+name: macOS Build
 
-        - name: Install Flutter
-          uses: subosito/flutter-action@v2
-          with:
-            flutter-version: ${{ env.FLUTTER_VERSION }}
-            channel: 'stable'
-            cache: true
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number'
+        required: true
+        type: string
+        default: '1.0.0-1'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+        description: 'Version number'
 
-        - name: Setup Build
-          run: |
-            # Install ImageMagick first
-            brew install imagemagick
-            
-            # Download app icon
-            mkdir -p assets
-            curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
-            
-            # Generate app icons
-            cd macos/Runner/Assets.xcassets/AppIcon.appiconset
-            convert ../../../../assets/app-icon.png -resize 16x16 app_icon_16.png
-            convert ../../../../assets/app-icon.png -resize 32x32 app_icon_32.png
-            convert ../../../../assets/app-icon.png -resize 64x64 app_icon_64.png
-            convert ../../../../assets/app-icon.png -resize 128x128 app_icon_128.png
-            convert ../../../../assets/app-icon.png -resize 256x256 app_icon_256.png
-            convert ../../../../assets/app-icon.png -resize 512x512 app_icon_512.png
-            convert ../../../../assets/app-icon.png -resize 1024x1024 app_icon_1024.png
-            cd ../../../../
+env:
+  FLUTTER_VERSION: '3.19.3'
 
-            flutter config --enable-macos-desktop
-            flutter pub get
-            
-            # Fix bundle identifier and add required keys
-            sed -i '' 's/com.example.rateme/com.alienated.rateme/g' macos/Runner.xcodeproj/project.pbxproj
-            
-            # Ensure Info.plist has required keys
-            plutil -replace NSHighResolutionCapable -bool true macos/Runner/Info.plist
-            plutil -replace NSSupportsAutomaticGraphicsSwitching -bool true macos/Runner/Info.plist
+jobs:
+  build-dmg:
+    runs-on: macos-latest
 
-        - name: Build macOS App
-          run: |
-            flutter config --enable-macos-desktop
-            flutter pub get
-            
-            # Disable Metal for better VM compatibility
-            defaults write com.alienated.rateme GSSupportsMetal -bool NO
-            defaults write com.alienated.rateme GSUseOpenGL -bool YES
-            
-            flutter build macos --release
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-        - name: Create DMG
-          run: |
-            APP_NAME="RateMe"
-            APP_DIR="build/macos/Build/Products/Release/$APP_NAME.app"
-            DMG_DIR="$HOME/$APP_NAME-dmg"
-            DMG_NAME="$APP_NAME.dmg"
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
 
-            # Create DMG structure with Applications symlink
-            mkdir -p "$DMG_DIR"
-            cp -r "$APP_DIR" "$DMG_DIR/"
-            ln -s /Applications "$DMG_DIR/Applications"
+      - name: Setup Build
+        run: |
+          # Install ImageMagick first
+          brew install imagemagick
+          
+          # Download app icon
+          mkdir -p assets
+          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+          
+          # Generate app icons
+          cd macos/Runner/Assets.xcassets/AppIcon.appiconset
+          convert ../../../../assets/app-icon.png -resize 16x16 app_icon_16.png
+          convert ../../../../assets/app-icon.png -resize 32x32 app_icon_32.png
+          convert ../../../../assets/app-icon.png -resize 64x64 app_icon_64.png
+          convert ../../../../assets/app-icon.png -resize 128x128 app_icon_128.png
+          convert ../../../../assets/app-icon.png -resize 256x256 app_icon_256.png
+          convert ../../../../assets/app-icon.png -resize 512x512 app_icon_512.png
+          convert ../../../../assets/app-icon.png -resize 1024x1024 app_icon_1024.png
+          cd ../../../../
 
-            # Set custom folder background color and layout (optional)
-            SetFile -a V "$DMG_DIR"
+          flutter config --enable-macos-desktop
+          flutter pub get
+          
+          # Fix bundle identifier and add required keys
+          sed -i '' 's/com.example.rateme/com.alienated.rateme/g' macos/Runner.xcodeproj/project.pbxproj
+          
+          # Ensure Info.plist has required keys
+          plutil -replace NSHighResolutionCapable -bool true macos/Runner/Info.plist
+          plutil -replace NSSupportsAutomaticGraphicsSwitching -bool true macos/Runner/Info.plist
 
-            # Create unsigned DMG
-            hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_DIR" -ov -format UDZO "$HOME/$DMG_NAME"
+      - name: Build macOS App
+        run: |
+          flutter config --enable-macos-desktop
+          flutter pub get
+          
+          # Disable Metal for better VM compatibility
+          defaults write com.alienated.rateme GSSupportsMetal -bool NO
+          defaults write com.alienated.rateme GSUseOpenGL -bool YES
+          
+          flutter build macos --release
 
-        - name: Upload DMG
-          uses: actions/upload-artifact@v4
-          with:
-            name: RateMe-DMG
-            path: ~/RateMe.dmg
+      - name: Create DMG
+        run: |
+          APP_NAME="rateme"
+          APP_DIR="build/macos/Build/Products/Release/$APP_NAME.app"
+          DMG_DIR="$HOME/$APP_NAME-dmg"
+          DMG_NAME="rateme_${{ inputs.version || github.event.inputs.version }}.dmg"
 
-        - name: Upload Artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: macos-app
-            path: build/macos/Build/Products/Release/RateMe.app
+          mkdir -p "$DMG_DIR"
+          cp -r "$APP_DIR" "$DMG_DIR/"
+          ln -s /Applications "$DMG_DIR/Applications"
+
+          SetFile -a V "$DMG_DIR"
+
+          hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_DIR" -ov -format UDZO "$HOME/$DMG_NAME"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: rateme-DMG
+          path: ~/rateme_${{ inputs.version || github.event.inputs.version }}.dmg

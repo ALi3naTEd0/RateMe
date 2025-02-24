@@ -82,7 +82,7 @@ jobs:
 
       - name: Build AppImage
         run: |
-          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir rateme_${{ inputs.version || github.event.inputs.version }}.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -93,7 +93,7 @@ jobs:
       # DEB build
       - name: Build DEB Package
         run: |
-          PKGDIR=rateme_${{ inputs.version || github.event.inputs.version }}_amd64
+          PKGDIR=RateMe_${{ inputs.version || github.event.inputs.version }}_amd64
           
           # Create directory structure
           mkdir -p $PKGDIR/DEBIAN
@@ -148,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rateme-DEB
-          path: rateme_${{ inputs.version || github.event.inputs.version }}_amd64.deb
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}_amd64.deb
 
       # RPM build
       - name: Build RPM Package
@@ -157,11 +157,11 @@ jobs:
           sudo apt-get install -y alien rpm
 
           # Convert DEB to RPM and rename to match convention
-          sudo alien --scripts --to-rpm rateme_${{ inputs.version || github.event.inputs.version }}_amd64.deb
-          mv rateme-*.rpm rateme_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
+          sudo alien --scripts --to-rpm RateMe_${{ inputs.version || github.event.inputs.version }}_amd64.deb
+          mv rateme-*.rpm RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: rateme-RPM
-          path: rateme_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
