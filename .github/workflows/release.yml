@@ -14,19 +14,20 @@ on:
         options:
           - all
           - android
-          - desktop
-          - mobile
+          - linux
+          - windows
+          - macos
 
 jobs:
   android-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'android' || inputs.platforms == 'mobile' }}
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'android' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
     secrets: inherit
     with:
       version: ${{ github.event.inputs.version }}
 
   linux-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'desktop' }}
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'linux' }}
     needs: android-build
     uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
     secrets: inherit
@@ -34,7 +35,7 @@ jobs:
       version: ${{ github.event.inputs.version }}
 
   windows-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'desktop' }}
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'windows' }}
     needs: linux-build
     uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
     secrets: inherit
@@ -42,7 +43,7 @@ jobs:
       version: ${{ github.event.inputs.version }}
 
   macos-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'desktop' }}
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'macos' }}
     needs: windows-build
     uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
     secrets: inherit
