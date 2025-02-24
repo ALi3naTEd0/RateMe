@@ -59,9 +59,13 @@ jobs:
     needs: [android-build, linux-build, windows-build, macos-build]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      actions: read
+      contents: write    # For creating releases
+      issues: write      # For creating release notes
+      discussions: write # For release discussions
     steps:
+      - name: Create dist directory
+        run: mkdir -p dist
+
       - name: Debug Needs Context
         run: |
           echo "Android build result: ${{ needs.android-build.result }}"
@@ -82,12 +86,13 @@ jobs:
           path: dist
           
       - name: List artifacts
-        run: ls -R dist/
+        run: |
+          echo "Content of dist directory:"
+          ls -la dist/
           
       - uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # Add explicit token
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
           draft: true
