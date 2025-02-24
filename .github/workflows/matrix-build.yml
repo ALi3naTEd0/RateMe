@@ -7,33 +7,53 @@ on:
         description: "Version to build"
         required: true
         default: "1.0.0-1"
+      platforms:
+        description: "Platforms to build"
+        required: true
+        type: choice
+        options:
+          - all
+          - android
+          - linux
+          - windows
+          - macos
 
 jobs:
   android:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'android' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
     secrets: inherit
     with:
       version: ${{ inputs.version }}
 
   linux:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'linux' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
     secrets: inherit
     with:
       version: ${{ inputs.version }}
 
   windows:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'windows' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
     secrets: inherit
     with:
       version: ${{ inputs.version }}
 
   macos:
+    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'macos' }}
     uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
     secrets: inherit
     with:
       version: ${{ inputs.version }}
 
   create-release:
+    if: |
+      !cancelled() && !failure() &&
+      (needs.android.result == 'success' || needs.android.result == 'skipped') &&
+      (needs.linux.result == 'success' || needs.linux.result == 'skipped') &&
+      (needs.windows.result == 'success' || needs.windows.result == 'skipped') &&
+      (needs.macos.result == 'success' || needs.macos.result == 'skipped')
     needs: [android, linux, windows, macos]
     runs-on: ubuntu-latest
     permissions:
@@ -41,12 +61,16 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: |
-            rateme-universal
-            rateme-AppImage
-            RateMe-DMG
-            RateMe-Setup
           path: dist
+          pattern: '**/*'
+          merge-multiple: true
+          
+      - name: List artifacts
+        run: |
+          echo "Content of dist directory:"
+          ls -la dist/
+          echo "Full directory structure:"
+          find dist -type f
           
       - uses: softprops/action-gh-release@v1
         with:
