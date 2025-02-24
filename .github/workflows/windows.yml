@@ -1,7 +1,16 @@
 name: Windows Build
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to build"
+        required: true
+        type: string
+      upload_url:
+        required: false
+        type: string
 
 jobs:
   build:
@@ -29,6 +38,12 @@ jobs:
           flutter pub get
           flutter build windows --release
 
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binary
+          path: build/windows/runner/Release/
+
       # Create and upload portable version
       - name: Create Portable Package
         shell: pwsh
@@ -42,10 +57,22 @@ jobs:
           Compress-Archive -Path "Rate Me" -DestinationPath "RateMe-Portable.zip"
 
       - name: Upload Portable Package
+        if: inputs.upload_url == ''
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Portable
           path: RateMe-Portable.zip
+
+      - name: Upload Portable Release Asset
+        if: inputs.upload_url != ''
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: RateMe-Portable.zip
+          asset_name: RateMe-portable.zip
+          asset_content_type: application/zip
 
       # Create and upload installer version
       - name: Install Inno Setup
@@ -59,7 +86,19 @@ jobs:
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
 
       - name: Upload Setup Package
+        if: inputs.upload_url == ''
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Setup
           path: installers/Output/RateMe-Setup.exe
+
+      - name: Upload Setup Release Asset
+        if: inputs.upload_url != ''
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: installers/Output/RateMe-Setup.exe
+          asset_name: RateMe-v1.0.0.exe
+          asset_content_type: application/x-msdownload

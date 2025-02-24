@@ -2,6 +2,18 @@ name: Android Build
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number'
+        required: true
+        type: string
+        default: '1.0.0-1'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+        description: 'Version number'
 
 jobs:
   build:
@@ -31,6 +43,12 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Download Icons
+        run: |
+          mkdir -p assets
+          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
+          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
+
       - name: Configure Gradle
         run: |
           mkdir -p $HOME/.gradle
@@ -42,32 +60,37 @@ jobs:
       - name: Build Universal APK
         run: |
           flutter pub get
-          flutter build apk --release --verbose
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/rateme-${{ inputs.version || github.event.inputs.version }}.apk
           
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-universal
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: rateme-universal
+          path: build/app/outputs/flutter-apk/rateme-${{ inputs.version || github.event.inputs.version }}.apk
           
       # Then build ABI-specific APKs
       - name: Build Split APKs
-        run: flutter build apk --release --split-per-abi
+        run: |
+          flutter build apk --release --split-per-abi
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/rateme-arm64-v8a-${{ inputs.version || github.event.inputs.version }}.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/rateme-armeabi-v7a-${{ inputs.version || github.event.inputs.version }}.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/rateme-x86_64-${{ inputs.version || github.event.inputs.version }}.apk
 
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-arm64-v8a
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          name: rateme-arm64-v8a
+          path: build/app/outputs/flutter-apk/rateme-arm64-v8a-${{ inputs.version || github.event.inputs.version }}.apk
 
       - name: Upload armeabi-v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-armeabi-v7a
-          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+          name: rateme-armeabi-v7a
+          path: build/app/outputs/flutter-apk/rateme-armeabi-v7a-${{ inputs.version || github.event.inputs.version }}.apk
 
       - name: Upload x86_64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-x86_64
-          path: build/app/outputs/flutter-apk/app-x86_64-release.apk
+          name: rateme-x86_64
+          path: build/app/outputs/flutter-apk/rateme-x86_64-${{ inputs.version || github.event.inputs.version }}.apk

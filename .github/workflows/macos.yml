@@ -4,7 +4,12 @@
   
   on:
     workflow_dispatch:  # This allows manual execution from GitHub interface
-    # Will not run automatically on push/pull_request
+    workflow_call:
+      inputs:
+        version:
+          description: "Version to build"
+          required: true
+          type: string
   
   env:
     FLUTTER_VERSION: '3.19.3'
@@ -88,3 +93,9 @@
           with:
             name: RateMe-DMG
             path: ~/RateMe.dmg
+
+        - name: Upload Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: macos-app
+            path: build/macos/Build/Products/Release/RateMe.app

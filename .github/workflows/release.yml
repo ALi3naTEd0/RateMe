@@ -1,0 +1,53 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build"
+        required: true
+        default: "1.0.0-1"
+
+jobs:
+  android-build:
+    uses: ./.github/workflows/android.yml@main
+    secrets: inherit
+    with:
+      version: ${{ github.event.inputs.version }}
+
+  linux-build:
+    needs: android-build
+    uses: ./.github/workflows/linux.yml@main
+    secrets: inherit
+    with:
+      version: ${{ github.event.inputs.version }}
+
+  windows-build:
+    needs: linux-build
+    uses: ./.github/workflows/windows.yml@main
+    secrets: inherit
+    with:
+      version: ${{ github.event.inputs.version }}
+
+  macos-build:
+    needs: windows-build
+    uses: ./.github/workflows/macos.yml@main
+    secrets: inherit
+    with:
+      version: ${{ github.event.inputs.version }}
+
+  create-release:
+    needs: [android-build, linux-build, windows-build, macos-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Release ${{ github.event.inputs.version }}
+          draft: true
+          files: dist/**/*

@@ -2,6 +2,18 @@ name: Linux Build
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number'
+        required: true
+        type: string
+        default: '1.0.0-1'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+        description: 'Version number'
 
 env:
   FLUTTER_VERSION: '3.19.3'
@@ -45,7 +57,7 @@ jobs:
         run: |
           mkdir -p AppDir
           cp -r build/linux/x64/release/bundle/* AppDir/
-          cp assets/app-icon.png AppDir/rateme.png
+          cp assets/rateme.png AppDir/rateme.png
           
           cat > AppDir/AppRun << 'EOF'
           #!/bin/sh
@@ -70,18 +82,18 @@ jobs:
 
       - name: Build AppImage
         run: |
-          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir RateMe_1.0.0-1.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir rateme_${{ inputs.version || github.event.inputs.version }}.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-AppImage
-          path: RateMe_1.0.0-1.AppImage
+          name: linux-binary
+          path: build/linux/x64/release/bundle/
 
       # DEB build
       - name: Build DEB Package
         run: |
-          PKGDIR=RateMe_1.0.0-1_amd64
+          PKGDIR=rateme_${{ inputs.version || github.event.inputs.version }}_amd64
           
           # Create directory structure
           mkdir -p $PKGDIR/DEBIAN
@@ -92,7 +104,7 @@ jobs:
           
           # Copy files
           cp -r build/linux/x64/release/bundle/* $PKGDIR/usr/lib/rateme/
-          cp assets/app-icon.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
+          cp assets/rateme.png $PKGDIR/usr/share/icons/hicolor/256x256/apps/rateme.png
           
           # Create launcher
           cat > $PKGDIR/usr/bin/rateme << 'EOF'
@@ -105,9 +117,9 @@ jobs:
           # Create control file
           cat > $PKGDIR/DEBIAN/control << EOF
           Package: rateme
-          Version: 1.0.0-1
+          Version: ${{ inputs.version || github.event.inputs.version }}
           Architecture: amd64
-          Maintainer: Eduardo Antonio Fortuny Ruvalcaba <eduardo.fortuny@outlook.com>
+          Maintainer: ALi3naTEd0 <eduardo.fortuny@outlook.com>
           Depends: libgtk-3-0, libsecret-1-0
           Section: utils
           Priority: optional
@@ -135,8 +147,8 @@ jobs:
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-DEB
-          path: RateMe_1.0.0-1_amd64.deb
+          name: rateme-DEB
+          path: rateme_${{ inputs.version || github.event.inputs.version }}_amd64.deb
 
       # RPM build
       - name: Build RPM Package
@@ -145,11 +157,11 @@ jobs:
           sudo apt-get install -y alien rpm
 
           # Convert DEB to RPM and rename to match convention
-          sudo alien --scripts --to-rpm RateMe_1.0.0-1_amd64.deb
-          mv rateme-*.rpm RateMe_1.0.0-1_x86_64.rpm
+          sudo alien --scripts --to-rpm rateme_${{ inputs.version || github.event.inputs.version }}_amd64.deb
+          mv rateme-*.rpm rateme_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-RPM
-          path: RateMe_1.0.0-1_x86_64.rpm
+          name: rateme-RPM
+          path: rateme_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
