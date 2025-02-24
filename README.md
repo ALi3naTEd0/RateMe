@@ -40,10 +40,10 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-v1.0.0.exe)    | [DMG](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.dmg)  |  [DEB](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe_1.0.0-1_amd64.deb) | [APK-Universal](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe.apk)       | Maybe?       |
-| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-portable.zip)     |              |  [RPM](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe_1.0.0-1_x86_64.rpm)            | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-arm64-v8a-release.apk)             |              |
-|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-armeabi-v7a-release.apk)      |              |
-|              |              |   [AppImage](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe_1.0.0-1.AppImage)           | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-x86_64-release.apk)               |              |
+| [Installer](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-Setup.zip)    | [DMG](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-DMG.zip)  |  [DEB](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-DEB.zip) | [APK-Universal](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-universal.zip)       | Maybe?       |
+| [Portable](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/RateMe-Portable.zip)     |              |  [RPM](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-RPM.zip)            | [APK-arm64-v8a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-arm64-v8a.zip)             |              |
+|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-armeabi-v7a.zip)      |              |
+|              |              |   [AppImage](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-AppImage.zip)           | [APK-x86_x64](https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.0%2B1/rateme-x86_64.zip)               |              |
 
 ## Installation
 
