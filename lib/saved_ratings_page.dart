@@ -58,42 +58,54 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   }
 
   void _deleteAlbum(int index) async {
-    bool? confirmDelete = await showDialog<bool>(
+    // Add confirmation dialog
+    final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
+        final album = savedAlbums[index];
         return AlertDialog(
-          title: const Text("Confirm Delete"),
-          content: const Text(
-              "Are you sure you want to delete this item from Saved Ratings?"),
+          title: const Text('Confirm Delete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Are you sure you want to delete this album?'),
+              const SizedBox(height: 16),
+              Text(
+                album['artistName'] ?? 'Unknown Artist',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(album['collectionName'] ?? 'Unknown Album'),
+            ],
+          ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text("Cancel"),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: const Text("Delete"),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
             ),
           ],
         );
       },
     );
 
-    if (confirmDelete == true) {
+    // Only delete if user confirmed
+    if (result == true) {
       await UserData.deleteAlbum(savedAlbums[index]);
       if (mounted) {
         setState(() {
           savedAlbums.removeAt(index);
         });
       }
-      // Update the list of albums saved in persistent memory
-      await UserData.saveAlbumOrder(savedAlbums
-          .map<String>((album) => album['collectionId'].toString())
-          .toList());
+      await UserData.saveAlbumOrder(
+        savedAlbums.map<String>((album) => album['collectionId'].toString()).toList()
+      );
     }
   }
 

@@ -189,19 +189,36 @@ class _CustomListsPageState extends State<CustomListsPage> {
   }
 
   Future<void> _deleteList(CustomList list) async {
+    // Add confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete List'),
-        content: Text('Are you sure you want to delete "${list.name}"?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this list?'),
+            const SizedBox(height: 16),
+            Text(
+              list.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text('${list.albumIds.length} albums'),
+            if (list.description.isNotEmpty)
+              Text(list.description, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
           ),
         ],
