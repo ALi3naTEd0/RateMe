@@ -54,18 +54,9 @@ jobs:
             rateme-RPM
           path: dist
           
-      - name: Extract Artifacts
-        run: |
-          cd dist
-          # Extraer todos los ZIPs
-          find . -name "*.zip" -exec unzip -o {} -d ./extracted/ \;
-          
-          # Mover todos los archivos no-zip al directorio extracted
-          find . -type f ! -name "*.zip" -exec cp {} ./extracted/ \;
-          
       - uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
           draft: true
-          files: dist/extracted/**/*
+          files: dist/**/*
