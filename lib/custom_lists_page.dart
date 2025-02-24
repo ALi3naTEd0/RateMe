@@ -343,12 +343,50 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   }
 
   void _removeAlbum(int index) async {
-    final albumId = albums[index]['collectionId'].toString();
-    setState(() {
-      widget.list.albumIds.remove(albumId);
-      albums.removeAt(index);
-    });
-    await UserData.saveCustomList(widget.list);
+    // Add confirmation dialog
+    final album = albums[index];
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Album'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to remove this album from the list?'),
+            const SizedBox(height: 16),
+            Text(
+              album['artistName'] ?? 'Unknown Artist',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(album['collectionName'] ?? 'Unknown Album'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    // Only remove if confirmed
+    if (result == true) {
+      final albumId = album['collectionId'].toString();
+      setState(() {
+        widget.list.albumIds.remove(albumId);
+        albums.removeAt(index);
+      });
+      await UserData.saveCustomList(widget.list);
+    }
   }
 
   void _openAlbumDetails(int index) {
