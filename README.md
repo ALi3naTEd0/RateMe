@@ -41,10 +41,10 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Downloads
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](../../releases/download/v{version}/RateMe_{version}.exe)    | [DMG](../../releases/download/v{version}/RateMe_{version}.dmg)  |  [DEB](../../releases/download/v{version}/RateMe_{version}_amd64.deb) | [APK-Universal](../../releases/download/v{version}/RateMe_{version}.apk)       | Maybe?       |
-| [Portable](../../releases/download/v{version}/RateMe-portable.zip)     |              |  [RPM](../../releases/download/v{version}/RateMe_{version}_x86_64.rpm)            | [APK-arm64-v8a](../../releases/download/v{version}/RateMe_{version}_arm64-v8a.apk)             |              |
-|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/download/v{version}/RateMe_{version}_armeabi-v7a.apk)      |              |
-|              |              |   [AppImage](../../releases/download/v{version}/RateMe_{version}.AppImage)           | [APK-x86_x64](../../releases/download/v{version}/RateMe_{version}_x86_64.apk)               |              |
+| [Installer](../../releases/latest/download/RateMe_{version}.exe)    | [DMG](../../releases/latest/download/RateMe_{version}.dmg)  |  [DEB](../../releases/latest/download/RateMe_{version}_amd64.deb) | [APK-Universal](../../releases/latest/download/RateMe_{version}.apk)       | Maybe?       |
+| [Portable](../../releases/download/v{version}/RateMe-portable.zip)     |              |  [RPM](../../releases/latest/download/RateMe_{version}_x86_64.rpm)            | [APK-arm64-v8a](../../releases/latest/download/RateMe_{version}_arm64-v8a.apk)             |              |
+|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/latest/download/RateMe_{version}_armeabi-v7a.apk)      |              |
+|              |              |   [AppImage](../../releases/latest/download/RateMe_{version}.AppImage)           | [APK-x86_x64](../../releases/latest/download/RateMe_{version}_x86_64.apk)               |              |
 
 ## Installation
 
