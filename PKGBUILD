@@ -31,7 +31,7 @@ sha256sums=('SKIP')
 
 prepare() {
     cd "$srcdir/RateMe"
-    # Asegurarse de que estamos usando la última versión de flutter
+    # Make sure we are using the latest flutter version
     flutter upgrade
     flutter clean
 }
@@ -39,11 +39,11 @@ prepare() {
 build() {
     cd "$srcdir/RateMe"
     
-    # Verificar archivos esenciales
-    [ ! -f "linux/runner/rateme.desktop" ] && { echo "Error: .desktop no encontrado"; exit 1; }
-    [ ! -f "assets/rateme.png" ] && { echo "Error: rateme.png no encontrado"; exit 1; }
+    # Verify essential files
+    [ ! -f "linux/runner/rateme.desktop" ] && { echo "Error: .desktop file not found"; exit 1; }
+    [ ! -f "assets/rateme.png" ] && { echo "Error: rateme.png not found"; exit 1; }
 
-    # Construir con configuración de release
+    # Build with release configuration
     flutter config --enable-linux-desktop
     flutter build linux --release
 }
@@ -51,19 +51,19 @@ build() {
 package() {
     cd "$srcdir/RateMe"
     
-    # Crear directorios necesarios
+    # Create required directories
     install -dm755 "$pkgdir/usr/lib/$pkgname"
     install -dm755 "$pkgdir/usr/bin"
     
-    # Instalar archivos del bundle manteniendo la estructura
+    # Install bundle files maintaining structure
     cp -r build/linux/x64/release/bundle/* "$pkgdir/usr/lib/$pkgname/"
     
-    # Asegurarse de que los plugins estén en el lugar correcto
+    # Ensure plugins are in the correct location
     if [ -d "$pkgdir/usr/lib/$pkgname/plugins" ]; then
         cp -r "$pkgdir/usr/lib/$pkgname/plugins/"* "$pkgdir/usr/lib/$pkgname/lib/"
     fi
     
-    # Crear launcher script con configuración de entorno
+    # Create launcher script with environment setup
     cat > "$pkgdir/usr/bin/$pkgname" << EOF
 #!/bin/sh
 export GDK_BACKEND=x11
@@ -75,17 +75,17 @@ exec /usr/lib/$pkgname/$pkgname "\$@"
 EOF
     chmod 755 "$pkgdir/usr/bin/$pkgname"
     
-    # Instalar .desktop y icon
+    # Install .desktop and icon files
     install -Dm644 "linux/runner/rateme.desktop" \
         "$pkgdir/usr/share/applications/rateme.desktop"
     install -Dm644 "assets/rateme.png" \
         "$pkgdir/usr/share/icons/hicolor/512x512/apps/rateme.png"
 
-    # Ajustar RPATH para todas las bibliotecas
+    # Adjust RPATH for all libraries
     find "$pkgdir/usr/lib/$pkgname/lib" -type f -name "*.so" -exec \
         patchelf --set-rpath '/usr/lib/rateme/lib:$ORIGIN' {} \;
     
-    # Ajustar RPATH para el ejecutable principal
+    # Adjust RPATH for main executable
     patchelf --set-rpath "/usr/lib/$pkgname/lib" "$pkgdir/usr/lib/$pkgname/$pkgname"
 }
 
