@@ -7,10 +7,6 @@ on:
         description: "Version to build"
         required: true
         default: "1.0.0-1"
-      release_message:
-        description: "Release message (optional)"
-        required: false
-        default: "New RateMe release"
       platforms:
         description: "Platforms to build"
         required: true
@@ -105,6 +101,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v${{ github.event.inputs.version }}
-          name: ${{ github.event.inputs.release_message || 'Release v${{ github.event.inputs.version }}' }}
+          name: Release v${{ github.event.inputs.version }}
           draft: false
           files: dist/**/*
