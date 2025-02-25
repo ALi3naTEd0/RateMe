@@ -22,10 +22,18 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.0'
+          flutter-version: '3.19.0'  # Update to latest stable version
           channel: 'stable'
         env:
           LANG: en_US.UTF-8
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        
+      - name: Install Windows SDK
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x64
 
       - name: Download Icon
         run: |
