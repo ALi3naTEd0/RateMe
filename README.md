@@ -86,7 +86,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 Note: If you're not sure which version to use, install APK-Universal
 
 ### macOS
-1. Download `RateMe.dmg`
+1. Download `RateMe_1.0.1-1.dmg`
 2. Open the DMG file
 3. Drag RateMe to your Applications folder
 4. First time running:
@@ -108,22 +108,22 @@ Then try opening the app again. This removes macOS security quarantine.
 1. Download `RateMe_1.0.1-1.AppImage`
 2. Make it executable:
 ```bash
-chmod +x RateMe_1.0.0-1.AppImage
+chmod +x RateMe_1.0.1-1.AppImage
 ```
 3. Run it:
 ```bash
-./RateMe_1.0.0-1.AppImage
+./RateMe_1.0.1-1.AppImage
 ```
 No installation needed - the AppImage is portable and works on most Linux distributions.
 
 #### DEB Package (Ubuntu/Debian)
 ```bash
-sudo apt install ./RateMe_1.0.0-1_amd64.deb
+sudo apt install ./RateMe_1.0.1-1_amd64.deb
 ```
 
 #### RPM Package (Fedora/RHEL)
 ```bash
-sudo dnf install ./RateMe_1.0.0-1_x86_64.rpm
+sudo dnf install ./RateMe_1.0.1-1_x86_64.rpm
 ```
 
 #### Arch Linux
