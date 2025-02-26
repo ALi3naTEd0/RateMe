@@ -34,41 +34,94 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v3
       
-      - name: Prepare images
+      - name: Prepare images directory
         run: |
           mkdir -p docs/images
+          echo "Created docs/images directory"
+      
+      - name: Copy app icon
+        run: |
+          # Download the app icon if not present
+          curl -L -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png
           
-          # Copy main app icon
-          if [ -f "assets/app-icon.png" ]; then
-            echo "Using local app-icon.png"
-            cp -f assets/app-icon.png docs/images/rateme.png
-          elif [ -f "assets/rateme.png" ]; then
-            echo "Using local rateme.png"
-            cp -f assets/rateme.png docs/images/rateme.png
-          else
-            echo "Downloading app icon from GitHub"
-            curl -o docs/images/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png || \
-            curl -o docs/images/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+          # Copy to images directory
+          echo "Copying app icon to images directory"
+          cp -fv assets/app-icon.png docs/images/rateme.png
+          
+          echo "App icon status:"
+          ls -la docs/images/rateme.png
+      
+      - name: Create placeholder screenshots
+        run: |
+          # Create placeholders for screenshots
+          cp -fv docs/images/rateme.png docs/images/screenshot1.png
+          cp -fv docs/images/rateme.png docs/images/screenshot2.png
+          cp -fv docs/images/rateme.png docs/images/screenshot3.png
+          cp -fv docs/images/rateme.png docs/images/hero-app.png
+          
+          echo "Screenshot placeholders created"
+      
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          
+          # Allow ImageMagick to read/write potentially dangerous files (needed for some PNG to ICO conversions)
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="ICO" \/>/<policy domain="coder" rights="read|write" pattern="ICO" \/>/' /etc/ImageMagick-6/policy.xml
+          echo "ImageMagick installed and configured"
+      
+      - name: Generate favicons using multiple methods
+        run: |
+          echo "Creating favicons using multiple methods for redundancy"
+          
+          # Method 1: Direct conversion with basic params
+          convert docs/images/rateme.png -resize 32x32 docs/favicon.ico
+          
+          # Method 2: Conversion with multiple sizes
+          convert docs/images/rateme.png -resize 16x16 docs/images/favicon-16x16.png
+          convert docs/images/rateme.png -resize 32x32 docs/images/favicon-32x32.png
+          convert docs/images/rateme.png -resize 64x64 docs/images/favicon-64x64.png
+          
+          # Method 3: Create a multi-size favicon (this sometimes fails but is ideal when it works)
+          convert docs/images/favicon-16x16.png docs/images/favicon-32x32.png docs/images/favicon-64x64.png docs/favicon-multi.ico
+          
+          # Method 4: Try using the composite method
+          convert -background transparent docs/images/rateme.png -define icon:auto-resize=16,32,64 docs/favicon-auto.ico
+          
+          # Copy and rename all generated favicon files for redundancy
+          cp -fv docs/favicon.ico docs/images/favicon.ico || echo "Copy 1 failed"
+          cp -fv docs/favicon-multi.ico docs/images/favicon-multi.ico || echo "Copy 2 failed"
+          cp -fv docs/favicon-auto.ico docs/favicon.ico || echo "Copy 3 failed"
+          
+          echo "Hard-coded fallback favicon using base64"
+          echo "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" | base64 -d > docs/images/favicon-fallback.png
+          convert docs/images/favicon-fallback.png docs/images/favicon-fallback.ico
+          
+          # Ensure there's at least one favicon in the root
+          if [ ! -f docs/favicon.ico ]; then
+            echo "Using fallback favicon"
+            cp -fv docs/images/favicon-fallback.ico docs/favicon.ico
           fi
           
-          # Create placeholders for screenshots if they don't exist
-          [ ! -f docs/images/screenshot1.png ] && cp docs/images/rateme.png docs/images/screenshot1.png || true
-          [ ! -f docs/images/screenshot2.png ] && cp docs/images/rateme.png docs/images/screenshot2.png || true
-          [ ! -f docs/images/screenshot3.png ] && cp docs/images/rateme.png docs/images/screenshot3.png || true
-          [ ! -f docs/images/hero-app.png ] && cp docs/images/rateme.png docs/images/hero-app.png || true
+          # Create HTML file with inline favicon
+          echo "Creating favicon.html for direct access"
+          cat > docs/favicon.html <<EOL
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Favicon</title>
+            <link rel="icon" href="favicon.ico">
+          </head>
+          <body>
+            <h1>Rate Me! Favicon</h1>
+            <p>If you can see a favicon in your browser tab, it's working!</p>
+            <img src="images/rateme.png" width="64" height="64" alt="App Icon">
+          </body>
+          </html>
+          EOL
           
-          # Install ImageMagick and create favicon
-          sudo apt-get update && sudo apt-get install -y imagemagick
-          
-          # Create favicon in root directory
-          convert docs/images/rateme.png -define icon:auto-resize=64,32,16 docs/favicon.ico
-          
-          # Also create a backup favicon in images directory
-          cp docs/favicon.ico docs/images/favicon.ico
-          
-          echo "Images prepared successfully:"
-          ls -la docs/
-          ls -la docs/images/
+          echo "All favicon files:"
+          find docs -name "favicon*" -ls
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
