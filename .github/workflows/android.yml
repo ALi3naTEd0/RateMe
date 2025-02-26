@@ -21,13 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # Setup Java the same way Oscars does
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
+      # Setup Flutter the same way Oscars does
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -35,26 +36,21 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Download Icons
-        run: |
-          mkdir -p assets
-          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
-          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
-
+      # Decode the keystore like in Oscars
       - name: Decode Keystore
         run: |
           echo "${{ secrets.UPLOAD_KEYSTORE }}" | base64 -d > android/app/upload-keystore.jks
           ls -la android/app/upload-keystore.jks
 
+      # Set up key.properties like in Oscars
       - name: Set up key.properties
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          # Fixed path error (was android.key.properties)
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
-      # Now build the APKs
+      # Build the APK
       - name: Build Universal APK
         run: |
           flutter pub get
@@ -75,6 +71,7 @@ jobs:
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
 
+      # Upload the artifacts
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
