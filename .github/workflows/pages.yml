@@ -1,121 +1,56 @@
-name: Prepare GitHub Pages Content
+name: GitHub Pages
 
 on:
-  # Only run manually or on direct changes to the docs folder
   push:
     branches: ["rateme"]
     paths:
       - 'docs/**'
   workflow_dispatch:
 
-# Required permissions
 permissions:
-  contents: write  # Needed to update files in the repo
+  contents: read
+  pages: write
+  id-token: write
 
-# Prevent parallel executions
 concurrency:
-  group: "pages-prep"
+  group: "pages"
   cancel-in-progress: true
 
 jobs:
-  prepare-content:
-    name: Prepare Page Content
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v3
       
-      - name: Set up Images Directory
-        run: |
-          mkdir -p docs/images
-          echo "Created docs/images directory"
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
       
-      - name: Generate Favicon
-        run: |
-          echo "Creating favicon..."
-          # Create a simple favicon directly (purple square)
-          cat > docs/favicon.ico <<EOL
-          0000010001002020100000000000E802000016000000280000002000
-          0000400000000100040000000000800200000000000000000000000000
-          0000000000000000000000000000800000800000008080008000000080
-          0080008080000080808000C0C0C0000000FF0000FF000000FFFF00FF00
-          0000FF00FF00FFFF0000FFFFFF0000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0008888888888888888888888888800088888888888888888888888888800
-          0088888888888888888888888888000088888888888888888888888888000
-          0088888888888888888888888888000088888888888888888888888888000
-          0088888888888888888888888888000088888888888888888888888888000
-          0088888888888888888888888888000088888888888888888888888888000
-          0088888888888888888888888888000088888888888888888888888888000
-          0088888888888888888888888888000088888888888888888888888888000
-          0088888888888888888888888888000088888888888888888888888888000
-          0008888888888888888888888888000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          0000000000000000000000000000000000000000000000000000000000000
-          00000000000000000000000000000000000000000000000000000000FFFF
-          FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
-          0001800000018000000180000001800000018000000180000001800000018
-          0000001800000018000000180000001800000018000000180000001800000
-          018000000100000001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-          EOL
-          cp -f docs/favicon.ico docs/images/favicon.ico
-          echo "Favicon created successfully"
-      
-      - name: Prepare Image Assets
-        run: |
-          # Copy app icon
-          if [ -f "assets/rateme.png" ]; then
-            cp -f assets/rateme.png docs/images/rateme.png
-          elif [ -f "assets/app-icon.png" ]; then
-            cp -f assets/app-icon.png docs/images/rateme.png
-          else
-            echo "Downloading app icon"
-            curl -o docs/images/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png || echo "Download error"
-          fi
-          
-          # Create placeholders for screenshots
-          cp -f docs/images/rateme.png docs/images/screenshot1.png || true
-          cp -f docs/images/rateme.png docs/images/screenshot2.png || true
-          cp -f docs/images/rateme.png docs/images/screenshot3.png || true
-          cp -f docs/images/rateme.png docs/images/hero-app.png || true
-      
-      - name: Create Test Page
+      - name: Create favicon.html test page
         run: |
           cat > docs/favicon-test.html <<EOL
           <!DOCTYPE html>
           <html>
           <head>
-            <title>RateMe Favicon Test</title>
-            <link rel="icon" href="favicon.ico">
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              h1 { color: purple; }
-            </style>
+            <title>Favicon Test</title>
+            <link rel="icon" href="favicon.ico" type="image/x-icon">
           </head>
           <body>
             <h1>Favicon Test Page</h1>
-            <p>If you can see the favicon in your browser tab, it's working correctly!</p>
+            <p>If you can see the favicon in your browser tab, it's working!</p>
             <p><a href="index.html">Return to main page</a></p>
           </body>
           </html>
           EOL
       
-      - name: Verify Files
-        run: |
-          echo "Contents of docs directory:"
-          ls -la docs/
-          echo "Contents of docs/images directory:"
-          ls -la docs/images/
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: './docs'
       
-      - name: Commit Changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add docs/
-          git commit -m "Update GitHub Pages resources [skip ci]" || echo "No changes to commit"
-          git push
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
