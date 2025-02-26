@@ -221,26 +221,43 @@ nav ul li a:hover {
     border-radius: 12px;
     text-decoration: none;
     transition: transform 0.3s, box-shadow 0.3s;
-    width: 250px; /* Fixed width instead of min-width */
+    width: 250px;
+    justify-content: flex-start;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .download-button i {
     font-size: 24px;
-    flex: 0 0 30px; /* Fixed width for icon */
+    min-width: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-right: 15px;
 }
 
 .download-button span {
-    flex: 1; /* Take remaining space */
-    margin: 0 15px; /* Consistent spacing */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 1;
 }
 
-/* Remove all previous pseudo-elements and wrappers */
-.download-button .icon-text-wrapper,
-.download-button::after {
-    display: none;
+.download-button strong {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+}
+
+.download-button.dropdown-toggle {
+    position: relative;
+    padding-right: 45px;
+}
+
+.download-button.dropdown-toggle .fa-chevron-down {
+    position: absolute;
+    right: 20px;
+    font-size: 14px;
 }
 
 .download-button:hover {
