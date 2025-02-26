@@ -124,17 +124,28 @@ nav ul li a:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* Hero Section - Updated for carousel */
 .hero-image {
     flex: 1;
     text-align: center;
+    position: relative;
+    overflow: hidden;
 }
 
-.hero-image img {
+.hero-carousel {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+}
+
+.hero-carousel img {
     max-width: 100%;
     height: auto;
     max-height: 500px;
     border-radius: 10px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+    width: 100%;
+    object-fit: contain;
 }
 
 /* Features Section */
@@ -395,6 +406,12 @@ nav ul li a:hover {
 .screenshot {
     flex: 0 0 300px;
     scroll-snap-align: center;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.screenshot:hover {
+    transform: scale(1.02);
 }
 
 .screenshot img {
@@ -408,6 +425,60 @@ nav ul li a:hover {
 .screenshot p {
     color: var(--gray);
 }
+
+/* Lightbox styles */
+.lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1100;
+    padding: 20px;
+}
+
+.lightbox.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.lightbox img {
+    max-width: 90%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 10px;
+}
+
+.lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    padding: 20px 15px;
+    border-radius: 5px;
+}
+
+.lightbox-prev { left: 20px; }
+.lightbox-next { right: 20px; }
 
 /* Footer */
 footer {

@@ -46,7 +46,11 @@
                 <a href="#download" class="cta-button">Download Now</a>
             </div>
             <div class="hero-image">
-                <img src="images/hero-app.png" alt="Rate Me App Screenshot">
+                <div class="hero-carousel">
+                    <img src="images/screenshot1.png" alt="Rate Me Screenshot 1">
+                    <img src="images/screenshot2.png" alt="Rate Me Screenshot 2">
+                    <img src="images/screenshot3.png" alt="Rate Me Screenshot 3">
+                </div>
             </div>
         </div>
     </section>
@@ -182,15 +186,15 @@
         <div class="container">
             <h2>App Screenshots</h2>
             <div class="screenshot-carousel">
-                <div class="screenshot">
+                <div class="screenshot" data-index="0">
                     <img src="images/screenshot1.png" alt="Home Screen">
                     <p>Home Screen & Search</p>
                 </div>
-                <div class="screenshot">
+                <div class="screenshot" data-index="1">
                     <img src="images/screenshot2.png" alt="Album Details">
                     <p>Album Details & Rating</p>
                 </div>
-                <div class="screenshot">
+                <div class="screenshot" data-index="2">
                     <img src="images/screenshot3.png" alt="Custom Lists">
                     <p>Custom Lists View</p>
                 </div>
@@ -249,5 +253,66 @@
             });
         });
     </script>
+
+    <!-- Hero carousel and lightbox functionality -->
+    <script>
+        // Hero carousel
+        const heroCarousel = document.querySelector('.hero-carousel');
+        let currentSlide = 0;
+        const slides = heroCarousel.children.length;
+
+        function nextSlide() {
+            currentSlide = (currentSlide + 1) % slides;
+            heroCarousel.style.transform = `translateX(-${currentSlide * 100}%)`;
+        }
+
+        setInterval(nextSlide, 4000);
+
+        // Screenshots lightbox
+        const lightbox = document.querySelector('.lightbox');
+        const lightboxImg = lightbox.querySelector('img');
+        const screenshots = document.querySelectorAll('.screenshot');
+        let currentIndex = 0;
+
+        screenshots.forEach(screenshot => {
+            screenshot.addEventListener('click', () => {
+                currentIndex = parseInt(screenshot.dataset.index);
+                updateLightbox();
+                lightbox.classList.add('active');
+            });
+        });
+
+        document.querySelector('.lightbox-close').addEventListener('click', () => {
+            lightbox.classList.remove('active');
+        });
+
+        document.querySelector('.lightbox-next').addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % screenshots.length;
+            updateLightbox();
+        });
+
+        document.querySelector('.lightbox-prev').addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + screenshots.length) % screenshots.length;
+            updateLightbox();
+        });
+
+        function updateLightbox() {
+            lightboxImg.src = screenshots[currentIndex].querySelector('img').src;
+        }
+
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) {
+                lightbox.classList.remove('active');
+            }
+        });
+    </script>
+
+    <!-- Add lightbox markup -->
+    <div class="lightbox">
+        <button class="lightbox-close">&times;</button>
+        <button class="lightbox-nav lightbox-prev">&lt;</button>
+        <img src="" alt="Screenshot Preview">
+        <button class="lightbox-nav lightbox-next">&gt;</button>
+    </div>
 </body>
 </html>
