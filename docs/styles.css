@@ -236,15 +236,17 @@ nav ul li a:hover {
     font-size: 24px;
     margin-right: 15px;
     width: 24px;
-    height: 24px;  /* Added fixed height */
+    height: 24px;
     text-align: center;
-    display: flex;  /* Changed to flex */
-    align-items: center;  /* Center vertically */
-    justify-content: center;  /* Center horizontally */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 .download-button i.fa-android {
-    font-size: 20px;  /* Reduced further to match visual weight */
+    font-size: 18px;
+    transform: scale(0.95);
 }
 
 .download-button span {
