@@ -12,7 +12,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.rateme"
+    namespace = "com.alienated.rateme"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "25.1.8937393"
 
@@ -26,11 +26,13 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.rateme"
+        applicationId "com.alienated.rateme"
         minSdkVersion 21
         targetSdkVersion 33
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.1"
+        // Add application name
+        resValue "string", "app_name", "Rate Me!"
     }
 
     signingConfigs {
