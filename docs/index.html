@@ -50,6 +50,7 @@
                     <img src="images/screenshot1.png" alt="Rate Me Screenshot 1">
                     <img src="images/screenshot2.png" alt="Rate Me Screenshot 2">
                     <img src="images/screenshot3.png" alt="Rate Me Screenshot 3">
+                    <img src="images/screenshot4.png" alt="Rate Me Screenshot 4">
                 </div>
             </div>
         </div>
@@ -187,15 +188,15 @@
             <h2>App Screenshots</h2>
             <div class="screenshot-carousel">
                 <div class="screenshot" data-index="0">
-                    <img src="images/screenshot1.png" alt="Home Screen">
+                    <img src="images/screenshot1.png" alt="Home Screen" loading="lazy">
                     <p>Home Screen & Search</p>
                 </div>
                 <div class="screenshot" data-index="1">
-                    <img src="images/screenshot2.png" alt="Album Details">
+                    <img src="images/screenshot2.png" alt="Album Details" loading="lazy">
                     <p>Album Details & Rating</p>
                 </div>
                 <div class="screenshot" data-index="2">
-                    <img src="images/screenshot3.png" alt="Custom Lists">
+                    <img src="images/screenshot3.png" alt="Custom Lists" loading="lazy">
                     <p>Custom Lists View</p>
                 </div>
             </div>
@@ -277,42 +278,53 @@
         screenshots.forEach(screenshot => {
             screenshot.addEventListener('click', () => {
                 currentIndex = parseInt(screenshot.dataset.index);
-                updateLightbox();
-                lightbox.classList.add('active');
+                showLightbox();
             });
         });
 
-        document.querySelector('.lightbox-close').addEventListener('click', () => {
+        function showLightbox() {
+            lightboxImg.src = screenshots[currentIndex].querySelector('img').src;
+            lightbox.classList.add('active');
+        }
+
+        lightbox.querySelector('.lightbox-close').addEventListener('click', () => {
             lightbox.classList.remove('active');
         });
 
-        document.querySelector('.lightbox-next').addEventListener('click', () => {
+        lightbox.querySelector('.lightbox-next').addEventListener('click', (e) => {
+            e.stopPropagation();
             currentIndex = (currentIndex + 1) % screenshots.length;
-            updateLightbox();
+            showLightbox();
         });
 
-        document.querySelector('.lightbox-prev').addEventListener('click', () => {
+        lightbox.querySelector('.lightbox-prev').addEventListener('click', (e) => {
+            e.stopPropagation();
             currentIndex = (currentIndex - 1 + screenshots.length) % screenshots.length;
-            updateLightbox();
+            showLightbox();
         });
-
-        function updateLightbox() {
-            lightboxImg.src = screenshots[currentIndex].querySelector('img').src;
-        }
 
         lightbox.addEventListener('click', (e) => {
             if (e.target === lightbox) {
                 lightbox.classList.remove('active');
             }
         });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (!lightbox.classList.contains('active')) return;
+            
+            if (e.key === 'Escape') lightbox.classList.remove('active');
+            if (e.key === 'ArrowRight') lightbox.querySelector('.lightbox-next').click();
+            if (e.key === 'ArrowLeft') lightbox.querySelector('.lightbox-prev').click();
+        });
     </script>
 
     <!-- Add lightbox markup -->
     <div class="lightbox">
         <button class="lightbox-close">&times;</button>
-        <button class="lightbox-nav lightbox-prev">&lt;</button>
+        <button class="lightbox-nav lightbox-prev">&larr;</button>
         <img src="" alt="Screenshot Preview">
-        <button class="lightbox-nav lightbox-next">&gt;</button>
+        <button class="lightbox-nav lightbox-next">&rarr;</button>
     </div>
 </body>
 </html>

@@ -395,35 +395,32 @@ nav ul li a:hover {
     color: var(--primary);
 }
 
+/* Screenshots Section - Updated for better responsiveness */
 .screenshot-carousel {
-    display: flex;
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 30px;
     padding: 20px 0;
-    scroll-snap-type: x mandatory;
+    overflow: visible;
 }
 
 .screenshot {
-    flex: 0 0 300px;
-    scroll-snap-align: center;
-    cursor: pointer;
+    width: 100%;
+    cursor: zoom-in;
     transition: transform 0.3s ease;
 }
 
 .screenshot:hover {
-    transform: scale(1.02);
+    transform: scale(1.03);
 }
 
 .screenshot img {
     width: 100%;
-    height: auto;
+    height: 220px;
+    object-fit: cover;
     border-radius: 16px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
     margin-bottom: 15px;
-}
-
-.screenshot p {
-    color: var(--gray);
 }
 
 /* Lightbox styles */
@@ -435,8 +432,8 @@ nav ul li a:hover {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    z-index: 1100;
-    padding: 20px;
+    z-index: 2000;
+    cursor: zoom-out;
 }
 
 .lightbox.active {
@@ -448,12 +445,12 @@ nav ul li a:hover {
 .lightbox img {
     max-width: 90%;
     max-height: 90vh;
-    object-fit: contain;
     border-radius: 8px;
+    cursor: default;
 }
 
 .lightbox-close {
-    position: absolute;
+    position: fixed;
     top: 20px;
     right: 20px;
     color: white;
@@ -462,10 +459,11 @@ nav ul li a:hover {
     background: none;
     border: none;
     padding: 10px;
+    z-index: 2001;
 }
 
 .lightbox-nav {
-    position: absolute;
+    position: fixed;
     top: 50%;
     transform: translateY(-50%);
     color: white;
@@ -475,6 +473,12 @@ nav ul li a:hover {
     border: none;
     padding: 20px 15px;
     border-radius: 5px;
+    z-index: 2001;
+    transition: background-color 0.3s;
+}
+
+.lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .lightbox-prev { left: 20px; }
