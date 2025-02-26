@@ -19,6 +19,7 @@
     --card-bg: #2D2D2D;
     --gray: #B0B0B0;
     --footer-bg: #2D2D2D; /* New footer background for dark mode */
+    --button-text: #A76FFF; /* New color for button text in dark mode */
 }
 
 * {
@@ -261,7 +262,7 @@ nav ul li a:hover {
     padding: 20px 25px;
     position: relative;
     background-color: var(--card-bg);
-    color: var(--primary-dark);
+    color: var(--button-text, var(--primary-dark)); /* Use new variable with fallback */
     border-radius: 12px;
     text-decoration: none;
     transition: transform 0.3s, box-shadow 0.3s;
@@ -389,6 +390,23 @@ nav ul li a:hover {
 
 .dropdown-content a:not(:last-child) {
     border-bottom: 1px solid #eee;
+}
+
+[data-theme="dark"] .dropdown-content {
+    background-color: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .dropdown-content a {
+    color: var(--button-text);
+}
+
+[data-theme="dark"] .dropdown-content a:hover {
+    background-color: rgba(167, 111, 255, 0.1); /* Matching the new button text color */
+}
+
+[data-theme="dark"] .dropdown-content a:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .download-dropdown:hover .fa-chevron-down {
