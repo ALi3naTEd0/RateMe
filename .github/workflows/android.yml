@@ -32,6 +32,8 @@ jobs:
         run: |
           mkdir -p $HOME/.gradle
           echo "org.gradle.java.home=$JAVA_HOME" >> $HOME/.gradle/gradle.properties
+          # Add debug flags for more verbose output
+          echo "org.gradle.logging.level=info" >> $HOME/.gradle/gradle.properties
           echo "Current gradle.properties:"
           cat $HOME/.gradle/gradle.properties
 
@@ -59,13 +61,25 @@ jobs:
           curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
           curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
 
-      # More secure way to decode keystore - directly from base64 to file
+      # Debug step - print working directory structure
+      - name: Debug directory structure
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Directory structure:"
+          find . -type f -name "build.gradle" | sort
+          echo "Android directory structure:"
+          find ./android -type f | sort
+
+      # Decode keystore with more debug information
       - name: Decode Keystore
         run: |
           echo "${{ secrets.UPLOAD_KEYSTORE }}" | base64 -d > android/app/upload-keystore.jks
           # Verify the keystore was created correctly
           ls -la android/app/upload-keystore.jks
           echo "Keystore file size: $(stat -c %s android/app/upload-keystore.jks) bytes"
+          # Try listing the keystore contents without showing sensitive info
+          echo "Keystore info:"
+          keytool -list -v -keystore android/app/upload-keystore.jks -storepass "${{ secrets.KEYSTORE_PASSWORD }}" | grep -v -E "Entry|Valid|Owner|Issuer|Serial|MD5|SHA1|SHA256|Signature"
 
       # Create key.properties with explicit path
       - name: Set up key.properties
@@ -85,10 +99,21 @@ jobs:
           echo "keyAlias exists: $(grep -c "keyAlias" android/key.properties || echo "0")"
           echo "storeFile exists: $(grep -c "storeFile" android/key.properties || echo "0")"
 
-      # First build universal APK
-      - name: Build Universal APK
+      # First attempt to build with debugging flags
+      - name: Build Debug APK First
         run: |
           flutter pub get
+          flutter build apk --debug
+
+      # Run a Gradle task directly for detailed error information
+      - name: Run Gradle directly for error investigation
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease --info --stacktrace
+
+      # Now try the real build with verbose output
+      - name: Build Universal APK
+        run: |
           flutter build apk --release --verbose
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           

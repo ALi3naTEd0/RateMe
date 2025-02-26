@@ -8,10 +8,17 @@ plugins {
 def keystorePropertiesFile = rootProject.file('key.properties')
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-    println "Keystore properties loaded successfully"
+    try {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+        println "Keystore properties loaded successfully"
+        println "Key Alias: ${keystoreProperties['keyAlias']}"
+        println "Store File specified: ${keystoreProperties['storeFile']}"
+    } catch (Exception e) {
+        println "Error loading key.properties: ${e.message}"
+        e.printStackTrace()
+    }
 } else {
-    println "Warning: key.properties file not found!"
+    println "Warning: key.properties file not found at ${keystorePropertiesFile.absolutePath}!"
 }
 
 android {
@@ -40,23 +47,40 @@ android {
 
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
-            release {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                storePassword keystoreProperties['storePassword']
+            try {
+                release {
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                    def storeFilePath = keystoreProperties['storeFile']
+                    println "Using store file path: ${storeFilePath}"
+                    storeFile file(storeFilePath)
+                    storePassword keystoreProperties['storePassword']
+                }
+                println "Release signing config created successfully"
+            } catch (Exception e) {
+                println "Error creating signing config: ${e.message}"
+                e.printStackTrace()
             }
+        } else {
+            println "Not creating release signing config because key.properties does not exist"
         }
     }
 
     buildTypes {
         release {
-            if (keystorePropertiesFile.exists()) {
-                signingConfig signingConfigs.release
-                println "Release build using signing config"
-            } else {
+            try {
+                if (keystorePropertiesFile.exists() && signingConfigs.hasProperty('release')) {
+                    signingConfig signingConfigs.release
+                    println "Release build using signing config"
+                } else {
+                    signingConfig signingConfigs.debug
+                    println "Release build using debug signing config"
+                }
+            } catch (Exception e) {
+                println "Error setting signing config: ${e.message}"
+                e.printStackTrace()
                 signingConfig signingConfigs.debug
-                println "Release build using debug signing config"
+                println "Fallback to debug signing config due to error"
             }
             minifyEnabled false
             shrinkResources false
