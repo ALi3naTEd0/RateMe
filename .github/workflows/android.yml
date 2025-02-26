@@ -56,6 +56,14 @@ jobs:
           echo "Current gradle.properties:"
           cat $HOME/.gradle/gradle.properties
 
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.UPLOAD_KEYSTORE }}" | base64 -d > android/app/upload-keystore.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+
       # First build universal APK
       - name: Build Universal APK
         run: |
