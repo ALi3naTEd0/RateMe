@@ -1,4 +1,6 @@
+/* Add theme variables at the top */
 :root {
+    /* Light theme (default) */
     --primary: #864AF9;
     --primary-dark: #5E35B1;
     --secondary: #7E57C2;
@@ -7,6 +9,16 @@
     --background: #F8F9FA;
     --background-dark: #121212;
     --gray: #6c757d;
+    --card-bg: #FFFFFF;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+    --text-dark: #FFFFFF;
+    --text-light: #FFFFFF;
+    --background: #121212;
+    --gray: #B0B0B0;
+    --card-bg: #1E1E1E;
 }
 
 * {
@@ -135,6 +147,7 @@ nav ul li a:hover {
 .hero-carousel {
     display: flex;
     transition: transform 0.5s ease-in-out;
+    width: 400%;  /* Important: 100% * number of slides */
 }
 
 .hero-carousel img {
@@ -144,7 +157,7 @@ nav ul li a:hover {
     border-radius: 10px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     flex-shrink: 0;
-    width: 100%;
+    width: 25%;  /* Important: 100% / number of slides */
     object-fit: contain;
 }
 
@@ -168,7 +181,7 @@ nav ul li a:hover {
 }
 
 .feature-card {
-    background-color: var(--text-light);
+    background-color: var(--card-bg);
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
@@ -230,7 +243,7 @@ nav ul li a:hover {
     align-items: center;
     padding: 20px 25px;
     position: relative;
-    background-color: var(--text-light);
+    background-color: var(--card-bg);
     color: var(--primary-dark);
     border-radius: 12px;
     text-decoration: none;
@@ -559,4 +572,29 @@ footer {
     nav ul {
         display: none;
     }
+}
+
+/* Add theme switch styles */
+.theme-switch {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--primary);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    border: none;
+    color: var(--text-light);
+    font-size: 24px;
+    transition: transform 0.3s;
+}
+
+.theme-switch:hover {
+    transform: scale(1.1);
 }

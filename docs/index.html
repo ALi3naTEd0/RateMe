@@ -220,111 +220,103 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
-    
-    <!-- Add dropdown functionality -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const dropdowns = document.querySelectorAll('.dropdown-toggle');
-            
-            dropdowns.forEach(dropdown => {
-                dropdown.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const content = this.nextElementSibling;
-                    
-                    // Close all other dropdowns
-                    document.querySelectorAll('.dropdown-content').forEach(item => {
-                        if (item !== content) {
-                            item.classList.remove('show');
-                        }
-                    });
-                    
-                    // Toggle current dropdown
-                    content.classList.toggle('show');
-                });
+document.addEventListener('DOMContentLoaded', function() {
+    // Dropdowns functionality
+    const dropdowns = document.querySelectorAll('.dropdown-toggle');
+    dropdowns.forEach(dropdown => {
+        dropdown.addEventListener('click', function(e) {
+            e.preventDefault();
+            const content = this.nextElementSibling;
+            document.querySelectorAll('.dropdown-content').forEach(item => {
+                if (item !== content) item.classList.remove('show');
             });
-            
-            // Close dropdowns when clicking outside
-            window.addEventListener('click', function(e) {
-                if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown-toggle')) {
-                    document.querySelectorAll('.dropdown-content').forEach(item => {
-                        item.classList.remove('show');
-                    });
-                }
-            });
+            content.classList.toggle('show');
         });
-    </script>
+    });
 
-    <!-- Hero carousel and lightbox functionality -->
-    <script>
-        // Hero carousel
-        const heroCarousel = document.querySelector('.hero-carousel');
-        let currentSlide = 0;
-        const slides = heroCarousel.children.length;
-
-        function nextSlide() {
-            currentSlide = (currentSlide + 1) % slides;
-            heroCarousel.style.transform = `translateX(-${currentSlide * 100}%)`;
+    // Close dropdowns when clicking outside
+    window.addEventListener('click', function(e) {
+        if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown-toggle')) {
+            document.querySelectorAll('.dropdown-content').forEach(item => {
+                item.classList.remove('show');
+            });
         }
+    });
 
-        setInterval(nextSlide, 4000);
+    // Hero carousel functionality
+    const heroCarousel = document.querySelector('.hero-carousel');
+    const totalSlides = heroCarousel.children.length;
+    let currentSlide = 0;
 
-        // Screenshots lightbox
-        const lightbox = document.querySelector('.lightbox');
-        const lightboxImg = lightbox.querySelector('img');
-        const screenshots = document.querySelectorAll('.screenshot');
-        let currentIndex = 0;
+    function nextSlide() {
+        currentSlide = (currentSlide + 1) % totalSlides;
+        heroCarousel.style.transform = `translateX(-${currentSlide * 25}%)`; // 25% for 4 slides
+    }
+    setInterval(nextSlide, 4000);
 
-        screenshots.forEach(screenshot => {
-            screenshot.addEventListener('click', () => {
-                currentIndex = parseInt(screenshot.dataset.index);
-                showLightbox();
-            });
-        });
+    // Theme switch functionality
+    const themeSwitch = document.querySelector('.theme-switch');
+    const icon = themeSwitch.querySelector('i');
+    let darkMode = localStorage.getItem('darkMode') === 'true';
 
-        function showLightbox() {
-            lightboxImg.src = screenshots[currentIndex].querySelector('img').src;
+    if (darkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        icon.classList.replace('fa-moon', 'fa-sun');
+    }
+
+    themeSwitch.addEventListener('click', () => {
+        darkMode = !darkMode;
+        document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+        icon.classList.toggle('fa-moon');
+        icon.classList.toggle('fa-sun');
+        localStorage.setItem('darkMode', darkMode);
+    });
+
+    // Screenshots lightbox functionality
+    const screenshots = document.querySelectorAll('.screenshot');
+    const lightbox = document.querySelector('.lightbox');
+    const lightboxImg = lightbox.querySelector('img');
+    let currentIndex = 0;
+
+    screenshots.forEach((screenshot, index) => {
+        screenshot.addEventListener('click', () => {
+            currentIndex = index;
+            lightboxImg.src = screenshot.querySelector('img').src;
             lightbox.classList.add('active');
-        }
+        });
+    });
 
-        lightbox.querySelector('.lightbox-close').addEventListener('click', () => {
+    lightbox.querySelector('.lightbox-close').addEventListener('click', () => {
+        lightbox.classList.remove('active');
+    });
+
+    lightbox.querySelector('.lightbox-next').addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentIndex = (currentIndex + 1) % screenshots.length;
+        lightboxImg.src = screenshots[currentIndex].querySelector('img').src;
+    });
+
+    lightbox.querySelector('.lightbox-prev').addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentIndex = (currentIndex - 1 + screenshots.length) % screenshots.length;
+        lightboxImg.src = screenshots[currentIndex].querySelector('img').src;
+    });
+
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) {
             lightbox.classList.remove('active');
-        });
+        }
+    });
 
-        lightbox.querySelector('.lightbox-next').addEventListener('click', (e) => {
-            e.stopPropagation();
-            currentIndex = (currentIndex + 1) % screenshots.length;
-            showLightbox();
-        });
-
-        lightbox.querySelector('.lightbox-prev').addEventListener('click', (e) => {
-            e.stopPropagation();
-            currentIndex = (currentIndex - 1 + screenshots.length) % screenshots.length;
-            showLightbox();
-        });
-
-        lightbox.addEventListener('click', (e) => {
-            if (e.target === lightbox) {
-                lightbox.classList.remove('active');
-            }
-        });
-
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (!lightbox.classList.contains('active')) return;
-            
-            if (e.key === 'Escape') lightbox.classList.remove('active');
-            if (e.key === 'ArrowRight') lightbox.querySelector('.lightbox-next').click();
-            if (e.key === 'ArrowLeft') lightbox.querySelector('.lightbox-prev').click();
-        });
-    </script>
-
-    <!-- Add lightbox markup -->
-    <div class="lightbox">
-        <button class="lightbox-close">&times;</button>
-        <button class="lightbox-nav lightbox-prev">&larr;</button>
-        <img src="" alt="Screenshot Preview">
-        <button class="lightbox-nav lightbox-next">&rarr;</button>
-    </div>
+    // Keyboard navigation for lightbox
+    document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('active')) return;
+        if (e.key === 'Escape') lightbox.classList.remove('active');
+        if (e.key === 'ArrowRight') lightbox.querySelector('.lightbox-next').click();
+        if (e.key === 'ArrowLeft') lightbox.querySelector('.lightbox-prev').click();
+    });
+});
+</script>
 </body>
 </html>
