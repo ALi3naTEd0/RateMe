@@ -1,4 +1,4 @@
-name: GitHub Pages
+name: Deploy GitHub Pages
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -25,32 +25,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
+
       - name: Setup Pages
         uses: actions/configure-pages@v3
-      
-      - name: Create favicon.html test page
+
+      - name: Prepare content
         run: |
-          cat > docs/favicon-test.html <<EOL
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Favicon Test</title>
-            <link rel="icon" href="favicon.ico" type="image/x-icon">
-          </head>
-          <body>
-            <h1>Favicon Test Page</h1>
-            <p>If you can see the favicon in your browser tab, it's working!</p>
-            <p><a href="index.html">Return to main page</a></p>
-          </body>
-          </html>
-          EOL
-      
-      - name: Upload artifact
+          mkdir -p docs/images
+          echo "Directory structure:"
+          ls -la docs/
+
+      - name: Upload pages content
         uses: actions/upload-pages-artifact@v1
         with:
           path: './docs'
-      
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v2
+        with:
+          preview: false
+          token: ${{ secrets.GITHUB_TOKEN }}
