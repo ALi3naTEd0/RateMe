@@ -22,19 +22,10 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
-
-      - name: Verify Java installation
-        run: |
-          echo "Java version:"
-          java -version
-          echo "JAVA_HOME:"
-          echo $JAVA_HOME
-          ls -la $JAVA_HOME
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -46,19 +37,16 @@ jobs:
       - name: Download Icons
         run: |
           mkdir -p assets
-          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
-          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
+          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
 
-      - name: Configure Gradle
+      - name: Decode Keystore
         run: |
-          mkdir -p $HOME/.gradle
-          echo "org.gradle.java.home=$JAVA_HOME" >> $HOME/.gradle/gradle.properties
-          echo "Current gradle.properties:"
-          cat $HOME/.gradle/gradle.properties
+          echo "${{ secrets.UPLOAD_KEYSTORE }}" > upload-keystore.jks.base64
+          base64 -d upload-keystore.jks.base64 > android/app/upload-keystore.jks
 
-      - name: Setup Android signing
+      - name: Set up key.properties
         run: |
-          echo "${{ secrets.UPLOAD_KEYSTORE }}" | base64 -d > android/app/upload-keystore.jks
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
