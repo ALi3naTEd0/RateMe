@@ -212,29 +212,46 @@ nav ul li a:hover {
     margin-bottom: 40px;
 }
 
+/* Download button base styles */
 .download-button {
+    width: 250px;
     display: flex;
     align-items: center;
+    padding: 20px 25px;
+    position: relative;
     background-color: var(--text-light);
     color: var(--primary-dark);
-    padding: 20px 25px;
     border-radius: 12px;
     text-decoration: none;
     transition: transform 0.3s, box-shadow 0.3s;
-    width: 250px;
     justify-content: flex-start;
     border: none;
     cursor: pointer;
     font-family: inherit;
 }
 
+/* Icon container for consistent sizing */
 .download-button i {
-    font-size: 24px;
-    min-width: 32px;
+    width: 24px;
+    height: 24px;
+    font-size: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-right: 15px;
+}
+
+/* Specific adjustment for Android icon visual weight */
+.download-button i.fa-android {
+    font-size: 19px; /* Slightly smaller */
+    transform: translateY(1px); /* Small vertical adjustment */
+}
+
+/* Reserved space for chevron in all buttons */
+.download-button::after {
+    content: '';
+    width: 24px;
+    display: block;
 }
 
 .download-button span {
