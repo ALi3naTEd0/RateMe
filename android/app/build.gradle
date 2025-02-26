@@ -36,10 +36,9 @@ android {
         minSdkVersion 21
         targetSdkVersion 33
         
-        // Control version directly here
-        // Increment versionCode when creating a new release
-        versionCode 2
-        versionName "1.0.1"
+        // Update version for new footer feature
+        versionCode 3
+        versionName "1.0.2"
         
         resValue "string", "app_name", "Rate Me!"
     }

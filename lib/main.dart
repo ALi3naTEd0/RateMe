@@ -116,6 +116,20 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   final TextEditingController searchController = TextEditingController();
   List<dynamic> searchResults = [];
   Timer? _debounce;
+  String appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      appVersion = packageInfo.version;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +241,22 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                   onTap: () => _showAlbumDetails(context, album),
                 );
               },
+            ),
+          ),
+          // Updated version footer - larger text, with underline to indicate it's clickable
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: GestureDetector(
+              onTap: () => _showAboutDialog(context),
+              child: Text(
+                'Version 1.0.2',
+                style: TextStyle(
+                  fontSize: 14,  // Increased from 12
+                  decoration: TextDecoration.underline,  // Added underline
+                  color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8) ?? Colors.grey,
+                  fontWeight: FontWeight.w400,  // Slightly bolder
+                ),
+              ),
             ),
           ),
         ],
@@ -390,7 +420,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Version: 1.0.0+1'),
+              Text('Version: $appVersion'),
               const SizedBox(height: 12),
               const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
               const SizedBox(height: 12),
