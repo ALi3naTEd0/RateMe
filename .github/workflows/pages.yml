@@ -1,31 +1,41 @@
 name: GitHub Pages
 
-# Solo se ejecuta en cambios manuales para evitar duplicación con pages-build-deployment
 on:
+  # Run on docs/ changes and manually
+  push:
+    branches: ["rateme"]
+    paths:
+      - 'docs/**'
   workflow_dispatch:
 
-# Removemos los permisos que ya tiene pages-build-deployment
+# Required permissions for GitHub Pages
 permissions:
-  contents: read
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  prepare:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
-      - name: Copy files
-        run: |
-          mkdir -p docs/images
-          # Asegurarse de que todos los archivos necesarios estén en su lugar
-          echo "Directory structure:"
-          ls -la docs/
 
-      - name: Commit changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add docs/
-          git commit -m "Prepare content for GitHub Pages [skip ci]" || echo "No changes to commit"
-          git push || echo "No changes to push"
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
