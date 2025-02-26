@@ -242,14 +242,12 @@ nav ul li a:hover {
     align-items: center;
     justify-content: center;
     line-height: 1;
-    position: relative; /* Added for absolute positioning of Android icon */
 }
 
 .download-button i.fa-android {
-    font-size: 16px; /* Reduced significantly */
-    transform: scale(0.9); /* Additional size reduction */
-    position: relative;
-    top: -1px; /* Slight vertical adjustment */
+    font-size: 20px;  /* Increased from 16px to 20px */
+    transform: none;   /* Removed scale transformation */
+    top: 0;           /* Removed vertical adjustment */
 }
 
 /* Dropdown styles for download buttons */
