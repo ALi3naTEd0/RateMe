@@ -199,6 +199,10 @@
                     <img src="images/screenshot3.png" alt="Custom Lists" loading="lazy">
                     <p>Custom Lists View</p>
                 </div>
+                <div class="screenshot" data-index="3">
+                    <img src="images/screenshot4.png" alt="Saved Ratings" loading="lazy">
+                    <p>Saved Rating Page</p>
+                </div>
             </div>
         </div>
     </section>
@@ -318,5 +322,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- Add lightbox markup just before closing body tag -->
+<div class="lightbox">
+    <button class="lightbox-close">&times;</button>
+    <button class="lightbox-nav lightbox-prev">&larr;</button>
+    <img src="" alt="Screenshot Preview">
+    <button class="lightbox-nav lightbox-next">&rarr;</button>
+</div>
+
+<!-- Theme switch button -->
+<button class="theme-switch" aria-label="Toggle theme">
+    <i class="fas fa-moon"></i>
+</button>
+
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* Add theme variables at the top */
+/* Update theme colors */
 :root {
     /* Light theme (default) */
     --primary: #864AF9;
@@ -7,18 +7,17 @@
     --text-dark: #333333;
     --text-light: #FFFFFF;
     --background: #F8F9FA;
-    --background-dark: #121212;
-    --gray: #6c757d;
     --card-bg: #FFFFFF;
+    --gray: #6c757d;
 }
 
-/* Dark theme */
+/* Dark theme colors */
 [data-theme="dark"] {
-    --text-dark: #FFFFFF;
+    --text-dark: #E1E1E1;
     --text-light: #FFFFFF;
-    --background: #121212;
+    --background: #1A1A1A;
+    --card-bg: #2D2D2D;
     --gray: #B0B0B0;
-    --card-bg: #1E1E1E;
 }
 
 * {
@@ -574,7 +573,7 @@ footer {
     }
 }
 
-/* Add theme switch styles */
+/* Theme switch button styles */
 .theme-switch {
     position: fixed;
     bottom: 20px;
