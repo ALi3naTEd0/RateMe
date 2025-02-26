@@ -1,7 +1,6 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -11,18 +10,16 @@ if (keystorePropertiesFile.exists()) {
     try {
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
         println "Keystore properties loaded successfully"
-        println "Key Alias: ${keystoreProperties['keyAlias']}"
-        println "Store File specified: ${keystoreProperties['storeFile']}"
     } catch (Exception e) {
         println "Error loading key.properties: ${e.message}"
-        e.printStackTrace()
     }
 } else {
-    println "Warning: key.properties file not found at ${keystorePropertiesFile.absolutePath}!"
+    println "Warning: key.properties file not found!"
 }
 
 android {
-    namespace = "com.alienated.rateme"
+    // Changed to com.example.rateme to match Oscars project
+    namespace = "com.example.rateme"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "25.1.8937393"
 
@@ -36,51 +33,32 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.alienated.rateme"
+        // Changed to com.example.rateme to match Oscars project
+        applicationId "com.example.rateme"
         minSdkVersion 21
         targetSdkVersion 33
         versionCode 1
         versionName "1.0.1"
-        // Add application name
         resValue "string", "app_name", "Rate Me!"
     }
 
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
-            try {
-                release {
-                    keyAlias keystoreProperties['keyAlias']
-                    keyPassword keystoreProperties['keyPassword']
-                    def storeFilePath = keystoreProperties['storeFile']
-                    println "Using store file path: ${storeFilePath}"
-                    storeFile file(storeFilePath)
-                    storePassword keystoreProperties['storePassword']
-                }
-                println "Release signing config created successfully"
-            } catch (Exception e) {
-                println "Error creating signing config: ${e.message}"
-                e.printStackTrace()
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
             }
-        } else {
-            println "Not creating release signing config because key.properties does not exist"
         }
     }
 
     buildTypes {
         release {
-            try {
-                if (keystorePropertiesFile.exists() && signingConfigs.hasProperty('release')) {
-                    signingConfig signingConfigs.release
-                    println "Release build using signing config"
-                } else {
-                    signingConfig signingConfigs.debug
-                    println "Release build using debug signing config"
-                }
-            } catch (Exception e) {
-                println "Error setting signing config: ${e.message}"
-                e.printStackTrace()
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
                 signingConfig signingConfigs.debug
-                println "Fallback to debug signing config due to error"
             }
             minifyEnabled false
             shrinkResources false
