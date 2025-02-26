@@ -222,6 +222,9 @@ nav ul li a:hover {
     text-decoration: none;
     transition: transform 0.3s, box-shadow 0.3s;
     min-width: 180px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .download-button:hover {
@@ -248,6 +251,73 @@ nav ul li a:hover {
 .download-button small {
     font-size: 0.8rem;
     opacity: 0.8;
+}
+
+/* Dropdown styles for download buttons */
+.download-dropdown {
+    position: relative;
+    display: inline-block;
+    min-width: 180px;
+}
+
+.dropdown-toggle {
+    padding-right: 35px;
+    position: relative;
+    width: 100%;
+    text-align: left;
+}
+
+.dropdown-toggle .fa-chevron-down {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    transition: transform 0.3s;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 100%;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    border-radius: 8px;
+    z-index: 1;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.dropdown-content.show {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-content a {
+    color: var(--primary-dark);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    transition: background-color 0.2s;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.dropdown-content a:hover {
+    background-color: rgba(94, 53, 177, 0.1);
+}
+
+.dropdown-content a:not(:last-child) {
+    border-bottom: 1px solid #eee;
+}
+
+.download-dropdown:hover .fa-chevron-down {
+    transform: translateY(-50%) rotate(180deg);
 }
 
 .version-info {
@@ -352,6 +422,14 @@ footer {
 
 /* Responsive */
 @media screen and (max-width: 768px) {
+    .download-dropdown {
+        width: 100%;
+    }
+    
+    .dropdown-content {
+        width: 100%;
+    }
+    
     .hero .container {
         flex-direction: column;
     }

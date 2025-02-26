@@ -21,7 +21,7 @@
     <header>
         <div class="container">
             <div class="logo">
-                <img src="images/rateme.png" alt="Rate Me Logo">
+                <img src="assets/rateme.png" alt="Rate Me Logo">
                 <h1>Rate Me!</h1>
             </div>
             <nav>
@@ -92,6 +92,7 @@
             <p>Available for multiple platforms</p>
             
             <div class="download-options">
+                <!-- Android download - simple button -->
                 <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-universal.apk" class="download-button" target="_blank" rel="noopener">
                     <i class="fab fa-android"></i>
                     <span>
@@ -99,27 +100,72 @@
                         <small>Universal APK</small>
                     </span>
                 </a>
-                <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-x86_64.AppImage" class="download-button" target="_blank" rel="noopener">
-                    <i class="fab fa-linux"></i>
-                    <span>
-                        <strong>Linux</strong>
-                        <small>AppImage (x86_64)</small>
-                    </span>
-                </a>
-                <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-windows-x64.zip" class="download-button" target="_blank" rel="noopener">
-                    <i class="fab fa-windows"></i>
-                    <span>
-                        <strong>Windows</strong>
-                        <small>Portable (x64)</small>
-                    </span>
-                </a>
-                <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-macos-x64.dmg" class="download-button" target="_blank" rel="noopener">
-                    <i class="fab fa-apple"></i>
-                    <span>
-                        <strong>macOS</strong>
-                        <small>Intel (x64)</small>
-                    </span>
-                </a>
+
+                <!-- Linux download - dropdown with options -->
+                <div class="download-dropdown">
+                    <button class="download-button dropdown-toggle">
+                        <i class="fab fa-linux"></i>
+                        <span>
+                            <strong>Linux</strong>
+                            <small>Select format</small>
+                        </span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-x86_64.AppImage" target="_blank" rel="noopener">
+                            AppImage (x86_64)
+                        </a>
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme.deb" target="_blank" rel="noopener">
+                            Debian/Ubuntu Package
+                        </a>
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme.rpm" target="_blank" rel="noopener">
+                            RPM Package
+                        </a>
+                        <a href="https://aur.archlinux.org/packages/rateme" target="_blank" rel="noopener">
+                            AUR (Arch Linux)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Windows download - dropdown with options -->
+                <div class="download-dropdown">
+                    <button class="download-button dropdown-toggle">
+                        <i class="fab fa-windows"></i>
+                        <span>
+                            <strong>Windows</strong>
+                            <small>Select installer</small>
+                        </span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-windows-setup.exe" target="_blank" rel="noopener">
+                            Setup Installer (recommended)
+                        </a>
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-windows-x64.zip" target="_blank" rel="noopener">
+                            Portable ZIP (x64)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- macOS download - dropdown with options -->
+                <div class="download-dropdown">
+                    <button class="download-button dropdown-toggle">
+                        <i class="fab fa-apple"></i>
+                        <span>
+                            <strong>macOS</strong>
+                            <small>Select architecture</small>
+                        </span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-macos-intel.dmg" target="_blank" rel="noopener">
+                            Intel Mac (.dmg)
+                        </a>
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/latest/download/rateme-macos-arm64.dmg" target="_blank" rel="noopener">
+                            Apple Silicon (.dmg)
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <div class="version-info">
@@ -154,7 +200,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-logo">
-                    <img src="images/rateme.png" alt="Rate Me Logo" width="40">
+                    <img src="assets/rateme.png" alt="Rate Me Logo" width="40">
                     <p>Rate Me!</p>
                 </div>
                 <div class="footer-links">
@@ -168,5 +214,38 @@
     </footer>
 
     <script src="script.js"></script>
+    
+    <!-- Add dropdown functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdowns = document.querySelectorAll('.dropdown-toggle');
+            
+            dropdowns.forEach(dropdown => {
+                dropdown.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const content = this.nextElementSibling;
+                    
+                    // Close all other dropdowns
+                    document.querySelectorAll('.dropdown-content').forEach(item => {
+                        if (item !== content) {
+                            item.classList.remove('show');
+                        }
+                    });
+                    
+                    // Toggle current dropdown
+                    content.classList.toggle('show');
+                });
+            });
+            
+            // Close dropdowns when clicking outside
+            window.addEventListener('click', function(e) {
+                if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown-toggle')) {
+                    document.querySelectorAll('.dropdown-content').forEach(item => {
+                        item.classList.remove('show');
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
