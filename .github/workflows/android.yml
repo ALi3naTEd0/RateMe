@@ -59,23 +59,37 @@ jobs:
           curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
           curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
 
+      # More secure way to decode keystore - directly from base64 to file
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.UPLOAD_KEYSTORE }}" > upload-keystore.jks.base64
-          base64 -d upload-keystore.jks.base64 > android/app/upload-keystore.jks
+          echo "${{ secrets.UPLOAD_KEYSTORE }}" | base64 -d > android/app/upload-keystore.jks
+          # Verify the keystore was created correctly
+          ls -la android/app/upload-keystore.jks
+          echo "Keystore file size: $(stat -c %s android/app/upload-keystore.jks) bytes"
 
+      # Create key.properties with explicit path
       - name: Set up key.properties
         run: |
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          touch android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
+          
+          # Verify key.properties exists and has content
+          echo "Key.properties location:"
+          ls -la android/key.properties
+          echo "Key.properties size: $(stat -c %s android/key.properties) bytes"
+          echo "Key.properties contents (redacted):"
+          grep -v "password" android/key.properties || true
+          echo "keyAlias exists: $(grep -c "keyAlias" android/key.properties || echo "0")"
+          echo "storeFile exists: $(grep -c "storeFile" android/key.properties || echo "0")"
 
       # First build universal APK
       - name: Build Universal APK
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --verbose
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
       - name: Upload APK Artifact
@@ -87,7 +101,7 @@ jobs:
       # Then build ABI-specific APKs
       - name: Build Split APKs
         run: |
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --verbose
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
