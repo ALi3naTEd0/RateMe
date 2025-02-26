@@ -25,6 +25,7 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy:
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,7 +38,7 @@ jobs:
         run: |
           mkdir -p docs/images
           
-          # Copy main app icon (using the correct path)
+          # Copy main app icon
           if [ -f "assets/app-icon.png" ]; then
             echo "Using local app-icon.png"
             cp -f assets/app-icon.png docs/images/rateme.png
@@ -59,7 +60,7 @@ jobs:
           # Install ImageMagick and create favicon
           sudo apt-get update && sudo apt-get install -y imagemagick
           
-          # Create favicon in root directory - this is key for fixing the issue
+          # Create favicon in root directory
           convert docs/images/rateme.png -define icon:auto-resize=64,32,16 docs/favicon.ico
           
           # Also create a backup favicon in images directory
