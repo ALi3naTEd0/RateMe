@@ -32,7 +32,9 @@
                     <li><a href="#features">Features</a></li>
                     <li><a href="#download">Download</a></li>
                     <li><a href="#screenshots">Screenshots</a></li>
-                    <li><a href="https://github.com/ALi3naTEd0/RateMe" target="_blank" rel="noopener">GitHub</a></li>
+                    <li><a href="https://github.com/ALi3naTEd0/RateMe" class="github-icon" target="_blank" rel="noopener">
+                        <i class="fab fa-github"></i> GitHub
+                    </a></li>
                 </ul>
             </nav>
         </div>
@@ -47,10 +49,10 @@
             </div>
             <div class="hero-image">
                 <div class="hero-carousel">
-                    <img src="images/screenshot1.png" alt="Rate Me Screenshot 1">
-                    <img src="images/screenshot2.png" alt="Rate Me Screenshot 2">
-                    <img src="images/screenshot3.png" alt="Rate Me Screenshot 3">
-                    <img src="images/screenshot4.png" alt="Rate Me Screenshot 4">
+                    <img src="images/screenshot1.png" alt="Rate Me Screenshot 1" data-index="0">
+                    <img src="images/screenshot2.png" alt="Rate Me Screenshot 2" data-index="1">
+                    <img src="images/screenshot3.png" alt="Rate Me Screenshot 3" data-index="2">
+                    <img src="images/screenshot4.png" alt="Rate Me Screenshot 4" data-index="3">
                 </div>
             </div>
         </div>
@@ -319,6 +321,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.key === 'Escape') lightbox.classList.remove('active');
         if (e.key === 'ArrowRight') lightbox.querySelector('.lightbox-next').click();
         if (e.key === 'ArrowLeft') lightbox.querySelector('.lightbox-prev').click();
+    });
+
+    // Make hero carousel images clickable
+    const heroImages = document.querySelectorAll('.hero-carousel img');
+    heroImages.forEach(img => {
+        img.addEventListener('click', () => {
+            currentIndex = parseInt(img.dataset.index);
+            lightboxImg.src = img.src;
+            lightbox.classList.add('active');
+        });
     });
 });
 </script>

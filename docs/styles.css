@@ -18,6 +18,7 @@
     --background: #1A1A1A;
     --card-bg: #2D2D2D;
     --gray: #B0B0B0;
+    --footer-bg: #2D2D2D; /* New footer background for dark mode */
 }
 
 * {
@@ -89,6 +90,17 @@ nav ul li a:hover {
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* GitHub icon in nav */
+.github-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.github-icon i {
+    font-size: 20px;
+}
+
 /* Hero Section */
 .hero {
     padding: 120px 0 60px;
@@ -158,6 +170,12 @@ nav ul li a:hover {
     flex-shrink: 0;
     width: 25%;  /* Important: 100% / number of slides */
     object-fit: contain;
+    cursor: zoom-in;
+    transition: transform 0.3s ease;
+}
+
+.hero-carousel img:hover {
+    transform: scale(1.02);
 }
 
 /* Features Section */
@@ -498,7 +516,7 @@ nav ul li a:hover {
 
 /* Footer */
 footer {
-    background-color: var(--text-dark);
+    background-color: var(--footer-bg, var(--text-dark));
     color: var(--text-light);
     padding: 40px 0;
 }
