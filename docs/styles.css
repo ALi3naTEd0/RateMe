@@ -215,7 +215,7 @@ nav ul li a:hover {
 .download-button {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between; /* Changed from flex-start */
     background-color: var(--text-light);
     color: var(--primary-dark);
     padding: 20px 30px;  /* Increased padding */
@@ -226,6 +226,15 @@ nav ul li a:hover {
     border: none;
     cursor: pointer;
     font-family: inherit;
+    padding-right: 25px; /* Added consistent right padding */
+    position: relative; /* Added for absolute positioning of content */
+}
+
+/* Make single button match dropdown layout */
+.download-button:not(.dropdown-toggle)::after {
+    content: '';
+    width: 24px; /* Same width as chevron icon */
+    display: inline-block;
 }
 
 .download-button:hover {
@@ -235,9 +244,9 @@ nav ul li a:hover {
 
 .download-button i {
     font-size: 28px;     /* Increased icon size */
-    width: 32px;         /* Fixed width container */
+    min-width: 32px; /* Changed width to min-width */
     height: 32px;        /* Fixed height container */
-    margin-right: 20px;  /* Increased margin */
+    margin-right: 15px;  /* Increased margin */
     display: flex;
     align-items: center;
     justify-content: center;
