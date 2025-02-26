@@ -37,19 +37,30 @@ jobs:
         run: |
           mkdir -p docs/images
           
-          # Copy main app icon
-          cp -f assets/rateme.png docs/images/ || true
+          # Copy main app icon (using the correct path)
+          if [ -f "assets/app-icon.png" ]; then
+            echo "Using local app-icon.png"
+            cp -f assets/app-icon.png docs/images/rateme.png
+          elif [ -f "assets/rateme.png" ]; then
+            echo "Using local rateme.png"
+            cp -f assets/rateme.png docs/images/rateme.png
+          else
+            echo "Downloading app icon from GitHub"
+            curl -o docs/images/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/app-icon.png || \
+            curl -o docs/images/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+          fi
           
           # Create placeholders for screenshots if they don't exist
-          [ ! -f docs/images/screenshot1.png ] && cp assets/rateme.png docs/images/screenshot1.png || true
-          [ ! -f docs/images/screenshot2.png ] && cp assets/rateme.png docs/images/screenshot2.png || true
-          [ ! -f docs/images/screenshot3.png ] && cp assets/rateme.png docs/images/screenshot3.png || true
-          [ ! -f docs/images/hero-app.png ] && cp assets/rateme.png docs/images/hero-app.png || true
+          [ ! -f docs/images/screenshot1.png ] && cp docs/images/rateme.png docs/images/screenshot1.png || true
+          [ ! -f docs/images/screenshot2.png ] && cp docs/images/rateme.png docs/images/screenshot2.png || true
+          [ ! -f docs/images/screenshot3.png ] && cp docs/images/rateme.png docs/images/screenshot3.png || true
+          [ ! -f docs/images/hero-app.png ] && cp docs/images/rateme.png docs/images/hero-app.png || true
           
           # Install ImageMagick and create favicon
           sudo apt-get update && sudo apt-get install -y imagemagick
-          convert assets/rateme.png docs/images/favicon.ico || true
+          convert docs/images/rateme.png docs/images/favicon.ico || true
           
+          echo "Images prepared successfully:"
           ls -la docs/images/
       
       - name: Upload artifact
