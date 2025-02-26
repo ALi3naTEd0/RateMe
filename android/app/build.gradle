@@ -18,7 +18,6 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    // Changed to com.example.rateme to match Oscars project
     namespace = "com.example.rateme"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "25.1.8937393"
@@ -33,12 +32,15 @@ android {
     }
 
     defaultConfig {
-        // Changed to com.example.rateme to match Oscars project
         applicationId "com.example.rateme"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 1
+        
+        // Control version directly here
+        // Increment versionCode when creating a new release
+        versionCode 2
         versionName "1.0.1"
+        
         resValue "string", "app_name", "Rate Me!"
     }
 
