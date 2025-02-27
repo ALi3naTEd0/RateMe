@@ -26,7 +26,7 @@
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 - [Contact](#contact)
-- [Changelog](#changelog)
+- [Documentation](#documentation)
 
 ## Introduction
 
@@ -234,17 +234,8 @@ The GPL-3.0 is a strong copyleft license that requires any derivative software t
 
 Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTEd0/RateMe)
 
-## Changelog
-
-### v1.0.1-1
-- Fixed: Custom list names can now be edited properly
-- Fixed: Custom list editing updates UI immediately
-
-### v1.0.0-1
-- Initial release
-- Basic album rating functionality
-- Custom lists support
-- Multi-platform support (Android, Windows, Linux, macOS)
+## Documentation
+- [Changelog](CHANGELOG.md)
 
 ---
 Developed with ♥ by [X](https://github.com/ALi3naTEd0)
