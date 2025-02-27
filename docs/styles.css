@@ -634,7 +634,10 @@ footer {
     }
     
     nav ul {
-        display: none;
+        display: flex; /* Changed from 'none' to 'flex' */
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
     }
 
     .menu-toggle {
@@ -647,19 +650,13 @@ footer {
         top: 100%;
         left: 0;
         width: 100%;
-        background: var(--header-bg, var(--primary));
-        padding: 1rem 0;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background: var(--button-bg);
+        border-top: 1px solid var(--button-border);
+        border-bottom: 1px solid var(--button-border);
     }
     
     nav.show {
         display: block;
-    }
-
-    nav ul {
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
     }
 
     nav ul li {
@@ -763,4 +760,11 @@ footer {
 [data-theme="dark"] .version-info {
     background-color: var(--button-bg);
     border: 1px solid var(--button-border);
+}
+
+/* Download button adjustments */
+.download-button,
+.download-dropdown .download-button {
+    min-width: 250px;
+    width: 250px; /* Force same width for all buttons */
 }
