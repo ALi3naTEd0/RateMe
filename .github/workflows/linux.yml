@@ -46,11 +46,13 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build App
+      - name: Generate Linux files
         run: |
           flutter config --enable-linux-desktop
-          flutter pub get
-          flutter build linux --release
+          flutter create --platforms=linux .
+
+      - name: Build Linux
+        run: flutter build linux --release
 
       # AppImage build
       - name: Create AppImage Structure

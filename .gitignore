@@ -51,6 +51,12 @@ windows/flutter/generated_plugin_registrant.cc
 windows/flutter/generated_plugin_registrant.h
 windows/flutter/generated_plugins.cmake
 
+# Linux build files - KEEP these files
+!linux/flutter/CMakeLists.txt
+!linux/flutter/generated_plugins.cmake
+!linux/flutter/generated_plugin_registrant.h
+!linux/flutter/generated_plugin_registrant.cc
+
 # Windows generated files
 windows/flutter/
 windows/runner/flutter_window.*
