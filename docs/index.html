@@ -361,17 +361,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Fetch latest release info from GitHub API
+    // Function to update download links based on version
+    function updateDownloadLinks(version) {
+        const baseUrl = 'https://github.com/ALi3naTEd0/RateMe/releases/download';
+        const links = {
+            // All download links use RateMe_ prefix format
+            'android': `${baseUrl}/v${version}/RateMe_${version}.apk`,
+            'appimage': `${baseUrl}/v${version}/RateMe_${version}.AppImage`,
+            'deb': `${baseUrl}/v${version}/RateMe_${version}_amd64.deb`,
+            'rpm': `${baseUrl}/v${version}/RateMe_${version}_x86_64.rpm`,
+            'exe': `${baseUrl}/v${version}/RateMe_${version}.exe`,
+            'portable': `${baseUrl}/v${version}/RateMe-portable.zip`, // This keeps its special format
+            'dmg': `${baseUrl}/v${version}/RateMe_${version}.dmg`
+        };
+
+        // Update Android direct download button
+        document.querySelector('button.download-button').onclick = () => 
+            window.open(links.android, '_blank');
+
+        // Update all download links in dropdowns
+        document.querySelectorAll('.dropdown-content a').forEach(link => {
+            const href = link.getAttribute('href');
+            if (href.includes('github.com')) {
+                Object.entries(links).forEach(([type, newUrl]) => {
+                    if (href.includes(type)) link.href = newUrl;
+                });
+            }
+            // Skip AUR link as it's not versioned
+        });
+    }
+
+    // Fetch latest release info and update everything
     fetch('https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest')
         .then(response => response.json())
         .then(data => {
-            // Update version (remove 'v' prefix if present)
-            document.getElementById('current-version').textContent = data.tag_name.replace('v', '');
+            const version = data.tag_name.replace('v', '');
+            // Update version display
+            document.getElementById('current-version').textContent = version;
             
-            // Format date to be more readable
+            // Format date
             const releaseDate = new Date(data.published_at);
             const options = { year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('release-date').textContent = releaseDate.toLocaleDateString('en-US', options);
+
+            // Update download links
+            updateDownloadLinks(version);
         })
         .catch(error => {
             console.error('Error fetching release info:', error);

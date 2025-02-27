@@ -1,0 +1,47 @@
+name: Update Documentation
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Update version references
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          RELEASE_URL="https://github.com/ALi3naTEd0/RateMe/releases/tag/v${VERSION}"
+          RELEASE_DATE=$(date +"%Y-%m-%d")
+          
+          # Update README.md download links and add release info
+          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
+          sed -i "s|/v/release/.*?include|/v/release/ALi3naTEd0/RateMe?include|g" README.md
+
+          # Add and commit changes with detailed message
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          git commit -m "docs: update to version ${VERSION}
+          
+          • Updated download links to v${VERSION}
+          • Updated version badges and references
+          • Release URL: ${RELEASE_URL}
+          • Release date: ${RELEASE_DATE}"
+          git push
+
+      - name: Update website versions
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          cd docs
+          
+          # Update all download links in index.html
+          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html
+          
+          git add index.html
+          git commit -m "docs: update website version to ${VERSION}"
+          git push

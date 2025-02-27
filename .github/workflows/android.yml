@@ -88,7 +88,7 @@ jobs:
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-universal
+          name: RateMe_${{ inputs.version || github.event.inputs.version }}
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
       # Then build ABI-specific APKs
@@ -102,17 +102,17 @@ jobs:
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-arm64-v8a
+          name: RateMe_arm64-v8a_${{ inputs.version || github.event.inputs.version }}
           path: build/app/outputs/flutter-apk/RateMe_arm64-v8a-${{ inputs.version || github.event.inputs.version }}.apk
 
       - name: Upload armeabi-v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-armeabi-v7a
+          name: RateMe_armeabi-v7a_${{ inputs.version || github.event.inputs.version }}
           path: build/app/outputs/flutter-apk/RateMe_armeabi-v7a-${{ inputs.version || github.event.inputs.version }}.apk
 
       - name: Upload x86_64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-x86_64
+          name: RateMe_x86_64_${{ inputs.version || github.event.inputs.version }}
           path: build/app/outputs/flutter-apk/RateMe_x86_64-${{ inputs.version || github.event.inputs.version }}.apk
