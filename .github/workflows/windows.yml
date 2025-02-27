@@ -74,9 +74,15 @@ jobs:
       - name: Setup Windows build
         run: |
           flutter config --enable-windows-desktop
+          # Debugging info
+          echo "Current directory and contents:"
+          pwd
+          dir
+          echo "Flutter config:"
+          flutter config
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --verbose
 
       # Create and upload portable version
       - name: Create Portable Package
