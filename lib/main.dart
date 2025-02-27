@@ -415,10 +415,11 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('About Rate Me!'),
+          title: const Center(child: Text('About Rate Me!')), // Centered title
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+            crossAxisAlignment: CrossAxisAlignment.center, // Center horizontally
             children: [
               Text('Version: $appVersion'),
               const SizedBox(height: 12),
@@ -444,9 +445,11 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             ],
           ),
           actions: [
-            TextButton(
-              child: const Text('Close'),
-              onPressed: () => Navigator.of(context).pop(),
+            Center( // Center the close button
+              child: TextButton(
+                child: const Text('Close'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
           ],
         );

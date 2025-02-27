@@ -51,6 +51,13 @@ windows/flutter/generated_plugin_registrant.cc
 windows/flutter/generated_plugin_registrant.h
 windows/flutter/generated_plugins.cmake
 
+# Windows generated files
+windows/flutter/
+windows/runner/flutter_window.*
+
+# macOS generated files
+macos/Flutter/GeneratedPluginRegistrant.*
+
 # Android signing
 android/key.properties
 android/app/upload-keystore.jks
