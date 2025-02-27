@@ -155,6 +155,19 @@ nav ul li a:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* Update CTA button for dark mode */
+[data-theme="dark"] .cta-button {
+    background-color: var(--button-bg);
+    color: var(--text-light);
+    border: 1px solid var(--button-border);
+}
+
+[data-theme="dark"] .cta-button:hover {
+    background-color: var(--button-border);
+    color: var(--text-light);
+    box-shadow: 0 4px 12px rgba(134, 74, 249, 0.2);
+}
+
 /* Hero Section - Updated for carousel */
 .hero-image {
     flex: 1;
