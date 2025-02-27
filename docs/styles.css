@@ -322,13 +322,17 @@ nav ul li a:hover {
     flex-direction: column;
     align-items: flex-start;
     flex: 1;
+    gap: 4px; /* Add consistent spacing between text elements */
 }
 
 .download-button strong {
     font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    white-space: nowrap; /* Keep text in one line */
+}
+
+.download-button small {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    font-weight: normal;
 }
 
 .download-button.dropdown-toggle {
