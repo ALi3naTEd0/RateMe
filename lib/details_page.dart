@@ -257,11 +257,12 @@ class _DetailsPageState extends State<DetailsPage> {
     
     try {
       final uri = Uri.parse(url);
-      // Use external application to show browser chooser
-      await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      if (Platform.isLinux) {
+        // On Linux, use a native URL handler
+        await Process.run('xdg-open', [url]);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     } catch (error, stackTrace) {
       Logging.severe('Error launching RateYourMusic', error, stackTrace);
       if (mounted) {
