@@ -761,6 +761,65 @@ footer {
     transform: scale(0.95);
 }
 
+/* Mobile menu button */
+.menu-toggle {
+    display: none;
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
+    color: var(--text-light);
+    font-size: 28px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-left: auto; /* Push to the right */
+}
+
+/* Mobile styles */
+@media screen and (max-width: 768px) {
+    .menu-toggle {
+        display: block;
+    }
+
+    nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        display: none;
+        background: var(--button-bg);
+        padding: 1rem 0;
+    }
+
+    nav.show {
+        display: block;
+    }
+
+    nav ul {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    nav ul li {
+        margin: 0;
+        width: 100%;
+        text-align: center;
+    }
+
+    nav ul li a {
+        padding: 12px 0;
+        display: block;
+        width: 100%;
+    }
+
+    /* Make all download buttons full width on mobile */
+    .download-button,
+    .download-dropdown,
+    .download-dropdown .download-button {
+        width: 100%;
+    }
+}
+
 /* Theme switch button styles */
 .theme-switch {
     position: fixed;
