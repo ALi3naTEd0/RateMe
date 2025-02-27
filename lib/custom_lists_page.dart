@@ -244,16 +244,17 @@ class _CustomListsPageState extends State<CustomListsPage> {
           : lists.isEmpty
               ? const Center(child: Text('No custom lists yet'))
               : ReorderableListView.builder(
-                  onReorder: (oldIndex, newIndex) async {  // Added async
+                  onReorder: (oldIndex, newIndex) async {  // Changed to async
                     if (newIndex > oldIndex) newIndex--;
-                    setState(() {
+                    setState(() async {
                       final item = lists.removeAt(oldIndex);
                       lists.insert(newIndex, item);
+                      
+                      // Wait for all lists to be saved
+                      await Future.wait(
+                        lists.map((list) => UserData.saveCustomList(list))
+                      );
                     });
-                    // Save the new order
-                    for (var list in lists) {
-                      await UserData.saveCustomList(list);
-                    }
                   },
                   itemCount: lists.length,
                   itemBuilder: (context, index) {
