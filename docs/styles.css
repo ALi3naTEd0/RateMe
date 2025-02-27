@@ -646,13 +646,15 @@ footer {
     
     nav {
         display: none;
-        position: absolute;
-        top: 100%;
+        position: fixed; /* Changed from absolute to fixed */
+        top: 73px; /* Header height + padding */
         left: 0;
         width: 100%;
         background: var(--button-bg);
+        padding: 1rem 0;
         border-top: 1px solid var(--button-border);
         border-bottom: 1px solid var(--button-border);
+        z-index: 999;
     }
     
     nav.show {
@@ -670,14 +672,22 @@ footer {
         padding: 0.5rem 0;
     }
 
-    nav {
-        background: var(--button-bg);
-        border-top: 1px solid var(--button-border);
-        border-bottom: 1px solid var(--button-border);
-    }
-
     nav ul li a:hover {
         background: var(--button-border);
+    }
+
+    .download-options {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .download-button,
+    .download-dropdown,
+    .download-dropdown .download-button {
+        width: 100%;
+        min-width: 100%;
     }
 }
 
@@ -686,14 +696,15 @@ footer {
     /* Reset and clean up previous mobile styles */
     nav {
         display: none;
-        position: absolute;
-        top: 100%;
+        position: fixed; /* Changed from absolute to fixed */
+        top: 73px; /* Header height + padding */
         left: 0;
         width: 100%;
         background: var(--button-bg);
+        padding: 1rem 0;
         border-top: 1px solid var(--button-border);
         border-bottom: 1px solid var(--button-border);
-        padding: 1rem 0;
+        z-index: 999;
     }
 
     nav.show {
@@ -781,13 +792,16 @@ footer {
     }
 
     nav {
-        position: absolute;
-        top: 100%;
+        position: fixed; /* Changed from absolute to fixed */
+        top: 73px; /* Header height + padding */
         left: 0;
         width: 100%;
         display: none;
         background: var(--button-bg);
         padding: 1rem 0;
+        border-top: 1px solid var(--button-border);
+        border-bottom: 1px solid var(--button-border);
+        z-index: 999;
     }
 
     nav.show {
