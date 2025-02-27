@@ -245,12 +245,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     
     try {
       final uri = Uri.parse(url);
-      if (Platform.isLinux) {
-        // On Linux, use a native URL handler
-        await Process.run('xdg-open', [url]);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (error, stackTrace) {
       Logging.severe('Error launching RateYourMusic', error, stackTrace);
       if (mounted) {

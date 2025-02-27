@@ -460,29 +460,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   Future<void> _launchUrl(String url) async {
     try {
       final uri = Uri.parse(url);
-      if (Platform.isLinux) {
-        // Try available URL handlers in order of preference
-        final handlers = ['xdg-open', 'gtk-launch', 'gnome-open'];
-        bool launched = false;
-        
-        for (final handler in handlers) {
-          try {
-            final result = await Process.run(handler, [url]);
-            if (result.exitCode == 0) {
-              launched = true;
-              break;
-            }
-          } catch (_) {
-            continue;
-          }
-        }
-
-        if (!launched) {
-          throw 'No URL handler available';
-        }
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (error, stackTrace) {
       Logging.severe('Error launching URL', error, stackTrace);
       // ...error handling...
