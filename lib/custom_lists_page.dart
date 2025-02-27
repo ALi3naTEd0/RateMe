@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';  // Add this
+import 'dart:convert';  // Add this
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
@@ -244,17 +246,21 @@ class _CustomListsPageState extends State<CustomListsPage> {
           : lists.isEmpty
               ? const Center(child: Text('No custom lists yet'))
               : ReorderableListView.builder(
-                  onReorder: (oldIndex, newIndex) async {  // Changed to async
+                  onReorder: (oldIndex, newIndex) async {
                     if (newIndex > oldIndex) newIndex--;
-                    setState(() async {
+                    
+                    // 1. Update UI first
+                    setState(() {
                       final item = lists.removeAt(oldIndex);
                       lists.insert(newIndex, item);
-                      
-                      // Wait for all lists to be saved
-                      await Future.wait(
-                        lists.map((list) => UserData.saveCustomList(list))
-                      );
                     });
+                    
+                    // 2. Save lists directly in SharedPreferences
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setStringList(
+                      'custom_lists',
+                      lists.map((l) => jsonEncode(l.toJson())).toList()
+                    );
                   },
                   itemCount: lists.length,
                   itemBuilder: (context, index) {
