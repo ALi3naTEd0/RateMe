@@ -27,6 +27,9 @@
                 <img src="images/rateme.png" alt="Rate Me Logo" width="50" height="50">
                 <h1>Rate Me!</h1>
             </div>
+            <button class="menu-toggle" aria-label="Toggle navigation menu">
+                <i class="fas fa-bars"></i>
+            </button>
             <nav>
                 <ul>
                     <li><a href="#features">Features</a></li>
@@ -102,7 +105,7 @@
             <p>Available for multiple platforms</p>
             
             <div class="download-options">
-                <!-- Botón de Android sin la clase dropdown-toggle -->
+                <!-- Android button without dropdown-toggle class -->
                 <button onclick="window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/rateme-1.0.2-1.apk', '_blank')" class="download-button">
                     <i class="fab fa-android"></i>
                     <span>
@@ -329,6 +332,15 @@ document.addEventListener('DOMContentLoaded', function() {
             lightboxImg.src = img.src;
             lightbox.classList.add('active');
         });
+    });
+
+    // Add mobile menu toggle functionality
+    const menuToggle = document.querySelector('.menu-toggle');
+    const nav = document.querySelector('nav');
+    
+    menuToggle.addEventListener('click', () => {
+        nav.classList.toggle('show');
+        menuToggle.classList.toggle('active');
     });
 });
 </script>
