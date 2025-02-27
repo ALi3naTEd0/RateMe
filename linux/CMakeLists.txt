@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(runner LANGUAGES CXX)
 
-# No need for CMP0079 policy if using basic structure
+# Policies must be set before anything else
+cmake_policy(VERSION 3.10)
+cmake_policy(SET CMP0079 NEW)
+
 set(BINARY_NAME "rateme")
 set(APPLICATION_ID "com.example.rateme")
 
