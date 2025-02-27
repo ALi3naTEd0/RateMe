@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 project(runner LANGUAGES CXX)
-cmake_policy(SET CMP0079 NEW)
+
+# No need for CMP0079 policy if using basic structure
+set(BINARY_NAME "rateme")
+set(APPLICATION_ID "com.example.rateme")
+
+cmake_policy(SET CMP0063 NEW)
+
+set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
 # Add compiler-specific flags
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -20,13 +27,6 @@ endif()
 # Disable specific warnings for url_launcher
 add_compile_options(-Wno-error=undeclared-identifier)
 add_compile_options(-Wno-error=switch)
-
-set(BINARY_NAME "rateme")
-set(APPLICATION_ID "com.example.rateme")
-
-cmake_policy(SET CMP0063 NEW)
-
-set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
 if(FLUTTER_TARGET_PLATFORM_SYSROOT)
   set(CMAKE_SYSROOT ${FLUTTER_TARGET_PLATFORM_SYSROOT})
