@@ -899,3 +899,36 @@ footer {
     min-width: 250px;
     width: 250px; /* Force same width for all buttons */
 }
+
+/* Mobile menu fixes */
+nav {
+    position: fixed;
+    top: 73px;
+    background: rgba(61, 45, 92, 0.95); /* Semi-transparent background */
+    backdrop-filter: blur(8px); /* Blur effect for background */
+}
+
+/* Download buttons in mobile - fix Android button width */
+@media screen and (max-width: 768px) {
+    .download-options {
+        width: 100%;
+    }
+    
+    .download-options > button.download-button,
+    .download-options > .download-dropdown {
+        width: 100%;
+        max-width: none;
+    }
+
+    /* Version info adjustments for mobile */
+    .version-info {
+        font-size: 0.9rem;
+        padding: 12px 16px;
+        opacity: 0.8;
+        margin-top: -10px;
+    }
+
+    .version-info p {
+        margin-bottom: 6px;
+    }
+}
