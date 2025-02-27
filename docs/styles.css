@@ -442,21 +442,22 @@ nav ul li a:hover {
     transform: translateY(-50%) rotate(180deg);
 }
 
+/* Version info adjustments */
 .version-info {
     background-color: rgba(255, 255, 255, 0.1);
-    padding: 20px;
+    padding: 12px 16px;
     border-radius: 8px;
     display: inline-block;
+    margin-top: 0;  /* Reduced spacing from buttons */
 }
 
 .version-info p {
-    margin-bottom: 10px;
-    font-size: 1rem;
+    margin-bottom: 4px;  /* Reduced spacing between items */
+    font-size: 0.9rem;
 }
 
 .version-link {
-    color: var(--text-light);
-    text-decoration: underline;
+    font-size: 0.9rem;
 }
 
 /* Screenshots Section */
@@ -475,10 +476,16 @@ nav ul li a:hover {
 /* Screenshots Section - Updated for better responsiveness */
 .screenshot-carousel {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 30px;
+    grid-template-columns: repeat(4, 1fr); /* Force 4 columns */
+    gap: 20px;
     padding: 20px 0;
     overflow: visible;
+}
+
+@media screen and (max-width: 1200px) {
+    .screenshot-carousel {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
 }
 
 .screenshot {

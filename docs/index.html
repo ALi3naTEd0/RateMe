@@ -344,6 +344,23 @@ document.addEventListener('DOMContentLoaded', function() {
         menuToggle.classList.toggle('active');
     });
 
+    // Enhanced mobile menu functionality
+    const navLinks = nav.querySelectorAll('a');
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            nav.classList.remove('show');
+            menuToggle.classList.remove('active');
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!nav.contains(e.target) && !menuToggle.contains(e.target)) {
+            nav.classList.remove('show');
+            menuToggle.classList.remove('active');
+        }
+    });
+
     // Fetch latest release info from GitHub API
     fetch('https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest')
         .then(response => response.json())
