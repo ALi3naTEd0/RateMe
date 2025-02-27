@@ -321,7 +321,7 @@ nav ul li a:hover {
     padding-left: 8px; /* Add slight padding for Android text */
 }
 
-/* Text container adjustments */
+/* Text container - Reset to original styles */
 .download-button span {
     display: flex;
     flex-direction: column;
@@ -330,6 +330,7 @@ nav ul li a:hover {
     flex: 1;
 }
 
+/* Remove any additional padding/margin from base styles */
 .download-button strong {
     font-size: 1.2rem;
     line-height: 1;
@@ -339,7 +340,12 @@ nav ul li a:hover {
     font-size: 0.9rem;
     opacity: 0.8;
     font-weight: normal;
-    padding-left: 20px; /* Consistent indent for secondary text */
+    padding-left: 20px; /* Keep indent for secondary text */
+}
+
+/* Android specific adjustments */
+.download-button i.fa-android + span strong {
+    margin-left: -4px; /* Slight adjustment for Android text alignment */
 }
 
 .download-button::after {
