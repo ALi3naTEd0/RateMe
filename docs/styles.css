@@ -296,20 +296,44 @@ nav ul li a:hover {
 
 /* Icon container for consistent sizing */
 .download-button i {
-    width: 32px; /* Increased width */
+    width: 24px; /* Reduced from 32px */
     height: 24px;
     font-size: 22px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin-right: 20px; /* Increased margin */
-    flex-shrink: 0; /* Prevent icon from shrinking */
+    justify-content: flex-end; /* Align icon to the right of its container */
+    margin-right: 16px; /* Slightly reduced margin */
+    flex-shrink: 0;
 }
 
-/* Specific adjustment for Android icon visual weight */
+/* Specific adjustment for Android icon */
 .download-button i.fa-android {
-    font-size: 19px; /* Slightly smaller */
-    transform: translateY(1px); /* Small vertical adjustment */
+    font-size: 20px;
+    width: 24px; /* Ensure same width as other icons */
+    padding-right: 2px; /* Small adjustment to align with other icons */
+}
+
+/* Text container adjustments */
+.download-button span {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    flex: 1;
+    padding-left: 8px; /* Add consistent left padding */
+}
+
+.download-button strong {
+    font-size: 1.2rem;
+    line-height: 1;
+    margin-left: -8px; /* Negative margin to align with icon */
+}
+
+.download-button small {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    font-weight: normal;
+    padding-left: 16px; /* Increased indent */
 }
 
 /* Reserved space for chevron in all buttons */
@@ -317,27 +341,6 @@ nav ul li a:hover {
     content: '';
     width: 24px;
     display: block;
-}
-
-/* Download button text container - single definition */
-.download-button span {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    flex: 1;
-}
-
-.download-button strong {
-    font-size: 1.2rem;
-    line-height: 1;
-}
-
-.download-button small {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    font-weight: normal;
-    padding-left: 12px; /* Indent for all secondary text */
 }
 
 .download-button.dropdown-toggle {
