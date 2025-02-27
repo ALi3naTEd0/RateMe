@@ -70,3 +70,9 @@ android/app/upload-keystore.jks
 android/app/*.keystore
 android/app/*.jks
 *.jks.old
+
+# Generated stuff - EXCEPTIONS
+!windows/flutter/CMakeLists.txt
+!windows/flutter/generated_plugins.cmake
+!windows/flutter/generated_plugin_registrant.cc
+!windows/flutter/generated_plugin_registrant.h

@@ -55,10 +55,13 @@ jobs:
               exit 1
           }
 
-      - name: Build Windows
+      - name: Generate Windows files
         run: |
           flutter config --enable-windows-desktop
-          flutter pub get
+          flutter create --platforms=windows .
+
+      - name: Build Windows
+        run: |
           flutter build windows --release
 
       # Create and upload portable version
