@@ -320,23 +320,23 @@ nav ul li a:hover {
     justify-content: center;
     gap: 2px;
     flex: 1;
-    padding-left: 8px; /* Add consistent left padding */
+    margin-left: -8px; /* Move all text containers slightly left */
 }
 
 .download-button strong {
     font-size: 1.2rem;
     line-height: 1;
-    margin-left: -8px; /* Negative margin to align with icon */
+    padding-left: 0; /* Remove any potential padding */
+    margin-left: 0; /* Remove any potential margin */
 }
 
 .download-button small {
     font-size: 0.9rem;
     opacity: 0.8;
     font-weight: normal;
-    padding-left: 16px; /* Increased indent */
+    padding-left: 20px; /* Consistent indent for secondary text */
 }
 
-/* Reserved space for chevron in all buttons */
 .download-button::after {
     content: '';
     width: 24px;
