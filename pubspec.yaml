@@ -57,6 +57,8 @@ dev_dependencies:
 
 dependency_overrides:
   path: 1.9.0
+  url_launcher: 6.1.14
+  url_launcher_linux: 3.0.6
 
 flutter_launcher_icons:
   # Global configuration (required)
