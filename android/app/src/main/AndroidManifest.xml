@@ -54,5 +54,14 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Add browser query -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <!-- Add browser packages -->
+        <package android:name="com.android.chrome" />
+        <package android:name="com.android.browser" />
     </queries>
 </manifest>
