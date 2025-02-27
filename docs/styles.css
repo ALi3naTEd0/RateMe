@@ -277,13 +277,13 @@ nav ul li a:hover {
 
 /* Download button basic structure */
 .download-button {
-    width: 250px;
+    width: 250px; /* Set fixed width */
     height: 72px;
     display: flex;
     align-items: center;
     padding: 0 25px;
-    position: relative; /* Add position relative to all buttons */
-    padding-right: 45px; /* Add consistent right padding to all buttons */
+    position: relative;
+    padding-right: 45px;
     background-color: var(--card-bg);
     color: var(--button-text, var(--primary-dark)); /* Use new variable with fallback */
     border-radius: 12px;
@@ -293,6 +293,12 @@ nav ul li a:hover {
     border: none;
     cursor: pointer;
     font-family: inherit;
+}
+
+/* Dropdown buttons can expand */
+.download-dropdown .download-button {
+    width: 100%;
+    min-width: 250px;
 }
 
 /* Icon base styles */
