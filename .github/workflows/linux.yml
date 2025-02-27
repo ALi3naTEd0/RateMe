@@ -48,11 +48,23 @@ jobs:
 
       - name: Generate Linux files
         run: |
+          echo "Current directory: $(pwd)"
+          echo "Contents of current directory:"
+          ls -la
+          echo "Content of pubspec.yaml:"
+          cat pubspec.yaml
+          echo "Flutter config before:"
+          flutter config
           flutter config --enable-linux-desktop
-          flutter create --platforms=linux .
+          echo "Flutter config after:"
+          flutter config
+          echo "Creating platform files..."
+          flutter create --platforms=linux . --verbose
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: |
+          echo "Starting Linux build..."
+          flutter build linux --release --verbose
 
       # AppImage build
       - name: Create AppImage Structure

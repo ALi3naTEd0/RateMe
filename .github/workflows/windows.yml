@@ -57,12 +57,24 @@ jobs:
 
       - name: Generate Windows files
         run: |
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          dir
+          echo "Content of pubspec.yaml:"
+          type pubspec.yaml
+          echo "Flutter config before:"
+          flutter config
           flutter config --enable-windows-desktop
-          flutter create --platforms=windows .
+          echo "Flutter config after:"
+          flutter config
+          echo "Creating platform files..."
+          flutter create --platforms=windows . --verbose
 
       - name: Build Windows
         run: |
-          flutter build windows --release
+          echo "Starting Windows build..."
+          flutter build windows --release --verbose
 
       # Create and upload portable version
       - name: Create Portable Package
