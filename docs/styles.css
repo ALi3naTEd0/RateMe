@@ -22,9 +22,9 @@
     --button-text: #A76FFF; /* New color for button text in dark mode */
     --header-bg: #2D2D2D; /* New header background for dark mode */
     --primary-header: #A76FFF; /* New primary color for header in dark mode */
-    --download-bg: #231B2F;     /* Nuevo color de fondo más oscuro y morado */
-    --button-bg: #3D2D5C;       /* Nuevo color para los botones */
-    --button-border: #864AF9;   /* Color del borde de los botones */
+    --download-bg: #231B2F;     /* Darker purple background for download section */
+    --button-bg: #3D2D5C;       /* Button background color */
+    --button-border: #864AF9;   /* Button border and hover color */
 }
 
 * {
@@ -326,7 +326,9 @@ nav ul li a:hover {
 
 .download-button strong {
     font-size: 1.2rem;
-    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap; /* Keep text in one line */
 }
 
 .download-button.dropdown-toggle {
@@ -348,6 +350,7 @@ nav ul li a:hover {
 .download-button small {
     font-size: 0.9rem;
     opacity: 0.8;
+    margin-left: 8px; /* Space between name and "Universal APK" */
 }
 
 /* Dropdown styles for download buttons */
