@@ -71,10 +71,12 @@ jobs:
           echo "Creating platform files..."
           flutter create --platforms=windows . --verbose
 
-      - name: Build Windows
+      - name: Setup Windows build
         run: |
-          echo "Starting Windows build..."
-          flutter build windows --release --verbose
+          flutter config --enable-windows-desktop
+
+      - name: Build Windows
+        run: flutter build windows --release
 
       # Create and upload portable version
       - name: Create Portable Package
