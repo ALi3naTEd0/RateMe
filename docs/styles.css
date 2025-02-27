@@ -318,8 +318,7 @@ nav ul li a:hover {
 
 /* Make sure the span after Android icon aligns properly */
 .download-button i.fa-android + span {
-    margin-left: 0; /* Remove any left margin */
-    padding-left: 0; /* Remove any left padding */
+    padding-left: 8px; /* Add slight padding for Android text */
 }
 
 /* Text container adjustments */
@@ -329,14 +328,11 @@ nav ul li a:hover {
     justify-content: center;
     gap: 2px;
     flex: 1;
-    margin-left: -8px; /* Move all text containers slightly left */
 }
 
 .download-button strong {
     font-size: 1.2rem;
     line-height: 1;
-    padding-left: 0; /* Remove any potential padding */
-    margin-left: 0; /* Remove any potential margin */
 }
 
 .download-button small {
