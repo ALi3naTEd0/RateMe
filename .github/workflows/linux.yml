@@ -89,7 +89,7 @@ jobs:
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-AppImage
+          name: RateMe-AppImage
           path: RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
 
       # DEB build
@@ -149,7 +149,7 @@ jobs:
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-DEB
+          name: RateMe-DEB
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_amd64.deb
 
       # RPM build
@@ -159,11 +159,11 @@ jobs:
           sudo apt-get install -y alien rpm
 
           # Convert DEB to RPM and rename to match convention
-          sudo alien --scripts --to-rpm RateMe_${{ inputs.version || github.event.inputs.version }}_amd64.deb
+          sudo alien --scripts --to-rpm rateme_${{ inputs.version || github.event.inputs.version }}_amd64.deb
           mv rateme-*.rpm RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-RPM
+          name: RateMe-RPM
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm

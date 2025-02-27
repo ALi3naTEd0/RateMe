@@ -68,8 +68,8 @@ jobs:
       - name: Create Portable Package
         shell: pwsh
         run: |
-          # Create directory structure
           $appDir = "RateMe-${{ inputs.version || github.event.inputs.version }}"
+          # Create directory structure
           New-Item -ItemType Directory -Path $appDir
           Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
           
@@ -90,8 +90,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: RateMe-portable.zip
-          asset_name: RateMe-portable.zip
+          asset_path: rateme-portable.zip
+          asset_name: rateme-portable.zip
           asset_content_type: application/zip
 
       # Create and upload installer version
