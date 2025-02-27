@@ -458,6 +458,13 @@ nav ul li a:hover {
 
 .version-link {
     font-size: 0.9rem;
+    color: var(--text-light); /* Reset to white */
+    text-decoration: underline;
+    opacity: 0.9;
+}
+
+.version-link:hover {
+    opacity: 1;
 }
 
 /* Screenshots Section */
@@ -476,15 +483,20 @@ nav ul li a:hover {
 /* Screenshots Section - Updated for better responsiveness */
 .screenshot-carousel {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* Force 4 columns */
+    grid-template-columns: repeat(4, 1fr); /* Desktop: 4 columns */
     gap: 20px;
     padding: 20px 0;
-    overflow: visible;
 }
 
-@media screen and (max-width: 1200px) {
+@media screen and (max-width: 1200px) and (min-width: 769px) {
     .screenshot-carousel {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(2, 1fr); /* Tablet: 2x2 grid */
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .screenshot-carousel {
+        grid-template-columns: 1fr; /* Mobile: single column */
     }
 }
 
