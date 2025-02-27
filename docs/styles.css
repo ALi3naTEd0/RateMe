@@ -22,6 +22,9 @@
     --button-text: #A76FFF; /* New color for button text in dark mode */
     --header-bg: #2D2D2D; /* New header background for dark mode */
     --primary-header: #A76FFF; /* New primary color for header in dark mode */
+    --download-bg: #231B2F;     /* Nuevo color de fondo más oscuro y morado */
+    --button-bg: #3D2D5C;       /* Nuevo color para los botones */
+    --button-border: #864AF9;   /* Color del borde de los botones */
 }
 
 * {
@@ -237,6 +240,7 @@ nav ul li a:hover {
     background-color: var(--primary-dark);
     color: var(--text-light);
     text-align: center;
+    transition: background-color 0.3s;
 }
 
 .download h2 {
@@ -397,16 +401,17 @@ nav ul li a:hover {
 }
 
 [data-theme="dark"] .dropdown-content {
-    background-color: var(--card-bg);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--button-bg);
+    border: 1px solid var(--button-border);
 }
 
 [data-theme="dark"] .dropdown-content a {
-    color: var(--button-text);
+    color: var(--text-light);
 }
 
 [data-theme="dark"] .dropdown-content a:hover {
-    background-color: rgba(167, 111, 255, 0.1); /* Matching the new button text color */
+    background-color: var(--button-border);
+    color: var(--text-light);
 }
 
 [data-theme="dark"] .dropdown-content a:not(:last-child) {
@@ -640,23 +645,34 @@ footer {
 
 /* Update download section for dark mode */
 [data-theme="dark"] .download {
-    background-color: var(--header-bg);
+    background-color: var(--download-bg);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Update download buttons for dark mode */
 [data-theme="dark"] .download-button {
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--button-bg);
+    border: 1px solid var(--button-border);
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .download-button i {
+    color: var(--button-border);
 }
 
 [data-theme="dark"] .download-button:hover {
-    border-color: var(--button-text);
-    box-shadow: 0 8px 15px rgba(167, 111, 255, 0.1);
+    background-color: var(--button-border);
+    border-color: var(--button-border);
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .download-button:hover i {
+    color: var(--text-light);
 }
 
 /* Update version info for dark mode */
 [data-theme="dark"] .version-info {
-    background-color: rgba(167, 111, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--button-bg);
+    border: 1px solid var(--button-border);
 }
