@@ -428,16 +428,16 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               const SizedBox(height: 12),
               InkWell(
                 child: Text(
-                  'GitHub Repository',
+                  'Website',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     decoration: TextDecoration.underline
                   ),
                 ),
                 onTap: () async {
-                  final uri = Uri.parse('https://github.com/ALi3naTEd0/RateMe');
+                  final uri = Uri.parse('https://ali3nated0.github.io/RateMe/');
                   if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri);
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
                 },
               ),
