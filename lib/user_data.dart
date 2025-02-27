@@ -8,7 +8,7 @@ import 'custom_lists_page.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart';  // Añadir este import para MethodChannel
+import 'package:flutter/services.dart';  // Add this import for MethodChannel
 
 class UserData {
   // Storage keys for SharedPreferences
@@ -292,7 +292,7 @@ class UserData {
         final file = File(filePath);
         await file.writeAsString(jsonData);
 
-        // Escanear archivo con MediaScanner
+        // Scan file with MediaScanner
         const platform = MethodChannel('com.example.rateme/media_scanner');
         try {
           await platform.invokeMethod('scanFile', {'path': filePath});
@@ -316,7 +316,7 @@ class UserData {
           );
         }
       } else {
-        // En desktop usar file_picker para guardar
+        // Use file_picker to save on desktop
         final String? outputFile = await FilePicker.platform.saveFile(
           dialogTitle: 'Save backup as',
           fileName: fileName,
@@ -561,7 +561,7 @@ class UserData {
           },
         );
       } else {
-        // En desktop usar file_picker para guardar
+        // Use file_picker to save on desktop
         final String? outputFile = await FilePicker.platform.saveFile(
           dialogTitle: 'Save album as',
           fileName: fileName,
@@ -674,7 +674,8 @@ class UserData {
         lists.add(jsonEncode(list.toJson()));
       }
 
-      await prefs.setStringList(_customListsKey, lists);
+      // Save entire lists array
+      await prefs.setStringList(_customListsKey, lists);  // Quitar el map innecesario
     } catch (e, stackTrace) {
       Logging.severe('Error saving custom list', e, stackTrace);
       rethrow;
@@ -794,7 +795,7 @@ class UserData {
 
     List<String> ratings = prefs.getStringList(ratingsKey) ?? [];
     
-    // Actualizar o agregar nuevo rating
+    // Update or add new rating
     int index = ratings.indexWhere((r) {
       Map<String, dynamic> saved = jsonDecode(r);
       return saved['trackId'] == trackId || saved['position'] == position;
@@ -825,7 +826,7 @@ class UserData {
 
   static Future<Directory> getDownloadsDirectory() async {
     if (Platform.isAndroid) {
-      // Usar directamente el directorio de descargas público
+      // Use public Downloads directory directly
       return Directory('/storage/emulated/0/Download');
     } else if (Platform.isIOS) {
       final directory = await getApplicationDocumentsDirectory();

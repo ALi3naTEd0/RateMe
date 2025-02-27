@@ -415,7 +415,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   void _handleImageShare(String imagePath) async {
     try {
-      await Share.shareXFiles([XFile(imagePath)]);  // Reemplazar ShareExtend.share
+      await Share.shareXFiles([XFile(imagePath)]);  // Replace ShareExtend.share
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

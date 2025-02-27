@@ -134,7 +134,7 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      dialogTitle: 'Seleccione el archivo JSON a importar',
+      dialogTitle: 'Select JSON file to import', // Changed from 'Seleccione el archivo JSON a importar'
     );
 
     if (result != null) {
@@ -168,7 +168,7 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Los datos de SharedPreferences se han importado correctamente desde: $path'),
+                  'SharedPreferences data imported successfully'), // Changed from 'Los datos de SharedPreferences...'
             ),
           );
         }
@@ -178,7 +178,7 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
         // Check if the widget is still mounted
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se seleccionó ningún archivo para importar.'),
+            content: Text('No file selected for import'), // Changed from 'No se seleccionó ningún archivo...'
           ),
         );
       }
