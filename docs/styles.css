@@ -319,14 +319,13 @@ nav ul li a:hover {
     display: block;
 }
 
-/* Download button text container */
+/* Download button text container - single definition */
 .download-button span {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 2px;
     flex: 1;
-    padding-left: 4px; /* Small offset for better visual alignment */
 }
 
 .download-button strong {
@@ -338,7 +337,7 @@ nav ul li a:hover {
     font-size: 0.9rem;
     opacity: 0.8;
     font-weight: normal;
-    padding-left: 12px; /* Add indent to secondary text */
+    padding-left: 12px; /* Indent for all secondary text */
 }
 
 .download-button.dropdown-toggle {
@@ -355,12 +354,6 @@ nav ul li a:hover {
 .download-button:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-}
-
-.download-button small {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    margin-left: 8px; /* Space between name and "Universal APK" */
 }
 
 /* Dropdown styles for download buttons */
