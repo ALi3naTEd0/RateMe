@@ -295,9 +295,13 @@ nav ul li a:hover {
     font-family: inherit;
 }
 
+/* Dropdown specific styles - moved width:100% here */
+.download-dropdown .download-button.dropdown-toggle {
+    width: 100%;
+}
+
 /* Dropdown buttons can expand */
 .download-dropdown .download-button {
-    width: 100%;
     min-width: 250px;
 }
 
