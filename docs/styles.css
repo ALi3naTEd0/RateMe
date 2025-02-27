@@ -275,14 +275,13 @@ nav ul li a:hover {
     margin-bottom: 40px;
 }
 
-/* Download button base styles */
+/* Download button basic structure */
 .download-button {
     width: 250px;
-    height: 72px; /* Fixed height for all buttons */
+    height: 72px;
     display: flex;
     align-items: center;
-    padding: 0 25px; /* Adjusted padding */
-    position: relative;
+    padding: 0 25px;
     background-color: var(--card-bg);
     color: var(--button-text, var(--primary-dark)); /* Use new variable with fallback */
     border-radius: 12px;
@@ -294,34 +293,18 @@ nav ul li a:hover {
     font-family: inherit;
 }
 
-/* Icon container for consistent sizing */
+/* Icon base styles */
 .download-button i {
-    min-width: 32px; /* Fixed minimum width */
-    width: auto; /* Let it grow if needed */
+    width: 24px;
     height: 24px;
     font-size: 22px;
+    margin-right: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 16px;
-    flex-shrink: 0;
 }
 
-/* Specific adjustment for Android icon */
-.download-button i.fa-android {
-    font-size: 19px;
-    width: 24px;
-    min-width: 24px; /* Force smaller width for Android icon */
-    margin-right: 20px; /* Extra space after icon */
-    justify-content: flex-start; /* Align to left */
-}
-
-/* Make sure the span after Android icon aligns properly */
-.download-button i.fa-android + span {
-    padding-left: 8px; /* Add slight padding for Android text */
-}
-
-/* Text container - Reset to original styles */
+/* Text container base styles */
 .download-button span {
     display: flex;
     flex-direction: column;
@@ -330,22 +313,15 @@ nav ul li a:hover {
     flex: 1;
 }
 
-/* Remove any additional padding/margin from base styles */
+/* Text styles */
 .download-button strong {
     font-size: 1.2rem;
-    line-height: 1;
 }
 
 .download-button small {
     font-size: 0.9rem;
     opacity: 0.8;
-    font-weight: normal;
-    padding-left: 20px; /* Keep indent for secondary text */
-}
-
-/* Android specific adjustments */
-.download-button i.fa-android + span strong {
-    margin-left: -4px; /* Slight adjustment for Android text alignment */
+    padding-left: 16px;
 }
 
 .download-button::after {
