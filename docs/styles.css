@@ -282,6 +282,8 @@ nav ul li a:hover {
     display: flex;
     align-items: center;
     padding: 0 25px;
+    position: relative; /* Add position relative to all buttons */
+    padding-right: 45px; /* Add consistent right padding to all buttons */
     background-color: var(--card-bg);
     color: var(--button-text, var(--primary-dark)); /* Use new variable with fallback */
     border-radius: 12px;
@@ -332,13 +334,7 @@ nav ul li a:hover {
 
 .download-button.dropdown-toggle {
     position: relative;
-    padding-right: 45px;
-}
-
-.download-button.dropdown-toggle .fa-chevron-down {
-    position: absolute;
-    right: 20px;
-    font-size: 14px;
+    /* padding-right is now inherited from .download-button */
 }
 
 .download-button:hover {
