@@ -323,17 +323,22 @@ nav ul li a:hover {
     justify-content: center;
     gap: 2px;
     flex: 1;
+    text-align: left; /* Ensure left alignment */
 }
 
-/* Text styles */
+/* Text styles - consistent spacing */
 .download-button strong {
     font-size: 1.2rem;
+    line-height: 1;
+    margin: 0;
+    padding: 0;
 }
 
 .download-button small {
     font-size: 0.9rem;
     opacity: 0.8;
-    padding-left: 16px;
+    padding-left: 20px; /* Keep indent for secondary text */
+    margin: 0;
 }
 
 .download-button::after {
