@@ -296,13 +296,14 @@ nav ul li a:hover {
 
 /* Icon container for consistent sizing */
 .download-button i {
-    width: 24px;
+    width: 32px; /* Increased width */
     height: 24px;
     font-size: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 15px;
+    margin-right: 20px; /* Increased margin */
+    flex-shrink: 0; /* Prevent icon from shrinking */
 }
 
 /* Specific adjustment for Android icon visual weight */
@@ -318,12 +319,14 @@ nav ul li a:hover {
     display: block;
 }
 
+/* Download button text container */
 .download-button span {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 2px;
     flex: 1;
+    padding-left: 4px; /* Small offset for better visual alignment */
 }
 
 .download-button strong {
