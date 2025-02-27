@@ -672,17 +672,38 @@ footer {
         display: block;
         padding: 0.5rem 0;
     }
+
+    nav {
+        background: var(--button-bg);
+        border-top: 1px solid var(--button-border);
+        border-bottom: 1px solid var(--button-border);
+    }
+
+    nav ul li a:hover {
+        background: var(--button-border);
+    }
 }
 
-/* Mobile menu button */
+/* Mobile menu button - updated styles */
 .menu-toggle {
     display: none;
-    background: none;
-    border: none;
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
     color: var(--text-light);
-    font-size: 24px;
+    font-size: 28px;
     cursor: pointer;
-    padding: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.menu-toggle:hover {
+    background: var(--button-border);
+}
+
+.menu-toggle.active {
+    background: var(--button-border);
+    transform: scale(0.95);
 }
 
 /* Theme switch button styles */
