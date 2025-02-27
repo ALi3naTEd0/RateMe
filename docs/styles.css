@@ -20,6 +20,8 @@
     --gray: #B0B0B0;
     --footer-bg: #2D2D2D; /* New footer background for dark mode */
     --button-text: #A76FFF; /* New color for button text in dark mode */
+    --header-bg: #2D2D2D; /* New header background for dark mode */
+    --primary-header: #A76FFF; /* New primary color for header in dark mode */
 }
 
 * {
@@ -44,7 +46,9 @@ body {
 
 /* Header Styles */
 header {
-    background-color: var(--primary);
+    background-color: var(--header-bg, var(--primary));
+    border-bottom: 2px solid var(--primary-header, transparent);
+    transition: background-color 0.3s, border-color 0.3s;
     color: var(--text-light);
     padding: 1rem 0;
     position: fixed;
@@ -632,4 +636,27 @@ footer {
 
 .theme-switch:hover {
     transform: scale(1.1);
+}
+
+/* Update download section for dark mode */
+[data-theme="dark"] .download {
+    background-color: var(--header-bg);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Update download buttons for dark mode */
+[data-theme="dark"] .download-button {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .download-button:hover {
+    border-color: var(--button-text);
+    box-shadow: 0 8px 15px rgba(167, 111, 255, 0.1);
+}
+
+/* Update version info for dark mode */
+[data-theme="dark"] .version-info {
+    background-color: rgba(167, 111, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
