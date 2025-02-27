@@ -878,13 +878,13 @@ packages:
     source: hosted
     version: "6.3.2"
   url_launcher_linux:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: url_launcher_linux
-      sha256: "4e9ba368772369e3e08f231d2301b4ef72b9ff87c31192ef471b380ef29a4935"
+      sha256: b651aad005e0cb06a01dbd84b428a301916dc75f0e7ea6165f80057fee2d8e8e
       url: "https://pub.dev"
     source: hosted
-    version: "3.2.1"
+    version: "3.0.6"
   url_launcher_macos:
     dependency: transitive
     description:

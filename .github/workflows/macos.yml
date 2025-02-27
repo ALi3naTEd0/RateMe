@@ -19,7 +19,7 @@ env:
   FLUTTER_VERSION: '3.19.3'
 
 jobs:
-  build-dmg:
+  build:
     runs-on: macos-latest
 
     steps:
