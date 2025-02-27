@@ -55,29 +55,12 @@ jobs:
               exit 1
           }
 
-      - name: Generate Windows files
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          dir
-          echo "Content of pubspec.yaml:"
-          type pubspec.yaml
-          echo "Flutter config before:"
-          flutter config
-          flutter config --enable-windows-desktop
-          echo "Flutter config after:"
-          flutter config
-          echo "Creating platform files..."
-          flutter create --platforms=windows . --verbose
-
       - name: Setup Windows build
         run: |
           flutter config --enable-windows-desktop
-          # Debugging info
-          echo "Current directory and contents:"
+          # Debug info
+          echo "Current directory:"
           pwd
-          dir
           echo "Flutter config:"
           flutter config
 

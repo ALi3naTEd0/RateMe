@@ -46,12 +46,17 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Flutter and enable Linux
+      - name: Setup Linux build
         run: |
           flutter config --enable-linux-desktop
+          # Debug info
+          echo "Current directory:"
+          pwd
+          echo "Flutter config:"
+          flutter config
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: flutter build linux --release --verbose
 
       # AppImage build
       - name: Create AppImage Structure
@@ -157,9 +162,10 @@ jobs:
           # Install alien for DEB to RPM conversion
           sudo apt-get install -y alien rpm
 
-          # Convert DEB to RPM and rename to match convention
-          sudo alien --scripts --to-rpm rateme_${{ inputs.version || github.event.inputs.version }}_amd64.deb
-          mv rateme-*.rpm RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
+          # Convert DEB to RPM and use consistent naming
+          sudo alien --scripts --to-rpm RateMe_${{ inputs.version || github.event.inputs.version }}_amd64.deb
+          # Rename from rateme-version to RateMe_version format
+          find . -name "rateme-*.rpm" -exec mv {} RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm \;
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4

@@ -668,26 +668,10 @@ packages:
     dependency: "direct main"
     description:
       name: share_plus
-      sha256: f582d5741930f3ad1bf0211d358eddc0508cc346e5b4b248bd1e569c995ebb7a
+      sha256: f74fc3f1cbd99f39760182e176802f693fa0ec9625c045561cfad54681ea93dd
       url: "https://pub.dev"
     source: hosted
-    version: "4.5.3"
-  share_plus_linux:
-    dependency: transitive
-    description:
-      name: share_plus_linux
-      sha256: dc32bf9f1151b9864bb86a997c61a487967a08f2e0b4feaa9a10538712224da4
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.1"
-  share_plus_macos:
-    dependency: transitive
-    description:
-      name: share_plus_macos
-      sha256: "44daa946f2845045ecd7abb3569b61cd9a55ae9cc4cbec9895b2067b270697ae"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.1"
+    version: "7.2.1"
   share_plus_platform_interface:
     dependency: transitive
     description:
@@ -696,22 +680,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.0"
-  share_plus_web:
-    dependency: transitive
-    description:
-      name: share_plus_web
-      sha256: eaef05fa8548b372253e772837dd1fbe4ce3aca30ea330765c945d7d4f7c9935
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.1.0"
-  share_plus_windows:
-    dependency: transitive
-    description:
-      name: share_plus_windows
-      sha256: "3a21515ae7d46988d42130cd53294849e280a5de6ace24bae6912a1bffd757d4"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.1"
   shared_preferences:
     dependency: "direct main"
     description:
@@ -889,18 +857,18 @@ packages:
     dependency: "direct main"
     description:
       name: url_launcher
-      sha256: a6410777b9f7bf6c5b46594465a23ef295da8e425946835e4c41327fc6d9bcc8
+      sha256: "9d06212b1362abc2f0f0d78e6f09f726608c74e3b9462e8368bb03314aa8d603"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.17"
+    version: "6.3.1"
   url_launcher_android:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
       name: url_launcher_android
-      sha256: b693e6698f7e6985710d67a050e3acbdda3b9cfc4b43b9f1c40cdbe42c705b92
+      sha256: "6fc2f56536ee873eeb867ad176ae15f304ccccc357848b351f6f0d8d4a40d193"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.15"
+    version: "6.3.14"
   url_launcher_ios:
     dependency: transitive
     description:
@@ -910,29 +878,29 @@ packages:
     source: hosted
     version: "6.3.2"
   url_launcher_linux:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
       name: url_launcher_linux
-      sha256: ae3c5ce30a1ba0a69c3f8803b23450703cf915575ad591857df98d9c15c11018
+      sha256: "4e9ba368772369e3e08f231d2301b4ef72b9ff87c31192ef471b380ef29a4935"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.3"
+    version: "3.2.1"
   url_launcher_macos:
     dependency: transitive
     description:
       name: url_launcher_macos
-      sha256: "8fd9ae3ab5e0f96cea7dd66c4ea65e39e3477067f4997c1ec8225d553e8bb8ea"
+      sha256: "17ba2000b847f334f16626a574c702b196723af2a289e7a93ffcb79acff855c2"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.3"
+    version: "3.2.2"
   url_launcher_platform_interface:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
       name: url_launcher_platform_interface
-      sha256: "1b9c4dab07794498b83b5f938e26b20f68c3b460a3015b0307f9541cb34ef93d"
+      sha256: "552f8a1e663569be95a8190206a38187b531910283c3e982193e4f2733f01029"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.5"
+    version: "2.3.2"
   url_launcher_web:
     dependency: transitive
     description:
@@ -945,10 +913,10 @@ packages:
     dependency: transitive
     description:
       name: url_launcher_windows
-      sha256: "4e24aac2a2960fb9a70a07992e1ba69cb99fbcee48fdf17abe280ce867bfcea2"
+      sha256: "3284b6d2ac454cf34f114e1d3319866fdd1e19cdc329999057e44ffe936cfa77"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.2"
+    version: "3.1.4"
   uuid:
     dependency: transitive
     description:

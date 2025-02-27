@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.10)
 project(runner LANGUAGES CXX)
 cmake_policy(SET CMP0079 NEW)
 
+# Add compiler-specific flags
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-Wall -Werror)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wall -Wno-unknown-warning-option)
+endif()
+
 set(BINARY_NAME "rateme")
 set(APPLICATION_ID "com.example.rateme")
 
