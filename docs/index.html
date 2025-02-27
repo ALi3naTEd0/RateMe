@@ -178,9 +178,10 @@
                 </div>
             </div>
 
+            <!-- Update version info section to be dynamic -->
             <div class="version-info">
-                <p>Latest version: <span id="current-version">1.0.2</span></p>
-                <p>Released: <span id="release-date">March 2024</span></p>
+                <p>Latest version: <span id="current-version">Loading...</span></p>
+                <p>Released: <span id="release-date">Loading...</span></p>
                 <a href="https://github.com/ALi3naTEd0/RateMe/releases" class="version-link" target="_blank" rel="noopener">View all versions</a>
             </div>
         </div>
@@ -342,6 +343,24 @@ document.addEventListener('DOMContentLoaded', function() {
         nav.classList.toggle('show');
         menuToggle.classList.toggle('active');
     });
+
+    // Fetch latest release info from GitHub API
+    fetch('https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest')
+        .then(response => response.json())
+        .then(data => {
+            // Update version (remove 'v' prefix if present)
+            document.getElementById('current-version').textContent = data.tag_name.replace('v', '');
+            
+            // Format date to be more readable
+            const releaseDate = new Date(data.published_at);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('release-date').textContent = releaseDate.toLocaleDateString('en-US', options);
+        })
+        .catch(error => {
+            console.error('Error fetching release info:', error);
+            document.getElementById('current-version').textContent = '1.0.2';
+            document.getElementById('release-date').textContent = 'Check GitHub';
+        });
 });
 </script>
 

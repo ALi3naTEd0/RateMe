@@ -932,3 +932,28 @@ nav {
         margin-bottom: 6px;
     }
 }
+
+/* Desktop menu styles */
+@media screen and (min-width: 769px) {
+    nav {
+        display: block !important; /* Always show on desktop */
+        position: static;
+        background: none;
+        padding: 0;
+        border: none;
+    }
+
+    nav ul {
+        display: flex;
+        flex-direction: row;
+    }
+}
+
+/* Mobile styles refinements */
+@media screen and (max-width: 768px) {
+    nav ul li a.github-icon {
+        justify-content: center; /* Center GitHub icon and text */
+        width: 100%;
+        gap: 8px;
+    }
+}
