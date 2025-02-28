@@ -11,6 +11,7 @@ import 'user_data.dart';
 import 'logging.dart';
 import 'share_widget.dart';
 import 'custom_lists_page.dart';
+import 'theme.dart';  // Add this import
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -273,19 +274,23 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       child: Row(
         children: [
           Expanded(
-            child: Slider(
-              min: 0,
-              max: 10,
-              divisions: 10,
-              value: ratings[trackId] ?? 0.0,
-              label: (ratings[trackId] ?? 0.0).toStringAsFixed(0),
-              onChanged: (newRating) => _updateRating(trackId, newRating),
+            child: SliderTheme(
+              // Use the centralized slider theme
+              data: RateMeTheme.getSliderTheme(context),
+              child: Slider(
+                min: 0,
+                max: 10,
+                divisions: 10,
+                value: ratings[trackId] ?? 0.0,
+                label: (ratings[trackId] ?? 0.0).toStringAsFixed(0),
+                onChanged: (newRating) => _updateRating(trackId, newRating),
+              ),
             ),
           ),
           SizedBox(
-            width: 25, // Fixed width for rating number
+            width: 25,
             child: Text(
-              (ratings[trackId] ?? 0).toStringAsFixed(0), // Remove decimal places
+              (ratings[trackId] ?? 0).toStringAsFixed(0),
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.end,
             ),

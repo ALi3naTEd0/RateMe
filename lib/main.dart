@@ -16,6 +16,7 @@ import 'package:file_picker/file_picker.dart';
 import 'user_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'custom_lists_page.dart';
+import 'theme.dart';  // Add this import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,36 +33,6 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool isDarkMode = false;
-
-  final ThemeData lightTheme = ThemeData.light().copyWith(
-    colorScheme: const ColorScheme.light().copyWith(
-      primary: const Color(0xFF864AF9),
-      secondary: const Color(0xFF5E35B1),
-    ),
-    sliderTheme: const SliderThemeData(
-      thumbColor: Color(0xFF864AF9),
-      activeTrackColor: Color(0xFF864AF9),
-      valueIndicatorTextStyle: TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  );
-
-  final ThemeData darkTheme = ThemeData.dark().copyWith(
-    colorScheme: const ColorScheme.dark().copyWith(
-      primary: const Color(0xFF5E35B1),
-      secondary: const Color(0xFF864AF9),
-    ),
-    sliderTheme: const SliderThemeData(
-      thumbColor: Color(0xFF5E35B1),
-      activeTrackColor: Color(0xFF5E35B1),
-      valueIndicatorTextStyle: TextStyle(
-        color: Colors.black,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  );
 
   @override
   void initState() {
@@ -89,7 +60,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'RateMe',
       debugShowCheckedModeBanner: false,
-      theme: isDarkMode ? darkTheme : lightTheme,
+      theme: isDarkMode ? RateMeTheme.dark : RateMeTheme.light,  // Use the centralized theme
       home: MusicRatingHomePage(
         toggleTheme: toggleTheme,
         themeBrightness: isDarkMode ? Brightness.dark : Brightness.light,
