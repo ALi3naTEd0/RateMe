@@ -155,12 +155,26 @@ jobs:
           RELEASE_DATE=$(date +"%Y-%m-%d")
           
           echo "Updating documentation for version $VERSION"
-          echo "Release URL: $RELEASE_URL"
-          echo "Release Date: $RELEASE_DATE"
           
           # Update README links and version numbers
+          # First, update paths to releases
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|RateMe_${VERSION}|g" README.md
+          
+          # Update standard filenames (exe, dmg, AppImage, etc)
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
+          
+          # Update Android APKs with special attention to architecture-specific formats
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" README.md
+          sed -i "s|RateMe_arm64-v8a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" README.md
+          sed -i "s|RateMe_armeabi-v7a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
+          sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
           
           # Update CHANGELOG
           sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
@@ -186,10 +200,28 @@ jobs:
           if [ -d "docs" ]; then
             cd docs
             
-            # Update version numbers
+            # Update version numbers in index.html
             sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|RateMe_${VERSION}|g" index.html
+            
+            # Update standard filenames
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html
+            
+            # Update Android APKs including both naming conventions
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html
+            sed -i "s|RateMe_arm64-v8a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html
+            sed -i "s|RateMe_armeabi-v7a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html
+            sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html
+            
+            # Update displayed version text
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
+            sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
             
             # Commit changes
             git add index.html
