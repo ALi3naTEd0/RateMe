@@ -224,11 +224,15 @@ jobs:
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
             sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
             
-            # Debug: Print all occurrences of AppImage to verify
-            echo "Checking AppImage occurrences after update:"
-            grep -n "AppImage" index.html
+            # Update the fallback version for when GitHub API calls fail
+            # This ensures users always see the correct version even if the API request fails
+            sed -i "s|document.getElementById('current-version').textContent = '[0-9.]\+-[0-9]\+'|document.getElementById('current-version').textContent = '${VERSION}'|g" index.html
             
-            # Display changes for debugging
+            # Verify the update was successful
+            echo "Current fallback version updated to: ${VERSION}"
+            grep -n "current-version" index.html
+            
+            # Debug information
             echo "Website changes:"
             git diff index.html
             
