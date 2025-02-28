@@ -779,11 +779,9 @@ class _DetailsPageState extends State<DetailsPage> {
                                       final newPath = '${downloadDir.path}/$fileName';
                                       
                                       // Copy from temp to Downloads
-                                      // Copiar desde temp a Downloads
                                       await File(path).copy(newPath);
                                       
                                       // Scan file with MediaScanner
-                                      // Escanear archivo con MediaScanner
                                       const platform = MethodChannel('com.example.rateme/media_scanner');
                                       try {
                                         await platform.invokeMethod('scanFile', {'path': newPath});
