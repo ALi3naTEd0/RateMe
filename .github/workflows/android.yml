@@ -96,23 +96,23 @@ jobs:
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe_${{ inputs.version || github.event.inputs.version }}
+          name: RateMe-universal
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe_arm64-v8a_${{ inputs.version || github.event.inputs.version }}
+          name: RateMe-arm64-v8a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
 
       - name: Upload armeabi-v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe_armeabi-v7a_${{ inputs.version || github.event.inputs.version }}
+          name: RateMe-armeabi-v7a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
 
       - name: Upload x86_64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe_x86_64_${{ inputs.version || github.event.inputs.version }}
+          name: RateMe-x86_64
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
