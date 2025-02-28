@@ -4,7 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.0.3-1] - 2025-02-28
+### Added
+- Implement centralized theme system for better consistency across the app
+- Improve slider contrast in dark mode with purple background and white text
+
+### Fixed
+- Fix custom lists reordering persistence
+- Update URL launching implementation on Linux platforms to fix opening links
+- Improve cross-platform compatibility for file operations
+
+### Changed
+- Translate remaining Spanish comments to English
+- Clean up Android builds naming format
+- Update documentation and build workflows
+- Improve performance of lists rendering
+- Enhance dark mode appearance
+
+## [1.0.2-1] - 2024-05-01
 
 ### Added
 - New footer with version information

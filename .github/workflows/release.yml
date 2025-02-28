@@ -181,8 +181,35 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
           sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
           
-          # Update CHANGELOG
-          sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
+          # Update CHANGELOG - mejorado para preservar el contenido de Unreleased
+          echo "Updating CHANGELOG.md with version $VERSION dated $RELEASE_DATE"
+          
+          # Guardar el contenido de Unreleased a un archivo temporal
+          sed -n '/## \[Unreleased\]/,/## \[/p' CHANGELOG.md > unreleased_content.tmp
+          # Eliminar la primera línea con "## [Unreleased]" y la última línea con "## ["
+          sed -i '1d;$d' unreleased_content.tmp
+          
+          # Mostrar el contenido que se preservará
+          echo "Content being preserved from Unreleased section:"
+          cat unreleased_content.tmp
+          
+          # Crear la nueva estructura del CHANGELOG manteniendo el contenido de Unreleased
+          {
+            echo "# Changelog"
+            echo ""
+            echo "All notable changes to this project will be documented in this file."
+            echo ""
+            echo "## [Unreleased]"
+            echo ""
+            echo "## [$VERSION] - $RELEASE_DATE"
+            cat unreleased_content.tmp
+          } > CHANGELOG.md.new
+          
+          # Añadir el resto del CHANGELOG actual (omitiendo el encabezado, Unreleased y la primera versión)
+          sed -n '/## \[[0-9]/,$p' CHANGELOG.md >> CHANGELOG.md.new
+          
+          # Reemplazar el archivo original
+          mv CHANGELOG.md.new CHANGELOG.md
           
           # Show changes for debugging
           echo "Changes in README:"
