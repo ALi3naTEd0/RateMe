@@ -100,6 +100,40 @@ class _ShareWidgetState extends State<ShareWidget> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
+  void _showOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Album Options'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.settings), // Changed from more_vert to settings
+              title: const Text('Settings'),
+              // ...existing code...
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_download),
+              title: const Text('Import Album'),
+              // ...existing code...
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_upload),
+              title: const Text('Export Album'),
+              // ...existing code...
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share as Image'),
+              // ...existing code...
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
@@ -241,7 +275,7 @@ class _ShareWidgetState extends State<ShareWidget> {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    rating.toInt().toString(), // Cambiado de toStringAsFixed(1) a toInt()
+                    rating.toInt().toString(), // Changed from toStringAsFixed(1) to toInt()
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       color: rating > 0

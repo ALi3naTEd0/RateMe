@@ -378,7 +378,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             mainAxisAlignment: MainAxisAlignment.center, // Center vertically
             crossAxisAlignment: CrossAxisAlignment.center, // Center horizontally
             children: [
-              Text('Version: $appVersion'),
+              Text('Version: 1.0.2-1'), // Necesitamos cambiar esto a 1.0.2-1
               const SizedBox(height: 12),
               const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
               const SizedBox(height: 12),
@@ -749,27 +749,44 @@ class AppVersionFooter extends StatelessWidget {
       onTap: () => _showAboutDialog(context),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 6.0),
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-        child: const Text(
-          'Rate Me! v1.0.3-1', // Actualizado a la nueva versión
+        padding: const EdgeInsets.symmetric(vertical: 10.0),
+        child: Text(
+          'Rate Me! v1.0.3-1', // Full app name with version is more conventional
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 10),
+          style: TextStyle(
+            fontSize: 14,
+            decoration: TextDecoration.underline,
+            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8) ?? Colors.grey,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
     );
   }
 
+  // ...existing code...
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Center(child: Text('About Rate Me!')), // Centered title
+          title: Stack(
+            children: [
+              const Center(child: Text('About Rate Me!')),
+              Positioned(
+                right: -8,
+                top: -8,
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center, // Center vertically
-            crossAxisAlignment: CrossAxisAlignment.center, // Center horizontally
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text('Version: 1.0.3-1'),
               const SizedBox(height: 12),
@@ -777,15 +794,15 @@ class AppVersionFooter extends StatelessWidget {
               const SizedBox(height: 12),
               const Text('License: GPL-3.0'),
               const SizedBox(height: 12),
-              InkWell(
-                child: Text(
-                  'Website',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    decoration: TextDecoration.underline
-                  ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                 ),
-                onTap: () async {
+                child: const Text(
+                  'Website',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onPressed: () async {
                   final uri = Uri.parse('https://ali3nated0.github.io/RateMe/');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -794,14 +811,6 @@ class AppVersionFooter extends StatelessWidget {
               ),
             ],
           ),
-          actions: [
-            Center( // Center the close button
-              child: TextButton(
-                child: const Text('Close'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
         );
       },
     );

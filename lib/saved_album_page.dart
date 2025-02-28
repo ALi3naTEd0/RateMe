@@ -357,7 +357,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.more_vert, color: Colors.white),
+                              icon: const Icon(Icons.settings, color: Colors.white), // Changed from more_vert to settings
                               label: const Text('Options', style: TextStyle(color: Colors.white)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Theme.of(context).colorScheme.primary,
@@ -658,6 +658,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               title: const Text('Export Album'),
               onTap: () async {
                 Navigator.pop(context);
+                if (!mounted) return;
                 await UserData.exportAlbum(context, widget.album);
               },
             ),
