@@ -25,7 +25,10 @@ permissions:
   contents: write
 
 jobs:
-  # Platform builds - run in parallel when their condition is met
+  #################################################################
+  # 1. BUILD JOBS - Run platform-specific builds in parallel
+  #################################################################
+  
   android-build:
     if: ${{ github.event_name != 'push' && (inputs.platforms == 'all' || inputs.platforms == 'android') }}
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
@@ -54,8 +57,12 @@ jobs:
     with:
       version: ${{ inputs.version }}
 
-  # Release creation - runs after all selected builds are complete
+  #################################################################
+  # 2. CREATE RELEASE - Runs after builds complete
+  #################################################################
+  
   create-release:
+    name: Create Release from Builds
     if: |
       github.event_name != 'push' && 
       !cancelled() && !failure() &&
@@ -69,53 +76,41 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
-      - name: Debug Needs Context
-        run: |
-          echo "Android build result: ${{ needs.android-build.result }}"
-          echo "Linux build result: ${{ needs.linux-build.result }}"
-          echo "Windows build result: ${{ needs.windows-build.result }}"
-          echo "macOS build result: ${{ needs.macos-build.result }}"
-
-      - uses: actions/download-artifact@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: '**/*'  # Download all artifacts without filtering
           merge-multiple: true
           
-      - name: List and organize artifacts
+      - name: Organize artifacts
         run: |
-          echo "Initial dist content:"
-          ls -la dist/
-          
           # Move all nested files to root
           find dist -mindepth 2 -type f -exec mv -t dist/ {} +
-          
           # Remove empty directories
           find dist -type d -empty -delete
-          
-          echo "Final dist content:"
-          ls -la dist/
-          
-          # Show file details
-          echo "Found artifacts with details:"
+          # Display results
+          echo "Final artifacts:"
           cd dist && ls -lh *
 
-      - uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
           name: Release v${{ inputs.version }}
           draft: false
           files: dist/**/*
 
-  # Tag-based release job (triggered by tag push)
+  #################################################################
+  # 3. TAG RELEASE - Run when a tag is pushed
+  #################################################################
+  
   tag-release:
+    name: Create Release from Tag
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for CHANGELOG
-          ref: rateme     # Checkout specific branch
 
       - name: Get version from tag
         id: get_version
@@ -132,8 +127,26 @@ jobs:
           draft: false
           prerelease: false
           commitish: ${{ github.sha }}
-      
-      # Instead of triggering another workflow, update docs directly
+
+  #################################################################
+  # 4. UPDATE DOCS - Run after tag-release job completes
+  #################################################################
+  
+  update-docs:
+    name: Update Documentation
+    needs: tag-release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for CHANGELOG
+          ref: rateme     # Checkout specific branch
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          
       - name: Update Documentation
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
@@ -149,14 +162,10 @@ jobs:
             # Update paths with versions
             sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
             
-            # Update filenames with versions - this is important 
+            # Update filenames with versions
             sed -i "s|RateMe_${OLD_VERSION}|RateMe_${VERSION}|g" README.md
           fi
           
-          # Update README.md download links and add release info
-          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
-          sed -i "s|/v/release/.*?include|/v/release/ALi3naTEd0/RateMe?include|g" README.md
-
           # Update CHANGELOG.md
           # Move [Unreleased] content to new version
           sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
@@ -165,13 +174,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add README.md CHANGELOG.md
-          git commit -m "docs: update to version ${VERSION}
-          
-          • Updated download links to v${VERSION}
-          • Updated version badges and references
-          • Updated CHANGELOG.md with release date
-          • Release URL: ${RELEASE_URL}
-          • Release date: ${RELEASE_DATE}" || echo "No changes to commit"
+          git commit -m "docs: update to version ${VERSION}" || echo "No changes to commit"
           git push || echo "No changes to push"
 
       - name: Update Website
@@ -179,24 +182,24 @@ jobs:
           VERSION=${{ steps.get_version.outputs.VERSION }}
           cd docs
           
-          # Update all download links in index.html and README.md
+          # Update links and filenames
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html ../README.md
           sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html ../README.md
           
-          # Update APKs, DMG, AppImage, etc with exact filenames
+          # Update all application files
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html ../README.md
           
-          # Update APK files (both versions of the format)
+          # Update APK files
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html ../README.md
-          sed -i "s|RateMe_arm64-v8a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html ../README.md
-          sed -i "s|RateMe_armeabi-v7a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html ../README.md
-          sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html ../README.md
           
-          # Update any other version references
+          # Update version display references
           sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
           sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
           
