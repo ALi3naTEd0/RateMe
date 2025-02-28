@@ -1,8 +1,5 @@
 name: rateme
-description: Rate your music albums.
-# No olvidar actualizar PKGBUILD cuando se cambie esta versión
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
+description: A Flutter application for rating and managing your music collection.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
@@ -17,7 +14,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.3+1
+version: 1.0.3-1
 
 environment:
   sdk: '>=3.2.0 <4.0.0'  # Changed from 3.2.6 to 3.2.0
