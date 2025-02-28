@@ -215,21 +215,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             ),
           ),
           // Updated version footer - larger text, with underline to indicate it's clickable
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10.0),
-            child: GestureDetector(
-              onTap: () => _showAboutDialog(context),
-              child: Text(
-                'Version 1.0.2',
-                style: TextStyle(
-                  fontSize: 14,  // Increased from 12
-                  decoration: TextDecoration.underline,  // Added underline
-                  color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8) ?? Colors.grey,
-                  fontWeight: FontWeight.w400,  // Slightly bolder
-                ),
-              ),
-            ),
-          ),
+          const AppVersionFooter(), // Use the new AppVersionFooter widget
         ],
       ),
     );
@@ -751,5 +737,73 @@ class BandcampService {
       }
     }
     return null;
+  }
+}
+
+class AppVersionFooter extends StatelessWidget {
+  const AppVersionFooter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showAboutDialog(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        child: const Text(
+          'Rate Me! v1.0.3-1', // Actualizado a la nueva versión
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 10),
+        ),
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Center(child: Text('About Rate Me!')), // Centered title
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+            crossAxisAlignment: CrossAxisAlignment.center, // Center horizontally
+            children: [
+              Text('Version: 1.0.3-1'),
+              const SizedBox(height: 12),
+              const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
+              const SizedBox(height: 12),
+              const Text('License: GPL-3.0'),
+              const SizedBox(height: 12),
+              InkWell(
+                child: Text(
+                  'Website',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline
+                  ),
+                ),
+                onTap: () async {
+                  final uri = Uri.parse('https://ali3nated0.github.io/RateMe/');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            Center( // Center the close button
+              child: TextButton(
+                child: const Text('Close'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
