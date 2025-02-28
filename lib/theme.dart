@@ -29,9 +29,10 @@ class RateMeTheme {
     return SliderThemeData(
       thumbColor: isDark ? const Color(0xFF5E35B1) : const Color(0xFF864AF9),
       activeTrackColor: isDark ? const Color(0xFF5E35B1) : const Color(0xFF864AF9),
-      valueIndicatorColor: isDark ? Colors.grey[800] : Colors.white,
-      valueIndicatorTextStyle: TextStyle(
-        color: isDark ? Colors.white : Colors.black,
+      // En modo oscuro, mantenemos el indicador de color en un tono púrpura que contraste bien
+      valueIndicatorColor: isDark ? const Color(0xFF5E35B1) : Colors.white,
+      valueIndicatorTextStyle: const TextStyle(
+        color: Colors.white, // Siempre texto blanco para máximo contraste
         fontWeight: FontWeight.bold,
       ),
     );
