@@ -25,235 +25,176 @@ permissions:
   contents: write
 
 jobs:
-  # Platform builds - only run for workflow_dispatch
+  # STEP 1: BUILD PHASE - Build all required platforms
   android-build:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'android') }}
+    if: |
+      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'android')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
     secrets: inherit
     with:
-      version: ${{ inputs.version }}
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   linux-build:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'linux') }}
+    if: |
+      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'linux')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
     uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
     secrets: inherit
     with:
-      version: ${{ inputs.version }}
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   windows-build:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'windows') }}
+    if: |
+      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'windows')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
     uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
     secrets: inherit
     with:
-      version: ${{ inputs.version }}
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   macos-build:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'macos') }}
+    if: |
+      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'macos')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
     uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
     secrets: inherit
     with:
-      version: ${{ inputs.version }}
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
-  # Create release from manual build
+  # STEP 2: CREATE RELEASE - Create the GitHub release and attach artifacts
   create-release:
-    name: Create Release from Builds
-    # Only run for workflow_dispatch events, not for tag pushes
+    name: Create Release
+    needs: [android-build, linux-build, windows-build, macos-build]
     if: |
-      github.event_name == 'workflow_dispatch' && 
       !cancelled() && !failure() &&
       (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
       (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
       (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
       (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped')
-    needs: [android-build, linux-build, windows-build, macos-build]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+      release_url: ${{ steps.create_release.outputs.html_url }}
     steps:
-      - name: Create dist directory
+      - name: Get Version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+          echo "Using version: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}"
+
+      - name: Create Dist Directory
         run: mkdir -p dist
 
-      - name: Download all artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: '**/*'
           merge-multiple: true
-          
-      - name: Organize artifacts
+
+      - name: Organize Artifacts
         run: |
-          # Move all nested files to root
+          echo "Initial dist content:"
+          ls -la dist/
+          
+          # Move nested files to root
           find dist -mindepth 2 -type f -exec mv -t dist/ {} +
+          
           # Remove empty directories
           find dist -type d -empty -delete
-          # Display results
-          echo "Final artifacts:"
-          cd dist && ls -lh *
+          
+          echo "Final dist content:"
+          ls -lh dist/
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ inputs.version }}
-          name: Release v${{ inputs.version }}
-          draft: false
-          files: dist/**/*
-
-  # Process tag event - simplify to a single job
-  process-tag:
-    name: Process Tag Release
-    # Simplify the condition to check if this is a tag push event
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug Event
-        run: |
-          echo "github.ref: ${{ github.ref }}"
-          echo "github.event_name: ${{ github.event_name }}"
-          echo "github.event.ref: ${{ github.event.ref }}"
-          echo "GITHUB_REF: $GITHUB_REF"
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: rateme
-
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      # Step 1: Create the release
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release v${{ steps.get_version.outputs.VERSION }}  # Include "v" prefix
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
-          commitish: ${{ github.sha }}
-      
-      # Step 2: Verify release was created
-      - name: Verify Release Creation
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          files: dist/**/*
+          draft: false
+          
+      - name: Debug Release Info
         run: |
-          echo "Release was created with ID: ${{ steps.create_release.outputs.id }}"
-          echo "Release URL: ${{ steps.create_release.outputs.html_url }}"
-          # Wait a moment for GitHub to fully process the release
-          sleep 10
-      
-      # Step 3: Update documentation immediately
+          echo "Release created successfully:"
+          echo "Version: ${{ steps.get_version.outputs.VERSION }}"
+          echo "URL: ${{ steps.create_release.outputs.html_url }}"
+          echo "Upload URL: ${{ steps.create_release.outputs.upload_url }}"
+
+  # STEP 3: UPDATE DOCUMENTATION - Update docs with new version links
+  update-docs:
+    name: Update Documentation
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog
+          ref: rateme     # Main branch
+          
       - name: Update Documentation
         run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          RELEASE_URL="${{ steps.create_release.outputs.html_url }}"
+          VERSION="${{ needs.create-release.outputs.version }}"
+          RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
           RELEASE_DATE=$(date +"%Y-%m-%d")
           
-          # More verbose output for debugging
-          echo "==== STARTING DOCUMENTATION UPDATE ===="
-          echo "Version: $VERSION"
+          echo "Updating documentation for version $VERSION"
           echo "Release URL: $RELEASE_URL"
           echo "Release Date: $RELEASE_DATE"
           
-          # Find existing version in files to replace
-          OLD_VERSION=$(grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe" README.md 2>/dev/null | head -1 | cut -d'_' -f2 | cut -d'.' -f1,2,3,4 || echo "")
-          
-          echo "Found old version in README: '$OLD_VERSION'"
-          echo "New version to use: '$VERSION'"
-          
-          # If old version found, update it
-          if [ -n "$OLD_VERSION" ]; then
-            echo "Replacing version $OLD_VERSION with $VERSION in README.md"
-            sed -i "s|RateMe_${OLD_VERSION}|RateMe_${VERSION}|g" README.md
-            echo "Version replacement completed"
-          else
-            echo "WARNING: Could not find old version pattern in README.md"
-            # Show a sample of README.md for debugging
-            echo "README.md first 20 lines:"
-            head -n 20 README.md
-          fi
-          
-          # Update download paths in README.md - both with and without v prefix
-          echo "Updating download paths in README.md"
+          # Update README links and version numbers
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|RateMe_${VERSION}|g" README.md
           
-          # Update version badge in README.md
-          echo "Updating version badge in README.md"
-          sed -i "s|/v/release/.*?include|/v/release/ALi3naTEd0/RateMe?include|g" README.md
-          
-          # Update CHANGELOG.md
-          echo "Updating CHANGELOG.md"
+          # Update CHANGELOG
           sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
           
-          # List files to make sure we have something to commit
-          echo "Files in working directory:"
-          ls -la
+          # Show changes for debugging
+          echo "Changes in README:"
+          git diff README.md
           
-          # Debug: show changes
-          echo "=== README.md changes: ==="
-          git diff README.md || echo "No changes detected in README.md"
-          
-          echo "=== CHANGELOG.md changes: ==="
-          git diff CHANGELOG.md || echo "No changes detected in CHANGELOG.md"
+          echo "Changes in CHANGELOG:"
+          git diff CHANGELOG.md
           
           # Commit changes
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
-          echo "Committing documentation changes..."
           git add README.md CHANGELOG.md
-          COMMIT_RESULT=$(git commit -m "docs: update version to ${VERSION}" 2>&1) || echo "No changes to commit in docs: $COMMIT_RESULT"
+          git commit -m "docs: update to version ${VERSION}" || echo "No changes to commit"
+          git push || echo "No changes to push"
           
-          echo "Pushing changes..."
-          PUSH_RESULT=$(git push 2>&1) || echo "Nothing to push for docs: $PUSH_RESULT"
-          echo "==== DOCUMENTATION UPDATE COMPLETE ===="
-
       - name: Update Website
         run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
+          VERSION="${{ needs.create-release.outputs.version }}"
           
-          echo "==== STARTING WEBSITE UPDATE ===="
-          # Debug current directory
-          echo "Current directory: $(pwd)"
-          echo "Checking if docs directory exists..."
           if [ -d "docs" ]; then
-            echo "Docs directory exists."
-            
             cd docs
-            echo "Changed to docs directory"
             
-            # Update download paths
-            echo "Updating download paths..."
-            sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html ../README.md
-            sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html ../README.md
-            
-            # More debug info and remaining updates...
-            echo "Updating file version references..."
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html ../README.md
-            
-            # Update APK files
-            echo "Updating APK references..."
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html ../README.md
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html ../README.md
-            
-            # Update displayed versions
-            echo "Updating displayed version numbers..."
+            # Update version numbers
+            sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|RateMe_${VERSION}|g" index.html
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
-            sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
             
-            # Debug: show changes
-            echo "=== index.html changes: ==="
-            git diff index.html || echo "No changes detected in index.html"
-            
+            # Commit changes
             git add index.html
-            git commit -m "docs: update website version to ${VERSION}" || echo "No changes to commit in website"
-            git push || echo "Nothing to push for website"
+            git commit -m "docs: update website to version ${VERSION}" || echo "No changes to website"
+            git push || echo "No website changes to push"
           else
-            echo "WARNING: docs directory not found"
-            ls -la
+            echo "Docs directory not found, skipping website update"
           fi
-          echo "==== WEBSITE UPDATE COMPLETE ===="
