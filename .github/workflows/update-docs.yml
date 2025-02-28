@@ -33,6 +33,18 @@ jobs:
       - name: Update version references
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
+          OLD_VERSION=$(grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe" README.md | head -1 | cut -d'_' -f2 | cut -d'.' -f1,2,3,4)
+          
+          if [ -n "$OLD_VERSION" ]; then
+            echo "Replacing old version $OLD_VERSION with new version $VERSION"
+            
+            # Update paths with versions
+            sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
+            
+            # Update filenames with versions - this is what was missing
+            sed -i "s|RateMe_${OLD_VERSION}|RateMe_${VERSION}|g" README.md
+          fi
+          
           RELEASE_URL="https://github.com/ALi3naTEd0/RateMe/releases/tag/v${VERSION}"
           RELEASE_DATE=$(date +"%Y-%m-%d")
           
