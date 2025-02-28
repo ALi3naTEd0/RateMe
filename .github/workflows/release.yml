@@ -25,10 +25,7 @@ permissions:
   contents: write
 
 jobs:
-  #################################################################
-  # 1. BUILD JOBS - Run platform-specific builds in parallel
-  #################################################################
-  
+  # Build jobs (unchanged)
   android-build:
     if: ${{ github.event_name != 'push' && (inputs.platforms == 'all' || inputs.platforms == 'android') }}
     uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
@@ -57,10 +54,7 @@ jobs:
     with:
       version: ${{ inputs.version }}
 
-  #################################################################
-  # 2. CREATE RELEASE - Runs after builds complete
-  #################################################################
-  
+  # Build release with artifacts
   create-release:
     name: Create Release from Builds
     if: |
@@ -80,7 +74,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: '**/*'  # Download all artifacts without filtering
+          pattern: '**/*'
           merge-multiple: true
           
       - name: Organize artifacts
@@ -101,21 +95,22 @@ jobs:
           draft: false
           files: dist/**/*
 
-  #################################################################
-  # 3. TAG RELEASE - Run when a tag is pushed
-  #################################################################
-  
-  tag-release:
-    name: Create Release from Tag
+  # Combined job for tag-based release and doc update
+  process-tag:
+    name: Process Tag Release
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: rateme
 
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      # Step 1: Create the release
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -127,66 +122,65 @@ jobs:
           draft: false
           prerelease: false
           commitish: ${{ github.sha }}
-
-  #################################################################
-  # 4. UPDATE DOCS - Run after tag-release job completes
-  #################################################################
-  
-  update-docs:
-    name: Update Documentation
-    needs: tag-release
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for CHANGELOG
-          ref: rateme     # Checkout specific branch
-
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          
+      
+      # Step 2: Update documentation immediately
       - name: Update Documentation
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
           RELEASE_URL="https://github.com/ALi3naTEd0/RateMe/releases/tag/v${VERSION}"
           RELEASE_DATE=$(date +"%Y-%m-%d")
           
-          # Find existing version in files to replace
-          OLD_VERSION=$(grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe" README.md | head -1 | cut -d'_' -f2 | cut -d'.' -f1,2,3,4)
+          echo "Updating README.md and CHANGELOG.md for version $VERSION"
           
+          # Find existing version in files to replace
+          OLD_VERSION=$(grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe" README.md 2>/dev/null | head -1 | cut -d'_' -f2 | cut -d'.' -f1,2,3,4 || echo "")
+          
+          # Print debug info about versions
+          echo "Found old version: '$OLD_VERSION'"
+          echo "New version: '$VERSION'"
+          
+          # If old version found, update it
           if [ -n "$OLD_VERSION" ]; then
-            echo "Replacing old version $OLD_VERSION with new version $VERSION"
-            
-            # Update paths with versions
-            sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
-            
-            # Update filenames with versions
+            echo "Replacing version $OLD_VERSION with $VERSION in README.md"
             sed -i "s|RateMe_${OLD_VERSION}|RateMe_${VERSION}|g" README.md
           fi
           
+          # Update download paths in README.md
+          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
+          
+          # Update version badge in README.md
+          sed -i "s|/v/release/.*?include|/v/release/ALi3naTEd0/RateMe?include|g" README.md
+          
           # Update CHANGELOG.md
-          # Move [Unreleased] content to new version
           sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
-
-          # Add and commit changes
+          
+          # Debug: show changes
+          echo "README.md changes:"
+          git diff README.md
+          
+          echo "CHANGELOG.md changes:"
+          git diff CHANGELOG.md
+          
+          # Commit changes
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add README.md CHANGELOG.md
-          git commit -m "docs: update to version ${VERSION}" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          git commit -m "docs: update version to ${VERSION}" || echo "No changes to commit in docs"
+          git push || echo "Nothing to push for docs"
 
       - name: Update Website
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
           cd docs
           
-          # Update links and filenames
+          # Update paths and filenames in website files
+          echo "Updating docs/index.html for version $VERSION"
+          
+          # Update download paths
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html ../README.md
           sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html ../README.md
           
-          # Update all application files
+          # Update specific filenames
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html ../README.md
@@ -199,10 +193,14 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html ../README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html ../README.md
           
-          # Update version display references
+          # Update displayed versions
           sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
           sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
           
+          # Debug: show changes
+          echo "index.html changes:"
+          git diff index.html
+          
           git add index.html
-          git commit -m "docs: update website version to ${VERSION}" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          git commit -m "docs: update website version to ${VERSION}" || echo "No changes to commit in website"
+          git push || echo "Nothing to push for website"
