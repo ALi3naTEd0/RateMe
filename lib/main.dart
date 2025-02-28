@@ -16,7 +16,6 @@ import 'package:file_picker/file_picker.dart';
 import 'user_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'custom_lists_page.dart';
-import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -589,7 +588,7 @@ class BandcampService {
         String albumName = titleParts.isNotEmpty ? titleParts[0].trim() : title;
         String artistName = titleParts.length > 1 ? titleParts[1].trim() : artist;
 
-        // Extract or generate a consistent ID for the album
+        // Extract consistent ID for the album
         int albumId = albumData?['id'] ?? 
                      albumData?['current']?['id'] ?? 
                      url.hashCode;  // Use URL as fallback
