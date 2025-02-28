@@ -11,6 +11,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for CHANGELOG
         
       - name: Update version references
         run: |
@@ -22,14 +24,19 @@ jobs:
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
           sed -i "s|/v/release/.*?include|/v/release/ALi3naTEd0/RateMe?include|g" README.md
 
-          # Add and commit changes with detailed message
+          # Update CHANGELOG.md
+          # Move [Unreleased] content to new version
+          sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
+
+          # Add and commit changes
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add README.md
+          git add README.md CHANGELOG.md
           git commit -m "docs: update to version ${VERSION}
           
           • Updated download links to v${VERSION}
           • Updated version badges and references
+          • Updated CHANGELOG.md with release date
           • Release URL: ${RELEASE_URL}
           • Release date: ${RELEASE_DATE}"
           git push
@@ -39,8 +46,35 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           cd docs
           
-          # Update all download links in index.html
-          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html
+          # Update all download links in index.html and README.md
+          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html ../README.md
+          sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html ../README.md
+          
+          # Update download links with exact filenames
+          sed -i "s|RateMe-portable-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.zip|RateMe-portable.zip|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html ../README.md
+          
+          # Update all APK variants
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html ../README.md
+          sed -i "s|RateMe_arm64-v8a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_arm64-v8a-${VERSION}.apk|g" index.html ../README.md
+          sed -i "s|RateMe_armeabi-v7a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_armeabi-v7a-${VERSION}.apk|g" index.html ../README.md
+          sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_x86_64-${VERSION}.apk|g" index.html ../README.md
+          
+          # Update all APK variants with standardized naming
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html ../README.md
+          
+          # Update version number displayed
+          sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
+          
+          # Update version in metadata
+          sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
           
           git add index.html
           git commit -m "docs: update website version to ${VERSION}"
