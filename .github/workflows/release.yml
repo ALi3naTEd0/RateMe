@@ -21,10 +21,9 @@ on:
     tags:
       - 'v*'  # matches any version tag starting with 'v'
 
-# Add global permissions (Apply to all jobs)
+# Remove global permissions - not needed with PAT
 permissions:
   contents: write
-  actions: write  # <-- Add this permission to trigger workflows
 
 jobs:
   # Platform builds - run in parallel when their condition is met
@@ -136,7 +135,7 @@ jobs:
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Update Documentation
-          token: ${{ secrets.GITHUB_TOKEN }}  # With actions:write permissions, the GITHUB_TOKEN can now trigger workflows
+          token: ${{ secrets.PAT_TOKEN }}  # Use PAT instead of GITHUB_TOKEN
           inputs: |
             {
               "version": "${{ steps.get_version.outputs.VERSION }}"
