@@ -135,6 +135,7 @@ jobs:
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Update Documentation
+          # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
           token: ${{ secrets.PAT_TOKEN }}  # Use PAT instead of GITHUB_TOKEN
           inputs: |
             {
