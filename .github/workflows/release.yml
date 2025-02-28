@@ -21,7 +21,6 @@ on:
     tags:
       - 'v*'  # matches any version tag starting with 'v'
 
-# Remove global permissions - not needed with PAT
 permissions:
   contents: write
 
@@ -114,6 +113,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for CHANGELOG
+          ref: rateme     # Checkout specific branch
 
       - name: Get version from tag
         id: get_version
@@ -131,13 +133,73 @@ jobs:
           prerelease: false
           commitish: ${{ github.sha }}
       
-      - name: Trigger Update Documentation
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: Update Documentation
-          # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
-          token: ${{ secrets.PAT_TOKEN }}  # Use PAT instead of GITHUB_TOKEN
-          inputs: |
-            {
-              "version": "${{ steps.get_version.outputs.VERSION }}"
-            }
+      # Instead of triggering another workflow, update docs directly
+      - name: Update Documentation
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          RELEASE_URL="https://github.com/ALi3naTEd0/RateMe/releases/tag/v${VERSION}"
+          RELEASE_DATE=$(date +"%Y-%m-%d")
+          
+          # Find existing version in files to replace
+          OLD_VERSION=$(grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe" README.md | head -1 | cut -d'_' -f2 | cut -d'.' -f1,2,3,4)
+          
+          if [ -n "$OLD_VERSION" ]; then
+            echo "Replacing old version $OLD_VERSION with new version $VERSION"
+            
+            # Update paths with versions
+            sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
+            
+            # Update filenames with versions - this is important 
+            sed -i "s|RateMe_${OLD_VERSION}|RateMe_${VERSION}|g" README.md
+          fi
+          
+          # Update README.md download links and add release info
+          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
+          sed -i "s|/v/release/.*?include|/v/release/ALi3naTEd0/RateMe?include|g" README.md
+
+          # Update CHANGELOG.md
+          # Move [Unreleased] content to new version
+          sed -i "/## \[Unreleased\]/,/## \[/c\## [Unreleased]\n\n## [$VERSION] - $RELEASE_DATE" CHANGELOG.md
+
+          # Add and commit changes
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md CHANGELOG.md
+          git commit -m "docs: update to version ${VERSION}
+          
+          • Updated download links to v${VERSION}
+          • Updated version badges and references
+          • Updated CHANGELOG.md with release date
+          • Release URL: ${RELEASE_URL}
+          • Release date: ${RELEASE_DATE}" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+      - name: Update Website
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          cd docs
+          
+          # Update all download links in index.html and README.md
+          sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" index.html ../README.md
+          sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html ../README.md
+          
+          # Update APKs, DMG, AppImage, etc with exact filenames
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html ../README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html ../README.md
+          
+          # Update APK files (both versions of the format)
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html ../README.md
+          sed -i "s|RateMe_arm64-v8a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" index.html ../README.md
+          sed -i "s|RateMe_armeabi-v7a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" index.html ../README.md
+          sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_x86_64.apk|g" index.html ../README.md
+          
+          # Update any other version references
+          sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
+          sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
+          
+          git add index.html
+          git commit -m "docs: update website version to ${VERSION}" || echo "No changes to commit"
+          git push || echo "No changes to push"
