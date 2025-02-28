@@ -204,11 +204,16 @@ jobs:
             # Universal APK is the only Android version linked on the website
             sed -i "s|window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk'|window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v${VERSION}/RateMe_${VERSION}.apk'|g" index.html
             
+            # Explicitly update the AppImage link to ensure it's caught
+            sed -i "s|href=\"https://github.com/ALi3naTEd0/RateMe/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage\"|href=\"https://github.com/ALi3naTEd0/RateMe/releases/download/v${VERSION}/RateMe_${VERSION}.AppImage\"|g" index.html
+            
             # Update standard download links in the HTML
             sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html
+            
+            # Individual file patterns to ensure they're all caught
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html  # Additional specific pattern for AppImage
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html
             
@@ -218,6 +223,10 @@ jobs:
             # Update any displayed version text
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
             sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
+            
+            # Debug: Print all occurrences of AppImage to verify
+            echo "Checking AppImage occurrences after update:"
+            grep -n "AppImage" index.html
             
             # Display changes for debugging
             echo "Website changes:"

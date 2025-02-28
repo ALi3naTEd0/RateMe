@@ -375,8 +375,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // macOS link
             'dmg': `${baseUrl}/v${version}/RateMe_${version}.dmg`,
             
-            // Linux links
-            'appimage': `${baseUrl}/v${version}/RateMe_${version}.AppImage`,
+            // Linux links - make sure AppImage is specifically handled
+            'AppImage': `${baseUrl}/v${version}/RateMe_${version}.AppImage`,  // Capital A for exact match
+            'appimage': `${baseUrl}/v${version}/RateMe_${version}.AppImage`,  // Lowercase for alternative
             'deb': `${baseUrl}/v${version}/RateMe_${version}_amd64.deb`,
             'rpm': `${baseUrl}/v${version}/RateMe_${version}_x86_64.rpm`
         };
@@ -385,15 +386,22 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('button.download-button').onclick = () => 
             window.open(links.android, '_blank');
 
-        // Update dropdown links
+        // Update dropdown links - more specifically for AppImage
         document.querySelectorAll('.dropdown-content a').forEach(link => {
             const href = link.getAttribute('href');
-            if (href.includes('github.com')) {
-                // Update platform-specific links
-                for (const [type, url] of Object.entries(links)) {
-                    if (href.includes(type)) {
-                        link.href = url;
-                        break;
+            if (href && href.includes('github.com')) {
+                // Special handling for AppImage
+                if (href.includes('AppImage')) {
+                    link.href = links.AppImage;
+                    console.log('Updated AppImage link to:', links.AppImage);
+                }
+                else {
+                    // Update other platform-specific links
+                    for (const [type, url] of Object.entries(links)) {
+                        if (href.includes(type)) {
+                            link.href = url;
+                            break;
+                        }
                     }
                 }
             }
