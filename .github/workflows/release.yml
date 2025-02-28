@@ -1,106 +1,35 @@
 name: Release Build
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to build"
-        required: true
-        default: "1.0.0-1"
-      platforms:
-        description: "Platforms to build"
-        required: true
-        type: choice
-        options:
-          - all
-          - android
-          - linux
-          - windows
-          - macos
+  push:
+    tags:
+      - 'v*'  # matches any version tag starting with 'v'
 
 jobs:
-  # Platform builds - run in parallel when their condition is met
-  android-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'android' }}
-    uses: ALi3naTEd0/RateMe/.github/workflows/android.yml@rateme
-    secrets: inherit
-    with:
-      version: ${{ github.event.inputs.version }}
-
-  linux-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'linux' }}
-    uses: ALi3naTEd0/RateMe/.github/workflows/linux.yml@rateme
-    secrets: inherit
-    with:
-      version: ${{ github.event.inputs.version }}
-
-  windows-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'windows' }}
-    uses: ALi3naTEd0/RateMe/.github/workflows/windows.yml@rateme
-    secrets: inherit
-    with:
-      version: ${{ github.event.inputs.version }}
-
-  macos-build:
-    if: ${{ inputs.platforms == 'all' || inputs.platforms == 'macos' }}
-    uses: ALi3naTEd0/RateMe/.github/workflows/macos.yml@rateme
-    secrets: inherit
-    with:
-      version: ${{ github.event.inputs.version }}
-
-  # Release creation - runs after all selected builds are complete
-  create-release:
-    if: |
-      !cancelled() && !failure() &&
-      (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
-      (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
-      (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
-      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped')
-    needs: [android-build, linux-build, windows-build, macos-build]
+  build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # For creating releases
-      issues: write      # For creating release notes
-      discussions: write # For release discussions
+      contents: write
     steps:
-      - name: Create dist directory
-        run: mkdir -p dist
+      - uses: actions/checkout@v4
 
-      - name: Debug Needs Context
-        run: |
-          echo "Android build result: ${{ needs.android-build.result }}"
-          echo "Linux build result: ${{ needs.linux-build.result }}"
-          echo "Windows build result: ${{ needs.windows-build.result }}"
-          echo "macOS build result: ${{ needs.macos-build.result }}"
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - uses: actions/download-artifact@v4
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path: dist
-          pattern: '**/*'  # Download all artifacts without filtering
-          merge-multiple: true
-          
-      - name: List and organize artifacts
-        run: |
-          echo "Initial dist content:"
-          ls -la dist/
-          
-          # Move all nested files to root
-          find dist -mindepth 2 -type f -exec mv -t dist/ {} +
-          
-          # Remove empty directories
-          find dist -type d -empty -delete
-          
-          echo "Final dist content:"
-          ls -la dist/
-          
-          # Show file details
-          echo "Found artifacts with details:"
-          cd dist && ls -lh *
-
-      - uses: softprops/action-gh-release@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: v${{ github.event.inputs.version }}
-          name: Release v${{ github.event.inputs.version }}
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
-          files: dist/**/*
+          prerelease: false
+
+      - name: Trigger Documentation Update
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Update Documentation
+          token: ${{ secrets.GITHUB_TOKEN }}
