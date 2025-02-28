@@ -36,9 +36,9 @@ android {
         minSdkVersion 21
         targetSdkVersion 33
         
-        // Update version for new footer feature
-        versionCode 3
-        versionName "1.0.2"
+        // Update version to match pubspec.yaml (1.0.3+1)
+        versionCode 4  // Increment from previous value 3
+        versionName "1.0.3"  // Update to match pubspec version
         
         resValue "string", "app_name", "Rate Me!"
     }
