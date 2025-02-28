@@ -1,6 +1,13 @@
 name: Release Build
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build"
+        required: true
+        type: string
+        default: "1.0.0-1"
   push:
     tags:
       - 'v*'  # matches any version tag starting with 'v'
@@ -13,9 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get version from tag
+      - name: Get version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Debug commit info
         run: |
@@ -28,7 +40,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
           release_name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
