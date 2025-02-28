@@ -105,8 +105,8 @@
             <p>Available for multiple platforms</p>
             
             <div class="download-options">
-                <!-- Android button without dropdown-toggle class -->
-                <button onclick="window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/rateme-1.0.2-1.apk', '_blank')" class="download-button">
+                <!-- Android button - Universal APK only -->
+                <button onclick="window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe_1.0.2-1.apk', '_blank')" class="download-button">
                     <i class="fab fa-android"></i>
                     <span>
                         <strong>Android</strong>
@@ -125,13 +125,13 @@
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-content">
-                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/RateMe_1.0.3-1.AppImage" target="_blank" rel="noopener">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe_1.0.2-1.AppImage" target="_blank" rel="noopener">
                             AppImage (x86_64)
                         </a>
-                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/RateMe_1.0.3-1_amd64.deb" target="_blank" rel="noopener">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe_1.0.2-1_amd64.deb" target="_blank" rel="noopener">
                             Debian/Ubuntu Package
                         </a>
-                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.rpm" target="_blank" rel="noopener">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe_1.0.2-1_x86_64.rpm" target="_blank" rel="noopener">
                             RPM Package
                         </a>
                         <a href="https://aur.archlinux.org/packages/rateme" target="_blank" rel="noopener">
@@ -151,10 +151,10 @@
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-content">
-                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/RateMe_1.0.3-1.exe" target="_blank" rel="noopener">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe_1.0.2-1.exe" target="_blank" rel="noopener">
                             Setup Installer (recommended)
                         </a>
-                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/RateMe-portable.zip" target="_blank" rel="noopener">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe-portable.zip" target="_blank" rel="noopener">
                             Portable ZIP
                         </a>
                     </div>
@@ -171,7 +171,7 @@
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-content">
-                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.3-1/RateMe_1.0.3-1.dmg" target="_blank" rel="noopener">
+                        <a href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.0.2-1/RateMe_1.0.2-1.dmg" target="_blank" rel="noopener">
                             Universal (.dmg) <small>Works on Intel & Apple Silicon</small>
                         </a>
                     </div>
@@ -361,31 +361,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Function to update download links based on version
+    // Simplified function to update download links - only handling universal APK for Android
     function updateDownloadLinks(version) {
         const baseUrl = 'https://github.com/ALi3naTEd0/RateMe/releases/download';
         const links = {
-            // All download links use RateMe_ prefix format
+            // Android - only universal APK
             'android': `${baseUrl}/v${version}/RateMe_${version}.apk`,
+            
+            // Windows links
+            'exe': `${baseUrl}/v${version}/RateMe_${version}.exe`,
+            'portable': `${baseUrl}/v${version}/RateMe-portable.zip`,
+            
+            // macOS link
+            'dmg': `${baseUrl}/v${version}/RateMe_${version}.dmg`,
+            
+            // Linux links
             'appimage': `${baseUrl}/v${version}/RateMe_${version}.AppImage`,
             'deb': `${baseUrl}/v${version}/RateMe_${version}_amd64.deb`,
-            'rpm': `${baseUrl}/v${version}/RateMe_${version}_x86_64.rpm`,
-            'exe': `${baseUrl}/v${version}/RateMe_${version}.exe`,
-            'portable': `${baseUrl}/v${version}/RateMe-portable.zip`, // This keeps its special format
-            'dmg': `${baseUrl}/v${version}/RateMe_${version}.dmg`
+            'rpm': `${baseUrl}/v${version}/RateMe_${version}_x86_64.rpm`
         };
 
-        // Update Android direct download button
+        // Update Android direct download button - universal APK only
         document.querySelector('button.download-button').onclick = () => 
             window.open(links.android, '_blank');
 
-        // Update all download links in dropdowns
+        // Update dropdown links
         document.querySelectorAll('.dropdown-content a').forEach(link => {
             const href = link.getAttribute('href');
             if (href.includes('github.com')) {
-                Object.entries(links).forEach(([type, newUrl]) => {
-                    if (href.includes(type)) link.href = newUrl;
-                });
+                // Update platform-specific links
+                for (const [type, url] of Object.entries(links)) {
+                    if (href.includes(type)) {
+                        link.href = url;
+                        break;
+                    }
+                }
             }
             // Skip AUR link as it's not versioned
         });
