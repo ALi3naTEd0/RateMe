@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
-      release_url: ${{ steps.create_release.outputs.html_url }}
+      release_url: ${{ steps.set_release_url.outputs.url }}
     steps:
       - name: Get Version
         id: get_version
@@ -111,31 +111,36 @@ jobs:
           echo "Final dist content:"
           ls -lh dist/
 
-      - name: Create Release
+      # Replace the deprecated actions/create-release and use only softprops/action-gh-release
+      - name: Create Release and Upload Assets
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
           files: dist/**/*
           draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set Release URL
+        id: set_release_url
+        run: |
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TAG_NAME="${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}"
+          RELEASE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/tag/${TAG_NAME}"
+          echo "Setting release URL to: $RELEASE_URL"
+          echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
           
       - name: Debug Release Info
         run: |
           echo "Release created successfully:"
           echo "Version: ${{ steps.get_version.outputs.VERSION }}"
-          echo "URL: ${{ steps.create_release.outputs.html_url }}"
-          echo "Upload URL: ${{ steps.create_release.outputs.upload_url }}"
+          echo "URL: ${{ steps.set_release_url.outputs.url }}"
 
   # STEP 3: UPDATE DOCUMENTATION - Update docs with new version links
   update-docs:
