@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 - Update documentation and build workflows
 - Improve performance of lists rendering
 - Enhance dark mode appearance
+- Standardized options button icon from more_vert to settings across all screens
+- Improved options dialog consistency by removing redundant settings option
+- Enhanced visual consistency in options menus throughout the app
 
 ## [1.0.2-1] - 2024-05-01
 
