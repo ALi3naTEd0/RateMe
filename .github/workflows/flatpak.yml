@@ -17,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: rateme
 
       - name: Install Dependencies
         run: |
@@ -36,12 +38,14 @@ jobs:
           runtime-version: '23.08'
           sdk: org.freedesktop.Sdk
           command: rateme
+          # Set permissions and access
           finish-args:
             - --share=ipc
             - --socket=fallback-x11
             - --socket=wayland
             - --device=dri
             - --filesystem=home
+          # Configure build and installation
           modules:
             - name: rateme
               buildsystem: simple
@@ -59,10 +63,10 @@ jobs:
       - name: Build Flatpak Package
         run: |
           flatpak-builder --repo=repo build com.ali3nated0.rateme.yml
-          flatpak build-bundle repo RateMe_${{ inputs.version }}_flatpak.flatpak $FLATPAK_ID
+          flatpak build-bundle repo RateMe_${{ inputs.version }}.flatpak $FLATPAK_ID
 
       - name: Upload Flatpak Package
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Flatpak
-          path: RateMe_${{ inputs.version }}_flatpak.flatpak
+          path: RateMe_${{ inputs.version }}.flatpak

@@ -153,7 +153,7 @@ jobs:
             dist/RateMe_*_amd64.deb
             dist/RateMe_*_x86_64.rpm
             dist/RateMe_*.AppImage
-            dist/RateMe_*_flatpak.flatpak
+            dist/RateMe_*.flatpak     # Changed from _flatpak.flatpak pattern
             dist/RateMe_*_nixos.tar.gz
             dist/RateMe_*_source.tar.gz
             dist/RateMe_*.exe
@@ -210,6 +210,7 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" README.md
           
           # Update tarball patterns
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" README.md
