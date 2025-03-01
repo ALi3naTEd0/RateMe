@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 - Fixed icon issues in Arch Linux package
 - Consistent icon naming across all Linux packages
 - Enhanced NixOS packaging with better runtime dependencies
+- Standardized Android package ID from com.example.rateme to com.ali3nated0.rateme
+  Note: This will cause a one-time duplicate installation. Future updates will work normally.
 
 ### Fixed
 - Icon visibility in Arch Linux package
