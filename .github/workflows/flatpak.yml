@@ -56,8 +56,24 @@ jobs:
           flutter config --enable-linux-desktop
           flutter doctor -v
           flutter build linux --release
+          
+          # Verify build directory exists
+          if [ ! -d "build/linux/x64/release/bundle" ]; then
+            echo "Build directory not found!"
+            ls -R build/
+            exit 1
+          fi
+          
+          # Create desktop entry file
+          cat > com.ali3nated0.rateme.desktop << EOF
+          [Desktop Entry]
+          Name=Rate Me
+          Exec=rateme
+          Icon=rateme
+          Type=Application
+          Categories=Audio;Music;
+          EOF
 
-      # Now continue with Flatpak steps
       - name: Create Flatpak Manifest
         run: |
           cat > com.ali3nated0.rateme.yml << EOF
@@ -90,7 +106,12 @@ jobs:
 
       - name: Build Flatpak Package
         run: |
-          # Clean build directory or use --force-clean
+          # Debug: Show directory structure
+          echo "Current directory structure:"
+          pwd
+          ls -R
+          
+          # Clean and build
           flatpak-builder --force-clean --repo=repo build com.ali3nated0.rateme.yml
           flatpak build-bundle repo RateMe_${{ inputs.version }}.flatpak $FLATPAK_ID
 
