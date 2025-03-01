@@ -59,7 +59,8 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 | [Installer](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.exe)    | [DMG](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.dmg)  |  [DEB](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_amd64.deb) | [APK-Universal](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.apk)       | Maybe?       |
 | [Portable](../../releases/download/v1.0.3-1/RateMe-portable.zip)     |              |  [RPM](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.rpm)            | [APK-arm64-v8a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_arm64-v8a.apk)             |              |
 |              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_armeabi-v7a.apk)      |              |
-|              |              |   [AppImage](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.AppImage)           | [APK-x86_x64](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.apk)               |              |
+|              |              |   [NixOS](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_nixos.tar.gz)         |              |
+|              |              |   [AppImage](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.AppImage)           | [APK-x86_x64](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.apk) |              |               |
 
 ## Installation
 
@@ -174,11 +175,11 @@ flutter build linux --release
 
 #### 3. From Release Package
 
-1. Download the latest `rateme-nixos-*.tar.gz` from [releases](https://github.com/ALi3naTEd0/RateMe/releases)
+1. Download the latest `RateMe_1.0.3-1_nixos.tar.gz` from [releases](https://github.com/ALi3naTEd0/RateMe/releases)
 2. Extract and install:
 
 ```bash
-tar xf rateme-nixos-*.tar.gz
+tar xf RateMe_1.0.3-1_nixos.tar.gz
 nix-env -i -f default.nix
 ```
 
