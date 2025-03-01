@@ -41,6 +41,9 @@ jobs:
           echo "Using version: $VERSION"
           
           mkdir -p nixos
+          # Copy compiled binaries
+          cp -r build/linux/x64/release/bundle nixos/app
+          
           cat > nixos/default.nix << EOF
           { lib, stdenv, makeDesktopItem, copyDesktopItems, gtk3, makeWrapper }:
           
@@ -48,7 +51,7 @@ jobs:
             pname = "rateme";
             version = "$VERSION";
             
-            src = ../../build/linux/x64/release/bundle;
+            src = ./app;  # Use binaries included in the tar
             
             nativeBuildInputs = [ makeWrapper copyDesktopItems ];
             buildInputs = [ gtk3 ];
@@ -81,11 +84,13 @@ jobs:
           }
           EOF
           
+          # Create shell.nix for development environment
           cat > nixos/shell.nix << EOF
           { pkgs ? import <nixpkgs> {} }:
           pkgs.callPackage ./default.nix {}
           EOF
           
+          # Create package archive
           cd nixos && tar -czf ../rateme-nixos-$VERSION.tar.gz *
 
       - name: Upload NixOS Package
