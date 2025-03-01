@@ -36,7 +36,8 @@ jobs:
             libgtk-3-dev \
             liblzma-dev \
             libstdc++-12-dev \
-            libglu1-mesa
+            libglu1-mesa \
+            imagemagick
 
       # Setup Flatpak first
       - name: Setup Flatpak
@@ -82,9 +83,7 @@ jobs:
 
       - name: Create Flatpak Manifest
         run: |
-          # Install ImageMagick for icon resizing
-          sudo apt-get install -y imagemagick
-          
+          # No need to install ImageMagick here anymore
           cat > com.ali3nated0.rateme.yml << EOF
           app-id: com.ali3nated0.rateme
           runtime: org.freedesktop.Platform
