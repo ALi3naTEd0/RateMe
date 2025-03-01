@@ -191,15 +191,19 @@ nix-env -e rateme
 
 #### Flatpak Installation
 
-1. Add Flathub repository (if not already added):
+1. Download the Flatpak package from [releases](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.flatpak)
+
+2. Install required runtime (if not already installed):
 ```bash
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install flathub org.freedesktop.Platform//21.08
 ```
-2. Install RateMe:
+
+3. Install RateMe:
 ```bash
-flatpak install flathub com.example.RateMe
+flatpak install ./RateMe_1.0.3-1.flatpak
 ```
-3. Run RateMe:
+
+4. Run RateMe:
 ```bash
 flatpak run com.example.RateMe
 ```
