@@ -40,98 +40,170 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           echo "Using version: $VERSION"
           
-          # Create package structure
+          # Create package directories
+          mkdir -p nixos
+          
+          # Copy our working default.nix (replacing the version)
+          cat > nixos/default.nix << 'EOF'
+          { pkgs ? import <nixpkgs> {} }:
+
+          pkgs.callPackage (
+            { lib
+            , stdenv
+            , makeWrapper
+            , gtk3
+            , pcre2
+            , xorg
+            , gsettings-desktop-schemas
+            , glib
+            }:
+
+            stdenv.mkDerivation rec {
+              pname = "rateme";
+              version = "VERSION_PLACEHOLDER";
+
+              src = ./bundle;
+
+              nativeBuildInputs = [ makeWrapper ];
+              
+              buildInputs = [
+                gtk3
+                pcre2
+                xorg.libX11
+                glib
+              ];
+
+              dontBuild = true;
+              dontPatchELF = true;
+
+              installPhase = ''
+                runHook preInstall
+
+                mkdir -p $out/bin $out/opt/rateme $out/share/applications $out/share/icons/hicolor/512x512/apps
+                cp -a ./* $out/opt/rateme/
+
+                # Copy icon directly instead of using symlink
+                if [ -f data/flutter_assets/assets/rateme.png ]; then
+                  cp data/flutter_assets/assets/rateme.png $out/share/icons/hicolor/512x512/apps/
+                elif [ -f data/flutter_assets/assets/app-icon.png ]; then
+                  cp data/flutter_assets/assets/app-icon.png $out/share/icons/hicolor/512x512/apps/rateme.png
+                else
+                  echo "Warning: Icon file not found, using a placeholder"
+                  touch $out/share/icons/hicolor/512x512/apps/rateme.png
+                fi
+
+                # Create desktop file
+                cat > $out/share/applications/rateme.desktop << EOF
+                [Desktop Entry]
+                Type=Application
+                Version=1.0
+                Name=Rate Me!
+                Comment=Rate and organize your music collection
+                Exec=$out/bin/rateme
+                Icon=rateme
+                Categories=Audio;Music;
+                Terminal=false
+                EOF
+
+                # Wrapper
+                makeWrapper $out/opt/rateme/rateme $out/bin/rateme \\
+                  --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ gtk3 pcre2 xorg.libX11 glib ]}" \\
+                  --prefix XDG_DATA_DIRS : "$out/share:${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:$XDG_DATA_DIRS"
+
+                runHook postInstall
+              '';
+
+              meta = with lib; {
+                description = "A multi-platform app to rate and organize your music collection";
+                homepage = "https://github.com/ALi3naTEd0/RateMe";
+                license = licenses.gpl3;
+                platforms = [ "x86_64-linux" ];
+                maintainers = with maintainers; [ "ALi3naTEd0" ];
+              };
+            }
+          ) {}
+          EOF
+          
+          # Replace placeholder with actual version
+          sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" nixos/default.nix
+          
+          # Copy build files
           mkdir -p nixos/bundle
           cp -r build/linux/x64/release/bundle/* nixos/bundle/
           
-          cat > nixos/default.nix << EOF
-          { lib, stdenv, makeDesktopItem, copyDesktopItems, gtk3, makeWrapper }:
-
-          stdenv.mkDerivation rec {
-            pname = "rateme";
-            version = "$VERSION";
-            
-            src = ./bundle;  # Use the bundle directory directly
-            
-            nativeBuildInputs = [ makeWrapper copyDesktopItems ];
-            buildInputs = [ gtk3 ];
-            
-            desktopItems = [
-              (makeDesktopItem {
-                name = "rateme";
-                exec = "rateme";
-                icon = "rateme";
-                comment = "Rate and organize your music collection";
-                desktopName = "Rate Me!";
-                categories = [ "Audio" "Music" ];
-              })
+          # Create shell.nix for development environment
+          cat > nixos/shell.nix << 'EOF'
+          { pkgs ? import <nixpkgs> {} }:
+          with pkgs;
+          
+          mkShell {
+            buildInputs = [
+              flutter
+              pkg-config
+              gtk3
+              xorg.libX11
+              pcre2
+              glib
             ];
             
-            dontStrip = true;  # Keep debug symbols for Flutter
-            
-            installPhase = ''
-              runHook preInstall
-              
-              mkdir -p \$out/lib/rateme \$out/bin \$out/share/icons/hicolor/512x512/apps
-              
-              # Copy all files to lib directory
-              cp -a . \$out/lib/rateme
-              
-              # Create wrapper
-              makeWrapper \$out/lib/rateme/rateme \$out/bin/rateme \
-                --set LD_LIBRARY_PATH "\$out/lib/rateme/lib:\$LD_LIBRARY_PATH"
-              
-              # Copy icon
-              cp \$out/lib/rateme/data/flutter_assets/assets/rateme.png \
-                \$out/share/icons/hicolor/512x512/apps/rateme.png
-              
-              runHook postInstall
+            shellHook = ''
+              echo "Flutter + NixOS development environment"
+              echo "Run 'flutter doctor' to verify your setup"
             '';
-            
-            meta = with lib; {
-              description = "A multi-platform app to rate and organize your music collection";
-              homepage = "https://github.com/ALi3naTEd0/RateMe";
-              license = licenses.gpl3;
-              platforms = [ "x86_64-linux" ];
-              maintainers = [ maintainers.ali3nated0 ];
-            };
           }
           EOF
           
-          # Create shell.nix
-          cat > nixos/shell.nix << EOF
-          { pkgs ? import <nixpkgs> {} }:
-          pkgs.callPackage ./default.nix {}
-          EOF
-          
-          # Create installation guide
+          # Create comprehensive README with installation instructions
           cat > nixos/README.md << 'EOF'
           # Rate Me! for NixOS
 
-          ## Quick Installation
+          ## Installation Options
+
+          ### Quick Installation
 
           ```bash
-          # Install globally
-          sudo nix-env -i -f default.nix
-
-          # Or install for current user only
+          # Install for current user
           nix-env -i -f default.nix
+
+          # Or install system-wide (requires root)
+          sudo nix-env -i -f default.nix
           ```
 
-          ## Testing Before Installation
+          ### Testing Before Installation
 
           ```bash
           # Build without installing
           nix-build
-          
+
           # Run the built package
           ./result/bin/rateme
           ```
 
-          ## Development
+          ### For Flakes Users
 
-          For development, use the provided shell.nix:
+          Add to your flake inputs:
+          ```nix
+          inputs.rateme = {
+            url = "github:ALi3naTEd0/RateMe";
+            inputs.nixpkgs.follows = "nixpkgs";
+          };
+          ```
+
+          Then in your configuration:
+          ```nix
+          # For NixOS configuration
+          environment.systemPackages = [ inputs.rateme.packages.${system}.default ];
+
+          # For home-manager
+          home.packages = [ inputs.rateme.packages.${system}.default ];
+          ```
+
+          ## Development Environment
+
+          A development shell with all dependencies is included:
+
           ```bash
+          # Start development environment
           nix-shell
           ```
 
@@ -144,20 +216,20 @@ jobs:
           
           # Create tarball with all components
           cd nixos
-          tar -czf ../rateme-nixos-$VERSION.tar.gz bundle default.nix shell.nix README.md
+          tar -czf ../RateMe_$VERSION_nixos.tar.gz bundle default.nix shell.nix README.md
           cd ..
           
           echo "Created package archive with:"
-          tar -tvf rateme-nixos-$VERSION.tar.gz
+          tar -tvf RateMe_$VERSION_nixos.tar.gz
 
       - name: Upload NixOS Package
         uses: actions/upload-artifact@v4
         with:
-          name: rateme-nixos-package
-          path: rateme-nixos-*.tar.gz
+          name: RateMe-NixOS
+          path: RateMe_*_nixos.tar.gz
 
       - name: Add to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: rateme-nixos-*.tar.gz
+          files: RateMe_*_nixos.tar.gz

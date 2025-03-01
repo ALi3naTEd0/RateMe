@@ -133,6 +133,55 @@ cd RateMe
 makepkg -si
 ```
 
+### NixOS Installation
+
+This document explains how to install and use Rate Me! on NixOS.
+
+#### 1. Using Flakes (Recommended)
+
+Add to your NixOS configuration's flake inputs:
+
+```nix
+inputs.rateme = {
+  url = "github:ALi3naTEd0/RateMe";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+Then add to your configuration:
+
+```nix
+# In configuration.nix or home-manager config
+environment.systemPackages = [ inputs.rateme.packages.${system}.default ];
+```
+
+#### 2. Development Environment
+
+For development or testing:
+
+```bash
+# Clone the repository
+git clone https://github.com/ALi3naTEd0/RateMe.git
+cd RateMe
+
+# Enter development shell
+nix-shell
+
+# Build and run
+flutter build linux --release
+./build/linux/x64/release/bundle/rateme
+```
+
+#### 3. From Release Package
+
+1. Download the latest `rateme-nixos-*.tar.gz` from [releases](https://github.com/ALi3naTEd0/RateMe/releases)
+2. Extract and install:
+
+```bash
+tar xf rateme-nixos-*.tar.gz
+nix-env -i -f default.nix
+```
+
 ## Technologies Used
 
 - [Flutter](https://flutter.dev/): Used for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
