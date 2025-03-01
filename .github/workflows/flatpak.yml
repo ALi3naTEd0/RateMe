@@ -57,34 +57,34 @@ jobs:
           flutter doctor -v
           flutter pub get
           
-          # Build and verify
-          echo "Building Flutter app..."
+          # Build Flutter app
           flutter build linux --release
           
-          # Debug output
-          echo "Checking directory structure:"
-          pwd
-          ls -R build/linux/x64/release/ || true
+          # Prepare icons - resize to 512x512 if needed
+          mkdir -p icons
+          convert assets/rateme.png -resize 512x512 icons/com.ali3nated0.rateme.png
           
-          # Copy files to a clean build directory
-          echo "Preparing build directory..."
+          # Copy files to build directory
           rm -rf flatpak-build
           mkdir -p flatpak-build
           cp -r build/linux/x64/release/bundle/* flatpak-build/
-          cp assets/rateme.png flatpak-build/
+          cp icons/com.ali3nated0.rateme.png flatpak-build/
           
-          # Create desktop entry
+          # Create desktop entry with correct icon name
           cat > flatpak-build/com.ali3nated0.rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
           Exec=rateme
-          Icon=rateme
+          Icon=com.ali3nated0.rateme
           Type=Application
           Categories=Audio;Music;
           EOF
 
       - name: Create Flatpak Manifest
         run: |
+          # Install ImageMagick for icon resizing
+          sudo apt-get install -y imagemagick
+          
           cat > com.ali3nated0.rateme.yml << EOF
           app-id: com.ali3nated0.rateme
           runtime: org.freedesktop.Platform
@@ -105,7 +105,7 @@ jobs:
                 - install -d /app/lib
                 - cp -r lib/* /app/lib/
                 - install -Dm644 com.ali3nated0.rateme.desktop /app/share/applications/${FLATPAK_ID}.desktop
-                - install -Dm644 rateme.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+                - install -Dm644 com.ali3nated0.rateme.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
               sources:
                 - type: dir
                   path: flatpak-build
