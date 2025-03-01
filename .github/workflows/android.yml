@@ -84,13 +84,24 @@ jobs:
           name: rateme-universal
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            aapt \
+            android-sdk-build-tools
+
       # Then build ABI-specific APKs
       - name: Build Split APKs
         run: |
           flutter build apk --release --split-per-abi
           
+          # Find aapt location and use full path
+          AAPT_PATH=$(which aapt)
+          echo "Using aapt from: $AAPT_PATH"
+          
           # Verify package ID
-          PACKAGE_ID=$(aapt dump badging build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep package | awk '{print $2}' | sed "s/name='\([^']*\)'.*/\1/")
+          PACKAGE_ID=$($AAPT_PATH dump badging build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep package | awk '{print $2}' | sed "s/name='\([^']*\)'.*/\1/")
           echo "Package ID: $PACKAGE_ID"
           [ "$PACKAGE_ID" = "com.ali3nated0.rateme" ] || exit 1
           
