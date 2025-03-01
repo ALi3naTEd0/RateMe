@@ -189,7 +189,7 @@ nix-shell
 nix-env -e rateme
 ```
 
-### Flatpak Installation
+#### Flatpak Installation
 
 1. Add Flathub repository (if not already added):
 ```bash
@@ -202,6 +202,12 @@ flatpak install flathub com.example.RateMe
 3. Run RateMe:
 ```bash
 flatpak run com.example.RateMe
+```
+
+##### Uninstallation
+
+```bash
+flatpak uninstall com.example.RateMe
 ```
 
 ## Technologies Used
