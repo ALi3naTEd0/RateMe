@@ -5,7 +5,6 @@ pkgs.mkShell {
     flutter
     pkg-config
     gtk3
-    libkeybinder3
     xorg.libX11
     xorg.libXi
     xorg.libXrandr
