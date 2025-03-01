@@ -40,58 +40,63 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           echo "Using version: $VERSION"
           
-          mkdir -p nixos
-          # Copy compiled binaries
-          cp -r build/linux/x64/release/bundle nixos/app
+          # Create structure
+          mkdir -p nixos/app
+          mkdir -p nixos/bin
           
-          cat > nixos/default.nix << EOF
-          { lib, stdenv, makeDesktopItem, copyDesktopItems, gtk3, makeWrapper }:
+          # Copy binaries and create wrapper
+          cp -r build/linux/x64/release/bundle/* nixos/app/
+          cat > nixos/bin/rateme << 'EOF'
+          #!/bin/sh
+          exec /run/current-system/sw/bin/rateme "$@"
+          EOF
+          chmod +x nixos/bin/rateme
           
-          stdenv.mkDerivation rec {
-            pname = "rateme";
-            version = "$VERSION";
-            
-            src = ./app;  # Use binaries included in the tar
-            
-            nativeBuildInputs = [ makeWrapper copyDesktopItems ];
-            buildInputs = [ gtk3 ];
-            
-            desktopItems = [
-              (makeDesktopItem {
-                name = "rateme";
-                exec = "rateme";
-                icon = "rateme";
-                comment = "Rate and organize your music collection";
-                desktopName = "Rate Me!";
-                categories = [ "Audio" "Music" ];
-              })
-            ];
-            
-            installPhase = ''
-              mkdir -p \$out/bin \$out/share/icons/hicolor/512x512/apps
-              cp -r * \$out/bin/
-              chmod +x \$out/bin/rateme
-              cp \$out/bin/data/flutter_assets/assets/rateme.png \$out/share/icons/hicolor/512x512/apps/
-            '';
-            
-            meta = with lib; {
-              description = "A multi-platform app to rate and organize your music collection";
-              homepage = "https://github.com/ALi3naTEd0/RateMe";
-              license = licenses.gpl3;
-              platforms = [ "x86_64-linux" ];
-              maintainers = [ maintainers.ali3nated0 ];
-            };
-          }
+          # Create installation guide
+          cat > nixos/README.md << 'EOF'
+          # Rate Me! for NixOS
+
+          ## Quick Installation
+
+          ```bash
+          # Install globally
+          sudo nix-env -i -f default.nix
+
+          # Or install for current user only
+          nix-env -i -f default.nix
+          ```
+
+          ## Testing Before Installation
+
+          ```bash
+          # Build without installing
+          nix-build
+          
+          # Run the built package
+          ./result/bin/rateme
+          ```
+
+          ## Development
+
+          For development, use the provided shell.nix:
+          ```bash
+          nix-shell
+          ```
+
+          ## Uninstallation
+
+          ```bash
+          nix-env -e rateme
+          ```
           EOF
           
-          # Create shell.nix for development environment
-          cat > nixos/shell.nix << EOF
-          { pkgs ? import <nixpkgs> {} }:
-          pkgs.callPackage ./default.nix {}
-          EOF
+          # Create tarball with all components
+          cd nixos
+          tar -czf ../rateme-nixos-$VERSION.tar.gz {app,bin,README.md,default.nix,shell.nix}
+          cd ..
           
-          # Create package archive
-          cd nixos && tar -czf ../rateme-nixos-$VERSION.tar.gz *
+          echo "Created package archive with:"
+          tar -tvf rateme-nixos-$VERSION.tar.gz
 
       - name: Upload NixOS Package
         uses: actions/upload-artifact@v4
