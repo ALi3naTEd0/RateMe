@@ -28,38 +28,6 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Verify Java installation
-        run: |
-          echo "Java version:"
-          java -version
-          echo "JAVA_HOME:"
-          echo $JAVA_HOME
-          ls -la $JAVA_HOME
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.3'
-          channel: 'stable'
-          cache: true
-
-      - name: Decode Keystore
-        run: |
-          echo "${{ secrets.UPLOAD_KEYSTORE }}" | tr -d '\n' | base64 -d > android/app/upload-keystore.jks
-
-      - name: Configure Signing
-        run: |
-          echo "storeFile=upload-keystore.jks" > android/key.properties
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-
-      - name: Download Icons
-        run: |
-          mkdir -p assets
-          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
-          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
-
       - name: Configure Gradle
         run: |
           mkdir -p $HOME/.gradle
@@ -78,6 +46,31 @@ jobs:
             gradle-android-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/*.properties', 'pubspec.yaml') }}-
             gradle-android-${{ runner.os }}-
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Download Icons
+        run: |
+          mkdir -p assets
+          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.UPLOAD_KEYSTORE }}" > upload-keystore.jks.base64
+          base64 -d upload-keystore.jks.base64 > android/app/upload-keystore.jks
+
+      - name: Set up key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+
       # First build universal APK
       - name: Build Universal APK
         run: |
@@ -85,15 +78,14 @@ jobs:
           flutter build apk --release
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rateme-universal
+          path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
+          
       # Then build ABI-specific APKs
       - name: Build Split APKs
-        run: |
-          flutter build apk --release --split-per-abi
-          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
-          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
-          mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
-
-      - name: Build APK
         run: |
           flutter build apk --release --split-per-abi
           
@@ -101,27 +93,26 @@ jobs:
           PACKAGE_ID=$(aapt dump badging build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep package | awk '{print $2}' | sed "s/name='\([^']*\)'.*/\1/")
           echo "Package ID: $PACKAGE_ID"
           [ "$PACKAGE_ID" = "com.ali3nated0.rateme" ] || exit 1
-
-      - name: Upload Universal APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-universal
-          path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
+          # Rename APKs
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
+
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-arm64-v8a
+          name: rateme-arm64-v8a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
 
       - name: Upload armeabi-v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-armeabi-v7a
+          name: rateme-armeabi-v7a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
 
       - name: Upload x86_64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-x86_64
+          name: rateme-x86_64
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
