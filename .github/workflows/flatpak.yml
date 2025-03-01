@@ -1,0 +1,68 @@
+name: Flatpak Build
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+env:
+  FLATPAK_ID: com.ali3nated0.rateme
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Setup Flatpak
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
+
+      - name: Create Flatpak Manifest
+        run: |
+          cat > com.ali3nated0.rateme.yml << EOF
+          app-id: com.ali3nated0.rateme
+          runtime: org.freedesktop.Platform
+          runtime-version: '23.08'
+          sdk: org.freedesktop.Sdk
+          command: rateme
+          finish-args:
+            - --share=ipc
+            - --socket=fallback-x11
+            - --socket=wayland
+            - --device=dri
+            - --filesystem=home
+          modules:
+            - name: rateme
+              buildsystem: simple
+              build-commands:
+                - cp -r . /app/
+                - chmod +x /app/rateme
+                - mkdir -p /app/share/applications /app/share/icons/hicolor/512x512/apps
+                - cp assets/rateme.png /app/share/icons/hicolor/512x512/apps/
+                - cp com.ali3nated0.rateme.desktop /app/share/applications/
+              sources:
+                - type: dir
+                  path: build/linux/x64/release/bundle
+          EOF
+
+      - name: Build Flatpak Package
+        run: |
+          flatpak-builder --repo=repo build com.ali3nated0.rateme.yml
+          flatpak build-bundle repo RateMe_${{ inputs.version }}_flatpak.flatpak $FLATPAK_ID
+
+      - name: Upload Flatpak Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-Flatpak
+          path: RateMe_${{ inputs.version }}_flatpak.flatpak
