@@ -60,7 +60,7 @@ jobs:
           
           cat > AppDir/rateme.desktop << EOF
           [Desktop Entry]
-          Name=Rate Me
+          Name=Rate Me!
           Exec=rateme
           Icon=rateme
           Type=Application
@@ -127,7 +127,7 @@ jobs:
           # Create desktop entry
           cat > $PKGDIR/usr/share/applications/rateme.desktop << EOF
           [Desktop Entry]
-          Name=Rate Me
+          Name=Rate Me!
           Exec=/usr/bin/rateme
           Icon=rateme
           Type=Application
