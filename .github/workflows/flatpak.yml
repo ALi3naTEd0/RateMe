@@ -56,15 +56,25 @@ jobs:
           flutter config --enable-linux-desktop
           flutter doctor -v
           flutter pub get
+          
+          # Build and verify
+          echo "Building Flutter app..."
           flutter build linux --release
           
-          # Verify build output
-          echo "Checking build output..."
-          ls -la build/linux/x64/release/bundle || exit 1
+          # Debug output
+          echo "Checking directory structure:"
+          pwd
+          ls -R build/linux/x64/release/ || true
           
-          # Create desktop entry file
-          mkdir -p build/linux/x64/release/bundle
-          cat > build/linux/x64/release/bundle/com.ali3nated0.rateme.desktop << EOF
+          # Copy files to a clean build directory
+          echo "Preparing build directory..."
+          rm -rf flatpak-build
+          mkdir -p flatpak-build
+          cp -r build/linux/x64/release/bundle/* flatpak-build/
+          cp assets/rateme.png flatpak-build/
+          
+          # Create desktop entry
+          cat > flatpak-build/com.ali3nated0.rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
           Exec=rateme
@@ -73,18 +83,8 @@ jobs:
           Categories=Audio;Music;
           EOF
 
-          # Copy icon
-          cp assets/rateme.png build/linux/x64/release/bundle/
-
       - name: Create Flatpak Manifest
         run: |
-          # Debug directory structure
-          echo "Current directory contents:"
-          pwd
-          ls -la
-          echo "Bundle directory contents:"
-          ls -la build/linux/x64/release/bundle/
-          
           cat > com.ali3nated0.rateme.yml << EOF
           app-id: com.ali3nated0.rateme
           runtime: org.freedesktop.Platform
@@ -108,13 +108,13 @@ jobs:
                 - cp com.ali3nated0.rateme.desktop /app/share/applications/
               sources:
                 - type: dir
-                  path: build/linux/x64/release/bundle
+                  path: flatpak-build
           EOF
 
       - name: Build Flatpak Package
         run: |
           echo "Building Flatpak..."
-          flatpak-builder --force-clean --repo=repo build com.ali3nated0.rateme.yml
+          flatpak-builder --force-clean --repo=repo build-flatpak com.ali3nated0.rateme.yml
           echo "Creating bundle..."
           flatpak build-bundle repo RateMe_${{ inputs.version }}.flatpak $FLATPAK_ID
 
