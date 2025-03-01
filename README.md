@@ -137,13 +137,12 @@ makepkg -si
 #### NixOS Installation
 
 ##### Quick Installation
-
+1. Download the latest `RateMe_1.0.3-1_nixos.tar.gz` from [releases](https://github.com/ALi3naTEd0/RateMe/releases)
+2. Extract and build:
 ```bash
-# Install for current user
-nix-env -i -f default.nix
-
-# Or install system-wide (requires root)
-sudo nix-env -i -f default.nix
+tar -xzf RateMe_1.0.3-1_nixos.tar.gz
+cd RateMe
+nix-build
 ```
 
 ##### Testing Before Installation
