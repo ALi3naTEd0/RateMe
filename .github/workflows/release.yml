@@ -15,6 +15,7 @@ on:
           - all
           - android
           - linux
+          - flatpak
           - windows
           - macos
       release_type:
@@ -72,7 +73,7 @@ jobs:
 
   flatpak-build:
     if: |
-      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'linux')) ||
+      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'flatpak')) ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
     uses: ALi3naTEd0/RateMe/.github/workflows/flatpak.yml@rateme
     with:
