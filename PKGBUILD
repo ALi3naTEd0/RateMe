@@ -2,7 +2,7 @@
 pkgname=rateme
 pkgver=1.0.3  # Update this when making a new release
 pkgrel=1
-pkgdesc="Music rating application"
+pkgdesc="Rate Me! - A music album rating application"  # Note the exclamation mark here
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
 license=('GPL3')
@@ -80,6 +80,19 @@ EOF
         "$pkgdir/usr/share/applications/rateme.desktop"
     install -Dm644 "assets/rateme.png" \
         "$pkgdir/usr/share/icons/hicolor/512x512/apps/rateme.png"
+    
+    # Create desktop entry with correct name and icon
+    cat > "$pkgdir/usr/share/applications/$pkgname.desktop" << EOF
+[Desktop Entry]
+Name=Rate Me!
+Comment=Rate your music albums
+Exec=/usr/bin/$pkgname
+Icon=rateme
+Type=Application
+Categories=Audio;Music;
+EOF
+
+    chmod 644 "$pkgdir/usr/share/applications/$pkgname.desktop"
 
     # Adjust RPATH for all libraries
     find "$pkgdir/usr/lib/$pkgname/lib" -type f -name "*.so" -exec \
