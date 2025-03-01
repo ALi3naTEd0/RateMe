@@ -173,6 +173,40 @@ jobs:
           mkdir -p nixos
           cp -r build/linux/x64/release/bundle nixos/
           
+          # Create shell.nix
+          cat > nixos/shell.nix << 'EOF'
+          { pkgs ? import <nixpkgs> {} }:
+
+          pkgs.mkShell {
+            buildInputs = with pkgs; [
+              flutter
+              pkg-config
+              gtk3
+              xorg.libX11
+              xorg.libXi
+              xorg.libXrandr
+              cairo
+              pango
+              glib
+              pcre2
+            ];
+
+            shellHook = ''
+              export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [
+                pkgs.libGL
+                pkgs.libxkbcommon
+                pkgs.vulkan-loader
+              ]}:$LD_LIBRARY_PATH
+              
+              export PUB_CACHE="$HOME/.pub-cache"
+              export CHROME_EXECUTABLE=${pkgs.chromium}/bin/chromium
+              
+              echo "Flutter development environment ready!"
+              echo "Try 'flutter doctor' to verify your setup."
+            '';
+          }
+          EOF
+          
           # Create default.nix with icon fetching
           cat > nixos/default.nix << 'EOF'
           { pkgs ? import <nixpkgs> {} }:
@@ -209,13 +243,7 @@ jobs:
           # Replace version
           sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" nixos/default.nix
           
-          # Create tarball with only needed files
+          # Create tarball with needed files
           cd nixos
-          tar -czf "../RateMe_${VERSION}_nixos.tar.gz" bundle default.nix
+          tar -czf "../RateMe_${VERSION}_nixos.tar.gz" bundle default.nix shell.nix
           cd ..
-
-      - name: Upload NixOS Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-NixOS
-          path: RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz
