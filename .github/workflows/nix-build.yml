@@ -78,12 +78,12 @@ jobs:
               cp -a . \$out/lib/rateme
               
               # Create wrapper
-              makeWrapper \$out/lib/rateme/rateme \\
-                --set LD_LIBRARY_PATH "\$out/lib/rateme/lib"
+              makeWrapper \$out/lib/rateme/rateme \$out/bin/rateme \
+                --set LD_LIBRARY_PATH "\$out/lib/rateme/lib:\$LD_LIBRARY_PATH"
               
               # Copy icon
-              cp data/flutter_assets/assets/rateme.png \\
-                \$out/share/icons/hicolor/512x512/apps/
+              cp \$out/lib/rateme/data/flutter_assets/assets/rateme.png \
+                \$out/share/icons/hicolor/512x512/apps/rateme.png
               
               runHook postInstall
             '';
