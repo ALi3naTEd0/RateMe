@@ -247,3 +247,9 @@ jobs:
           cd nixos
           tar -czf "../RateMe_${VERSION}_nixos.tar.gz" bundle default.nix shell.nix
           cd ..
+
+      - name: Upload NixOS Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-NixOS
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz
