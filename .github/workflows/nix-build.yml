@@ -41,18 +41,11 @@ jobs:
           echo "Using version: $VERSION"
           
           # Create structure
-          mkdir -p nixos/app
-          mkdir -p nixos/bin
+          mkdir -p nixos/{app,bin}
           
-          # Copy binaries and create wrapper
+          # Copy binaries and assets
           cp -r build/linux/x64/release/bundle/* nixos/app/
-          
-          # Create wrapper script
-          cat > nixos/bin/rateme << 'EOF'
-          #!/bin/sh
-          exec /run/current-system/sw/bin/rateme "$@"
-          EOF
-          chmod +x nixos/bin/rateme
+          cp assets/rateme.png nixos/app/data/flutter_assets/assets/
           
           # Create default.nix
           cat > nixos/default.nix << EOF
@@ -71,7 +64,7 @@ jobs:
               (makeDesktopItem {
                 name = "rateme";
                 exec = "rateme";
-                icon = "rateme";
+                icon = "\${placeholder "out"}/share/icons/hicolor/512x512/apps/rateme";
                 comment = "Rate and organize your music collection";
                 desktopName = "Rate Me!";
                 categories = [ "Audio" "Music" ];
@@ -79,10 +72,18 @@ jobs:
             ];
             
             installPhase = ''
-              mkdir -p \$out/bin \$out/share/icons/hicolor/512x512/apps
-              cp -r * \$out/bin/
-              chmod +x \$out/bin/rateme
-              cp \$out/bin/data/flutter_assets/assets/rateme.png \$out/share/icons/hicolor/512x512/apps/
+              mkdir -p \$out/{bin,lib/rateme,share/icons/hicolor/512x512/apps}
+              
+              # Copy application files
+              cp -r * \$out/lib/rateme/
+              
+              # Create wrapper script
+              makeWrapper \$out/lib/rateme/rateme \$out/bin/rateme \
+                --set LD_LIBRARY_PATH \$out/lib/rateme/lib
+              
+              # Install icon
+              cp \$out/lib/rateme/data/flutter_assets/assets/rateme.png \
+                \$out/share/icons/hicolor/512x512/apps/rateme.png
             '';
             
             meta = with lib; {
