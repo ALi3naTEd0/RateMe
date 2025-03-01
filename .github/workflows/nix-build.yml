@@ -46,11 +46,60 @@ jobs:
           
           # Copy binaries and create wrapper
           cp -r build/linux/x64/release/bundle/* nixos/app/
+          
+          # Create wrapper script
           cat > nixos/bin/rateme << 'EOF'
           #!/bin/sh
           exec /run/current-system/sw/bin/rateme "$@"
           EOF
           chmod +x nixos/bin/rateme
+          
+          # Create default.nix
+          cat > nixos/default.nix << EOF
+          { lib, stdenv, makeDesktopItem, copyDesktopItems, gtk3, makeWrapper }:
+          
+          stdenv.mkDerivation rec {
+            pname = "rateme";
+            version = "$VERSION";
+            
+            src = ./app;
+            
+            nativeBuildInputs = [ makeWrapper copyDesktopItems ];
+            buildInputs = [ gtk3 ];
+            
+            desktopItems = [
+              (makeDesktopItem {
+                name = "rateme";
+                exec = "rateme";
+                icon = "rateme";
+                comment = "Rate and organize your music collection";
+                desktopName = "Rate Me!";
+                categories = [ "Audio" "Music" ];
+              })
+            ];
+            
+            installPhase = ''
+              mkdir -p \$out/bin \$out/share/icons/hicolor/512x512/apps
+              cp -r * \$out/bin/
+              chmod +x \$out/bin/rateme
+              cp \$out/bin/data/flutter_assets/assets/rateme.png \$out/share/icons/hicolor/512x512/apps/
+            '';
+            
+            meta = with lib; {
+              description = "A multi-platform app to rate and organize your music collection";
+              homepage = "https://github.com/ALi3naTEd0/RateMe";
+              license = licenses.gpl3;
+              platforms = [ "x86_64-linux" ];
+              maintainers = [ maintainers.ali3nated0 ];
+            };
+          }
+          EOF
+          
+          # Create shell.nix
+          cat > nixos/shell.nix << EOF
+          { pkgs ? import <nixpkgs> {} }:
+          pkgs.callPackage ./default.nix {}
+          EOF
           
           # Create installation guide
           cat > nixos/README.md << 'EOF'
@@ -92,7 +141,7 @@ jobs:
           
           # Create tarball with all components
           cd nixos
-          tar -czf ../rateme-nixos-$VERSION.tar.gz {app,bin,README.md,default.nix,shell.nix}
+          tar -czvf ../rateme-nixos-$VERSION.tar.gz app bin README.md default.nix shell.nix
           cd ..
           
           echo "Created package archive with:"
