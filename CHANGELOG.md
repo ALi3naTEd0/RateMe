@@ -25,6 +25,10 @@ All notable changes to this project will be documented in this file.
 - Desktop entry consistency across all Linux distributions
 - Missing exclamation mark in application name
 - NixOS runtime library paths and dependencies
+- Android app duplication issue caused by different signing keys
+  Note: The app needed to be installed twice for version 1.0.3 due to a signing key change. This is a one-time issue and future updates will work normally.
+- Android package ID consistency: Reverted temporary change from com.ali3nated0.rateme back to original com.example.rateme
+  Note: Some 1.0.3 builds were released with com.ali3nated0.rateme. Please uninstall and reinstall if you have this version.
 
 ### Development
 - Added development shell with all required dependencies for NixOS
