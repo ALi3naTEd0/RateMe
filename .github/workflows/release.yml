@@ -145,6 +145,7 @@ jobs:
             dist/RateMe_*_x86_64.rpm
             dist/RateMe_*.AppImage
             dist/RateMe_*_nixos.tar.gz
+            dist/RateMe_*_source.tar.gz
             dist/RateMe_*.exe
             dist/RateMe_*.dmg
             dist/RateMe_*.apk
@@ -189,76 +190,58 @@ jobs:
       - name: Update Documentation
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
-          RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
-          RELEASE_DATE=$(date +"%Y-%m-%d")
           
-          echo "Updating documentation for version $VERSION"
-          
-          # Update README links and version numbers
-          # First, update paths to releases
+          # Update version numbers and download links in README
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
           
-          # Update standard filenames (exe, dmg, AppImage, etc)
+          # Update standard file patterns
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
-          # Add NixOS tar.gz update
+          
+          # Update tarball patterns
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" README.md
-          
-          # Update Android APKs with special attention to architecture-specific formats
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" README.md
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" README.md
-          sed -i "s|RateMe_arm64-v8a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" README.md
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" README.md
-          sed -i "s|RateMe_armeabi-v7a-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" README.md
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
-          sed -i "s|RateMe_x86_64-[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
-          
-          # Update CHANGELOG - mejorado para preservar el contenido de Unreleased
-          echo "Updating CHANGELOG.md with version $VERSION dated $RELEASE_DATE"
-          
-          # Guardar el contenido de Unreleased a un archivo temporal
-          sed -n '/## \[Unreleased\]/,/## \[/p' CHANGELOG.md > unreleased_content.tmp
-          # Eliminar la primera línea con "## [Unreleased]" y la última línea con "## ["
-          sed -i '1d;$d' unreleased_content.tmp
-          
-          # Mostrar el contenido que se preservará
-          echo "Content being preserved from Unreleased section:"
-          cat unreleased_content.tmp
-          
-          # Crear la nueva estructura del CHANGELOG manteniendo el contenido de Unreleased
-          {
-            echo "# Changelog"
-            echo ""
-            echo "All notable changes to this project will be documented in this file."
-            echo ""
-            echo "## [Unreleased]"
-            echo ""
-            echo "## [$VERSION] - $RELEASE_DATE"
-            cat unreleased_content.tmp
-          } > CHANGELOG.md.new
-          
-          # Añadir el resto del CHANGELOG actual (omitiendo el encabezado, Unreleased y la primera versión)
-          sed -n '/## \[[0-9]/,$p' CHANGELOG.md >> CHANGELOG.md.new
-          
-          # Reemplazar el archivo original
-          mv CHANGELOG.md.new CHANGELOG.md
-          
-          # Show changes for debugging
-          echo "Changes in README:"
-          git diff README.md
-          
-          echo "Changes in CHANGELOG:"
-          git diff CHANGELOG.md
-          
-          # Commit changes
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add README.md CHANGELOG.md
-          git commit -m "docs: update to version ${VERSION}" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_source\.tar\.gz|RateMe_${VERSION}_source.tar.gz|g" README.md
+
+          # Update website links
+          if [ -d "docs" ]; then
+            cd docs
+            
+            # Update all download links
+            sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html
+            
+            # Update individual file patterns
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_source\.tar\.gz|RateMe_${VERSION}_source.tar.gz|g" index.html
+
+            # Update only the universal APK - website doesn't use architecture-specific APKs
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
+            
+            # Update any displayed version text
+            sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
+            sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
+            
+            # Update the fallback version for when GitHub API calls fail
+            # This ensures users always see the correct version even if the API request fails
+            sed -i "s|document.getElementById('current-version').textContent = '[0-9.]\+-[0-9]\+'|document.getElementById('current-version').textContent = '${VERSION}'|g" index.html
+            
+            # Verify the update was successful
+            echo "Current fallback version updated to: ${VERSION}"
+            grep -n "current-version" index.html
+            
+            # Debug information
+            echo "Website changes:"
+            git diff index.html
+            
+            # Commit changes
+            git add index.html
+            git commit -m "docs: update website to version ${VERSION}" || echo "No changes to website"
+            git push || echo "No website changes to push"
+          else
+            echo "Docs directory not found, skipping website update"
+          fi
           
       - name: Update Website
         run: |

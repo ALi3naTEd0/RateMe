@@ -169,7 +169,7 @@ jobs:
         run: |
           VERSION="${{ inputs.version || github.event.inputs.version }}"
           
-          # Create package structure
+          # Create package structure with Nix configuration
           mkdir -p nixos
           cp -r build/linux/x64/release/bundle nixos/
           
@@ -253,3 +253,17 @@ jobs:
         with:
           name: RateMe-NixOS
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz
+
+      # Source build
+      - name: Build Source Package
+        run: |
+          VERSION="${{ inputs.version || github.event.inputs.version }}"
+          # Create minimal source package with compiled files only
+          cd build/linux/x64/release/bundle
+          tar -czf "../../../../../RateMe_${VERSION}_source.tar.gz" *
+
+      - name: Upload Source Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-Source
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}_source.tar.gz
