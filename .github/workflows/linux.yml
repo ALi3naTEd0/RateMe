@@ -163,3 +163,33 @@ jobs:
         with:
           name: RateMe-RPM
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
+
+      # NixOS build
+      - name: Build NixOS Package
+        run: |
+          VERSION="${{ inputs.version || github.event.inputs.version }}"
+          
+          # Create package structure
+          mkdir -p nixos/bundle
+          cp -r build/linux/x64/release/bundle/* nixos/bundle/
+          
+          # Copy our default.nix with version
+          cat > nixos/default.nix << 'EOF'
+          // ...existing default.nix content...
+          EOF
+          
+          sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" nixos/default.nix
+          
+          # Create shell.nix and README.md
+          // ...existing shell.nix and README.md content...
+          
+          # Create tarball
+          cd nixos
+          tar -czf "../RateMe_${VERSION}_nixos.tar.gz" bundle default.nix shell.nix README.md
+          cd ..
+
+      - name: Upload NixOS Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RateMe-NixOS
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz

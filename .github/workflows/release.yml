@@ -17,6 +17,14 @@ on:
           - linux
           - windows
           - macos
+      release_type:
+        description: "Release type"
+        required: true
+        type: choice
+        options:
+          - draft
+          - release
+        default: 'draft'
   push:
     tags:
       - 'v*'  # matches any version tag starting with 'v'
@@ -111,6 +119,20 @@ jobs:
           echo "Final dist content:"
           ls -lh dist/
 
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: |
+            RateMe-*
+            !RateMe-*-symbols
+
+      - name: Prepare release files
+        run: |
+          mkdir release
+          find dist -type f -name "RateMe_*" -exec cp {} release/ \;
+          cd release && ls -la
+
       # Replace the deprecated actions/create-release and use only softprops/action-gh-release
       - name: Create Release and Upload Assets
         id: create_release
@@ -118,8 +140,19 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
-          files: dist/**/*
-          draft: false
+          files: |
+            dist/RateMe_*_amd64.deb
+            dist/RateMe_*_x86_64.rpm
+            dist/RateMe_*.AppImage
+            dist/RateMe_*_nixos.tar.gz
+            dist/RateMe_*.exe
+            dist/RateMe_*.dmg
+            dist/RateMe_*.apk
+            dist/RateMe_*_arm64-v8a.apk
+            dist/RateMe_*_armeabi-v7a.apk
+            dist/RateMe_*_x86_64.apk
+            dist/RateMe-portable.zip
+          draft: ${{ github.event.inputs.release_type == 'draft' || github.event_name != 'workflow_dispatch' }}
           prerelease: false
           fail_on_unmatched_files: false
         env:
@@ -171,6 +204,8 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
+          # Add NixOS tar.gz update
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" README.md
           
           # Update Android APKs with special attention to architecture-specific formats
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" README.md
@@ -248,6 +283,8 @@ jobs:
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html  # Additional specific pattern for AppImage
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html
+            # Add NixOS tar.gz update
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" index.html
             
             # Update only the universal APK - website doesn't use architecture-specific APKs
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
