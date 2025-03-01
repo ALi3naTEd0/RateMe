@@ -74,7 +74,7 @@ jobs:
           # Create desktop entry with correct icon name
           cat > flatpak-build/com.ali3nated0.rateme.desktop << EOF
           [Desktop Entry]
-          Name=Rate Me
+          Name=Rate Me!  # Add exclamation mark here
           Exec=rateme
           Icon=com.ali3nated0.rateme
           Type=Application
