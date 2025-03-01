@@ -216,20 +216,20 @@ jobs:
           
           # Create tarball with all components
           cd nixos
-          tar -czf ../RateMe_$VERSION_nixos.tar.gz bundle default.nix shell.nix README.md
+          tar -czf "../RateMe_${VERSION}_nixos.tar.gz" bundle default.nix shell.nix README.md
           cd ..
           
           echo "Created package archive with:"
-          tar -tvf RateMe_$VERSION_nixos.tar.gz
+          tar -tvf "RateMe_${VERSION}_nixos.tar.gz"
 
       - name: Upload NixOS Package
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-NixOS
-          path: RateMe_*_nixos.tar.gz
+          path: "RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz"
 
       - name: Add to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: RateMe_*_nixos.tar.gz
+          files: "RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz"
