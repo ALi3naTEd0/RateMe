@@ -20,20 +20,7 @@ jobs:
         with:
           ref: rateme
 
-      # Add Flutter setup and build steps
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.3'
-          channel: 'stable'
-
-      - name: Enable Linux Desktop
-        run: flutter config --enable-linux-desktop
-
-      - name: Build Linux Release
-        run: flutter build linux --release
-
-      # Add Flutter dependencies
+      # Install all build dependencies first
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -48,6 +35,20 @@ jobs:
             flatpak \
             flatpak-builder
 
+      # Then setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.3'
+          channel: 'stable'
+
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Build Linux Release
+        run: flutter build linux --release
+
+      # Continue with Flatpak steps
       - name: Setup Flatpak
         run: |
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
