@@ -83,7 +83,6 @@ jobs:
 
       - name: Create Flatpak Manifest
         run: |
-          # No need to install ImageMagick here anymore
           cat > com.ali3nated0.rateme.yml << EOF
           app-id: com.ali3nated0.rateme
           runtime: org.freedesktop.Platform
@@ -103,11 +102,18 @@ jobs:
                 - install -Dm755 rateme /app/bin/rateme
                 - install -d /app/lib
                 - cp -r lib/* /app/lib/
+                - cp -r data /app/data
                 - install -Dm644 com.ali3nated0.rateme.desktop /app/share/applications/${FLATPAK_ID}.desktop
                 - install -Dm644 com.ali3nated0.rateme.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
               sources:
                 - type: dir
                   path: flatpak-build
+              build-options:
+                env:
+                  LD_LIBRARY_PATH: /app/lib
+              runtime-config:
+                - glib-2.0
+                - gtk+-3.0
           EOF
 
       - name: Build Flatpak Package
