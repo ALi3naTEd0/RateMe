@@ -189,6 +189,21 @@ nix-shell
 nix-env -e rateme
 ```
 
+### Flatpak Installation
+
+1. Add Flathub repository (if not already added):
+```bash
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+```
+2. Install RateMe:
+```bash
+flatpak install flathub com.example.RateMe
+```
+3. Run RateMe:
+```bash
+flatpak run com.example.RateMe
+```
+
 ## Technologies Used
 
 - [Flutter](https://flutter.dev/): Used for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
