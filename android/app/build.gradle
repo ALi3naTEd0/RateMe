@@ -18,8 +18,8 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    // Changed from com.example.rateme to match applicationId
-    namespace = "com.ali3nated0.rateme"
+    // Fix namespace and applicationId to use the same value
+    namespace = "com.example.rateme"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "25.1.8937393"
 
@@ -33,8 +33,7 @@ android {
     }
 
     defaultConfig {
-        // Keep consistent applicationId across versions
-        applicationId "com.ali3nated0.rateme"
+        applicationId "com.example.rateme"  // Keep the original ID to maintain compatibility
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
