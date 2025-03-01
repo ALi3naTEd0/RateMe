@@ -86,7 +86,8 @@ jobs:
 
       - name: Build Flatpak Package
         run: |
-          flatpak-builder --repo=repo build com.ali3nated0.rateme.yml
+          # Clean build directory or use --force-clean
+          flatpak-builder --force-clean --repo=repo build com.ali3nated0.rateme.yml
           flatpak build-bundle repo RateMe_${{ inputs.version }}.flatpak $FLATPAK_ID
 
       - name: Upload Flatpak Package
