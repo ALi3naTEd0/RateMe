@@ -40,22 +40,18 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           echo "Using version: $VERSION"
           
-          # Create structure
-          mkdir -p nixos/{app,bin}
+          # Create package structure
+          mkdir -p nixos/bundle
+          cp -r build/linux/x64/release/bundle/* nixos/bundle/
           
-          # Copy binaries and assets
-          cp -r build/linux/x64/release/bundle/* nixos/app/
-          cp assets/rateme.png nixos/app/data/flutter_assets/assets/
-          
-          # Create default.nix
           cat > nixos/default.nix << EOF
           { lib, stdenv, makeDesktopItem, copyDesktopItems, gtk3, makeWrapper }:
-          
+
           stdenv.mkDerivation rec {
             pname = "rateme";
             version = "$VERSION";
             
-            src = ./app;
+            src = ./bundle;  # Use the bundle directory directly
             
             nativeBuildInputs = [ makeWrapper copyDesktopItems ];
             buildInputs = [ gtk3 ];
@@ -64,26 +60,32 @@ jobs:
               (makeDesktopItem {
                 name = "rateme";
                 exec = "rateme";
-                icon = "\${placeholder "out"}/share/icons/hicolor/512x512/apps/rateme";
+                icon = "rateme";
                 comment = "Rate and organize your music collection";
                 desktopName = "Rate Me!";
                 categories = [ "Audio" "Music" ];
               })
             ];
             
+            dontStrip = true;  # Keep debug symbols for Flutter
+            
             installPhase = ''
-              mkdir -p \$out/{bin,lib/rateme,share/icons/hicolor/512x512/apps}
+              runHook preInstall
               
-              # Copy application files
-              cp -r * \$out/lib/rateme/
+              mkdir -p \$out/lib/rateme \$out/bin \$out/share/icons/hicolor/512x512/apps
               
-              # Create wrapper script
-              makeWrapper \$out/lib/rateme/rateme \$out/bin/rateme \
-                --set LD_LIBRARY_PATH \$out/lib/rateme/lib
+              # Copy all files to lib directory
+              cp -a . \$out/lib/rateme
               
-              # Install icon
-              cp \$out/lib/rateme/data/flutter_assets/assets/rateme.png \
-                \$out/share/icons/hicolor/512x512/apps/rateme.png
+              # Create wrapper
+              makeWrapper \$out/lib/rateme/rateme \\
+                --set LD_LIBRARY_PATH "\$out/lib/rateme/lib"
+              
+              # Copy icon
+              cp data/flutter_assets/assets/rateme.png \\
+                \$out/share/icons/hicolor/512x512/apps/
+              
+              runHook postInstall
             '';
             
             meta = with lib; {
@@ -142,7 +144,7 @@ jobs:
           
           # Create tarball with all components
           cd nixos
-          tar -czvf ../rateme-nixos-$VERSION.tar.gz app bin README.md default.nix shell.nix
+          tar -czf ../rateme-nixos-$VERSION.tar.gz bundle default.nix shell.nix README.md
           cd ..
           
           echo "Created package archive with:"
