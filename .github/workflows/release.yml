@@ -70,16 +70,25 @@ jobs:
     with:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
+  flatpak-build:
+    if: |
+      (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'linux')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
+    uses: ALi3naTEd0/RateMe/.github/workflows/flatpak.yml@rateme
+    with:
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+
   # STEP 2: CREATE RELEASE - Create the GitHub release and attach artifacts
   create-release:
     name: Create Release
-    needs: [android-build, linux-build, windows-build, macos-build]
+    needs: [android-build, linux-build, windows-build, macos-build, flatpak-build]
     if: |
       !cancelled() && !failure() &&
       (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
       (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
       (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
-      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped')
+      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped') &&
+      (needs.flatpak-build.result == 'success' || needs.flatpak-build.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
@@ -144,6 +153,7 @@ jobs:
             dist/RateMe_*_amd64.deb
             dist/RateMe_*_x86_64.rpm
             dist/RateMe_*.AppImage
+            dist/RateMe_*_flatpak.flatpak
             dist/RateMe_*_nixos.tar.gz
             dist/RateMe_*_source.tar.gz
             dist/RateMe_*.exe
