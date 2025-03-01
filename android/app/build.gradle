@@ -18,7 +18,8 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.rateme"
+    // Changed from com.example.rateme to match applicationId
+    namespace = "com.ali3nated0.rateme"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "25.1.8937393"
 
@@ -32,12 +33,14 @@ android {
     }
 
     defaultConfig {
+        // Keep consistent applicationId across versions
         applicationId "com.ali3nated0.rateme"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
-        versionCode 4  // Increment from 3 to 4 for version 1.0.3-1
-        versionName "1.0.3-1"  // Update to new version
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
         
+        // Set app name with exclamation mark
         resValue "string", "app_name", "Rate Me!"
     }
 

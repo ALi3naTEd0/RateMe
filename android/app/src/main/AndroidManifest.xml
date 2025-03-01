@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.rateme">
+    package="com.ali3nated0.rateme">
 
     <!-- Internet permission -->
     <uses-permission android:name="android.permission.INTERNET"/>
