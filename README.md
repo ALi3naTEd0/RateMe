@@ -134,14 +134,31 @@ cd RateMe
 makepkg -si
 ```
 
-### NixOS Installation
+#### NixOS Installation
 
-This document explains how to install and use Rate Me! on NixOS.
+##### Quick Installation
 
-#### 1. Using Flakes (Recommended)
+```bash
+# Install for current user
+nix-env -i -f default.nix
 
-Add to your NixOS configuration's flake inputs:
+# Or install system-wide (requires root)
+sudo nix-env -i -f default.nix
+```
 
+##### Testing Before Installation
+
+```bash
+# Build without installing
+nix-build
+
+# Run the built package
+./result/bin/rateme
+```
+
+##### For Flakes Users
+
+Add to your flake inputs:
 ```nix
 inputs.rateme = {
   url = "github:ALi3naTEd0/RateMe";
@@ -149,38 +166,28 @@ inputs.rateme = {
 };
 ```
 
-Then add to your configuration:
-
+Then in your configuration:
 ```nix
-# In configuration.nix or home-manager config
+# For NixOS configuration
 environment.systemPackages = [ inputs.rateme.packages.${system}.default ];
+
+# For home-manager
+home.packages = [ inputs.rateme.packages.${system}.default ];
 ```
 
-#### 2. Development Environment
+##### Development Environment
 
-For development or testing:
+A development shell with all dependencies is included:
 
 ```bash
-# Clone the repository
-git clone https://github.com/ALi3naTEd0/RateMe.git
-cd RateMe
-
-# Enter development shell
+# Start development environment
 nix-shell
-
-# Build and run
-flutter build linux --release
-./build/linux/x64/release/bundle/rateme
 ```
 
-#### 3. From Release Package
-
-1. Download the latest `RateMe_1.0.3-1_nixos.tar.gz` from [releases](https://github.com/ALi3naTEd0/RateMe/releases)
-2. Extract and install:
+##### Uninstallation
 
 ```bash
-tar xf RateMe_1.0.3-1_nixos.tar.gz
-nix-env -i -f default.nix
+nix-env -e rateme
 ```
 
 ## Technologies Used
