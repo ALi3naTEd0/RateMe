@@ -55,14 +55,16 @@ jobs:
         run: |
           flutter config --enable-linux-desktop
           flutter doctor -v
+          flutter pub get
           flutter build linux --release
           
-          # Copy icon and create desktop entry
-          mkdir -p assets/linux
-          cp assets/rateme.png assets/linux/
+          # Verify build output
+          echo "Checking build output..."
+          ls -la build/linux/x64/release/bundle || exit 1
           
           # Create desktop entry file
-          cat > assets/linux/com.ali3nated0.rateme.desktop << EOF
+          mkdir -p build/linux/x64/release/bundle
+          cat > build/linux/x64/release/bundle/com.ali3nated0.rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
           Exec=rateme
@@ -71,13 +73,17 @@ jobs:
           Categories=Audio;Music;
           EOF
 
+          # Copy icon
+          cp assets/rateme.png build/linux/x64/release/bundle/
+
       - name: Create Flatpak Manifest
         run: |
-          # Verify bundle directory
-          if [ ! -d "build/linux/x64/release/bundle" ]; then
-            mkdir -p build/linux/x64/release/bundle
-            cp -r assets/linux/* build/linux/x64/release/bundle/
-          fi
+          # Debug directory structure
+          echo "Current directory contents:"
+          pwd
+          ls -la
+          echo "Bundle directory contents:"
+          ls -la build/linux/x64/release/bundle/
           
           cat > com.ali3nated0.rateme.yml << EOF
           app-id: com.ali3nated0.rateme
@@ -95,9 +101,11 @@ jobs:
             - name: rateme
               buildsystem: simple
               build-commands:
-                - install -D rateme /app/bin/rateme
-                - install -D com.ali3nated0.rateme.desktop /app/share/applications/${FLATPAK_ID}.desktop
-                - install -D rateme.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+                - cp -r . /app/
+                - chmod +x /app/rateme
+                - mkdir -p /app/share/applications /app/share/icons/hicolor/512x512/apps
+                - cp rateme.png /app/share/icons/hicolor/512x512/apps/
+                - cp com.ali3nated0.rateme.desktop /app/share/applications/
               sources:
                 - type: dir
                   path: build/linux/x64/release/bundle
