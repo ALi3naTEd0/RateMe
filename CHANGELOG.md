@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Flatpak package support for Linux
+- Full GTK theme support in all Linux packages
+- Nix flakes support for better NixOS integration
+- Development shell for NixOS users
+
+### Changed
+- Standardized application name to "Rate Me!" across all platforms
+- Improved desktop integration for Linux packages
+- Fixed icon issues in Arch Linux package
+- Consistent icon naming across all Linux packages
+- Enhanced NixOS packaging with better runtime dependencies
+
+### Fixed
+- Icon visibility in Arch Linux package
+- GTK dependencies in Flatpak package
+- Desktop entry consistency across all Linux distributions
+- Missing exclamation mark in application name
+- NixOS runtime library paths and dependencies
+
+### Development
+- Added development shell with all required dependencies for NixOS
+- Improved build reproducibility with flake.lock
+- Better cross-distribution compatibility through standardized packaging
+
 ## [1.0.3-1] - 2025-02-28
 
 ### Added
