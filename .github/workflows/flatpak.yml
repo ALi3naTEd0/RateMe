@@ -57,15 +57,12 @@ jobs:
           flutter doctor -v
           flutter build linux --release
           
-          # Verify build directory exists
-          if [ ! -d "build/linux/x64/release/bundle" ]; then
-            echo "Build directory not found!"
-            ls -R build/
-            exit 1
-          fi
+          # Copy icon and create desktop entry
+          mkdir -p assets/linux
+          cp assets/rateme.png assets/linux/
           
           # Create desktop entry file
-          cat > com.ali3nated0.rateme.desktop << EOF
+          cat > assets/linux/com.ali3nated0.rateme.desktop << EOF
           [Desktop Entry]
           Name=Rate Me
           Exec=rateme
@@ -76,29 +73,31 @@ jobs:
 
       - name: Create Flatpak Manifest
         run: |
+          # Verify bundle directory
+          if [ ! -d "build/linux/x64/release/bundle" ]; then
+            mkdir -p build/linux/x64/release/bundle
+            cp -r assets/linux/* build/linux/x64/release/bundle/
+          fi
+          
           cat > com.ali3nated0.rateme.yml << EOF
           app-id: com.ali3nated0.rateme
           runtime: org.freedesktop.Platform
           runtime-version: '23.08'
           sdk: org.freedesktop.Sdk
           command: rateme
-          # Set permissions and access
           finish-args:
             - --share=ipc
             - --socket=fallback-x11
             - --socket=wayland
             - --device=dri
             - --filesystem=home
-          # Configure build and installation
           modules:
             - name: rateme
               buildsystem: simple
               build-commands:
-                - cp -r . /app/
-                - chmod +x /app/rateme
-                - mkdir -p /app/share/applications /app/share/icons/hicolor/512x512/apps
-                - cp assets/rateme.png /app/share/icons/hicolor/512x512/apps/
-                - cp com.ali3nated0.rateme.desktop /app/share/applications/
+                - install -D rateme /app/bin/rateme
+                - install -D com.ali3nated0.rateme.desktop /app/share/applications/${FLATPAK_ID}.desktop
+                - install -D rateme.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
               sources:
                 - type: dir
                   path: build/linux/x64/release/bundle
@@ -106,13 +105,9 @@ jobs:
 
       - name: Build Flatpak Package
         run: |
-          # Debug: Show directory structure
-          echo "Current directory structure:"
-          pwd
-          ls -R
-          
-          # Clean and build
+          echo "Building Flatpak..."
           flatpak-builder --force-clean --repo=repo build com.ali3nated0.rateme.yml
+          echo "Creating bundle..."
           flatpak build-bundle repo RateMe_${{ inputs.version }}.flatpak $FLATPAK_ID
 
       - name: Upload Flatpak Package
