@@ -10,10 +10,22 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        version = "1.0.3-1"; # Update this when releasing
       in
       {
         packages = rec {
-          rateme = pkgs.callPackage ./nix { };
+          rateme = pkgs.stdenv.mkDerivation {
+            pname = "rateme";
+            inherit version;
+            
+            src = pkgs.fetchurl {
+              url = "https://github.com/ALi3naTEd0/RateMe/releases/download/v${version}/RateMe_${version}.AppImage";
+              # This hash se actualizará automáticamente por el CI en cada release
+              sha256 = "0000000000000000000000000000000000000000000000000000";
+            };
+            
+            # ...rest of derivation...
+          };
           default = rateme;
         };
 

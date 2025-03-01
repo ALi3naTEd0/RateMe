@@ -10,12 +10,6 @@ on:
         default: '1.0.3-1'
   release:
     types: [published]
-  workflow_call:
-    inputs:
-      version:
-        required: true
-        type: string
-        description: 'Version number'
 
 jobs:
   build-nix-package:
@@ -27,15 +21,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            ninja-build \
-            libgtk-3-dev \
-            fuse \
-            libfuse2
-
-      - uses: cachix/install-nix-action@v26
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
+          sudo apt-get install -y ninja-build libgtk-3-dev
       
       - uses: subosito/flutter-action@v2
         with:
@@ -43,44 +29,30 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Enable Linux
-        run: flutter config --enable-linux-desktop
-
       - name: Build Flutter App
         run: |
+          flutter config --enable-linux-desktop
           flutter pub get
           flutter build linux --release
 
-      - name: Build NixOS Package
-        id: build_package
+      - name: Create NixOS Package
         run: |
-          # Set version based on event type
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            VERSION="$WORKFLOW_VERSION"
-          elif [ "$GITHUB_EVENT_NAME" = "workflow_call" ]; then
-            VERSION="$INPUT_VERSION"
-          else
-            # For releases
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
+          VERSION="${{ github.event.inputs.version }}"
           echo "Using version: $VERSION"
           
-          # Create build directory and files
-          mkdir -p build
+          mkdir -p nixos
+          cat > nixos/default.nix << EOF
+          { lib, stdenv, makeDesktopItem, copyDesktopItems, gtk3, makeWrapper }:
           
-          # Create default.nix file
-          cat > build/default.nix << EOF
-          { lib, stdenv, makeWrapper, gtk3, copyDesktopItems, makeDesktopItem }:
-
           stdenv.mkDerivation rec {
             pname = "rateme";
             version = "$VERSION";
             
             src = ../../build/linux/x64/release/bundle;
-
+            
             nativeBuildInputs = [ makeWrapper copyDesktopItems ];
             buildInputs = [ gtk3 ];
-
+            
             desktopItems = [
               (makeDesktopItem {
                 name = "rateme";
@@ -91,14 +63,14 @@ jobs:
                 categories = [ "Audio" "Music" ];
               })
             ];
-
+            
             installPhase = ''
               mkdir -p \$out/bin \$out/share/icons/hicolor/512x512/apps
               cp -r * \$out/bin/
               chmod +x \$out/bin/rateme
               cp \$out/bin/data/flutter_assets/assets/rateme.png \$out/share/icons/hicolor/512x512/apps/
             '';
-
+            
             meta = with lib; {
               description = "A multi-platform app to rate and organize your music collection";
               homepage = "https://github.com/ALi3naTEd0/RateMe";
@@ -109,102 +81,21 @@ jobs:
           }
           EOF
           
-          # Create release.nix file
-          cat > build/release.nix << EOF
-          with import <nixpkgs> {};
-
-          {
-            rateme = pkgs.callPackage ./default.nix {};
-          }
+          cat > nixos/shell.nix << EOF
+          { pkgs ? import <nixpkgs> {} }:
+          pkgs.callPackage ./default.nix {}
           EOF
-
-          # Create a simple install script
-          cat > build/install-rateme.sh << 'EOF'
-          #!/usr/bin/env bash
-          # Simple installer for Rate Me! on NixOS
-          #
-          # Usage:
-          #   ./install-rateme.sh        # Install to Nix profile
-          #   ./install-rateme.sh test   # Test without installing
           
-          set -e
-
-          if [ "$1" = "test" ]; then
-            echo "Testing RateMe without installation..."
-            nix-build -A rateme
-            ./result/bin/rateme
-            exit 0
-          fi
-
-          echo "Installing RateMe to your Nix profile..."
-          nix-env -f . -iA rateme
-          echo "Installation complete! Run 'rateme' to start the application."
-          EOF
-          chmod +x build/install-rateme.sh
-
-          # Create walkthrough document
-          cat > build/NIXOS-INSTALL.md << 'EOF'
-          # Installing RateMe on NixOS
-
-          ## Method 1: Quick Install (Recommended)
-
-          ```bash
-          # Download and run the installer
-          chmod +x ./install-rateme.sh
-          ./install-rateme.sh
-          ```
-
-          Once installed, run `rateme` to start the application.
-
-          ## Method 2: Manual Installation
-
-          ```bash
-          # Build without installing
-          nix-build -A rateme
-          
-          # Test the application
-          ./result/bin/rateme
-          
-          # Install to your profile
-          nix-env -f . -iA rateme
-          ```
-
-          ## Troubleshooting
-
-          If you encounter any issues:
-          
-          1. Make sure GTK3 is installed: `nix-env -iA nixos.gtk3`
-          2. Try running with `--verbose` flag: `nix-build -A rateme --verbose`
-          3. If you get dependency errors, make sure your nixpkgs channel is updated: `nix-channel --update`
-          EOF
-
-          # Test build and create archive
-          cd build
-          nix-build release.nix -A rateme || {
-            echo "Build failed, but continuing to make tarball"
-          }
-          
-          # Create tarball regardless of build success
-          ARCHIVE_NAME="rateme-nixos-$VERSION.tar.gz"
-          tar -czf "$ARCHIVE_NAME" *.nix *.sh *.md
-          
-          # Output paths for next steps
-          echo "ARCHIVE_FILE=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
-          echo "ARCHIVE_PATH=build/$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
-        env:
-          WORKFLOW_VERSION: ${{ github.event.inputs.version }}
-          INPUT_VERSION: ${{ inputs.version }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF: ${{ github.ref }}
+          cd nixos && tar -czf ../rateme-nixos-$VERSION.tar.gz *
 
       - name: Upload NixOS Package
         uses: actions/upload-artifact@v4
         with:
           name: rateme-nixos-package
-          path: ${{ steps.build_package.outputs.ARCHIVE_PATH }}
+          path: rateme-nixos-*.tar.gz
 
       - name: Add to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ steps.build_package.outputs.ARCHIVE_PATH }}
+          files: rateme-nixos-*.tar.gz
