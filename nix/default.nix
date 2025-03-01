@@ -1,24 +1,17 @@
 { lib
 , stdenv
-, fetchFromGitHub
 , flutter
 , pkg-config
 , gtk3
 , makeWrapper
 , wrapGAppsHook
-, xdg-utils
 }:
 
 stdenv.mkDerivation rec {
   pname = "rateme";
-  version = "1.0.2-1";
+  version = "1.0.3-1";
 
-  src = fetchFromGitHub {
-    owner = "ALi3naTEd0";
-    repo = "RateMe";
-    rev = "v${version}";
-    sha256 = ""; # Hay que llenar esto después de intentar construir
-  };
+  src = ./..;
 
   nativeBuildInputs = [
     flutter
@@ -28,36 +21,36 @@ stdenv.mkDerivation rec {
     wrapGAppsHook
   ];
 
-  buildInputs = [
-    gtk3
-  ];
+  buildInputs = [ gtk3 ];
+
+  # Disable network access
+  __noChroot = false;
+  
+  # Skip the pub get step entirely and build with what we have
+  postUnpack = ''
+    # Ensure the .pub-cache directory exists
+    mkdir -p $TMPDIR/.pub-cache
+    export PUB_CACHE=$TMPDIR/.pub-cache
+    
+    # Copy any existing packages from the source
+    if [ -d $src/.dart_tool ]; then
+      cp -r $src/.dart_tool $sourceRoot/
+    fi
+  '';
 
   buildPhase = ''
-    runHook preBuild
-    export HOME=$(mktemp -d)
-    flutter build linux --release
-    runHook postBuild
+    # Try building with existing dependencies
+    export HOME=$TMPDIR
+    export PUB_CACHE=$TMPDIR/.pub-cache
+    
+    # Try to build skipping dependency check
+    flutter build linux --release --suppress-analytics
   '';
 
   installPhase = ''
-    runHook preInstall
     mkdir -p $out/bin $out/share/applications
     cp -r build/linux/x64/release/bundle/* $out/bin/
     mv $out/bin/rateme $out/bin/RateMe
-
-    # Create desktop entry
-    cat > $out/share/applications/rateme.desktop << EOF
-    [Desktop Entry]
-    Name=Rate Me!
-    Comment=Rate and organize your music collection
-    Exec=$out/bin/RateMe
-    Icon=$out/bin/data/flutter_assets/assets/rateme.png
-    Terminal=false
-    Type=Application
-    Categories=Audio;Music;
-    EOF
-
-    runHook postInstall
   '';
 
   meta = with lib; {
