@@ -122,7 +122,6 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-          # Simplified pattern to get all artifacts
           pattern: '*'
 
       - name: Debug Directory Contents
@@ -150,16 +149,12 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
-          files: |
-            dist/RateMe_*_amd64.deb
-            dist/RateMe_*_x86_64.rpm
-            dist/RateMe_*.AppImage
-            dist/RateMe_*.flatpak
-            dist/RateMe_*_nixos.tar.gz
-            dist/RateMe_*_source.tar.gz
-            dist/RateMe_*.exe
-            dist/RateMe_*.dmg
-            dist/RateMe-portable.zip
+          files: dist/**/*
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set Release URL
         id: set_release_url
@@ -182,10 +177,10 @@ jobs:
   update-docs:
     name: Update Documentation
     needs: create-release
-    # Update condition to check both release type and event type
     if: |
-      github.event.inputs.release_type == 'release' && 
-      !cancelled() && !failure()
+      !cancelled() && !failure() &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.release_type == 'release'
     runs-on: ubuntu-latest
     steps:
       # Add debug info
