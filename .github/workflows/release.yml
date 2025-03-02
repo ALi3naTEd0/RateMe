@@ -129,15 +129,6 @@ jobs:
           echo "Final dist content:"
           ls -lh dist/
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          pattern: |
-            RateMe-*       # Keep this format, don't change to 'rateme-*'
-            !RateMe-*-symbols
-
-      # Remove the Prepare release files step since we're not using it
       - name: Create Release and Upload Assets
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -145,18 +136,18 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
           files: |
-            dist/RateMe_*.exe
-            dist/RateMe_*.dmg
-            dist/RateMe_*.AppImage
-            dist/RateMe_*.flatpak
-            dist/RateMe_*.apk
             dist/RateMe_*_amd64.deb
             dist/RateMe_*_x86_64.rpm
+            dist/RateMe_*.AppImage
+            dist/RateMe_*.flatpak
+            dist/RateMe_*_nixos.tar.gz
+            dist/RateMe_*_source.tar.gz
+            dist/RateMe_*.exe
+            dist/RateMe_*.dmg
+            dist/RateMe_*.apk
             dist/RateMe_*_arm64-v8a.apk
             dist/RateMe_*_armeabi-v7a.apk
             dist/RateMe_*_x86_64.apk
-            dist/RateMe_*_nixos.tar.gz
-            dist/RateMe_*_source.tar.gz
             dist/RateMe-portable.zip
           draft: ${{ github.event.inputs.release_type == 'draft' || github.event_name != 'workflow_dispatch' }}
           prerelease: false
