@@ -137,13 +137,6 @@ jobs:
             RateMe-*       # Keep this format, don't change to 'rateme-*'
             !RateMe-*-symbols
 
-      - name: Prepare release files
-        run: |
-          mkdir release
-          find dist -type f -name "RateMe_*" -exec cp {} release/ \;
-          cd release && ls -la
-
-      # Replace the deprecated actions/create-release and use only softprops/action-gh-release
       - name: Create Release and Upload Assets
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -151,19 +144,11 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
           files: |
+            dist/RateMe_*.{exe,dmg,AppImage,flatpak,apk}
             dist/RateMe_*_amd64.deb
             dist/RateMe_*_x86_64.rpm
-            dist/RateMe_*.AppImage
-            dist/RateMe_*.flatpak
-            dist/RateMe_*_nixos.tar.gz
-            dist/RateMe_*_source.tar.gz
-            dist/RateMe_*.exe
-            dist/RateMe_*.dmg
-            dist/RateMe_*.apk
-            # Only one copy of each specific APK
-            release/RateMe_*_arm64-v8a.apk
-            release/RateMe_*_armeabi-v7a.apk
-            release/RateMe_*_x86_64.apk
+            dist/RateMe_*_{arm64-v8a,armeabi-v7a,x86_64}.apk
+            dist/RateMe_*_{nixos,source}.tar.gz
             dist/RateMe-portable.zip
           draft: ${{ github.event.inputs.release_type == 'draft' || github.event_name != 'workflow_dispatch' }}
           prerelease: false
