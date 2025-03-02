@@ -151,19 +151,19 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
           files: |
-            dist/rateme_*_amd64.deb          # Changed from RateMe_*
-            dist/rateme_*_x86_64.rpm
-            dist/rateme_*.AppImage
-            dist/rateme_*.flatpak
-            dist/rateme_*_nixos.tar.gz
-            dist/rateme_*_source.tar.gz
-            dist/rateme_*.exe
-            dist/rateme_*.dmg
-            dist/rateme_*.apk
-            dist/rateme_*_arm64-v8a.apk
-            dist/rateme_*_armeabi-v7a.apk
-            dist/rateme_*_x86_64.apk
-            dist/rateme-portable.zip
+            dist/RateMe_*_amd64.deb
+            dist/RateMe_*_x86_64.rpm
+            dist/RateMe_*.AppImage
+            dist/RateMe_*.flatpak
+            dist/RateMe_*_nixos.tar.gz
+            dist/RateMe_*_source.tar.gz
+            dist/RateMe_*.exe
+            dist/RateMe_*.dmg
+            dist/RateMe_*.apk
+            dist/RateMe_*_arm64-v8a.apk
+            dist/RateMe_*_armeabi-v7a.apk
+            dist/RateMe_*_x86_64.apk
+            dist/RateMe-portable.zip
           draft: ${{ github.event.inputs.release_type == 'draft' || github.event_name != 'workflow_dispatch' }}
           prerelease: false
           fail_on_unmatched_files: false
@@ -191,10 +191,18 @@ jobs:
   update-docs:
     name: Update Documentation
     needs: create-release
-    # Add condition to skip on draft releases
-    if: github.event.inputs.release_type != 'draft'
+    # Update condition to check both release type and event type
+    if: |
+      github.event.inputs.release_type == 'release' && 
+      !cancelled() && !failure()
     runs-on: ubuntu-latest
     steps:
+      # Add debug info
+      - name: Debug Release Type
+        run: |
+          echo "Release type: ${{ github.event.inputs.release_type }}"
+          echo "Skipping documentation update for draft releases"
+          
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
