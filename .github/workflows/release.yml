@@ -159,17 +159,8 @@ jobs:
             dist/RateMe_*_source.tar.gz
             dist/RateMe_*.exe
             dist/RateMe_*.dmg
-            dist/RateMe_*_arm64-v8a.apk
-            dist/RateMe_*_armeabi-v7a.apk
-            dist/RateMe_*_x86_64.apk
-            dist/RateMe_*.apk
             dist/RateMe-portable.zip
-          draft: ${{ github.event.inputs.release_type == 'draft' || github.event_name != 'workflow_dispatch' }}
-          prerelease: false
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Set Release URL
         id: set_release_url
         run: |
