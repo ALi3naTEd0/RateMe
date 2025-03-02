@@ -108,27 +108,30 @@ jobs:
       - name: Create Dist Directory
         run: mkdir -p dist
 
+      # Add debug steps to see what artefacts están disponibles
+      - name: List Available Artifacts
+        run: |
+          echo "Available artifacts:"
+          gh api /repos/${{ github.repository }}/actions/artifacts \
+            --jq '.artifacts[] | {name: .name, size: .size_in_bytes, created: .created_at}'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-          pattern: |
-            RateMe-universal
-            RateMe-arm64-v8a
-            RateMe-armeabi-v7a
-            RateMe-x86_64
-            RateMe-DEB
-            RateMe-RPM
-            RateMe-AppImage
-            RateMe-Flatpak
-            RateMe-NixOS
-            RateMe-Source
-            RateMe-Windows
-            RateMe-macOS
-            RateMe-portable
+          # Simplified pattern to get all artifacts
+          pattern: '*'
 
-      # Remove debug artifact downloads and let organize step handle files
+      - name: Debug Directory Contents
+        run: |
+          echo "Root directory:"
+          ls -la
+          echo "Dist directory content:"
+          ls -la dist/ || echo "Dist directory is empty or doesn't exist"
+
       - name: Organize Artifacts
         run: |
           echo "Initial dist content:"
