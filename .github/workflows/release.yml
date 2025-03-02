@@ -160,9 +160,10 @@ jobs:
             dist/RateMe_*.exe
             dist/RateMe_*.dmg
             dist/RateMe_*.apk
-            dist/RateMe_*_arm64-v8a.apk
-            dist/RateMe_*_armeabi-v7a.apk
-            dist/RateMe_*_x86_64.apk
+            # Only one copy of each specific APK
+            release/RateMe_*_arm64-v8a.apk
+            release/RateMe_*_armeabi-v7a.apk
+            release/RateMe_*_x86_64.apk
             dist/RateMe-portable.zip
           draft: ${{ github.event.inputs.release_type == 'draft' || github.event_name != 'workflow_dispatch' }}
           prerelease: false
