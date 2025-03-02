@@ -112,18 +112,30 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: '**/*'
           merge-multiple: true
+          pattern: |
+            RateMe-universal
+            RateMe-arm64-v8a
+            RateMe-armeabi-v7a
+            RateMe-x86_64
+            RateMe-DEB
+            RateMe-RPM
+            RateMe-AppImage
+            RateMe-Flatpak
+            RateMe-NixOS
+            RateMe-Source
+            RateMe-Windows
+            RateMe-macOS
+            RateMe-portable
 
+      # Remove debug artifact downloads and let organize step handle files
       - name: Organize Artifacts
         run: |
           echo "Initial dist content:"
           ls -la dist/
           
-          # Move nested files to root
+          # Move nested files to root of dist/
           find dist -mindepth 2 -type f -exec mv -t dist/ {} +
-          
-          # Remove empty directories
           find dist -type d -empty -delete
           
           echo "Final dist content:"
