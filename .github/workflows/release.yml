@@ -191,13 +191,23 @@ jobs:
   update-docs:
     name: Update Documentation
     needs: create-release
+    # Add condition to skip on draft releases
+    if: github.event.inputs.release_type != 'draft'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for changelog
-          ref: rateme     # Main branch
-          
+          fetch-depth: 0
+          ref: rateme
+          # Add token for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Add git configuration
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Update Documentation
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
