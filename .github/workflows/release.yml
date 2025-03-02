@@ -150,7 +150,8 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
-          files: dist/RateMe_*_amd64.deb
+          files: |
+            dist/RateMe_*_amd64.deb
             dist/RateMe_*_x86_64.rpm
             dist/RateMe_*.AppImage
             dist/RateMe_*.flatpak
