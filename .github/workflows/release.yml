@@ -228,7 +228,12 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" README.md
+          
+          # Actualizar el formato del ZIP portable en README
           sed -i "s|RateMe-portable\.zip|RateMe_${VERSION}_portable.zip|g" README.md
+          
+          # Also update any existing portable zip with version format
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_portable\.zip|RateMe_${VERSION}_portable.zip|g" README.md
           
           # Explicitly update Android APKs
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" README.md
