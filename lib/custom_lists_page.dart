@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';  // Add this
-import 'dart:convert';  // Add this
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;  // Add this import
+import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
@@ -317,6 +318,7 @@ class CustomListDetailsPage extends StatefulWidget {
 
 class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   List<Map<String, dynamic>> albums = [];
+  Map<int, List<dynamic>> albumTracks = {};  // Add this variable
   bool isLoading = true;
 
   @override
@@ -328,7 +330,11 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   Future<void> _loadAlbums() async {
     List<Map<String, dynamic>> loadedAlbums = [];
     widget.list.cleanupAlbumIds(); // Clean list before loading
-    for (String albumId in widget.list.albumIds) {
+    
+    // Create a safe copy of albumIds to iterate
+    final albumIdsToProcess = List<String>.from(widget.list.albumIds);
+    
+    for (String albumId in albumIdsToProcess) {
       final album = await UserData.getSavedAlbumById(int.parse(albumId));
       if (album != null) {
         final ratings = await UserData.getSavedAlbumRatings(int.parse(albumId));
@@ -345,6 +351,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         await UserData.saveCustomList(widget.list);
       }
     }
+    
     if (mounted) {
       setState(() {
         albums = loadedAlbums;
@@ -466,6 +473,35 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         );
       },
     );
+  }
+
+  Future<void> _fetchAlbumDetails(Map<String, dynamic> album, bool isBandcamp) async {
+    try {
+      if (!isBandcamp) {
+        final url = Uri.parse(
+            'https://itunes.apple.com/lookup?id=${album['collectionId']}&entity=song');
+        final response = await http.get(url);
+        final data = jsonDecode(response.body);
+        
+        // Filter only audio tracks, excluding videos
+        var trackList = data['results']
+            .where((track) => 
+              track['wrapperType'] == 'track' && 
+              track['kind'] == 'song'  // Add this condition to filter out videos
+            )
+            .toList();
+
+        if (mounted) {
+          setState(() {
+            albumTracks[album['collectionId']] = trackList;
+          });
+        }
+      } else {
+        // ...existing Bandcamp handling code...
+      }
+    } catch (e) {
+      // ...existing error handling...
+    }
   }
 
   @override

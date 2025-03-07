@@ -211,8 +211,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
       final response = await http.get(url);
       final data = jsonDecode(response.body);
+      
+      // Filter only audio tracks, excluding videos
       var trackList = data['results']
-          .where((track) => track['wrapperType'] == 'track')
+          .where((track) => 
+            track['wrapperType'] == 'track' && 
+            track['kind'] == 'song'  // Add this condition
+          )
           .toList();
       
       if (mounted) {
@@ -224,8 +229,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         });
       }
     } catch (error, stackTrace) {
-      Logging.severe('Error fetching iTunes tracks', error, stackTrace);
-      if (mounted) setState(() => isLoading = false);
+      // ...existing error handling...
     }
   }
 

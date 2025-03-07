@@ -194,8 +194,13 @@ class _DetailsPageState extends State<DetailsPage> {
           'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
       final response = await http.get(url);
       final data = jsonDecode(response.body);
+      
+      // Filter only audio tracks, excluding videos
       var trackList = data['results']
-          .where((track) => track['wrapperType'] == 'track')
+          .where((track) => 
+            track['wrapperType'] == 'track' && 
+            track['kind'] == 'song'  // Add this condition
+          )
           .toList();
       
       if (mounted) {
@@ -393,7 +398,13 @@ class _DetailsPageState extends State<DetailsPage> {
                           children: [
                             ElevatedButton(
                               onPressed: () async {
-                                await UserData.saveAlbum(widget.album);
+                                // Save album with filtered tracks
+                                final albumToSave = Map<String, dynamic>.from(widget.album);
+                                albumToSave['tracks'] = tracks;
+                                await UserData.saveAlbum(albumToSave);
+                                
+                                // Save to list
+                                await UserData.addToSavedAlbums(albumToSave);
                                 
                                 if (!mounted) return;
                                 _showAddToListDialog(context);

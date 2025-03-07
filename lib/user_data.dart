@@ -54,25 +54,37 @@ class UserData {
   }
 
   static Future<void> saveAlbum(Map<String, dynamic> album) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      String albumJson = jsonEncode(album);
+    final prefs = await SharedPreferences.getInstance();
+    final String albumKey = 'album_${album['collectionId']}';
+    
+    // Filter and save only audio tracks
+    if (album['tracks'] != null) {
+      var audioTracks = (album['tracks'] as List).where((track) =>
+        track['wrapperType'] == 'track' && track['kind'] == 'song'
+      ).toList();
+      album['tracks'] = audioTracks;
+    }
+    
+    await prefs.setString(albumKey, jsonEncode(album));
+  }
 
-      if (!savedAlbums.contains(albumJson)) {
-        savedAlbums.add(albumJson);
-        await prefs.setStringList(_savedAlbumsKey, savedAlbums);
-        
-        String albumId = album['collectionId'].toString();
-        List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
-        if (!albumOrder.contains(albumId)) {
-          albumOrder.add(albumId);
-          await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
-        }
-      }
-    } catch (e, stackTrace) {
-      Logging.severe('Error saving album', e, stackTrace);
-      rethrow;
+  static Future<void> addToSavedAlbums(Map<String, dynamic> album) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+    List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
+    
+    // Check if album already exists
+    bool exists = savedAlbums.any((savedAlbumJson) {
+      Map<String, dynamic> savedAlbum = jsonDecode(savedAlbumJson);
+      return savedAlbum['collectionId'] == album['collectionId'];
+    });
+
+    if (!exists) {
+      savedAlbums.add(jsonEncode(album));
+      albumOrder.add(album['collectionId'].toString());
+      
+      await prefs.setStringList(_savedAlbumsKey, savedAlbums);
+      await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
     }
   }
 
