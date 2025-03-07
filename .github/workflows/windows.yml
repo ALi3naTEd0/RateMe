@@ -22,7 +22,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'  # Update to latest stable version
+          flutter-version: '3.19.0'
           channel: 'stable'
         env:
           LANG: en_US.UTF-8
@@ -37,7 +37,7 @@ jobs:
 
       - name: Download Icon
         run: |
-          # Create assets directory if it doesn't exist (and don't fail if it does)
+          # Create assets directory if it doesn't exist
           if (!(Test-Path "assets")) {
               New-Item -ItemType Directory -Path "assets" -Force
           }
@@ -58,7 +58,6 @@ jobs:
       - name: Setup Windows build
         run: |
           flutter config --enable-windows-desktop
-          # Debug info
           echo "Current directory:"
           pwd
           echo "Flutter config:"
@@ -67,47 +66,51 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release --verbose
 
-      # Create and upload portable version
-      - name: Create Portable Package
+      # Create properly named portable ZIP with data directory
+      - name: Create Portable ZIP
         shell: pwsh
         run: |
-          $appDir = "RateMe-${{ inputs.version || github.event.inputs.version }}"
-          # Create directory structure
-          New-Item -ItemType Directory -Path $appDir
-          Copy-Item "build\windows\x64\runner\Release\*" -Destination "$appDir\" -Recurse
+          # Get version
+          $version = "${{ inputs.version || github.event.inputs.version }}"
           
-          # Create ZIP preserving directory structure
-          Compress-Archive -Path "$appDir" -DestinationPath "RateMe-portable.zip"
-
-      - name: Upload Portable Package
-        if: inputs.upload_url == ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-Portable
-          path: RateMe-portable.zip
-
-      - name: Upload Portable Release Asset
-        if: inputs.upload_url != ''
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ inputs.upload_url }}
-          asset_path: rateme-portable.zip
-          asset_name: rateme-portable.zip
-          asset_content_type: application/zip
-
-      # Create portable ZIP with consistent version naming
-      - name: Create Portable ZIP
-        run: |
-          mkdir portable
-          mkdir portable\data
-          xcopy /E build\windows\x64\runner\Release portable\
-          echo {} > portable\data\settings.json
-          cp assets\rateme.png portable\data\rateme.png
+          # Debug - List build output directory to verify contents
+          Write-Host "Windows build output contents:"
+          Get-ChildItem -Path "build\windows\x64\runner\Release\" -Recurse | Select-Object FullName
           
-          # Create renamed portable ZIP with version number
-          powershell -command "Compress-Archive -Path portable\* -DestinationPath 'RateMe_${{ inputs.version || github.event.inputs.version }}_portable.zip' -Force"
+          # Create a properly named directory structure for the portable version
+          $portableDirName = "RateMe_${version}_portable"
+          
+          # Create the portable directory and copy all build output
+          New-Item -ItemType Directory -Path $portableDirName -Force
+          Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination $portableDirName -Recurse -Force
+          
+          # Make sure data directory exists (it might already be created by the build)
+          if (!(Test-Path "$portableDirName\data")) {
+              New-Item -ItemType Directory -Path "$portableDirName\data" -Force
+              # Create empty settings file
+              Set-Content -Path "$portableDirName\data\settings.json" -Value "{}"
+          }
+          
+          # Copy assets if needed
+          if (Test-Path "assets\rateme.png") {
+              Copy-Item "assets\rateme.png" -Destination "$portableDirName\data\rateme.png" -Force
+          }
+          
+          # Debug - List files in portable directory before zipping
+          Write-Host "Portable directory contents:"
+          Get-ChildItem -Path $portableDirName -Recurse | Select-Object FullName
+          
+          # Create ZIP archive with the portable app
+          $zipFileName = "RateMe_${version}_portable.zip"
+          Compress-Archive -Path "$portableDirName\*" -DestinationPath $zipFileName -Force
+          
+          # Verify ZIP was created
+          if (Test-Path $zipFileName) {
+              Write-Host "Created portable ZIP: $(Get-Item $zipFileName | Select-Object FullName, Length)"
+          } else {
+              Write-Error "Failed to create portable ZIP"
+              exit 1
+          }
 
       - name: Upload Portable ZIP
         uses: actions/upload-artifact@v4
@@ -119,6 +122,23 @@ jobs:
       - name: Install Inno Setup
         run: |
           choco install innosetup -y
+
+      # Debug step to verify Inno Setup script
+      - name: Show Inno Setup Script
+        shell: pwsh
+        run: |
+          if (Test-Path "installers\inno_setup_script.iss") {
+              Write-Host "Inno Setup Script contents:"
+              Get-Content "installers\inno_setup_script.iss"
+          } else {
+              Write-Host "Warning: Inno Setup Script not found at expected location"
+              # List installers directory contents if it exists
+              if (Test-Path "installers") {
+                  Get-ChildItem -Path "installers" -Recurse
+              } else {
+                  Write-Host "Installers directory not found"
+              }
+          }
 
       - name: Create Installer
         shell: pwsh
