@@ -54,13 +54,17 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 |![Screenshot 1](https://i.imgur.com/jjclzhS.png)       |  ![Screenshot 2](https://i.imgur.com/m73eQXI.png)|![Screenshot 3](https://i.imgur.com/ve8LkiB.png)|
 
 ## Downloads
+
+### Linux
+
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.exe)    | [DMG](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.dmg)  |  [DEB](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_amd64.deb) | [APK-Universal](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.apk)       | Maybe?       |
-| [Portable](../../releases/download/v1.0.3-1/RateMe-portable.zip)     |              |  [RPM](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.rpm)            | [APK-arm64-v8a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_arm64-v8a.apk)             |              |
-|              |              |   [ARCH](#arch-install)           | [APK-armeabi-v7a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_armeabi-v7a.apk)      |              |
-|              |              |   [NixOS](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_nixos.tar.gz)         |    [APK-x86_x64](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.apk)          |
-|              |              |   [AppImage](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.AppImage)           |              |              |               |
+| [Installer](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.exe)    | [DMG](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.dmg)  | [TAR](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.tar.gz)  | [APK-Universal](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.apk)       | Maybe?       |
+| [Portable](../../releases/download/v1.0.3-1/RateMe-portable.zip)     |              |  [DEB](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_amd64.deb)            | [APK-arm64-v8a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_arm64-v8a.apk)             |              |
+|              |              |   [RPM](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.rpm)           | [APK-armeabi-v7a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_armeabi-v7a.apk)      |              |
+|              |              |   [ARCH](#arch-install)         |    [APK-x86_x64](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.apk)          |
+|              |              |   [Flatpak](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.flatpak)           |              |              |               |
+|              |              |   [AppImage](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.AppImage)   |     |     |     |
 
 ## Installation
 
@@ -127,68 +131,6 @@ sudo apt install ./RateMe_1.0.3-1_amd64.deb
 sudo dnf install ./RateMe_1.0.3-1_x86_64.rpm
 ```
 
-#### Arch Linux
-```bash
-git clone https://github.com/ALi3naTEd0/RateMe.git
-cd RateMe
-makepkg -si
-```
-
-#### NixOS Installation
-
-##### Quick Installation
-1. Download the latest `RateMe_1.0.3-1_nixos.tar.gz` from [releases](https://github.com/ALi3naTEd0/RateMe/releases)
-2. Extract and build:
-```bash
-tar -xzf RateMe_1.0.3-1_nixos.tar.gz
-cd RateMe
-nix-build
-```
-
-##### Testing Before Installation
-
-```bash
-# Build without installing
-nix-build
-
-# Run the built package
-./result/bin/rateme
-```
-
-##### For Flakes Users
-
-Add to your flake inputs:
-```nix
-inputs.rateme = {
-  url = "github:ALi3naTEd0/RateMe";
-  inputs.nixpkgs.follows = "nixpkgs";
-};
-```
-
-Then in your configuration:
-```nix
-# For NixOS configuration
-environment.systemPackages = [ inputs.rateme.packages.${system}.default ];
-
-# For home-manager
-home.packages = [ inputs.rateme.packages.${system}.default ];
-```
-
-##### Development Environment
-
-A development shell with all dependencies is included:
-
-```bash
-# Start development environment
-nix-shell
-```
-
-##### Uninstallation
-
-```bash
-nix-env -e rateme
-```
-
 #### Flatpak Installation
 
 1. Download the Flatpak package from [releases](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.flatpak)
@@ -212,6 +154,13 @@ flatpak run com.example.RateMe
 
 ```bash
 flatpak uninstall com.example.RateMe
+```
+
+#### Arch Linux
+```bash
+git clone https://github.com/ALi3naTEd0/RateMe.git
+cd RateMe
+makepkg -si
 ```
 
 ## Technologies Used
