@@ -164,106 +164,15 @@ jobs:
           name: RateMe-RPM
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
 
-      # NixOS build
-      - name: Build NixOS Package
+      # Simple tarball build
+      - name: Build tarball
         run: |
-          VERSION="${{ inputs.version || github.event.inputs.version }}"
-          
-          # Create package structure with Nix configuration
-          mkdir -p nixos
-          cp -r build/linux/x64/release/bundle nixos/
-          
-          # Create shell.nix
-          cat > nixos/shell.nix << 'EOF'
-          { pkgs ? import <nixpkgs> {} }:
-
-          pkgs.mkShell {
-            buildInputs = with pkgs; [
-              flutter
-              pkg-config
-              gtk3
-              xorg.libX11
-              xorg.libXi
-              xorg.libXrandr
-              cairo
-              pango
-              glib
-              pcre2
-            ];
-
-            shellHook = ''
-              export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [
-                pkgs.libGL
-                pkgs.libxkbcommon
-                pkgs.vulkan-loader
-              ]}:$LD_LIBRARY_PATH
-              
-              export PUB_CACHE="$HOME/.pub-cache"
-              export CHROME_EXECUTABLE=${pkgs.chromium}/bin/chromium
-              
-              echo "Flutter development environment ready!"
-              echo "Try 'flutter doctor' to verify your setup."
-            '';
-          }
-          EOF
-          
-          # Create default.nix with icon fetching
-          cat > nixos/default.nix << 'EOF'
-          { pkgs ? import <nixpkgs> {} }:
-
-          pkgs.callPackage (
-            { lib
-            , stdenv
-            , makeWrapper
-            , pkg-config
-            , gtk3
-            , pcre2
-            , xorg
-            , gsettings-desktop-schemas
-            , glib
-            , fetchurl
-            }:
-
-            stdenv.mkDerivation rec {
-              pname = "rateme";
-              version = "VERSION_PLACEHOLDER";
-
-              src = ./bundle;
-              
-              icon = fetchurl {
-                url = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png";
-                sha256 = "05ag3r2nvadj7lwmykr9vbxf15adqxjm1c5wd1x04xnhzdlw9395";
-              };
-
-              // ...rest of working default.nix...
-            }
-          ) {}
-          EOF
-          
-          # Replace version
-          sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" nixos/default.nix
-          
-          # Create tarball with needed files
-          cd nixos
-          tar -czf "../RateMe_${VERSION}_nixos.tar.gz" bundle default.nix shell.nix
-          cd ..
-
-      - name: Upload NixOS Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: RateMe-NixOS
-          path: RateMe_${{ inputs.version || github.event.inputs.version }}_nixos.tar.gz
-
-      # Source build
-      - name: Build Source Package
-        run: |
-          VERSION="${{ inputs.version || github.event.inputs.version }}"
-          # Create minimal source package with compiled files only
+          VERSION=${{ inputs.version || github.event.inputs.version }}
           cd build/linux/x64/release/bundle
-          tar -czf "../../../../../RateMe_${VERSION}_source.tar.gz" *
+          tar -czf RateMe_${VERSION}.tar.gz *
 
-      - name: Upload Source Package
+      - name: Upload tarball artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-Source
-          path: RateMe_${{ inputs.version || github.event.inputs.version }}_source.tar.gz
+          name: RateMe-TAR
+          path: build/linux/x64/release/bundle/RateMe_${{ inputs.version || github.event.inputs.version }}.tar.gz

@@ -209,56 +209,47 @@ jobs:
           # Update version numbers and download links in README
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
           
-          # Update standard file patterns
+          # Update file patterns in README
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" README.md
-          
-          # Update tarball patterns
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" README.md
-          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_source\.tar\.gz|RateMe_${VERSION}_source.tar.gz|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" README.md
 
-          # Update website links
+          # Update website
           if [ -d "docs" ]; then
             cd docs
             
-            # Update all download links
+            # Update download links in index.html
             sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html
             
-            # Update individual file patterns
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_source\.tar\.gz|RateMe_${VERSION}_source.tar.gz|g" index.html
-
-            # Update only the universal APK - website doesn't use architecture-specific APKs
+            # Update file patterns in index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
-            
-            # Update any displayed version text
+
+            # Update version text
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
             sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
-            
-            # Update the fallback version for when GitHub API calls fail
-            # This ensures users always see the correct version even if the API request fails
             sed -i "s|document.getElementById('current-version').textContent = '[0-9.]\+-[0-9]\+'|document.getElementById('current-version').textContent = '${VERSION}'|g" index.html
             
-            # Verify the update was successful
-            echo "Current fallback version updated to: ${VERSION}"
-            grep -n "current-version" index.html
-            
-            # Debug information
-            echo "Website changes:"
+            # Verify and commit changes
+            echo "Current version updated to: ${VERSION}"
             git diff index.html
-            
-            # Commit changes
             git add index.html
             git commit -m "docs: update website to version ${VERSION}" || echo "No changes to website"
             git push || echo "No website changes to push"
           else
             echo "Docs directory not found, skipping website update"
           fi
-          
+
       - name: Update Website
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
@@ -282,8 +273,7 @@ jobs:
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html  # Additional specific pattern for AppImage
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html
-            # Add NixOS tar.gz update
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_nixos\.tar\.gz|RateMe_${VERSION}_nixos.tar.gz|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" index.html
             
             # Update only the universal APK - website doesn't use architecture-specific APKs
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
