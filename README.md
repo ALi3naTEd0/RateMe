@@ -62,7 +62,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 | [Installer](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.exe)    | [DMG](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.dmg)  | [TAR](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.tar.gz)  | [APK-Universal](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.apk)       | Maybe?       |
 | [Portable](../../releases/download/v1.0.3-1/RateMe-portable.zip)     |              |  [DEB](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_amd64.deb)            | [APK-arm64-v8a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_arm64-v8a.apk)             |              |
 |              |              |   [RPM](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.rpm)           | [APK-armeabi-v7a](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_armeabi-v7a.apk)      |              |
-|              |              |   [ARCH](#arch-install)         |    [APK-x86_x64](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.apk)          |
+|              |              |   [ARCH](#arch-linux)         |    [APK-x86_x64](../../releases/download/v1.0.3-1/RateMe_1.0.3-1_x86_64.apk)          |
 |              |              |   [Flatpak](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.flatpak)           |              |              |               |
 |              |              |   [AppImage](../../releases/download/v1.0.3-1/RateMe_1.0.3-1.AppImage)   |     |     |     |
 
