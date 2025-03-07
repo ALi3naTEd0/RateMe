@@ -175,12 +175,19 @@ jobs:
   update-docs:
     name: Update Documentation
     needs: create-release
+    # Esta es la condición crucial que necesitamos arreglar
     if: |
-      !cancelled() && !failure() &&
-      github.event_name == 'workflow_dispatch' &&
+      github.event_name == 'workflow_dispatch' && 
       github.event.inputs.release_type == 'release'
     runs-on: ubuntu-latest
     steps:
+      - name: Verify Release Type
+        run: |
+          echo "Running docs update because:"
+          echo "Event type: ${{ github.event_name }}"
+          echo "Release type: ${{ github.event.inputs.release_type }}"
+          echo "This step should ONLY run for 'release' type, not 'draft'"
+
       # Add debug info
       - name: Debug Release Type
         run: |
@@ -213,7 +220,7 @@ jobs:
           echo "Updating version numbers in README.md..."
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
           
-          # Update file patterns in README
+          # First update all file patterns in README, including APK files specifically
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" README.md
@@ -221,6 +228,12 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" README.md
+          
+          # Explicitly update Android APKs
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_arm64-v8a\.apk|RateMe_${VERSION}_arm64-v8a.apk|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_armeabi-v7a\.apk|RateMe_${VERSION}_armeabi-v7a.apk|g" README.md
+          sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.apk|RateMe_${VERSION}_x86_64.apk|g" README.md
           
           # Check if changes were made
           if git diff --quiet README.md; then
