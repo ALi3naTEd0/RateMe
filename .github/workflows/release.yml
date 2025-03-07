@@ -228,6 +228,7 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" README.md
+          sed -i "s|RateMe-portable\.zip|RateMe_${VERSION}_portable.zip|g" README.md
           
           # Explicitly update Android APKs
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" README.md
@@ -267,6 +268,10 @@ jobs:
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
             sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
             sed -i "s|document.getElementById('current-version').textContent = '[0-9.]\+-[0-9]\+'|document.getElementById('current-version').textContent = '${VERSION}'|g" index.html
+            
+            # Also update portable zip specifically
+            sed -i "s|RateMe-portable\.zip|RateMe_${VERSION}_portable.zip|g" index.html
+            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_portable\.zip|RateMe_${VERSION}_portable.zip|g" index.html
             
             if git diff --quiet index.html; then
               echo "::warning::No changes detected in website"
