@@ -150,11 +150,9 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
           files: dist/**/*
-          draft: true
+          draft: ${{ github.event.inputs.release_type == 'draft' }}
           prerelease: false
           fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set Release URL
         id: set_release_url
@@ -187,13 +185,12 @@ jobs:
       - name: Debug Release Type
         run: |
           echo "Release type: ${{ github.event.inputs.release_type }}"
-          echo "Skipping documentation update for draft releases"
+          echo "Version: ${{ needs.create-release.outputs.version }}"
           
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: rateme
-          # Add token for authentication
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # Add git configuration
@@ -203,10 +200,17 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Update Documentation
+        id: update-docs
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
+          echo "Updating documentation for version: ${VERSION}"
           
-          # Update version numbers and download links in README
+          # Debug: Show current documentation version references
+          echo "Current version references in README.md:"
+          grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+" README.md | sort | uniq
+          
+          # Update version numbers in README
+          echo "Updating version numbers in README.md..."
           sed -i "s|/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/download/v${VERSION}/|g" README.md
           
           # Update file patterns in README
@@ -217,15 +221,28 @@ jobs:
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" README.md
           sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" README.md
-
-          # Update website
+          
+          # Check if changes were made
+          if git diff --quiet README.md; then
+            echo "::warning::No changes detected in README.md"
+            echo "readme_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "README.md was updated with new version ${VERSION}"
+            echo "readme_changed=true" >> "$GITHUB_OUTPUT"
+            git add README.md
+          fi
+          
+          # Only continue with website if docs directory exists
           if [ -d "docs" ]; then
             cd docs
             
-            # Update download links in index.html
-            sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html
+            # Debug: Show current website version references
+            echo "Current version references in index.html:"
+            grep -o "RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+" index.html | sort | uniq
             
-            # Update file patterns in index.html
+            # Update all version references
+            echo "Updating website for version ${VERSION}..."
+            sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html
@@ -234,70 +251,27 @@ jobs:
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.tar\.gz|RateMe_${VERSION}.tar.gz|g" index.html
             sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
-
-            # Update version text
             sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
             sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
             sed -i "s|document.getElementById('current-version').textContent = '[0-9.]\+-[0-9]\+'|document.getElementById('current-version').textContent = '${VERSION}'|g" index.html
             
-            # Verify and commit changes
-            echo "Current version updated to: ${VERSION}"
-            git diff index.html
-            git add index.html
-            git commit -m "docs: update website to version ${VERSION}" || echo "No changes to website"
-            git push || echo "No website changes to push"
+            if git diff --quiet index.html; then
+              echo "::warning::No changes detected in website"
+              echo "website_changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Website was updated with new version ${VERSION}"
+              echo "website_changed=true" >> "$GITHUB_OUTPUT"
+              git add index.html
+            fi
           else
-            echo "Docs directory not found, skipping website update"
+            echo "::warning::Docs directory not found, skipping website update"
           fi
-
-      - name: Update Website
-        run: |
-          VERSION="${{ needs.create-release.outputs.version }}"
           
-          if [ -d "docs" ]; then
-            cd docs
-            
-            # For website, just update the universal APK link and standard app downloads
-            # Universal APK is the only Android version linked on the website
-            sed -i "s|window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk'|window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v${VERSION}/RateMe_${VERSION}.apk'|g" index.html
-            
-            # Explicitly update the AppImage link to ensure it's caught
-            sed -i "s|href=\"https://github.com/ALi3naTEd0/RateMe/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage\"|href=\"https://github.com/ALi3naTEd0/RateMe/releases/download/v${VERSION}/RateMe_${VERSION}.AppImage\"|g" index.html
-            
-            # Update standard download links in the HTML
-            sed -i "s|/releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+/|/releases/download/v${VERSION}/|g" index.html
-            
-            # Individual file patterns to ensure they're all caught
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.exe|RateMe_${VERSION}.exe|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.dmg|RateMe_${VERSION}.dmg|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.AppImage|RateMe_${VERSION}.AppImage|g" index.html  # Additional specific pattern for AppImage
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_amd64\.deb|RateMe_${VERSION}_amd64.deb|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+_x86_64\.rpm|RateMe_${VERSION}_x86_64.rpm|g" index.html
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.flatpak|RateMe_${VERSION}.flatpak|g" index.html
-            
-            # Update only the universal APK - website doesn't use architecture-specific APKs
-            sed -i "s|RateMe_[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\.apk|RateMe_${VERSION}.apk|g" index.html
-            
-            # Update any displayed version text
-            sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+|Version ${VERSION}|g" index.html
-            sed -i "s|\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+\"|\"version\": \"${VERSION}\"|g" index.html
-            
-            # Update the fallback version for when GitHub API calls fail
-            # This ensures users always see the correct version even if the API request fails
-            sed -i "s|document.getElementById('current-version').textContent = '[0-9.]\+-[0-9]\+'|document.getElementById('current-version').textContent = '${VERSION}'|g" index.html
-            
-            # Verify the update was successful
-            echo "Current fallback version updated to: ${VERSION}"
-            grep -n "current-version" index.html
-            
-            # Debug information
-            echo "Website changes:"
-            git diff index.html
-            
-            # Commit changes
-            git add index.html
-            git commit -m "docs: update website to version ${VERSION}" || echo "No changes to website"
-            git push || echo "No website changes to push"
+          # Commit changes if any files were modified
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
           else
-            echo "Docs directory not found, skipping website update"
+            git commit -m "docs: update documentation to version ${VERSION}"
+            git push origin rateme
+            echo "Documentation updated successfully"
           fi
