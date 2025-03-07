@@ -751,7 +751,7 @@ class AppVersionFooter extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 10.0),
         child: Text(
-          'Rate Me! v1.0.3-1', // Full app name with version is more conventional
+          'Rate Me! v1.0.4-1', // Update version number
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
@@ -788,7 +788,7 @@ class AppVersionFooter extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('Version: 1.0.3-1'),
+              Text('Version: 1.0.4-1'), // Update version number here too
               const SizedBox(height: 12),
               const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
               const SizedBox(height: 12),

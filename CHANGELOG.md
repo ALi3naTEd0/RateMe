@@ -35,6 +35,14 @@ All notable changes to this project will be documented in this file.
 - Improved build reproducibility with flake.lock
 - Better cross-distribution compatibility through standardized packaging
 
+## [1.0.4-1] - 2024-02-29
+
+### Fixed
+- Fixed track count inconsistency by properly filtering video tracks
+- Corrected track saving in custom lists and saved albums
+- Ensured consistent track filtering across all album views
+- Fixed track data persistence when saving albums
+
 ## [1.0.3-1] - 2025-02-28
 
 ### Added

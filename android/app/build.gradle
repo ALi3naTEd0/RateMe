@@ -36,8 +36,8 @@ android {
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         // Fixed version numbers
-        versionCode 4  // Increment this for each release (1.0.3 = 4)
-        versionName "1.0.3-1"  // Actual version string
+        versionCode 5  // Increment from 4 to 5 for version 1.0.4
+        versionName "1.0.4-1"  // Actual version string
         
         // Set app name with exclamation mark
         resValue "string", "app_name", "Rate Me!"

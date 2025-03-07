@@ -195,11 +195,11 @@ class _DetailsPageState extends State<DetailsPage> {
       final response = await http.get(url);
       final data = jsonDecode(response.body);
       
-      // Filter only audio tracks, excluding videos
+      // Filter only audio tracks, excluding video content
       var trackList = data['results']
           .where((track) => 
             track['wrapperType'] == 'track' && 
-            track['kind'] == 'song'  // Add this condition
+            track['kind'] == 'song'  // Filter video tracks
           )
           .toList();
       
@@ -403,7 +403,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                 albumToSave['tracks'] = tracks;
                                 await UserData.saveAlbum(albumToSave);
                                 
-                                // Save to list
+                                // Add to saved albums list
                                 await UserData.addToSavedAlbums(albumToSave);
                                 
                                 if (!mounted) return;
