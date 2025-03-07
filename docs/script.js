@@ -32,3 +32,32 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function downloadLinuxFormat(format) {
+    const version = document.getElementById('current-version').textContent;
+    const baseUrl = `https://github.com/ALi3naTEd0/RateMe/releases/download/v${version}/RateMe_${version}`;
+    
+    let url;
+    switch (format) {
+        case 'AppImage':
+            url = `${baseUrl}.AppImage`;
+            break;
+        case 'deb':
+            url = `${baseUrl}_amd64.deb`;
+            break;
+        case 'rpm':
+            url = `${baseUrl}_x86_64.rpm`;
+            break;
+        case 'flatpak':
+            url = `${baseUrl}.flatpak`;
+            break;
+        case 'tar':
+            url = `${baseUrl}.tar.gz`;
+            break;
+        default:
+            return;
+    }
+    
+    window.location.href = url;
+    showLinuxInstructions(format.toLowerCase());
+}
