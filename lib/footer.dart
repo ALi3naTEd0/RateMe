@@ -59,8 +59,7 @@ class AppVersionFooter extends StatelessWidget {
               const SizedBox(height: 12),
               const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
               const SizedBox(height: 12),
-              const Text('License: GPL-3.0'),
-              const SizedBox(height: 12),
+              const Text('License: MIT'),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,

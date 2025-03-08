@@ -3,7 +3,7 @@
 # Rate Me!
 
 ![Version](https://img.shields.io/github/v/release/ALi3naTEd0/RateMe?include_prereleases)
-![License](https://img.shields.io/badge/license-GPL--3.0-green)
+![License](https://img.shields.io/badge/license-MIT-green)
 ![Downloads](https://img.shields.io/github/downloads/ALi3naTEd0/RateMe/total)
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
@@ -242,9 +242,9 @@ To contribute:
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the `LICENSE` file for more details.
+This project is licensed under the MIT License - see the `LICENSE` file for details.
 
-The GPL-3.0 is a strong copyleft license that requires any derivative software to also be open source under the same license. This ensures that the software remains free and open, protecting the rights of users and developers.
+The MIT License is a permissive license that is short and to the point. It allows people to do anything with your code with proper attribution and without warranty.
 
 ## Acknowledgements
 
