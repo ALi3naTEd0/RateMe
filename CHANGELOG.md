@@ -5,37 +5,61 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Flatpak package support for Linux
-- Full GTK theme support in all Linux packages
 - Nix flakes support for better NixOS integration
 - Development shell for NixOS users
 
 ### Changed
-- Standardized application name to "Rate Me!" across all platforms
-- Improved desktop integration for Linux packages
-- Fixed icon issues in Arch Linux package
-- Consistent icon naming across all Linux packages
 - Enhanced NixOS packaging with better runtime dependencies
-- Standardized Android package ID from com.example.rateme to com.ali3nated0.rateme
-  Note: This will cause a one-time duplicate installation. Future updates will work normally.
 
 ### Fixed
-- Icon visibility in Arch Linux package
-- GTK dependencies in Flatpak package
-- Desktop entry consistency across all Linux distributions
-- Missing exclamation mark in application name
 - NixOS runtime library paths and dependencies
-- Android app duplication issue caused by different signing keys
-  Note: The app needed to be installed twice for version 1.0.3 due to a signing key change. This is a one-time issue and future updates will work normally.
-- Android package ID consistency: Reverted temporary change from com.ali3nated0.rateme back to original com.example.rateme
-  Note: Some 1.0.3 builds were released with com.ali3nated0.rateme. Please uninstall and reinstall if you have this version.
 
 ### Development
 - Added development shell with all required dependencies for NixOS
 - Improved build reproducibility with flake.lock
-- Better cross-distribution compatibility through standardized packaging
 
-## [1.0.4-1] - 2024-02-29
+## [1.0.4-4] - 2025-07-22
+
+### Changed
+- Changed project license from GPL-3.0 to MIT
+- Centralized version management in dedicated footer.dart file
+- Updated Discord server link to official server
+- Standardized application name to "Rate Me!" across all platforms
+- Improved desktop integration for Linux packages
+- Fixed icon issues in Arch Linux package
+- Consistent icon naming across all Linux packages
+
+### Added 
+- Flatpak package support for Linux
+- Full GTK theme support in all Linux packages
+
+### Fixed
+- Fixed Android app not launching on some devices
+- Fixed track filtering to exclude videos from iTunes results
+- Fixed portable Windows package structure with data directory
+- Fixed release workflow for proper version propagation
+- Icon visibility in Arch Linux package
+- GTK dependencies in Flatpak package
+- Desktop entry consistency across all Linux distributions
+- Missing exclamation mark in application name
+
+## [1.0.4-3] - 2025-07-15
+
+### Fixed
+- Fixed Android app not launching on some devices
+- Fixed track filtering to exclude videos from iTunes results
+- Fixed portable Windows package structure with data directory
+- Improved version management and documentation
+- Fixed release workflow for proper version propagation
+
+## [1.0.4-2] - 2025-07-10
+
+### Fixed
+- Fixed portable Windows package structure
+- Updated documentation and downloads layout
+- Simplified Linux artifacts (single tarball)
+
+## [1.0.4-1] - 2025-02-29
 
 ### Fixed
 - Fixed track count inconsistency by properly filtering video tracks
