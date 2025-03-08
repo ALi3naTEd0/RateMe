@@ -8,7 +8,7 @@
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
 
-[Discord](https://discord.gg/xAh9QdAWHn)
+[Discord](https://discord.gg/UQ55AVv4ZY)
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -260,7 +260,7 @@ The MIT License is a permissive license that is short and to the point. It allow
 
 ## Contact
 
-[Discord](https://discord.gg/xAh9QdAWHn)
+[Discord](https://discord.gg/UQ55AVv4ZY)
 
 Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTEd0/RateMe)
 
