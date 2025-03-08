@@ -17,6 +17,7 @@ import 'user_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'custom_lists_page.dart';
 import 'theme.dart';  // Add this import
+import 'footer.dart'; // Import the new footer module
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -214,8 +215,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               },
             ),
           ),
-          // Updated version footer - larger text, with underline to indicate it's clickable
-          const AppVersionFooter(), // Use the new AppVersionFooter widget
+          // Use the new AppVersionFooter widget from footer.dart
+          const AppVersionFooter(),
         ],
       ),
     );
@@ -737,82 +738,5 @@ class BandcampService {
       }
     }
     return null;
-  }
-}
-
-class AppVersionFooter extends StatelessWidget {
-  const AppVersionFooter({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showAboutDialog(context),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10.0),
-        child: Text(
-          'Rate Me! v1.0.4-1', // Update version number
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            decoration: TextDecoration.underline,
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8) ?? Colors.grey,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ...existing code...
-  void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Stack(
-            children: [
-              const Center(child: Text('About Rate Me!')),
-              Positioned(
-                right: -8,
-                top: -8,
-                child: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text('Version: 1.0.4-1'), // Update version number here too
-              const SizedBox(height: 12),
-              const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
-              const SizedBox(height: 12),
-              const Text('License: GPL-3.0'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                ),
-                child: const Text(
-                  'Website',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onPressed: () async {
-                  final uri = Uri.parse('https://ali3nated0.github.io/RateMe/');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 }

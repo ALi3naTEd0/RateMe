@@ -37,8 +37,8 @@ android {
         // Try to set a lower minSdkVersion for better compatibility
         minSdkVersion 21 // Changed from flutter.minSdkVersion to 21 for better compatibility
         targetSdkVersion flutter.targetSdkVersion
-        versionCode 6  // Increment from 5 to 6 for new version
-        versionName "1.0.4-2"  // Update to 1.0.4-2 for new version
+        versionCode 7  // Increment from 6 to 7 for new version
+        versionName "1.0.4-3"  // Update to 1.0.4-3 for new version
         
         // Set app name with exclamation mark
         resValue "string", "app_name", "Rate Me!"
