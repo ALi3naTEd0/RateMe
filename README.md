@@ -59,19 +59,19 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
-| [Installer](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.exe)    | [DMG](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.dmg)  | [TAR](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.tar.gz)  | [APK-Universal](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.apk)       | Maybe?       |
-| [Portable](../../releases/download/v1.0.4-1/RateMe_1.0.4-1_portable.zip)     |              |  [DEB](../../releases/download/v1.0.4-1/RateMe_1.0.4-1_amd64.deb)            | [APK-arm64-v8a](../../releases/download/v1.0.4-1/RateMe_1.0.4-1_arm64-v8a.apk)             |              |
-|              |              |   [RPM](../../releases/download/v1.0.4-1/RateMe_1.0.4-1_x86_64.rpm)           | [APK-armeabi-v7a](../../releases/download/v1.0.4-1/RateMe_1.0.4-1_armeabi-v7a.apk)      |              |
-|              |              |   [ARCH](#arch-linux)         |    [APK-x86_x64](../../releases/download/v1.0.4-1/RateMe_1.0.4-1_x86_64.apk)          |
-|              |              |   [Flatpak](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.flatpak)           |              |              |               |
-|              |              |   [AppImage](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.AppImage)   |     |     |     |
+| [Installer](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.exe)    | [DMG](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.dmg)  | [TAR](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.tar.gz)  | [APK-Universal](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.apk)       | Maybe?       |
+| [Portable](../../releases/download/v1.0.4-2/RateMe_1.0.4-2_portable.zip)     |              |  [DEB](../../releases/download/v1.0.4-2/RateMe_1.0.4-2_amd64.deb)            | [APK-arm64-v8a](../../releases/download/v1.0.4-2/RateMe_1.0.4-2_arm64-v8a.apk)             |              |
+|              |              |   [RPM](../../releases/download/v1.0.4-2/RateMe_1.0.4-2_x86_64.rpm)           | [APK-armeabi-v7a](../../releases/download/v1.0.4-2/RateMe_1.0.4-2_armeabi-v7a.apk)      |              |
+|              |              |   [ARCH](#arch-linux)         |    [APK-x86_x64](../../releases/download/v1.0.4-2/RateMe_1.0.4-2_x86_64.apk)          |
+|              |              |   [Flatpak](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.flatpak)           |              |              |               |
+|              |              |   [AppImage](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.AppImage)   |     |     |     |
 
 ## Installation
 
 ### Windows
-1. Installer: Run `RateMe_1.0.4-1.exe` and follow the installation wizard
+1. Installer: Run `RateMe_1.0.4-2.exe` and follow the installation wizard
    - Or -
-2. Portable: Extract `RateMe_1.0.4-1_portable.zip` and run `RateMe.exe`
+2. Portable: Extract `RateMe_1.0.4-2_portable.zip` and run `RateMe.exe`
 
 ### Android
 1. Choose the correct version:
@@ -91,7 +91,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 Note: If you're not sure which version to use, install APK-Universal
 
 ### macOS
-1. Download `RateMe_1.0.4-1.dmg`
+1. Download `RateMe_1.0.4-2.dmg`
 2. Open the DMG file
 3. Drag RateMe to your Applications folder
 4. First time running:
@@ -110,30 +110,30 @@ Then try opening the app again. This removes macOS security quarantine.
 ### Linux Installation
 
 #### AppImage
-1. Download `RateMe_1.0.4-1.AppImage`
+1. Download `RateMe_1.0.4-2.AppImage`
 2. Make it executable:
 ```bash
-chmod +x RateMe_1.0.4-1.AppImage
+chmod +x RateMe_1.0.4-2.AppImage
 ```
 3. Run it:
 ```bash
-./RateMe_1.0.4-1.AppImage
+./RateMe_1.0.4-2.AppImage
 ```
 No installation needed - the AppImage is portable and works on most Linux distributions.
 
 #### DEB Package (Ubuntu/Debian)
 ```bash
-sudo apt install ./RateMe_1.0.4-1_amd64.deb
+sudo apt install ./RateMe_1.0.4-2_amd64.deb
 ```
 
 #### RPM Package (Fedora/RHEL)
 ```bash
-sudo dnf install ./RateMe_1.0.4-1_x86_64.rpm
+sudo dnf install ./RateMe_1.0.4-2_x86_64.rpm
 ```
 
 #### Flatpak Installation
 
-1. Download the Flatpak package from [releases](../../releases/download/v1.0.4-1/RateMe_1.0.4-1.flatpak)
+1. Download the Flatpak package from [releases](../../releases/download/v1.0.4-2/RateMe_1.0.4-2.flatpak)
 
 2. Install required runtime (if not already installed):
 ```bash
@@ -142,7 +142,7 @@ flatpak install flathub org.freedesktop.Platform//21.08
 
 3. Install RateMe:
 ```bash
-flatpak install ./RateMe_1.0.4-1.flatpak
+flatpak install ./RateMe_1.0.4-2.flatpak
 ```
 
 4. Run RateMe:
