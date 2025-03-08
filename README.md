@@ -55,8 +55,6 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Downloads
 
-### Linux
-
 | Windows      | MacOS        | Linux        | Android      | iOS          |
 |--------------|--------------|--------------|--------------|--------------|
 | [Installer](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.exe)    | [DMG](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.dmg)  | [TAR](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.tar.gz)  | [APK-Universal](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.apk)       | Maybe?       |
