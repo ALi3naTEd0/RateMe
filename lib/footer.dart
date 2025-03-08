@@ -9,7 +9,7 @@ class AppVersionFooter extends StatelessWidget {
   const AppVersionFooter({super.key});
 
   // Current app version - update this for new releases
-  static const String appVersion = '1.0.4-3';
+  static const String appVersion = '1.0.4-4';
 
   @override
   Widget build(BuildContext context) {
