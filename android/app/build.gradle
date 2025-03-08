@@ -32,12 +32,13 @@ android {
     }
 
     defaultConfig {
+        // Ensure package name matches manifest
         applicationId "com.ali3nated0.rateme"
-        minSdkVersion flutter.minSdkVersion
+        // Try to set a lower minSdkVersion if possible
+        minSdkVersion 21 // Cambiar de flutter.minSdkVersion a 21 para mejor compatibilidad
         targetSdkVersion flutter.targetSdkVersion
-        // Fixed version numbers
-        versionCode 5  // Increment from 4 to 5 for version 1.0.4
-        versionName "1.0.4-1"  // Actual version string
+        versionCode 6  // Incrementar de 5 a 6 para nueva versión
+        versionName "1.0.4-2"  // Actualizar a 1.0.4-2 para nueva versión
         
         // Set app name with exclamation mark
         resValue "string", "app_name", "Rate Me!"

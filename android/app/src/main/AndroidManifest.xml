@@ -17,6 +17,7 @@
         android:requestLegacyExternalStorage="true"
         android:preserveLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
+        <!-- Asegúrate de que android:exported="true" esté presente -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
