@@ -178,7 +178,7 @@ jobs:
   update-docs:
     name: Update Documentation
     needs: create-release
-    # This is the crucial condition that needed fixing
+    # Fixed condition to properly check the release type
     if: |
       github.event_name == 'workflow_dispatch' && 
       github.event.inputs.release_type == 'release'
@@ -213,6 +213,7 @@ jobs:
         id: update-docs
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
+          TODAY=$(date +"%Y-%m-%d")
           echo "Updating documentation for version: ${VERSION}"
           
           # Debug: Show current documentation version references
@@ -252,6 +253,22 @@ jobs:
             echo "README.md was updated with new version ${VERSION}"
             echo "readme_changed=true" >> "$GITHUB_OUTPUT"
             git add README.md
+          fi
+          
+          # Update CHANGELOG.md - Move Unreleased to new version
+          echo "Updating CHANGELOG.md for version ${VERSION}..."
+          if [ -f "CHANGELOG.md" ]; then
+            sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [${VERSION}] - ${TODAY}/" CHANGELOG.md
+            if git diff --quiet CHANGELOG.md; then
+              echo "::warning::No changes detected in CHANGELOG.md"
+              echo "changelog_changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "CHANGELOG.md was updated with new version ${VERSION}"
+              echo "changelog_changed=true" >> "$GITHUB_OUTPUT"
+              git add CHANGELOG.md
+            fi
+          else
+            echo "::warning::CHANGELOG.md not found, skipping changelog update"
           fi
           
           # Only continue with website if docs directory exists
