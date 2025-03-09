@@ -1,4 +1,4 @@
-<img src="assets/rateme.png" width="200">
+<img src="assets/rateme.png" width="200" align="center">
 
 # Rate Me!
 
@@ -10,23 +10,18 @@
 
 [Discord](https://discord.gg/UQ55AVv4ZY)
 
-## Table of Contents
-- [Introduction](#introduction)
-- [Screenshots](#screenshots)
-- [Downloads](#downloads)
-- [Installation](#installation)
-- [Features](#features)
-- [Technologies Used](#technologies-used)
-- [Getting Started](#getting-started)
-- [How to Use](#how-to-use)
-- [Project Architecture](#project-architecture)
-- [Development](#development)
-- [Roadmap](#roadmap)
-- [Contributions](#contributions)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Contact](#contact)
-- [Documentation](#documentation)
+<div align="center">
+
+[Introduction](#introduction) •
+[Features](#features) •
+[Screenshots](#screenshots) •
+[Downloads](#downloads) •
+[Installation](#installation) •
+[Documentation](#documentation) •
+[Development](#development) •
+[Contributing](#contributions)
+
+</div>
 
 ## Introduction
 
@@ -55,14 +50,37 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Downloads
 
-| Windows      | MacOS        | Linux        | Android      | iOS          |
-|--------------|--------------|--------------|--------------|--------------|
-| [Installer](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.exe)    | [DMG](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.dmg)  | [TAR](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.tar.gz)  | [APK-Universal](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.apk)       | Maybe?       |
-| [Portable](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_portable.zip)     |              |  [DEB](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_amd64.deb)            | [APK-arm64-v8a](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_arm64-v8a.apk)             |              |
-|              |              |   [RPM](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_x86_64.rpm)           | [APK-armeabi-v7a](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_armeabi-v7a.apk)      |              |
-|              |              |   [ARCH](#arch-linux)         |    [APK-x86_x64](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_x86_64.apk)          |
-|              |              |   [Flatpak](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.flatpak)           |              |              |               |
-|              |              |   [AppImage](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.AppImage)   |     |     |     |
+<div align="center">
+
+### Desktop Applications
+
+| Platform | Format | Download |
+|:--------:|:------:|:--------:|
+| Windows | Installer | [**RateMe_1.0.4-4.exe**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.exe) |
+| Windows | Portable | [**RateMe_1.0.4-4_portable.zip**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_portable.zip) |
+| macOS | Universal | [**RateMe_1.0.4-4.dmg**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.dmg) |
+
+### Linux Packages
+
+| Format | Architecture | Download |
+|:------:|:-----------:|:--------:|
+| AppImage | x86_64 | [**RateMe_1.0.4-4.AppImage**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.AppImage) |
+| DEB | amd64 | [**RateMe_1.0.4-4_amd64.deb**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_amd64.deb) |
+| RPM | x86_64 | [**RateMe_1.0.4-4_x86_64.rpm**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_x86_64.rpm) |
+| Flatpak | Universal | [**RateMe_1.0.4-4.flatpak**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.flatpak) |
+| Arch Linux | - | [**AUR Instructions**](#arch-linux) |
+
+### Mobile Applications
+
+| Platform | Version | Download |
+|:--------:|:-------:|:--------:|
+| Android | Universal | [**RateMe_1.0.4-4.apk**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4.apk) |
+| Android | arm64-v8a | [**RateMe_1.0.4-4_arm64-v8a.apk**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_arm64-v8a.apk) |
+| Android | armeabi-v7a | [**RateMe_1.0.4-4_armeabi-v7a.apk**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_armeabi-v7a.apk) |
+| Android | x86_64 | [**RateMe_1.0.4-4_x86_64.apk**](../../releases/download/v1.0.4-4/RateMe_1.0.4-4_x86_64.apk) |
+| iOS | - | Coming soon |
+
+</div>
 
 ## Installation
 
