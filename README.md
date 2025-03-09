@@ -8,8 +8,6 @@
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
 
-[Discord](https://discord.gg/UQ55AVv4ZY)
-
 <div align="center">
 
 [Introduction](#introduction) •
@@ -17,9 +15,18 @@
 [Screenshots](#screenshots) •
 [Downloads](#downloads) •
 [Installation](#installation) •
-[Documentation](#documentation) •
+[Technologies](#technologies-used) •
+[Getting Started](#getting-started) •
+[How to Use](#how-to-use) •
+[Project Architecture](#project-architecture) •
 [Development](#development) •
-[Contributing](#contributions)
+[Roadmap](#roadmap) •
+[Contributing](#contributions) •
+[License](#license) •
+[Acknowledgements](#acknowledgements) •
+[Contact](#contact) •
+[Documentation](#documentation) •
+[Discord](https://discord.gg/UQ55AVv4ZY)
 
 </div>
 
