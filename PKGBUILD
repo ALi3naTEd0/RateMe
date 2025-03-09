@@ -5,7 +5,7 @@ pkgrel=4
 pkgdesc="Rate Me! - A music album rating application"  # Note the exclamation mark here
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
-license=('GPL3')
+license=('MIT')
 depends=(
     'gtk3'
     'zenity'
