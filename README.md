@@ -25,8 +25,7 @@
 [License](#license) •
 [Acknowledgements](#acknowledgements) •
 [Contact](#contact) •
-[Documentation](#documentation) •
-[Discord](https://discord.gg/UQ55AVv4ZY)
+[Documentation](#documentation)
 
 </div>
 
