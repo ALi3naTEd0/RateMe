@@ -16,7 +16,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - NixOS runtime library paths and dependencies
 - Improved iTunes search album labeling with cleaner format: show "(Clean)" instead of "[Clean]" only for clean versions
-- Removed redundant "[Deluxe]" labels from search results when the title already includes "Deluxe"
 - Updated About dialog to display correct app version and license information
 - Centralized version display in AppVersionFooter to avoid duplicated information
 
