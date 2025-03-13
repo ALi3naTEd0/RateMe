@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: rateme
+          ref: main
 
       # Install all build dependencies first
       - name: Install Dependencies

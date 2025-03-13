@@ -42,10 +42,21 @@ jobs:
               New-Item -ItemType Directory -Path "assets" -Force
           }
           
-          $iconUrl = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.ico"
+          # Use main branch instead of rateme
+          $iconUrl = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.ico"
+          # If ico file doesn't exist on main, try png
+          $iconUrlFallback = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png"
           $outputPath = "assets/rateme.ico"
+          
           Write-Host "Downloading icon from: $iconUrl"
-          Invoke-WebRequest -Uri $iconUrl -OutFile $outputPath
+          try {
+              Invoke-WebRequest -Uri $iconUrl -OutFile $outputPath -ErrorAction Stop
+          } catch {
+              Write-Host "Icon not found at $iconUrl, trying fallback..."
+              Invoke-WebRequest -Uri $iconUrlFallback -OutFile "assets/rateme.png" -ErrorAction Stop
+              # Use the png file directly since we don't have ico
+              Copy-Item "assets/rateme.png" -Destination $outputPath -Force
+          }
           
           if (Test-Path $outputPath) {
               Write-Host "Icon downloaded successfully to: $outputPath"
