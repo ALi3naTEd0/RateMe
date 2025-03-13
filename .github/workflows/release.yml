@@ -315,6 +315,6 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "docs: update documentation to version ${VERSION}"
-            git push origin main  # Cambiado de 'rateme' a 'main'
+            git push origin main
             echo "Documentation updated successfully"
           fi
