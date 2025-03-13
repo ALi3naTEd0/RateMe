@@ -10,9 +10,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Enhanced NixOS packaging with better runtime dependencies
+- Refactored AppVersionFooter to dynamically load app version information
+- Moved About dialog functionality from main.dart to footer.dart for better code organization
 
 ### Fixed
 - NixOS runtime library paths and dependencies
+- Improved iTunes search album labeling with cleaner format: show "(Clean)" instead of "[Clean]" only for clean versions
+- Removed redundant "[Deluxe]" labels from search results when the title already includes "Deluxe"
+- Updated About dialog to display correct app version and license information
+- Centralized version display in AppVersionFooter to avoid duplicated information
 
 ### Development
 - Added development shell with all required dependencies for NixOS
