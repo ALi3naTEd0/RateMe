@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### Added
@@ -12,12 +15,18 @@ All notable changes to this project will be documented in this file.
 - Enhanced NixOS packaging with better runtime dependencies
 - Refactored AppVersionFooter to dynamically load app version information
 - Moved About dialog functionality from main.dart to footer.dart for better code organization
+- Migrated primary branch from `rateme` to `main` to follow GitHub best practices
+- Updated all workflow references to use the `main` branch
+- Fixed links and paths in documentation to point to the `main` branch
 
 ### Fixed
 - NixOS runtime library paths and dependencies
 - Improved iTunes search album labeling with cleaner format: show "(Clean)" instead of "[Clean]" only for clean versions
 - Updated About dialog to display correct app version and license information
 - Centralized version display in AppVersionFooter to avoid duplicated information
+- Issues with icon and asset paths in CI/CD workflows
+- macOS compatibility with ImageMagick by using `magick` command instead of `convert`
+- URLs in flatpak.yml to download resources from the correct branch
 
 ### Development
 - Added development shell with all required dependencies for NixOS
@@ -37,6 +46,9 @@ All notable changes to this project will be documented in this file.
 ### Added 
 - Flatpak package support for Linux
 - Full GTK theme support in all Linux packages
+- Support for multiple languages with initial internationalization
+- Spanish translations
+- Improvements to the theme system
 
 ### Fixed
 - Fixed Android app not launching on some devices
@@ -47,8 +59,15 @@ All notable changes to this project will be documented in this file.
 - GTK dependencies in Flatpak package
 - Desktop entry consistency across all Linux distributions
 - Missing exclamation mark in application name
+- Issues with file picker on Linux
+- Proper display of albums with special characters
+- Better error handling in album searches
 
 ## [1.0.4-3] - 2025-07-15
+
+### Added
+- Flatpak support for Linux
+- Enhanced album sharing functionality
 
 ### Fixed
 - Fixed Android app not launching on some devices
@@ -56,6 +75,8 @@ All notable changes to this project will be documented in this file.
 - Fixed portable Windows package structure with data directory
 - Improved version management and documentation
 - Fixed release workflow for proper version propagation
+- Issues with Windows installer
+- UI loading time
 
 ## [1.0.4-2] - 2025-07-10
 
