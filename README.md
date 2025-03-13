@@ -1,4 +1,5 @@
-<img src="assets/rateme.png" width="200" align="center">
+<div align="center">
+img src="assets/rateme.png" width="200" align="center">
 
 # Rate Me!
 
@@ -7,6 +8,8 @@
 ![Downloads](https://img.shields.io/github/downloads/ALi3naTEd0/RateMe/total)
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
+
+</div>
 
 <div align="center">
 
