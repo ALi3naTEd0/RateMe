@@ -1,5 +1,5 @@
 <div align="center">
-img src="assets/rateme.png" width="200" align="center">
+<img src="assets/rateme.png" width="200" align="center">
 
 # Rate Me!
 
