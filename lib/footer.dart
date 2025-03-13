@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// App version footer widget that displays the current app version
 /// and shows an about dialog when tapped.
-///
-/// Separating this into its own file makes version updates easier to manage.
-class AppVersionFooter extends StatelessWidget {
+class AppVersionFooter extends StatefulWidget {
   const AppVersionFooter({super.key});
 
-  // Current app version - update this for new releases
-  static const String appVersion = '1.0.4-4';
+  @override
+  State<AppVersionFooter> createState() => _AppVersionFooterState();
+}
+
+class _AppVersionFooterState extends State<AppVersionFooter> {
+  String appVersion = '';
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        appVersion = packageInfo.version;
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +39,7 @@ class AppVersionFooter extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 10.0),
         child: Text(
-          'Rate Me! v$appVersion',
+          isLoading ? 'Rate Me!' : 'Rate Me! v$appVersion',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,

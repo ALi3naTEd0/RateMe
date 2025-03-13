@@ -687,7 +687,7 @@ class UserData {
       }
 
       // Save entire lists array
-      await prefs.setStringList(_customListsKey, lists);  // Quitar el map innecesario
+      await prefs.setStringList(_customListsKey, lists);  // Remove the unnecessary map
     } catch (e, stackTrace) {
       Logging.severe('Error saving custom list', e, stackTrace);
       rethrow;
