@@ -1,11 +1,10 @@
 name: rateme
 description: A Flutter application for rating and managing your music collection.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-# Update license info
 license: MIT
 
-# Version information
-version: 1.0.4-4
+# Development version identifier
+version: 1.0.4-4-git  # Changed from '1.0.4-4+git' to '1.0.4-4-git' to match standard Git versioning
 
 environment:
   sdk: '>=3.2.0 <4.0.0'  # Changed from 3.2.6 to 3.2.0
