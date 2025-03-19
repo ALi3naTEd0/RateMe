@@ -8,29 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nix flakes support for better NixOS integration
-- Development shell for NixOS users
+- Improved color picker with live preview in settings
+- Better theme persistence across app restarts
+- Option to choose between light/dark button text
+- Improved album search with better handling of clean/explicit versions
+- URL detection from clipboard for quick album import
 
 ### Changed
-- Enhanced NixOS packaging with better runtime dependencies
-- Refactored AppVersionFooter to dynamically load app version information
-- Moved About dialog functionality from main.dart to footer.dart for better code organization
-- Migrated primary branch from `rateme` to `main` to follow GitHub best practices
-- Updated all workflow references to use the `main` branch
-- Fixed links and paths in documentation to point to the `main` branch
+- Unified button text style for better consistency
+- Slider colors now properly follow theme's primary color
+- Color picker preview now shows actual button style
+- Enhanced search results organization and deduplication
+- Improved Bandcamp album handling
 
 ### Fixed
-- NixOS runtime library paths and dependencies
-- Improved iTunes search album labeling with cleaner format: show "(Clean)" instead of "[Clean]" only for clean versions
-- Updated About dialog to display correct app version and license information
-- Centralized version display in AppVersionFooter to avoid duplicated information
-- Issues with icon and asset paths in CI/CD workflows
-- macOS compatibility with ImageMagick by using `magick` command instead of `convert`
-- URLs in flatpak.yml to download resources from the correct branch
-
-### Development
-- Added development shell with all required dependencies for NixOS
-- Improved build reproducibility with flake.lock
+- Theme color not persisting after app restart
+- Inconsistent button text colors across the app
+- Sliders not updating color when changing theme
+- Duplicate album entries in search results
+- Missing track information from some sources
 
 ## [1.0.4-4] - 2025-07-22
 
