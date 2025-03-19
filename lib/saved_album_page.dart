@@ -279,8 +279,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              // Use the centralized slider theme
-              data: RateMeTheme.getSliderTheme(context),
+              data: Theme.of(context).sliderTheme,  // Replace getSliderTheme with direct theme access
               child: Slider(
                 min: 0,
                 max: 10,

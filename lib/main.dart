@@ -6,6 +6,7 @@ import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';  // Add this import for Clipboard
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -18,6 +19,7 @@ import 'package:path_provider/path_provider.dart';
 import 'custom_lists_page.dart';
 import 'theme.dart';
 import 'footer.dart';
+import 'settings_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,17 +36,19 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool isDarkMode = false;
+  Color primaryColor = const Color(0xFF864AF9); // Default color
 
   @override
   void initState() {
     super.initState();
-    _loadThemeMode();
+    _loadSettings();
   }
 
-  Future<void> _loadThemeMode() async {
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       isDarkMode = prefs.getBool('darkMode') ?? false;
+      primaryColor = Color(prefs.getInt('primaryColor') ?? 0xFF864AF9);
     });
   }
 
@@ -52,8 +56,16 @@ class _MyAppState extends State<MyApp> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       isDarkMode = !isDarkMode;
-      prefs.setBool('darkMode', isDarkMode);
     });
+    await prefs.setBool('darkMode', isDarkMode);
+  }
+
+  void updatePrimaryColor(Color color) async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      primaryColor = color;
+    });
+    await prefs.setInt('primaryColor', color.value);
   }
 
   @override
@@ -61,10 +73,13 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'RateMe',
       debugShowCheckedModeBanner: false,
-      theme: isDarkMode ? RateMeTheme.dark : RateMeTheme.light,
+      theme: isDarkMode 
+        ? RateMeTheme.getTheme(Brightness.dark, primaryColor)
+        : RateMeTheme.getTheme(Brightness.light, primaryColor),
       home: MusicRatingHomePage(
         toggleTheme: toggleTheme,
         themeBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+        onPrimaryColorChanged: updatePrimaryColor,  // Add this line
       ),
     );
   }
@@ -73,11 +88,13 @@ class _MyAppState extends State<MyApp> {
 class MusicRatingHomePage extends StatefulWidget {
   final Function toggleTheme;
   final Brightness themeBrightness;
+  final Function(Color) onPrimaryColorChanged;  // Add this line
 
   const MusicRatingHomePage({
     super.key,
     required this.toggleTheme,
     required this.themeBrightness,
+    required this.onPrimaryColorChanged,  // Add this line
   });
 
   @override
@@ -91,12 +108,53 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   String appVersion = '';
   bool _updateAvailable = false;
   String _latestVersion = '';
+  Timer? _clipboardTimer;
 
   @override
   void initState() {
     super.initState();
+    _startClipboardListener();
     _loadAppVersion();
     _checkForUpdates();
+  }
+
+  void _startClipboardListener() {
+    _clipboardTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!mounted) return;
+      
+      try {
+        final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+        final text = clipboardData?.text;
+        
+        if (text != null && text.isNotEmpty) {
+          if (text.contains('music.apple.com') || text.contains('bandcamp.com')) {
+            if (searchController.text.isEmpty) {
+              setState(() {
+                searchController.text = text;
+                _performSearch(text);
+              });
+              // Show clipboard feedback in English
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('URL detected and copied'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('Error checking clipboard: $e');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _clipboardTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadAppVersion() async {
@@ -216,12 +274,22 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
             tooltip: 'Backup Options',
             onPressed: _showOptionsDialog,
           ),
-          Transform.scale(
-            scale: 0.8,
-            child: Switch(
-              value: widget.themeBrightness == Brightness.dark,
-              onChanged: (_) => widget.toggleTheme(),
-              activeColor: Theme.of(context).colorScheme.secondary,
+          // Reemplazar el switch por icono de settings
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SettingsPage(
+                  currentTheme: widget.themeBrightness == Brightness.dark 
+                    ? ThemeMode.dark 
+                    : ThemeMode.light,
+                  onThemeChanged: (mode) => widget.toggleTheme(),
+                  currentPrimaryColor: Theme.of(context).colorScheme.primary,
+                  onPrimaryColorChanged: widget.onPrimaryColorChanged,  // Pass the callback
+                ),
+              ),
             ),
           ),
         ],

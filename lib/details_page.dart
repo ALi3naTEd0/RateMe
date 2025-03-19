@@ -544,8 +544,7 @@ class _DetailsPageState extends State<DetailsPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              // Use the centralized slider theme
-              data: RateMeTheme.getSliderTheme(context),
+              data: Theme.of(context).sliderTheme,  // Replace getSliderTheme with direct theme access
               child: Slider(
                 min: 0,
                 max: 10,
