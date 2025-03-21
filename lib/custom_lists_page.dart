@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;  // Add this import
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import 'migration_util.dart';
+import 'album_model.dart';
+import 'logging.dart';
 
 // Model for custom album lists
 class CustomList {
   final String id;
-  String name;  // Removed final to allow modification
+  String name;
   String description;
-  List<String> albumIds;  // Removed final to allow modification
+  List<String> albumIds;
   final DateTime createdAt;
   DateTime updatedAt;
 
@@ -53,8 +56,8 @@ class CustomList {
     final list = CustomList(
       id: json['id'],
       name: json['name'],
-      description: json['description'],
-      albumIds: List<String>.from(json['albumIds']),
+      description: json['description'] ?? '',
+      albumIds: List<String>.from(json['albumIds'] ?? []),
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
@@ -318,7 +321,7 @@ class CustomListDetailsPage extends StatefulWidget {
 
 class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   List<Map<String, dynamic>> albums = [];
-  Map<int, List<dynamic>> albumTracks = {};  // Add this variable
+  Map<int, List<dynamic>> albumTracks = {};
   bool isLoading = true;
 
   @override
@@ -335,18 +338,53 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     final albumIdsToProcess = List<String>.from(widget.list.albumIds);
     
     for (String albumId in albumIdsToProcess) {
-      final album = await UserData.getSavedAlbumById(int.parse(albumId));
-      if (album != null) {
-        final ratings = await UserData.getSavedAlbumRatings(int.parse(albumId));
-        double averageRating = 0.0;
-        if (ratings.isNotEmpty) {
-          final total = ratings.fold(0.0, (sum, rating) => sum + rating['rating']);
-          averageRating = total / ratings.length;
+      try {
+        // Parse the album ID as an integer
+        final intAlbumId = int.parse(albumId);
+        final Map<String, dynamic>? legacyAlbum = await UserData.getSavedAlbumById(intAlbumId);
+        
+        if (legacyAlbum != null) {
+          // Convert to unified model and back to ensure all fields are present
+          Album album;
+          try {
+            album = Album.fromLegacy(legacyAlbum);
+          } catch (e) {
+            Logging.severe('Error converting album to unified model: $e');
+            // Still use the original data even if conversion fails
+            loadedAlbums.add(legacyAlbum);
+            continue;
+          }
+          
+          // Create a map with both unified and legacy fields
+          Map<String, dynamic> unifiedAlbum = album.toJson();
+          // Add legacy fields for backward compatibility
+          unifiedAlbum.addAll({
+            'collectionId': album.id,
+            'collectionName': album.name,
+            'artistName': album.artist,
+            'artworkUrl100': album.artworkUrl,
+          });
+          
+          // Load ratings for this album
+          final ratings = await UserData.getSavedAlbumRatings(intAlbumId);
+          double averageRating = 0.0;
+          if (ratings.isNotEmpty) {
+            final total = ratings.fold(0.0, (sum, rating) => sum + rating['rating']);
+            averageRating = total / ratings.length;
+          }
+          unifiedAlbum['averageRating'] = averageRating;
+          
+          loadedAlbums.add(unifiedAlbum);
+          Logging.severe('Successfully loaded album: ${album.name}');
+        } else {
+          // Remove invalid album ID
+          Logging.severe('Album not found for ID: $albumId, removing from list');
+          widget.list.albumIds.remove(albumId);
+          await UserData.saveCustomList(widget.list);
         }
-        album['averageRating'] = averageRating;
-        loadedAlbums.add(album);
-      } else {
-        // Remove invalid album ID
+      } catch (e) {
+        Logging.severe('Error loading album with ID: $albumId - $e');
+        // Remove invalid ID
         widget.list.albumIds.remove(albumId);
         await UserData.saveCustomList(widget.list);
       }
@@ -409,12 +447,28 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   void _openAlbumDetails(int index) {
     final album = albums[index];
+    
+    // Create a compatibility wrapper for SavedAlbumPage
+    final albumWithDefaults = Map<String, dynamic>.from(album);
+    
+    // Ensure all required fields exist
+    albumWithDefaults['collectionId'] = album['collectionId'] ?? album['id'] ?? 0;
+    albumWithDefaults['artistName'] = album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
+    albumWithDefaults['collectionName'] = album['collectionName'] ?? album['name'] ?? 'Unknown Album';
+    albumWithDefaults['artworkUrl100'] = album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
+    
+    // Determine if this is a Bandcamp album
+    final isBandcamp = album['platform'] == 'bandcamp' || 
+                      (album['url']?.toString().contains('bandcamp.com') ?? false);
+    
+    Logging.severe('Opening album details: ${albumWithDefaults['artistName']} - ${albumWithDefaults['collectionName']}');
+    
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SavedAlbumPage(
-          album: album,
-          isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
+          album: albumWithDefaults,
+          isBandcamp: isBandcamp,
         ),
       ),
     ).then((_) => _loadAlbums());
@@ -422,7 +476,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   void _handleImageShare(String imagePath) async {
     try {
-      await Share.shareXFiles([XFile(imagePath)]);  // Replace ShareExtend.share
+      await Share.shareXFiles([XFile(imagePath)]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -497,10 +551,10 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
           });
         }
       } else {
-        // ...existing Bandcamp handling code...
+        // Bandcamp handling would go here
       }
     } catch (e) {
-      // ...existing error handling...
+      Logging.severe('Error fetching album details: $e');
     }
   }
 
@@ -598,8 +652,14 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   itemCount: albums.length,
                   itemBuilder: (context, index) {
                     final album = albums[index];
+                    // Add null safety check for album attributes
+                    final artistName = album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
+                    final albumName = album['collectionName'] ?? album['name'] ?? 'Unknown Album';
+                    final artworkUrl = album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
+                    final rating = album['averageRating'] ?? 0.0;
+
                     return ListTile(
-                      key: ValueKey(album['collectionId']),
+                      key: ValueKey(album['collectionId'] ?? album['id'] ?? index.toString()),
                       leading: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -610,11 +670,11 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                  color: isDarkTheme ? Colors.white : Colors.black),
+                                color: isDarkTheme ? Colors.white : Colors.black),
                             ),
                             child: Center(
                               child: Text(
-                                album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                                rating.toStringAsFixed(2),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -625,7 +685,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                           ),
                           const SizedBox(width: 8),
                           Image.network(
-                            album['artworkUrl100'],
+                            artworkUrl,
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
@@ -634,8 +694,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                           ),
                         ],
                       ),
-                      title: Text(album['collectionName'] ?? 'N/A'),
-                      subtitle: Text(album['artistName'] ?? 'N/A'),
+                      title: Text(albumName),
+                      subtitle: Text(artistName),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

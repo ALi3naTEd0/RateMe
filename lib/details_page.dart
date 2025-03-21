@@ -12,6 +12,7 @@ import 'custom_lists_page.dart';
 import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'theme.dart';  // Add this import
+import 'album_model.dart';  // Add this import
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -36,10 +37,12 @@ class _DetailsPageState extends State<DetailsPage> {
   int albumDurationMillis = 0;
   bool isLoading = true;
   DateTime? releaseDate;
+  late Map<String, dynamic> albumToSave;  // Add this field
 
   @override
   void initState() {
     super.initState();
+    albumToSave = widget.album;  // Initialize from widget.album
     _initialize();
   }
 
@@ -51,6 +54,9 @@ class _DetailsPageState extends State<DetailsPage> {
     } else {
       await _loadRatings();
     }
+
+    // Note: We don't need model validation here since we're creating a new page
+    // albumToSave = widget.album already set in initState
 
     // Then load tracks
     if (widget.isBandcamp) {
@@ -401,7 +407,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                 // Save album with filtered tracks
                                 final albumToSave = Map<String, dynamic>.from(widget.album);
                                 albumToSave['tracks'] = tracks;
-                                await UserData.saveAlbum(albumToSave);
+                                await _saveAlbum();
                                 
                                 // Add to saved albums list
                                 await UserData.addToSavedAlbums(albumToSave);
@@ -831,5 +837,24 @@ class _DetailsPageState extends State<DetailsPage> {
         );
       },
     );
+  }
+
+  Future<void> _saveAlbum() async {
+    try {
+      // Keep using Map<String, dynamic> for albumToSave
+      await UserData.addToSavedAlbums(albumToSave);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Album saved successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving album: $e')),
+        );
+      }
+    }
   }
 }

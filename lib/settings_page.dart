@@ -3,6 +3,11 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
+import 'user_data.dart';
+import 'data_migration_service.dart';
+import 'logging.dart';
+import 'backup_converter.dart';
+import 'debug_util.dart';
 
 class SettingsPage extends StatefulWidget {
   final Function(ThemeMode) onThemeChanged;
@@ -150,7 +155,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   trailing: Switch(
                     value: useDarkText,
                     thumbIcon: MaterialStateProperty.resolveWith<Icon?>((states) {
-                      // Show text icon in switch thumb
                       return Icon(
                         useDarkText ? Icons.format_color_text : Icons.format_color_reset,
                         size: 16,
@@ -219,6 +223,282 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
+          
+          // Data Management Section
+          Card(
+            margin: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Data Management',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      FutureBuilder<bool>(
+                        future: DataMigrationService.isMigrationNeeded(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            );
+                          }
+                          
+                          final needsMigration = snapshot.data ?? false;
+                          
+                          return needsMigration
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'Update Available',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : const Icon(Icons.check_circle, color: Colors.green);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Standard Backup Options - Move these to the top
+                ListTile(
+                  leading: const Icon(Icons.file_upload),
+                  title: const Text('Export Backup'),
+                  subtitle: const Text('Save all your data as a backup file'),
+                  onTap: () async {
+                    if (!mounted) return;
+                    await UserData.exportData(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.file_download),
+                  title: const Text('Import Backup'),
+                  subtitle: const Text('Restore data from a backup file'),
+                  onTap: () async {
+                    if (!mounted) return;
+                    final success = await UserData.importData(context);
+                    if (success && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Data imported successfully!')),
+                      );
+                    }
+                  },
+                ),
+                
+                const Divider(),
+                
+                // Backup Conversion Options - Move these after standard backup
+                ListTile(
+                  leading: const Icon(Icons.sync_alt),
+                  title: const Text('Convert Old Backup'),
+                  subtitle: const Text('Create new format backup from old one'),
+                  onTap: () async {
+                    await BackupConverter.convertBackupFile(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.system_update_alt),
+                  title: const Text('Import & Convert Old Backup'),
+                  subtitle: const Text('Convert and import old backup directly'),
+                  onTap: () async {
+                    final success = await BackupConverter.importConvertedBackup(context);
+                    if (success && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Backup converted and imported successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                
+                const Divider(),
+                
+                // Original Migration Options
+                ListTile(
+                  title: const Text('Migrate Data to New Format'),
+                  subtitle: const Text('Convert your data to the latest format'),
+                  onTap: () => _showMigrationDialog(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.restore),
+                  title: const Text('Rollback Migration'),
+                  subtitle: const Text('Revert to previous data format if needed'),
+                  onTap: () => _rollbackMigration(context),
+                ),
+                
+                const Divider(),
+                
+                // Debug Tools
+                ListTile(
+                  leading: const Icon(Icons.bug_report),
+                  title: const Text('Debug Data'),
+                  subtitle: const Text('Diagnose data issues'),
+                  onTap: () async {
+                    await DebugUtil.showDebugReport(context);
+                  },
+                ),
+                
+                ListTile(
+                  leading: const Icon(Icons.healing),
+                  title: const Text('Repair Album Data'),
+                  subtitle: const Text('Fix problems with album display'),
+                  onTap: () async {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const AlertDialog(
+                        title: Text('Repairing Data...'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Please wait while your data is being repaired...'),
+                          ],
+                        ),
+                      ),
+                    );
+                    
+                    try {
+                      final result = await UserData.repairSavedAlbums();
+                      
+                      if (mounted) Navigator.pop(context);
+                      
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              result 
+                                ? 'Albums repaired successfully!' 
+                                : 'No repairs needed or no albums found'
+                            ),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) Navigator.pop(context);
+                      
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error repairing data: $e'),
+                            duration: const Duration(seconds: 5),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+                // Add a new option to the Data Management section for converting to unified format
+
+                ListTile(
+                  leading: const Icon(Icons.sync),
+                  title: const Text('Convert to Unified Format'),
+                  subtitle: const Text('Convert all albums to the unified data model'),
+                  onTap: () async {
+                    // Show confirmation dialog
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Convert to Unified Format'),
+                        content: const Text(
+                          'This will convert all your albums to the new unified data model. '
+                          'This improves compatibility between different music platforms. '
+                          '\n\nYour data will be backed up first for safety.'
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Convert'),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (confirm != true) return;
+                    
+                    // Show progress dialog
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const AlertDialog(
+                        title: Text('Converting Data'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Converting albums to unified format...'),
+                          ],
+                        ),
+                      ),
+                    );
+                    
+                    // Perform conversion
+                    try {
+                      final count = await UserData.convertAllAlbumsToUnifiedFormat();
+                      
+                      // Dismiss progress dialog
+                      if (mounted) Navigator.pop(context);
+                      
+                      // Show result
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Successfully converted $count albums to unified format'),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Dismiss progress dialog
+                      if (mounted) Navigator.pop(context);
+                      
+                      // Show error
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error during conversion: $e'),
+                            duration: const Duration(seconds: 5),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -263,5 +543,217 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  void _showMigrationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Migrate Data'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will convert your saved data to the latest format. '
+              'Your data will be backed up first for safety.',
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Note: This process might take a moment depending on '
+              'how many albums you have saved.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _performMigration(context);
+            },
+            child: const Text('Migrate'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performMigration(BuildContext context) async {
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        title: Text('Migrating Data'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Please wait while your data is being updated...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Perform migration
+      final migratedCount = await DataMigrationService.migrateAllAlbums();
+      
+      // Dismiss progress dialog
+      if (mounted) Navigator.pop(context);
+      
+      if (migratedCount > 0) {
+        // Ask for confirmation to activate
+        if (mounted) {
+          final shouldActivate = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Migration Complete'),
+              content: Text(
+                'Successfully migrated $migratedCount albums. '
+                'Do you want to activate the new data format now?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Not Now'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Activate'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldActivate == true) {
+            final success = await DataMigrationService.activateMigratedData();
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? 'New data format activated successfully!'
+                        : 'Failed to activate new data format',
+                  ),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        }
+      } else {
+        // Show error or no data message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No data was migrated. You might not have any saved albums.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Dismiss progress dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during migration: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  Future<void> _rollbackMigration(BuildContext context) async {
+    // Show confirm dialog
+    final shouldRollback = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rollback Migration'),
+        content: const Text(
+          'This will revert to your previous data format.\n\n'
+          'This is helpful if you experienced issues after migration.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Rollback'),
+          ),
+        ],
+      ),
+    );
+    
+    if (shouldRollback != true) return;
+    
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        title: Text('Rolling Back Migration'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Please wait while your data is being restored...'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      // Attempt rollback
+      final success = await DataMigrationService.rollbackMigration();
+      
+      // Dismiss progress dialog
+      if (mounted) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success 
+              ? 'Migration successfully rolled back' 
+              : 'Rollback failed - no backup data found'
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      // Dismiss progress dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during rollback: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

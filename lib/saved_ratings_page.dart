@@ -4,6 +4,7 @@ import 'dart:io';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
+import 'logging.dart';  // Add this import
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -23,21 +24,57 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   bool isLoading = true;
 
   void _loadSavedAlbums() async {
-    List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
-    for (var album in albums) {
-      int? collectionId = int.tryParse(album['collectionId'].toString());
-      if (collectionId != null) {
-        List<Map<String, dynamic>> ratings =
-            await UserData.getSavedAlbumRatings(collectionId);
-        double averageRating = _calculateAverageRating(ratings);
-        album['averageRating'] = averageRating;
+    try {
+      List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
+      
+      // Process each album and add average rating
+      for (var album in albums) {
+        if (album != null) {
+          // Support both new model (id) and legacy model (collectionId)
+          var albumId = album['id'] ?? album['collectionId'];
+          if (albumId != null) {
+            try {
+              // Convert ID to int regardless of format
+              int intAlbumId = albumId is int ? albumId : int.parse(albumId.toString());
+              List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(intAlbumId);
+              double averageRating = _calculateAverageRating(ratings);
+              album['averageRating'] = averageRating;
+              
+              // Ensure collectionId exists for backward compatibility
+              if (album['collectionId'] == null && album['id'] != null) {
+                album['collectionId'] = album['id'];
+              }
+            } catch (e) {
+              Logging.severe('Error loading ratings for album: $e');
+              album['averageRating'] = 0.0;
+            }
+          } else {
+            Logging.severe('Album has no ID field: ${album.toString()}');
+            album['averageRating'] = 0.0;
+          }
+        }
       }
-    }
-    if (mounted) {
-      setState(() {
-        savedAlbums = albums;
-        isLoading = false;
-      });
+      
+      // Filter out null entries
+      albums = albums.where((album) => 
+        album != null && 
+        (album['collectionId'] != null || album['id'] != null)
+      ).toList();
+      
+      if (mounted) {
+        setState(() {
+          savedAlbums = albums;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      Logging.severe('Error loading saved albums: $e');
+      if (mounted) {
+        setState(() {
+          savedAlbums = [];
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -145,7 +182,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     });
 
     List<String> albumIds = savedAlbums
-        .map<String>((album) => album['collectionId'].toString())
+        .map<String>((album) => (album['id'] ?? album['collectionId']).toString())
         .toList();
     UserData.saveAlbumOrder(albumIds);
   }
@@ -318,9 +355,24 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   itemCount: savedAlbums.length,
                   onReorder: _onReorder,
                   itemBuilder: (context, index) {
+                    // Null safety check
                     final album = savedAlbums[index];
+                    if (album == null || (album['collectionId'] == null && album['id'] == null)) {
+                      return ListTile(
+                        key: Key("error_$index"),
+                        title: const Text("Error: Invalid album data"),
+                      );
+                    }
+                    
+                    // Support both ID formats
+                    final albumId = (album['id'] ?? album['collectionId']).toString();
+                    final artistName = album['artist'] ?? album['artistName'] ?? 'Unknown Artist';
+                    final albumName = album['name'] ?? album['collectionName'] ?? 'Unknown Album';
+                    final artworkUrl = album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
+                    final rating = album['averageRating'] ?? 0.0;
+
                     return ListTile(
-                      key: Key(album['collectionId'].toString()),
+                      key: Key(albumId),
                       leading: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -335,7 +387,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                             ),
                             child: Center(
                               child: Text(
-                                album['averageRating']?.toStringAsFixed(2) ?? 'N/A',
+                                rating.toStringAsFixed(2),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -346,7 +398,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                           ),
                           const SizedBox(width: 8),
                           Image.network(
-                            album['artworkUrl100'],
+                            artworkUrl,
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
@@ -355,8 +407,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                           ),
                         ],
                       ),
-                      title: Text(album['collectionName'] ?? 'N/A'),
-                      subtitle: Text(album['artistName'] ?? 'N/A'),
+                      title: Text(albumName),
+                      subtitle: Text(artistName),
                       trailing: _buildAlbumActions(index),
                       onTap: () => _openSavedAlbumDetails(index),
                     );

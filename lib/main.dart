@@ -20,10 +20,24 @@ import 'custom_lists_page.dart';
 import 'theme.dart';
 import 'footer.dart';
 import 'settings_page.dart';
+import 'data_migration_service.dart';  // Add this import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Logging.setupLogging();
+  
+  try {
+    // Check if migration is needed, but don't start automatic migration
+    final needsMigration = await DataMigrationService.isMigrationNeeded();
+    if (needsMigration) {
+      Logging.severe('Data migration is needed, but will wait for user initiation');
+    } else {
+      Logging.severe('Data is already in the latest format');
+    }
+  } catch (e) {
+    Logging.severe('Error checking migration status', e);
+  }
+  
   runApp(const MyApp());
 }
 
@@ -269,12 +283,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         ),
         leadingWidth: 120,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.storage),
-            tooltip: 'Backup Options',
-            onPressed: _showOptionsDialog,
-          ),
-          // Reemplazar el switch por icono de settings
+          // Remove the backup options icon and just keep the settings icon
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Settings',
@@ -287,7 +296,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                     : ThemeMode.light,
                   onThemeChanged: (mode) => widget.toggleTheme(),
                   currentPrimaryColor: Theme.of(context).colorScheme.primary,
-                  onPrimaryColorChanged: widget.onPrimaryColorChanged,  // Pass the callback
+                  onPrimaryColorChanged: widget.onPrimaryColorChanged,
                 ),
               ),
             ),
@@ -339,97 +348,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           const AppVersionFooter(),
         ],
       ),
-    );
-  }
-
-  void _showOptionsDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Backup Options'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.file_download),
-                title: const Text('Import Backup'),
-                onTap: () async {
-                  Navigator.pop(dialogContext);
-                  
-                  if (!mounted) return;
-                  final scaffoldContext = context;
-                  
-                  final success = await UserData.importData(scaffoldContext);
-                  if (success && mounted) {
-                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-                      const SnackBar(
-                        content: Text('Data imported successfully!'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.file_upload),
-                title: const Text('Export Backup'),
-                onTap: () async {
-                  Navigator.pop(dialogContext);
-                  if (!mounted) return;
-                  await UserData.exportData(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Clear All Data'),
-                onTap: () async {
-                  Navigator.pop(dialogContext);
-                  if (!mounted) return;
-                  bool? confirm = await _showConfirmDialog();
-                  if (confirm == true) {
-                    await UserData.clearAllData();
-                    if (mounted) {
-                      setState(() => searchResults = []);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('All data cleared')),
-                      );
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<bool?> _showConfirmDialog() {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: const Text('Are you sure you want to delete all data? This cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
     );
   }
 

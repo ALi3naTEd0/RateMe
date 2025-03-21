@@ -12,6 +12,8 @@ import 'logging.dart';
 import 'share_widget.dart';
 import 'custom_lists_page.dart';
 import 'theme.dart';  // Add this import
+import 'album_model.dart';  // Add this import
+import 'migration_util.dart';  // Add this import for safer conversion
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -43,8 +45,22 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   Future<void> _initialize() async {
+    try {
+      // Use MigrationUtil for safer validation without crashing
+      final validationResult = MigrationUtil.canConvertToModel(widget.album);
+      if (validationResult) {
+        Logging.severe('Album model validation successful for: ${widget.album['collectionName']}');
+      } else {
+        Logging.severe('Album model validation failed, using legacy format for: ${widget.album['collectionName']}');
+      }
+    } catch (e) {
+      // Just log but continue - we're not actually using Album yet
+      Logging.severe('Album validation error, using legacy format', e);
+    }
+
     // 1. Load ratings first 
     await _loadRatings();
+    
     // 2. Then load tracks based on source
     if (widget.isBandcamp) {
       await _fetchBandcampTracks();
@@ -306,15 +322,29 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
-    String formattedDate = widget.isBandcamp
-        ? releaseDate != null
-            ? DateFormat('d MMMM yyyy').format(releaseDate!)
-            : 'Unknown Date'
-        : DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']));
+    
+    // Handle release date safely
+    String formattedDate;
+    try {
+      formattedDate = widget.isBandcamp
+          ? (releaseDate != null
+              ? DateFormat('d MMMM yyyy').format(releaseDate!)
+              : 'Unknown Date')
+          : (widget.album['releaseDate'] != null 
+              ? DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']))
+              : 'Unknown Date');
+    } catch (e) {
+      formattedDate = 'Unknown Date';
+      Logging.severe('Error formatting date: $e');
+    }
 
+    // Get artist and album name with fallbacks
+    final artistName = widget.album['artistName'] ?? widget.album['artist'] ?? 'Unknown Artist';
+    final albumName = widget.album['collectionName'] ?? widget.album['name'] ?? 'Unknown Album';
+    
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.album['collectionName'] ?? 'Unknown Album'),
+        title: Text(albumName),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -326,20 +356,23 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Image.network(
-                      widget.album['artworkUrl100']?.replaceAll('100x100', '600x600') ?? '',
+                      widget.album['artworkUrl100']?.replaceAll('100x100', '600x600') ?? 
+                      widget.album['artworkUrl'] ?? '',
                       width: 300,
                       height: 300,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.album, size: 300),
+                      errorBuilder: (context, error, stackTrace) {
+                        Logging.severe('Error loading artwork: $error');
+                        return const Icon(Icons.album, size: 300);
+                      },
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        _buildInfoRow("Artist", widget.album['artistName'] ?? 'Unknown Artist'),
-                        _buildInfoRow("Album", widget.album['collectionName'] ?? 'Unknown Album'),
+                        _buildInfoRow("Artist", artistName),
+                        _buildInfoRow("Album", albumName),
                         _buildInfoRow("Release Date", formattedDate),
                         _buildInfoRow("Duration", formatDuration(albumDurationMillis)),
                         const SizedBox(height: 8),
