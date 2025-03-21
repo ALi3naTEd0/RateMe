@@ -38,18 +38,17 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Features
 
-- 🎵 **Album Search**: Search iTunes or paste Bandcamp URLs to find albums
-- ⭐ **Rating System**: Rate individual tracks from 0 to 10
-- 📊 **Statistics**: View average ratings and album statistics
-- 📱 **Multi-platform Support**: Works on Android, Windows, Linux and macOS
-- 🎨 **Dark/Light Theme**: Toggle between light and dark modes
-- 📁 **Custom Lists**: Create and manage custom album collections
-- 📷 **Share Images**: Generate and share album ratings as images
-- 💾 **Data Management**:
-  - Import/Export complete data backups
-  - Import/Export individual album data
-  - Backup data in JSON format
-- 🌐 **External Integration**: Quick access to RateYourMusic for additional info
+- **Multi-Platform Support**: Rate albums from both Apple Music and Bandcamp
+- **Track-by-Track Rating**: Rate individual tracks on a 0-10 scale
+- **Custom Lists**: Organize albums into custom lists (e.g., "Best of 2023", "Prog Rock", etc.)
+- **Data Export/Import**: Easily backup and restore your collection
+- **Share as Images**: Generate beautiful images of your ratings to share on social media
+- **Clipboard Detection**: Automatically detects Apple Music and Bandcamp URLs from clipboard
+- **Unified Data Model**: Compatible data structure across different music platforms
+- **Dark Mode**: Choose between light and dark themes
+- **Custom Colors**: Personalize the app with your preferred color scheme
+- **Offline Support**: Access your saved albums and ratings without an internet connection
+- **One-Touch Import/Export**: Quickly import/export individual albums or your entire collection
 
 ## Screenshots
 
@@ -197,18 +196,43 @@ makepkg -si
 
 ## Getting Started
 
-1. Clone the repository: `git clone https://github.com/ALi3naTEd0/RateMe.git rateme`
-2. Navigate to the project directory: `cd rateme`
-3. Install dependencies: `flutter pub get`
-4. Run the application: `flutter run`
+1. **Search for Albums**: Enter an artist or album name to search, or paste an Apple Music/Bandcamp URL
+2. **Rate Albums**: Open an album and use the sliders to rate each track from 0-10
+3. **Create Lists**: Organize your music by creating custom lists
+4. **Share Your Ratings**: Generate beautiful images of your ratings to share
 
-## How to Use
+## Data Management
 
-1. **Album Search**: Start by entering the artist's name, album title, or URL (iTunes, Apple Music, or Bandcamp) in the search bar to initiate a search for albums.
-2. **Rate Songs**: Upon selecting an album, rate each song individually by assigning a rating from 0 to 10.
-3. **View Album Details**: Explore comprehensive details about each album, including artist information, release date, and total album duration.
-4. **Saved History**: Access your saved ratings history to review past ratings and make any necessary edits.
-5. **Export and Import Data**: Use the export and import options to back up your rating data or transfer it to other devices.
+RateMe provides several options for managing your data:
+
+- **Standard Backup**: Export/import your entire collection with ratings and custom lists
+- **Album Exchange**: Share individual albums with friends who use RateMe
+- **Data Conversion**: Convert from older versions of RateMe to the new unified format
+- **Repair Tools**: Fix potential issues with album data
+
+## Supported Platforms
+
+- iOS
+- Android
+- Windows
+- MacOS
+- Linux
+
+## About The Unified Data Model
+
+RateMe uses a unified data model that ensures consistent handling of music from different platforms. This model:
+
+- Works across multiple music platforms (Apple Music, Bandcamp, etc.)
+- Maintains backward compatibility with previous versions
+- Provides consistent field naming and data access
+- Improves reliability and error handling
+
+## Privacy
+
+RateMe respects your privacy:
+- All data is stored locally on your device
+- No personal information is collected or transmitted
+- No tracking or analytics
 
 ## Project Architecture
 
