@@ -1,11 +1,34 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to the RateMe app will be documented in this file.
 
 ## [Unreleased]
+
+### Added
+- Unified Data Model to ensure consistent handling of albums across different platforms
+- Conversion utilities to safely migrate legacy data to the new model
+- Debug tools for diagnosing data issues
+- New Settings options for data management
+- Improved error handling throughout the app
+- Support for different music platforms with standardized data format
+- Better backward compatibility with older app versions
+
+### Changed
+- Reorganized Settings page with grouped options
+- Improved album import/export functionality
+- Enhanced custom lists management
+- More robust sharing functionality
+- Better handling of app themes and colors
+
+### Fixed
+- Issues with albums not appearing in custom lists
+- Problems with inconsistent album data structure
+- Rating calculation errors on some albums
+- Display issues with album artwork on certain devices
+- Custom list sorting and reordering bugs
+- Various stability improvements
+
+## [2.0.0] - 2025-03-20
 
 ### Added
 - Improved color picker with live preview in settings
@@ -27,6 +50,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sliders not updating color when changing theme
 - Duplicate album entries in search results
 - Missing track information from some sources
+
+## [1.5.0] - 2025-01-15
+
+### Added
+- Support for Bandcamp albums
+- Custom lists feature to organize albums
+- Share albums as beautiful images
+- Dark mode support
+- Custom color themes
+
+### Changed
+- Improved UI for rating albums
+- Better handling of album metadata
+- Enhanced search functionality
+
+### Fixed
+- Various bugs and stability issues
+
+## [1.0.0] - 2024-12-01
+
+### Added
+- Initial release
+- Apple Music album search
+- Track-by-track rating system
+- Album average calculation
+- Basic data export/import
 
 ## [1.0.4-4] - 2025-07-22
 
