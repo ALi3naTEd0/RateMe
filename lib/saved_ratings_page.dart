@@ -14,67 +14,82 @@ class SavedRatingsPage extends StatefulWidget {
 }
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
+  List<Map<String, dynamic>> albums = [];
+  bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
-    _loadSavedAlbums();
+    _loadAlbums();
   }
 
-  List<Map<String, dynamic>> savedAlbums = [];
-  bool isLoading = true;
-
-  void _loadSavedAlbums() async {
+  Future<void> _loadAlbums() async {
     try {
-      List<Map<String, dynamic>> albums = await UserData.getSavedAlbums();
+      final savedAlbums = await UserData.getSavedAlbums();
+      List<Map<String, dynamic>> loadedAlbums = [];
       
-      // Process each album and add average rating
-      for (var album in albums) {
-        if (album != null) {
-          // Support both new model (id) and legacy model (collectionId)
-          var albumId = album['id'] ?? album['collectionId'];
-          if (albumId != null) {
-            try {
-              // Convert ID to int regardless of format
-              int intAlbumId = albumId is int ? albumId : int.parse(albumId.toString());
-              List<Map<String, dynamic>> ratings = await UserData.getSavedAlbumRatings(intAlbumId);
-              double averageRating = _calculateAverageRating(ratings);
-              album['averageRating'] = averageRating;
-              
-              // Ensure collectionId exists for backward compatibility
-              if (album['collectionId'] == null && album['id'] != null) {
-                album['collectionId'] = album['id'];
-              }
-            } catch (e) {
-              Logging.severe('Error loading ratings for album: $e');
-              album['averageRating'] = 0.0;
-            }
-          } else {
-            Logging.severe('Album has no ID field: ${album.toString()}');
-            album['averageRating'] = 0.0;
-          }
+      for (var album in savedAlbums) {
+        try {
+          final metadata = album['metadata']?['metadata'] ?? album['metadata'];
+          
+          final albumMap = {
+            'collectionId': metadata?['id'] ?? 
+                           metadata?['collectionId'] ?? 
+                           album['id'] ?? 
+                           album['collectionId'],
+            'collectionName': metadata?['collectionName'] ?? 
+                            metadata?['name'] ?? 
+                            album['name'] ?? 
+                            album['collectionName'],
+            'artistName': metadata?['artistName'] ?? 
+                         metadata?['artist'] ?? 
+                         album['artist'] ?? 
+                         album['artistName'],
+            'artworkUrl100': metadata?['artworkUrl100'] ?? 
+                            metadata?['artworkUrl'] ?? 
+                            album['artworkUrl'] ?? 
+                            album['artworkUrl100'],
+            'platform': metadata?['platform'] ?? album['platform'] ?? 'unknown',
+            'url': metadata?['url'] ?? album['url'],
+            'averageRating': await _calculateAlbumRating(
+              metadata?['id'] ?? metadata?['collectionId'] ?? album['id'] ?? album['collectionId']
+            ),
+            'metadata': metadata,
+          };
+          
+          loadedAlbums.add(albumMap);
+        } catch (e) {
+          continue;
         }
       }
-      
-      // Filter out null entries
-      albums = albums.where((album) => 
-        album != null && 
-        (album['collectionId'] != null || album['id'] != null)
-      ).toList();
-      
+
       if (mounted) {
         setState(() {
-          savedAlbums = albums;
+          albums = loadedAlbums;
           isLoading = false;
         });
       }
     } catch (e) {
-      Logging.severe('Error loading saved albums: $e');
       if (mounted) {
-        setState(() {
-          savedAlbums = [];
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
       }
+    }
+  }
+
+  /// Calculate average rating for an album
+  Future<double> _calculateAlbumRating(int albumId) async {
+    try {
+      final ratings = await UserData.getRatings(albumId);
+      if (ratings == null || ratings.isEmpty) return 0.0;
+      
+      var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
+      if (ratedTracks.isEmpty) return 0.0;
+      
+      double total = ratedTracks.reduce((a, b) => a + b);
+      return double.parse((total / ratedTracks.length).toStringAsFixed(2));
+    } catch (e) {
+      Logging.severe('Error calculating album rating', e);
+      return 0.0;
     }
   }
 
@@ -99,7 +114,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
-        final album = savedAlbums[index];
+        final album = albums[index];
         return AlertDialog(
           title: const Text('Confirm Delete'),
           content: Column(
@@ -134,20 +149,20 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
     // Only delete if user confirmed
     if (result == true) {
-      await UserData.deleteAlbum(savedAlbums[index]);
+      await UserData.deleteAlbum(albums[index]);
       if (mounted) {
         setState(() {
-          savedAlbums.removeAt(index);
+          albums.removeAt(index);
         });
       }
       await UserData.saveAlbumOrder(
-        savedAlbums.map<String>((album) => album['collectionId'].toString()).toList()
+        albums.map<String>((album) => album['collectionId'].toString()).toList()
       );
     }
   }
 
   void _openSavedAlbumDetails(int index) {
-    final album = savedAlbums[index];
+    final album = albums[index];
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -156,7 +171,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
         ),
       ),
-    ).then((_) => _loadSavedAlbums());  // Reload when returning
+    ).then((_) => _loadAlbums());  // Reload when returning
   }
 
   Widget _buildAlbumActions(int index) {
@@ -177,11 +192,11 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      final album = savedAlbums.removeAt(oldIndex);
-      savedAlbums.insert(newIndex, album);
+      final album = albums.removeAt(oldIndex);
+      albums.insert(newIndex, album);
     });
 
-    List<String> albumIds = savedAlbums
+    List<String> albumIds = albums
         .map<String>((album) => (album['id'] ?? album['collectionId']).toString())
         .toList();
     UserData.saveAlbumOrder(albumIds);
@@ -206,7 +221,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         final shareWidget = ShareWidget(
           key: ShareWidget.shareKey,
           title: 'Saved Albums',
-          albums: savedAlbums,
+          albums: albums,
         );
         return AlertDialog(
           content: SingleChildScrollView(
@@ -300,7 +315,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                 case 'import':
                   final success = await UserData.importData(context);
                   if (success && mounted) {
-                    setState(() => _loadSavedAlbums());
+                    setState(() => _loadAlbums());
                   }
                   break;
                 case 'export':
@@ -348,15 +363,15 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : savedAlbums.isEmpty
+          : albums.isEmpty
               ? const Center(child: Text('No saved albums found'))
               : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  itemCount: savedAlbums.length,
+                  itemCount: albums.length,
                   onReorder: _onReorder,
                   itemBuilder: (context, index) {
                     // Null safety check
-                    final album = savedAlbums[index];
+                    final album = albums[index];
                     if (album == null || (album['collectionId'] == null && album['id'] == null)) {
                       return ListTile(
                         key: Key("error_$index"),

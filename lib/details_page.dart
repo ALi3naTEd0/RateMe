@@ -48,10 +48,16 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Future<void> _initialize() async {
     try {
+      // Debug point 3: Input data
+      Logging.severe('Details page input data:', widget.album);
+
       // Try to convert to unified model
       if (ModelMappingService.isLegacyFormat(widget.album)) {
         Logging.severe('Converting legacy album format to unified model');
         unifiedAlbum = await _convertToUnified(widget.album);
+        
+        // Debug point 4: Conversion result
+        Logging.severe('Converted to unified model:', unifiedAlbum?.toJson());
       } else {
         unifiedAlbum = Album.fromJson(widget.album);
       }

@@ -348,6 +348,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   Future<void> _loadAlbums() async {
     List<Map<String, dynamic>> loadedAlbums = [];
+    List<String> idsToRemove = [];
     widget.list.cleanupAlbumIds();
     
     for (String albumId in widget.list.albumIds) {
@@ -356,27 +357,36 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         final Album? album = await UserData.getSavedAlbumById(intAlbumId);
         
         if (album != null) {
-          // Convert Album to Map format and add average rating
-          final Map<String, dynamic> albumMap = {
-            ...album.toJson(),
+          final metadata = album.metadata?['metadata'] ?? album.metadata;
+          final albumMap = {
             'collectionId': album.id,
-            'collectionName': album.name,
-            'artistName': album.artist,
-            'artworkUrl100': album.artworkUrl,
+            'collectionName': metadata?['name'] ?? 
+                            metadata?['collectionName'] ?? 
+                            album.name,
+            'artistName': metadata?['artist'] ?? 
+                         metadata?['artistName'] ?? 
+                         album.artist,
+            'artworkUrl100': metadata?['artworkUrl'] ?? 
+                            metadata?['artworkUrl100'] ?? 
+                            album.artworkUrl,
+            'platform': album.platform,
+            'url': metadata?['url'] ?? album.url,
             'averageRating': await _calculateAlbumRating(album.id),
+            'metadata': metadata,
           };
-          
           loadedAlbums.add(albumMap);
         } else {
-          // Remove invalid album ID
-          widget.list.albumIds.remove(albumId);
-          await UserData.saveCustomList(widget.list);
+          idsToRemove.add(albumId);
         }
       } catch (e) {
-        Logging.severe('Error loading album with ID: $albumId - $e');
-        widget.list.albumIds.remove(albumId);
-        await UserData.saveCustomList(widget.list);
+        idsToRemove.add(albumId);
       }
+    }
+    
+    // Remove invalid IDs after iteration is complete
+    if (idsToRemove.isNotEmpty) {
+      widget.list.albumIds.removeWhere((id) => idsToRemove.contains(id));
+      await UserData.saveCustomList(widget.list);
     }
     
     if (mounted) {
@@ -449,8 +459,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     // Determine if this is a Bandcamp album
     final isBandcamp = album['platform'] == 'bandcamp' || 
                       (album['url']?.toString().contains('bandcamp.com') ?? false);
-    
-    Logging.severe('Opening album details: ${albumWithDefaults['artistName']} - ${albumWithDefaults['collectionName']}');
     
     Navigator.push(
       context,

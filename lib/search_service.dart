@@ -22,11 +22,80 @@ class SearchService {
     if (query.isEmpty) return [];
     
     if (query.contains('bandcamp.com')) {
-      final albumInfo = await fetchBandcampAlbumInfo(query);
-      return albumInfo != null ? [albumInfo] : [];
-    } else {
-      return await searchiTunesAlbums(query);
+      try {
+        // Get album info
+        final response = await http.get(Uri.parse(query));
+        final document = parse(response.body);
+        
+        // First try to get JSON-LD data
+        var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
+        if (ldJsonScript != null) {
+          final ldJson = jsonDecode(ldJsonScript.text);
+          Logging.severe('Bandcamp JSON-LD data:', ldJson); // Debug log
+          
+          // Extract basic info
+          final albumData = {
+            'collectionName': ldJson['name'],
+            'artistName': ldJson['byArtist']?['name'],
+            'artworkUrl100': ldJson['image'],
+            'url': query,
+            'platform': 'bandcamp',
+            'releaseDate': ldJson['datePublished'],
+          };
+          
+          // Extract tracks
+          if (ldJson['track']?['itemListElement'] != null) {
+            final tracks = [];
+            for (var item in ldJson['track']['itemListElement']) {
+              final track = item['item'];
+              final props = track['additionalProperty'] as List;
+              final trackId = props.firstWhere(
+                (p) => p['name'] == 'track_id', 
+                orElse: () => {'value': null}
+              )['value'];
+              
+              tracks.add({
+                'trackId': trackId ?? DateTime.now().millisecondsSinceEpoch,
+                'trackNumber': item['position'],
+                'trackName': track['name'],
+                'trackTimeMillis': _parseBandcampDuration(track['duration']),
+              });
+            }
+            albumData['tracks'] = tracks;
+          }
+          
+          Logging.severe('Processed Bandcamp album data:', albumData); // Debug log
+          return [albumData];
+        }
+        
+        // Fallback to meta tags if JSON-LD not available
+        final title = document.querySelector('meta[property="og:title"]')?.attributes['content'];
+        final artist = document.querySelector('meta[property="og:site_name"]')?.attributes['content'];
+        final artwork = document.querySelector('meta[property="og:image"]')?.attributes['content'];
+        
+        Logging.severe('Bandcamp meta tags:', {
+          'title': title,
+          'artist': artist,
+          'artwork': artwork
+        }); // Debug log
+        
+        if (title != null) {
+          return [{
+            'collectionName': title.split(', by').first.trim(),
+            'artistName': artist ?? title.split(', by').last.trim(),
+            'artworkUrl100': artwork,
+            'url': query,
+            'platform': 'bandcamp'
+          }];
+        }
+      } catch (e) {
+        Logging.severe('Error processing Bandcamp URL', e);
+      }
+      return [];
     }
+    
+    // Handle non-Bandcamp searches
+    return await searchiTunesAlbums(query);
   }
 
   /// Enhanced iTunes search with better handling of clean versions
@@ -83,56 +152,24 @@ class SearchService {
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
-        var document = parse(response.body);
-
-        String title = document
-                .querySelector('meta[property="og:title"]')
-                ?.attributes['content'] ??
-            'Unknown Title';
-        String artist = document
-                .querySelector('meta[property="og:site_name"]')
-                ?.attributes['content'] ??
-            'Unknown Artist';
-        String artworkUrl = document
-                .querySelector('meta[property="og:image"]')
-                ?.attributes['content'] ??
-            '';
-
-        List<String> titleParts = title.split(', by ');
-        String albumName = titleParts.isNotEmpty ? titleParts[0].trim() : title;
-        String artistName = titleParts.length > 1 ? titleParts[1].trim() : artist;
-
-        // Extract album ID from Bandcamp data
-        var scriptTags = document.getElementsByTagName('script');
-        Map<String, dynamic>? albumData;
-
-        for (var script in scriptTags) {
-          String content = script.text;
-          if (content.contains('data-tralbum')) {
-            final regex = RegExp(r'data-tralbum="([^"]*)"');
-            final match = regex.firstMatch(content);
-            if (match != null) {
-              String jsonStr = match.group(1)!
-                  .replaceAll('&quot;', '"')
-                  .replaceAll('&amp;', '&');
-              try {
-                albumData = jsonDecode(jsonStr);
-                break;
-              } catch (e) {
-                Logging.severe('Error parsing album JSON: $e');
-              }
-            }
-          }
+        final document = parse(response.body);
+        var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
+        
+        if (ldJsonScript != null) {
+          final ldJson = jsonDecode(ldJsonScript.text);
+          
+          // Extract metadata from JSON-LD
+          return {
+            'id': ldJson['@id'] ?? url.hashCode,
+            'name': ldJson['name'] ?? 'Unknown Album',
+            'artist': ldJson['byArtist']?['name'] ?? 'Unknown Artist',
+            'artworkUrl': ldJson['image'] ?? '',
+            'url': url,
+            'platform': 'bandcamp',
+            'releaseDate': ldJson['datePublished'],
+            'metadata': ldJson,
+          };
         }
-
-        return {
-          'collectionId': albumData?['id'] ?? url.hashCode,
-          'collectionName': albumName,
-          'artistName': artistName,
-          'artworkUrl100': artworkUrl,
-          'url': url,
-          'albumData': albumData,
-        };
       }
       throw Exception('Failed to load Bandcamp album');
     } catch (e) {
@@ -270,5 +307,22 @@ class SearchService {
         }
       }
     }
+  }
+
+  static int _parseBandcampDuration(String duration) {
+    try {
+      final regex = RegExp(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?');
+      final match = regex.firstMatch(duration);
+      
+      if (match != null) {
+        final hours = int.tryParse(match.group(1) ?? '0') ?? 0;
+        final minutes = int.tryParse(match.group(2) ?? '0') ?? 0;
+        final seconds = int.tryParse(match.group(3) ?? '0') ?? 0;
+        return (hours * 3600 + minutes * 60 + seconds) * 1000;
+      }
+    } catch (e) {
+      Logging.severe('Error parsing duration', e);
+    }
+    return 0;
   }
 }
