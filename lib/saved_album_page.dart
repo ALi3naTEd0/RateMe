@@ -30,42 +30,42 @@ class SavedAlbumPage extends StatefulWidget {
 }
 
 class _SavedAlbumPageState extends State<SavedAlbumPage> {
-  List<dynamic> tracks = [];
+  Album? unifiedAlbum;
+  List<Track> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
-  int albumDurationMillis = 0;
+  int albumDurationMillis = 0;  // Add this
+  DateTime? releaseDate;  // Add this
   bool isLoading = true;
-  DateTime? releaseDate;
 
   @override
   void initState() {
     super.initState();
-    // Initialize in sequence
     _initialize();
   }
 
   Future<void> _initialize() async {
     try {
-      // Use MigrationUtil for safer validation without crashing
-      final validationResult = MigrationUtil.canConvertToModel(widget.album);
-      if (validationResult) {
-        Logging.severe('Album model validation successful for: ${widget.album['collectionName']}');
+      // Convert legacy album to unified model
+      unifiedAlbum = Album.fromJson(widget.album);
+      Logging.severe('Initialized album in unified model: ${unifiedAlbum?.name}');
+      
+      // Load ratings first
+      await _loadRatings();
+
+      // Then load tracks based on platform
+      if (unifiedAlbum?.platform == 'bandcamp') {
+        await _fetchBandcampTracks();
       } else {
-        Logging.severe('Album model validation failed, using legacy format for: ${widget.album['collectionName']}');
+        await _fetchItunesTracks();
+      }
+
+      if (mounted) {
+        setState(() => isLoading = false);
       }
     } catch (e) {
-      // Just log but continue - we're not actually using Album yet
-      Logging.severe('Album validation error, using legacy format', e);
-    }
-
-    // 1. Load ratings first 
-    await _loadRatings();
-    
-    // 2. Then load tracks based on source
-    if (widget.isBandcamp) {
-      await _fetchBandcampTracks();
-    } else {
-      await _fetchItunesTracks();
+      Logging.severe('Error initializing saved album page', e);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -109,13 +109,11 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     int totalDuration = 0;
     if (widget.isBandcamp) {
       for (var track in tracks) {
-        totalDuration += track['duration'] as int;
+        totalDuration += track.durationMs;
       }
     } else {
       for (var track in tracks) {
-        if (track['trackTimeMillis'] != null) {
-          totalDuration += track['trackTimeMillis'] as int;
-        }
+        totalDuration += track.durationMs;
       }
     }
     if (mounted) setState(() => albumDurationMillis = totalDuration);
@@ -133,7 +131,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           final ldJson = jsonDecode(ldJsonScript.text);
           
           if (ldJson != null && ldJson['track'] != null && ldJson['track']['itemListElement'] != null) {
-            List<Map<String, dynamic>> tracksData = [];
+            List<Track> tracksData = [];
             var trackItems = ldJson['track']['itemListElement'] as List;
 
             final albumId = widget.album['collectionId'];
@@ -153,12 +151,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               String duration = track['duration'] ?? '';
               int durationMillis = _parseDuration(duration);
 
-              tracksData.add({
-                'trackId': trackId,
-                'trackNumber': i + 1,
-                'title': track['name'],
-                'duration': durationMillis,
-              });
+              tracksData.add(Track(
+                id: trackId,
+                name: track['name'],
+                position: i + 1,
+                durationMs: durationMillis,
+                metadata: track,
+              ));
 
               var savedRating = savedRatings.firstWhere(
                 (r) => r['trackId'] == trackId,
@@ -224,28 +223,34 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   Future<void> _fetchItunesTracks() async {
     try {
       final url = Uri.parse(
-          'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
+          'https://itunes.apple.com/lookup?id=${unifiedAlbum?.id}&entity=song');
       final response = await http.get(url);
       final data = jsonDecode(response.body);
       
-      // Filter only audio tracks, excluding videos
-      var trackList = data['results']
-          .where((track) => 
-            track['wrapperType'] == 'track' && 
-            track['kind'] == 'song'  // Add this condition
-          )
-          .toList();
+      // Convert iTunes tracks to unified model
+      List<Track> unifiedTracks = [];
+      for (var trackData in data['results']) {
+        if (trackData['wrapperType'] == 'track' && trackData['kind'] == 'song') {
+          unifiedTracks.add(Track(
+            id: trackData['trackId'],
+            name: trackData['trackName'],
+            position: trackData['trackNumber'],
+            durationMs: trackData['trackTimeMillis'] ?? 0,
+            metadata: trackData,
+          ));
+        }
+      }
       
       if (mounted) {
         setState(() {
-          tracks = trackList;
-          releaseDate = DateTime.parse(widget.album['releaseDate']);
+          tracks = unifiedTracks;
           isLoading = false;
           calculateAlbumDuration();
         });
       }
-    } catch (error, stackTrace) {
-      // ...existing error handling...
+    } catch (e) {
+      Logging.severe('Error fetching iTunes tracks', e);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -441,29 +446,27 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                         ),
                       ],
                       rows: tracks.map((track) {
-                        final trackId = track['trackId'] ?? 0;
-                        final duration = widget.isBandcamp 
-                            ? track['duration'] ?? 0
-                            : track['trackTimeMillis'] ?? 0;
+                        final trackId = track.id;
+                        final duration = track.durationMs;
                         return DataRow(
                           cells: [
                             DataCell(
                               SizedBox(
                                 width: 35,  // Reducido de 40
                                 child: Center(
-                                  child: Text(track['trackNumber']?.toString() ?? ''),
+                                  child: Text(track.position?.toString() ?? ''),
                                 ),
                               ),
                             ),
                             DataCell(
                               Tooltip(
-                                message: widget.isBandcamp ? track['title'] : track['trackName'],
+                                message: track.name,
                                 child: ConstrainedBox(
                                   constraints: BoxConstraints(
                                     maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
                                   ),
                                   child: Text(
-                                    widget.isBandcamp ? track['title'] : track['trackName'],
+                                    track.name,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),

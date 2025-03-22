@@ -281,220 +281,94 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 
-                // Standard Backup Options - Move these to the top
+                // Standard Backup Options
                 ListTile(
                   leading: const Icon(Icons.file_upload),
                   title: const Text('Export Backup'),
                   subtitle: const Text('Save all your data as a backup file'),
-                  onTap: () async {
-                    if (!mounted) return;
-                    await UserData.exportData(context);
-                  },
+                  onTap: () async => await UserData.exportData(context),
                 ),
                 ListTile(
                   leading: const Icon(Icons.file_download),
                   title: const Text('Import Backup'),
                   subtitle: const Text('Restore data from a backup file'),
-                  onTap: () async {
-                    if (!mounted) return;
-                    final success = await UserData.importData(context);
-                    if (success && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Data imported successfully!')),
-                      );
-                    }
-                  },
+                  onTap: () async => await UserData.importData(context),
                 ),
                 
                 const Divider(),
                 
-                // Backup Conversion Options - Move these after standard backup
+                // Data Conversion
+                ListTile(
+                  leading: const Icon(Icons.sync),
+                  title: const Text('Convert to Unified Format'),
+                  subtitle: const Text('Convert all albums to the unified data model'),
+                  onTap: () => _showUnifiedFormatDialog(context),
+                ),
                 ListTile(
                   leading: const Icon(Icons.sync_alt),
                   title: const Text('Convert Old Backup'),
                   subtitle: const Text('Create new format backup from old one'),
-                  onTap: () async {
-                    await BackupConverter.convertBackupFile(context);
-                  },
+                  onTap: () => BackupConverter.convertBackupFile(context),
                 ),
                 ListTile(
                   leading: const Icon(Icons.system_update_alt),
                   title: const Text('Import & Convert Old Backup'),
                   subtitle: const Text('Convert and import old backup directly'),
-                  onTap: () async {
-                    final success = await BackupConverter.importConvertedBackup(context);
-                    if (success && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Backup converted and imported successfully!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  },
+                  onTap: () => BackupConverter.importConvertedBackup(context),
                 ),
                 
                 const Divider(),
                 
-                // Original Migration Options
+                // Migration Options
                 ListTile(
-                  title: const Text('Migrate Data to New Format'),
+                  leading: const Icon(Icons.update),
+                  title: const Text('Migrate Data'),
                   subtitle: const Text('Convert your data to the latest format'),
                   onTap: () => _showMigrationDialog(context),
                 ),
                 ListTile(
                   leading: const Icon(Icons.restore),
                   title: const Text('Rollback Migration'),
-                  subtitle: const Text('Revert to previous data format if needed'),
+                  subtitle: const Text('Revert to previous data format'),
                   onTap: () => _rollbackMigration(context),
                 ),
-                
-                const Divider(),
-                
-                // Debug Tools
+              ],
+            ),
+          ),
+
+          // Debug & Development Section
+          Card(
+            margin: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Debug & Development',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.bug_report),
-                  title: const Text('Debug Data'),
-                  subtitle: const Text('Diagnose data issues'),
-                  onTap: () async {
-                    await DebugUtil.showDebugReport(context);
-                  },
+                  title: const Text('Show Debug Info'),
+                  subtitle: const Text('View technical information'),
+                  onTap: () => DebugUtil.showDebugReport(context),
                 ),
-                
                 ListTile(
                   leading: const Icon(Icons.healing),
                   title: const Text('Repair Album Data'),
                   subtitle: const Text('Fix problems with album display'),
-                  onTap: () async {
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const AlertDialog(
-                        title: Text('Repairing Data...'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 16),
-                            Text('Please wait while your data is being repaired...'),
-                          ],
-                        ),
-                      ),
-                    );
-                    
-                    try {
-                      final result = await UserData.repairSavedAlbums();
-                      
-                      if (mounted) Navigator.pop(context);
-                      
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              result 
-                                ? 'Albums repaired successfully!' 
-                                : 'No repairs needed or no albums found'
-                            ),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) Navigator.pop(context);
-                      
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error repairing data: $e'),
-                            duration: const Duration(seconds: 5),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                  onTap: () => _showRepairDialog(context),
                 ),
-                // Add a new option to the Data Management section for converting to unified format
-
                 ListTile(
-                  leading: const Icon(Icons.sync),
-                  title: const Text('Convert to Unified Format'),
-                  subtitle: const Text('Convert all albums to the unified data model'),
-                  onTap: () async {
-                    // Show confirmation dialog
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Convert to Unified Format'),
-                        content: const Text(
-                          'This will convert all your albums to the new unified data model. '
-                          'This improves compatibility between different music platforms. '
-                          '\n\nYour data will be backed up first for safety.'
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Convert'),
-                          ),
-                        ],
-                      ),
-                    );
-                    
-                    if (confirm != true) return;
-                    
-                    // Show progress dialog
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const AlertDialog(
-                        title: Text('Converting Data'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 16),
-                            Text('Converting albums to unified format...'),
-                          ],
-                        ),
-                      ),
-                    );
-                    
-                    // Perform conversion
-                    try {
-                      final count = await UserData.convertAllAlbumsToUnifiedFormat();
-                      
-                      // Dismiss progress dialog
-                      if (mounted) Navigator.pop(context);
-                      
-                      // Show result
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Successfully converted $count albums to unified format'),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      // Dismiss progress dialog
-                      if (mounted) Navigator.pop(context);
-                      
-                      // Show error
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error during conversion: $e'),
-                            duration: const Duration(seconds: 5),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                  leading: const Icon(Icons.delete_forever),
+                  title: const Text('Clear Database'),
+                  subtitle: const Text('Delete all saved data (cannot be undone)'),
+                  onTap: () => _showClearDatabaseDialog(context),
                 ),
               ],
             ),
@@ -749,6 +623,179 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error during rollback: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showClearDatabaseDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Database'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This will delete:'),
+            SizedBox(height: 8),
+            Text('• All saved albums'),
+            Text('• All ratings'),
+            Text('• All custom lists'),
+            Text('• All settings'),
+            SizedBox(height: 16),
+            Text('This action cannot be undone!', 
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear Everything'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      try {
+        await UserData.clearAllData();
+        if (context.mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Database cleared successfully')),
+          );
+        }
+      } catch (e) {
+        Logging.severe('Error clearing database', e);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error clearing database: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showUnifiedFormatDialog(BuildContext context) async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convert to Unified Format'),
+        content: const Text(
+          'This will convert all your albums to the new unified data model. '
+          'This improves compatibility between different music platforms. '
+          '\n\nYour data will be backed up first for safety.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Convert'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm != true) return;
+    
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        title: Text('Converting Data'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Converting albums to unified format...'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final count = await UserData.convertAllAlbumsToUnifiedFormat();
+      
+      if (mounted) {
+        Navigator.pop(context); // Dismiss progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully converted $count albums to unified format'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Dismiss progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during conversion: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showRepairDialog(BuildContext context) async {
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        title: Text('Repairing Data...'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Please wait while your data is being repaired...'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final repairResult = await UserData.repairSavedAlbums();
+      final removedRatings = await UserData.cleanupOrphanedRatings();
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${repairResult ? "Albums repaired successfully!" : "No album repairs needed"}\n'
+              'Removed $removedRatings orphaned ratings.'
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Dismiss progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error repairing data: $e'),
             duration: const Duration(seconds: 5),
             backgroundColor: Colors.red,
           ),

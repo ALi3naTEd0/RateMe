@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'album_model.dart';
+import 'model_mapping_service.dart';
+import 'platform_data_analyzer.dart';
 
 class UserData {
   // Storage keys for SharedPreferences
@@ -95,76 +97,36 @@ class UserData {
       List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
       List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
       
-      // Convert to Album model if not already
+      // ALWAYS convert to unified Album model first
       Album album;
       if (albumData is Album) {
         album = albumData;
       } else {
-        try {
-          album = Album.fromLegacy(albumData);
-        } catch (e) {
-          Logging.severe('Error converting album to model: $e');
-          // Fall back to using legacy data directly
-          String albumJson = jsonEncode(albumData);
-          
-          // Check if album already exists before adding
-          String albumId = albumData['collectionId'].toString();
-          bool exists = false;
-          
-          for (String savedAlbumJson in savedAlbums) {
-            try {
-              Map<String, dynamic> savedAlbum = jsonDecode(savedAlbumJson);
-              String savedId = (savedAlbum['collectionId'] ?? savedAlbum['id']).toString();
-              if (savedId == albumId) {
-                exists = true;
-                break;
-              }
-            } catch (e) {
-              // Skip invalid entries
-            }
-          }
-          
-          if (!exists) {
-            savedAlbums.add(albumJson);
-            if (!albumOrder.contains(albumId)) {
-              albumOrder.add(albumId);
-            }
-            
-            await prefs.setStringList(_savedAlbumsKey, savedAlbums);
-            await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
-          }
-          return;
-        }
+        album = Album.fromLegacy(albumData);
       }
       
-      // Get album ID and check if it already exists
+      // Save in unified format
+      final albumJson = jsonEncode(album.toJson());
       String albumId = album.id.toString();
-      bool exists = false;
       
+      // Check if exists
+      bool exists = false;
       for (String savedAlbumJson in savedAlbums) {
-        try {
-          Map<String, dynamic> savedAlbum = jsonDecode(savedAlbumJson);
-          String savedId = (savedAlbum['id'] ?? savedAlbum['collectionId']).toString();
-          if (savedId == albumId) {
-            exists = true;
-            break;
-          }
-        } catch (e) {
-          // Skip invalid entries
+        final saved = jsonDecode(savedAlbumJson);
+        if (saved['id']?.toString() == albumId) {
+          exists = true;
+          break; 
         }
       }
       
       if (!exists) {
-        savedAlbums.add(jsonEncode(album.toJson()));
-        if (!albumOrder.contains(albumId)) {
-          albumOrder.add(albumId);
-        }
-        
+        savedAlbums.add(albumJson);
+        albumOrder.add(albumId);
         await prefs.setStringList(_savedAlbumsKey, savedAlbums);
         await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
       }
-    } catch (e, stackTrace) {
-      Logging.severe('Error adding to saved albums', e, stackTrace);
+    } catch (e) {
+      Logging.severe('Error saving album', e);
       rethrow;
     }
   }
@@ -273,7 +235,7 @@ class UserData {
     }
   }
 
-  static Future<Map<String, dynamic>?> getSavedAlbumById(int albumId) async {
+  static Future<Album?> getSavedAlbumById(int albumId) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       List<String>? savedAlbumsJson = prefs.getStringList(_savedAlbumsKey);
@@ -281,63 +243,37 @@ class UserData {
       if (savedAlbumsJson != null) {
         for (String json in savedAlbumsJson) {
           try {
-            Map<String, dynamic> album = jsonDecode(json);
+            Map<String, dynamic> albumData = jsonDecode(json);
             
             // Check for ID match using either legacy or new format
             bool isMatch = false;
-            
-            // Check collectionId (legacy format)
-            if (album.containsKey('collectionId')) {
-              final id = album['collectionId'];
+            if (albumData.containsKey('collectionId')) {
+              final id = albumData['collectionId'];
               isMatch = (id is int && id == albumId) || 
                        (id is String && id == albumId.toString());
             }
-            
-            // Check id (new format)
-            if (!isMatch && album.containsKey('id')) {
-              final id = album['id'];
+            if (!isMatch && albumData.containsKey('id')) {
+              final id = albumData['id'];
               isMatch = (id is int && id == albumId) || 
                        (id is String && id == albumId.toString());
             }
             
             if (isMatch) {
-              // Ensure backward compatibility fields
-              if (album.containsKey('id') && !album.containsKey('collectionId')) {
-                album['collectionId'] = album['id'];
+              // Convert to unified model
+              if (albumData.containsKey('modelVersion')) {
+                // Already in unified format
+                return Album.fromJson(albumData);
+              } else {
+                // Legacy format - convert using fromLegacy
+                return Album.fromLegacy(albumData);
               }
-              if (album.containsKey('collectionId') && !album.containsKey('id')) {
-                album['id'] = album['collectionId'];
-              }
-              if (album.containsKey('name') && !album.containsKey('collectionName')) {
-                album['collectionName'] = album['name'];
-              }
-              if (album.containsKey('collectionName') && !album.containsKey('name')) {
-                album['name'] = album['collectionName'];
-              }
-              if (album.containsKey('artist') && !album.containsKey('artistName')) {
-                album['artistName'] = album['artist'];
-              }
-              if (album.containsKey('artistName') && !album.containsKey('artist')) {
-                album['artist'] = album['artistName'];
-              }
-              if (album.containsKey('artworkUrl') && !album.containsKey('artworkUrl100')) {
-                album['artworkUrl100'] = album['artworkUrl'];
-              }
-              if (album.containsKey('artworkUrl100') && !album.containsKey('artworkUrl')) {
-                album['artworkUrl'] = album['artworkUrl100'];
-              }
-              
-              Logging.severe('Found album by ID: ${album['artistName']} - ${album['collectionName']}');
-              return album;
             }
           } catch (e) {
             Logging.severe('Error parsing album JSON when getting by ID', e);
-            // Skip this entry if there's an error
+            continue;
           }
         }
       }
-
-      Logging.severe('Album not found for ID: $albumId');
       return null;
     } catch (e, stack) {
       Logging.severe('Error in getSavedAlbumById', e, stack);
@@ -520,12 +456,55 @@ class UserData {
       final jsonData = await file.readAsString();
       final data = jsonDecode(jsonData);
       
+      // Show conversion dialog
+      final shouldConvert = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Convert Backup'),
+          content: const Text(
+            'Would you like to convert this backup to the new album format? '
+            'This is recommended for better compatibility.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Import As Is'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Convert'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldConvert == true) {
+        // Convert albums to new format
+        if (data['saved_albums'] != null) {
+          List<String> savedAlbums = List<String>.from(data['saved_albums']);
+          List<String> convertedAlbums = [];
+          
+          for (String albumJson in savedAlbums) {
+            try {
+              Map<String, dynamic> albumData = jsonDecode(albumJson);
+              Album album = Album.fromLegacy(albumData);
+              convertedAlbums.add(jsonEncode(album.toJson()));
+            } catch (e) {
+              Logging.severe('Error converting album during import', e);
+              convertedAlbums.add(albumJson); // Keep original on error
+            }
+          }
+          
+          data['saved_albums'] = convertedAlbums;
+        }
+      }
+      
+      // Clear existing data and import
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();  // Clear existing data
+      await prefs.clear();
       
       for (String key in data.keys) {
         dynamic value = data[key];
-        
         if (value is int) {
           await prefs.setInt(key, value);
         } else if (value is double) {
@@ -543,9 +522,10 @@ class UserData {
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Data imported successfully'),
-            behavior: SnackBarBehavior.floating,
+          SnackBar(
+            content: Text(shouldConvert == true 
+              ? 'Data converted and imported successfully'
+              : 'Data imported successfully'),
           ),
         );
       }
@@ -555,11 +535,7 @@ class UserData {
       Logging.severe('Error importing data', e);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error importing data: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text('Error importing data: $e')),
         );
       }
       return false;
@@ -1144,6 +1120,117 @@ class UserData {
       return successCount;
     } catch (e) {
       Logging.severe('Error converting all albums to unified format', e);
+      return 0;
+    }
+  }
+
+  /// Save album in unified format
+  static Future<bool> saveUnifiedAlbum(Album album) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get existing albums
+      List<String> savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      List<String> albumOrder = prefs.getStringList('saved_album_order') ?? [];
+      
+      // Check if album already exists
+      int existingIndex = savedAlbums.indexWhere((json) {
+        try {
+          final data = jsonDecode(json);
+          return data['id']?.toString() == album.id.toString() ||
+                 data['collectionId']?.toString() == album.id.toString();
+        } catch (e) {
+          return false;
+        }
+      });
+      
+      // Convert to JSON and save
+      final albumJson = jsonEncode(album.toJson());
+      if (existingIndex >= 0) {
+        savedAlbums[existingIndex] = albumJson;
+      } else {
+        savedAlbums.add(albumJson);
+        albumOrder.add(album.id.toString());
+      }
+      
+      // Save both lists
+      await prefs.setStringList('saved_albums', savedAlbums);
+      await prefs.setStringList('saved_album_order', albumOrder);
+      
+      return true;
+    } catch (e) {
+      Logging.severe('Error saving unified album', e);
+      return false;
+    }
+  }
+
+  /// Get album by ID, returns in unified format when possible
+  static Future<Album?> getUnifiedAlbum(dynamic albumId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      
+      for (String albumJson in savedAlbums) {
+        try {
+          final data = jsonDecode(albumJson);
+          if (data['id']?.toString() == albumId.toString() ||
+              data['collectionId']?.toString() == albumId.toString()) {
+            
+            // Try to convert to unified model
+            if (ModelMappingService.isLegacyFormat(data)) {
+              return ModelMappingService.mapItunesSearchResult(data);
+            } else {
+              return Album.fromJson(data);
+            }
+          }
+        } catch (e) {
+          Logging.severe('Error parsing album JSON', e);
+          continue;
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      Logging.severe('Error getting unified album', e);
+      return null;
+    }
+  }
+
+  static Future<int> cleanupOrphanedRatings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      int removedCount = 0;
+      
+      // Get all saved album IDs
+      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      Set<String> validAlbumIds = {};
+      
+      // Extract all valid album IDs
+      for (String albumJson in savedAlbums) {
+        try {
+          Map<String, dynamic> album = jsonDecode(albumJson);
+          String id = (album['id'] ?? album['collectionId']).toString();
+          validAlbumIds.add(id);
+        } catch (e) {
+          Logging.severe('Error parsing album JSON', e);
+        }
+      }
+      
+      // Find and remove orphaned ratings
+      for (String key in prefs.getKeys()) {
+        if (key.startsWith(_ratingsPrefix)) {
+          String albumId = key.replaceFirst(_ratingsPrefix, '');
+          if (!validAlbumIds.contains(albumId)) {
+            await prefs.remove(key);
+            removedCount++;
+            Logging.severe('Removed orphaned ratings for album ID: $albumId');
+          }
+        }
+      }
+      
+      return removedCount;
+    } catch (e) {
+      Logging.severe('Error cleaning up orphaned ratings', e);
       return 0;
     }
   }

@@ -13,6 +13,7 @@ import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'theme.dart';  // Add this import
 import 'album_model.dart';  // Add this import
+import 'model_mapping_service.dart';
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -31,53 +32,82 @@ class DetailsPage extends StatefulWidget {
 }
 
 class _DetailsPageState extends State<DetailsPage> {
+  Album? unifiedAlbum;
   List<dynamic> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
-  bool isLoading = true;
   DateTime? releaseDate;
-  late Map<String, dynamic> albumToSave;  // Add this field
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    albumToSave = widget.album;  // Initialize from widget.album
     _initialize();
   }
 
   Future<void> _initialize() async {
-    // Load ratings first
-    if (widget.initialRatings != null) {
-      ratings = Map.from(widget.initialRatings!);
-      calculateAverageRating();
-    } else {
+    try {
+      // Try to convert to unified model
+      if (ModelMappingService.isLegacyFormat(widget.album)) {
+        Logging.severe('Converting legacy album format to unified model');
+        unifiedAlbum = await _convertToUnified(widget.album);
+      } else {
+        unifiedAlbum = Album.fromJson(widget.album);
+      }
+      
+      // Load additional data if needed
+      if (unifiedAlbum != null) {
+        await _loadAdditionalData();
+      }
+      
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    } catch (e) {
+      Logging.severe('Error initializing details page', e);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<Album?> _convertToUnified(Map<String, dynamic> legacyData) async {
+    try {
+      // For iTunes data
+      if (legacyData['collectionId'] != null) {
+        return ModelMappingService.mapItunesSearchResult(legacyData);
+      }
+      // Add more platform checks as needed
+      return null;
+    } catch (e) {
+      Logging.severe('Error converting to unified model', e);
+      return null;
+    }
+  }
+
+  Future<void> _loadAdditionalData() async {
+    // Load tracks, ratings, etc.
+    if (unifiedAlbum == null) return;
+    
+    try {
+      // Load tracks based on platform
+      if (unifiedAlbum!.platform == 'itunes') {
+        await _fetchItunesTracks();
+      } else if (unifiedAlbum!.platform == 'bandcamp') {
+        await _fetchBandcampTracks();
+      }
+      
+      // Load ratings
       await _loadRatings();
-    }
-
-    // Note: We don't need model validation here since we're creating a new page
-    // albumToSave = widget.album already set in initState
-
-    // Then load tracks
-    if (widget.isBandcamp) {
-      await _fetchBandcampTracks();
-    } else {
-      await _fetchItunesTracks();
-    }
-
-    // Final update
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-        calculateAverageRating();
-        calculateAlbumDuration();
-      });
+    } catch (e) {
+      Logging.severe('Error loading additional data', e);
     }
   }
 
   Future<void> _loadRatings() async {
     try {
-      int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+      int albumId = unifiedAlbum?.id ?? DateTime.now().millisecondsSinceEpoch;
       List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
       
       Map<int, double> ratingsMap = {};
@@ -97,9 +127,9 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<void> _fetchBandcampTracks() async {
-    final url = widget.album['url'];
+    final url = unifiedAlbum?.url;
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url!));
       if (response.statusCode == 200) {
         final document = parse(response.body);
         var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
@@ -111,8 +141,8 @@ class _DetailsPageState extends State<DetailsPage> {
             var trackItems = ldJson['track']['itemListElement'] as List;
             List<Map<String, dynamic>> tracksData = [];
 
-            final albumId = widget.album['collectionId'];
-            final oldRatingsByPosition = await UserData.migrateAlbumRatings(albumId);
+            final albumId = unifiedAlbum?.id;
+            final oldRatingsByPosition = await UserData.migrateAlbumRatings(albumId!);
             
             for (int i = 0; i < trackItems.length; i++) {
               var item = trackItems[i];
@@ -197,7 +227,7 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _fetchItunesTracks() async {
     try {
       final url = Uri.parse(
-          'https://itunes.apple.com/lookup?id=${widget.album['collectionId']}&entity=song');
+          'https://itunes.apple.com/lookup?id=${unifiedAlbum?.id}&entity=song');
       final response = await http.get(url);
       final data = jsonDecode(response.body);
       
@@ -205,14 +235,19 @@ class _DetailsPageState extends State<DetailsPage> {
       var trackList = data['results']
           .where((track) => 
             track['wrapperType'] == 'track' && 
-            track['kind'] == 'song'  // Filter video tracks
+            track['kind'] == 'song'
           )
           .toList();
       
       if (mounted) {
         setState(() {
           tracks = trackList;
-          releaseDate = DateTime.parse(widget.album['releaseDate']);
+          // Fix date parsing
+          if (unifiedAlbum?.releaseDate != null) {
+            releaseDate = unifiedAlbum!.releaseDate;
+          } else {
+            releaseDate = DateTime.now();
+          }
         });
       }
     } catch (error, stackTrace) {
@@ -238,7 +273,7 @@ class _DetailsPageState extends State<DetailsPage> {
 
   void calculateAlbumDuration() {
     int totalDuration = 0;
-    if (widget.isBandcamp) {
+    if (unifiedAlbum?.platform == 'bandcamp') {
       for (var track in tracks) {
         totalDuration += track['duration'] as int;
       }
@@ -258,14 +293,14 @@ class _DetailsPageState extends State<DetailsPage> {
       calculateAverageRating();
     });
 
-    int albumId = widget.album['collectionId'] ?? DateTime.now().millisecondsSinceEpoch;
+    int albumId = unifiedAlbum?.id ?? DateTime.now().millisecondsSinceEpoch;
     await UserData.saveRating(albumId, trackId, newRating);
   }
 
   Future<void> _launchRateYourMusic() async {
-    final artistName = widget.album['artistName'];
-    final albumName = widget.album['collectionName'];
-    final url = 'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+    final artistName = unifiedAlbum?.artistName;
+    final albumName = unifiedAlbum?.collectionName;
+    final url = 'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName!)}+${Uri.encodeComponent(albumName!)}&searchtype=l';
     
     try {
       final uri = Uri.parse(url);
@@ -292,11 +327,13 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   String _formatReleaseDate() {
-    if (widget.isBandcamp) {
+    if (unifiedAlbum?.platform == 'bandcamp') {
       if (releaseDate == null) return 'Unknown Date';
       return DateFormat('d MMMM yyyy').format(releaseDate!);
     } else {
-      return DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']));
+      // Fix date formatting for non-bandcamp platforms
+      final date = unifiedAlbum?.releaseDate ?? DateTime.now();
+      return DateFormat('d MMMM yyyy').format(date);
     }
   }
 
@@ -315,8 +352,8 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Future<bool> _verifyAlbumImport(Map<String, dynamic> importedAlbum) async {
     // Normalize strings for comparison
-    String currentArtist = widget.album['artistName'].toString().toLowerCase();
-    String currentAlbum = widget.album['collectionName'].toString().toLowerCase();
+    String currentArtist = unifiedAlbum?.artistName.toString().toLowerCase() ?? '';
+    String currentAlbum = unifiedAlbum?.collectionName.toString().toLowerCase() ?? '';
     String importArtist = importedAlbum['artistName'].toString().toLowerCase();
     String importAlbum = importedAlbum['collectionName'].toString().toLowerCase();
 
@@ -336,7 +373,7 @@ class _DetailsPageState extends State<DetailsPage> {
           children: [
             const Text('The imported album is different from the current one:'),
             const SizedBox(height: 8),
-            Text('Current: ${widget.album['artistName']} - ${widget.album['collectionName']}'),
+            Text('Current: ${unifiedAlbum?.artistName} - ${unifiedAlbum?.collectionName}'),
             Text('Import: ${importedAlbum['artistName']} - ${importedAlbum['collectionName']}'),
             const SizedBox(height: 16),
             const Text('Do you want to switch to the imported album?'),
@@ -367,7 +404,7 @@ class _DetailsPageState extends State<DetailsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.album['collectionName'] ?? 'Unknown Album'),
+        title: Text(unifiedAlbum?.collectionName ?? 'Unknown Album'),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -379,7 +416,7 @@ class _DetailsPageState extends State<DetailsPage> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Image.network(
-                      widget.album['artworkUrl100']?.replaceAll('100x100', '600x600') ?? '',
+                      unifiedAlbum?.artworkUrl100?.replaceAll('100x100', '600x600') ?? '',
                       width: 300,
                       height: 300,
                       fit: BoxFit.cover,
@@ -391,8 +428,8 @@ class _DetailsPageState extends State<DetailsPage> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        _buildInfoRow("Artist", widget.album['artistName'] ?? 'Unknown Artist'),
-                        _buildInfoRow("Album", widget.album['collectionName'] ?? 'Unknown Album'),
+                        _buildInfoRow("Artist", unifiedAlbum?.artistName ?? 'Unknown Artist'),
+                        _buildInfoRow("Album", unifiedAlbum?.collectionName ?? 'Unknown Album'),
                         _buildInfoRow("Release Date", _formatReleaseDate()),
                         _buildInfoRow("Duration", formatDuration(albumDurationMillis)),
                         const SizedBox(height: 8),
@@ -405,12 +442,12 @@ class _DetailsPageState extends State<DetailsPage> {
                             ElevatedButton(
                               onPressed: () async {
                                 // Save album with filtered tracks
-                                final albumToSave = Map<String, dynamic>.from(widget.album);
-                                albumToSave['tracks'] = tracks;
+                                final albumToSave = unifiedAlbum?.toJson();
+                                albumToSave?['tracks'] = tracks;
                                 await _saveAlbum();
                                 
                                 // Add to saved albums list
-                                await UserData.addToSavedAlbums(albumToSave);
+                                await UserData.addToSavedAlbums(albumToSave!);
                                 
                                 if (!mounted) return;
                                 _showAddToListDialog(context);
@@ -471,7 +508,7 @@ class _DetailsPageState extends State<DetailsPage> {
                       ],
                       rows: tracks.map((track) {
                         final trackId = track['trackId'] ?? 0;
-                        final duration = widget.isBandcamp 
+                        final duration = unifiedAlbum?.platform == 'bandcamp' 
                             ? track['duration'] ?? 0
                             : track['trackTimeMillis'] ?? 0;
                         
@@ -486,7 +523,7 @@ class _DetailsPageState extends State<DetailsPage> {
                               ),
                             ),
                             DataCell(_buildTrackTitle(
-                              widget.isBandcamp ? track['title'] : track['trackName'],
+                              unifiedAlbum?.platform == 'bandcamp' ? track['title'] : track['trackName'],
                               MediaQuery.of(context).size.width * titleWidthFactor,
                             )),
                             DataCell(
@@ -596,7 +633,9 @@ class _DetailsPageState extends State<DetailsPage> {
               onTap: () async {
                 Navigator.pop(context);
                 if (!mounted) return;
-                await UserData.exportAlbum(context, widget.album);
+                if (unifiedAlbum != null) {
+                  await UserData.exportAlbum(context, unifiedAlbum!.toJson());
+                }
               },
             ),
             ListTile(
@@ -692,15 +731,15 @@ class _DetailsPageState extends State<DetailsPage> {
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             name: nameController.text,
             description: descController.text,
-            albumIds: [widget.album['collectionId'].toString()],
+            albumIds: [unifiedAlbum?.id.toString() ?? ''],
           );
           await UserData.saveCustomList(newList);
         }
       } else if (result != null) {
         final lists = await UserData.getCustomLists();
         final selectedList = lists.firstWhere((list) => list.id == result);
-        if (!selectedList.albumIds.contains(widget.album['collectionId'].toString())) {
-          selectedList.albumIds.add(widget.album['collectionId'].toString());
+        if (!selectedList.albumIds.contains(unifiedAlbum?.id.toString())) {
+          selectedList.albumIds.add(unifiedAlbum?.id.toString() ?? '');
           await UserData.saveCustomList(selectedList);
         }
       }
@@ -732,7 +771,7 @@ class _DetailsPageState extends State<DetailsPage> {
       builder: (context) {
         final shareWidget = ShareWidget(
           key: ShareWidget.shareKey,
-          album: widget.album,
+          album: unifiedAlbum?.toJson() ?? {},
           tracks: tracks,
           ratings: ratings,
           averageRating: averageRating,
@@ -842,7 +881,7 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _saveAlbum() async {
     try {
       // Keep using Map<String, dynamic> for albumToSave
-      await UserData.addToSavedAlbums(albumToSave);
+      await UserData.addToSavedAlbums(unifiedAlbum?.toJson() ?? {});
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -25,6 +25,11 @@ class Album {
     this.metadata,
   });
 
+  // Legacy property getters
+  String get collectionName => name;
+  String get artistName => artist;
+  String get artworkUrl100 => artworkUrl;
+
   /// Convert Album to a Map for storage
   Map<String, dynamic> toJson() {
     return {

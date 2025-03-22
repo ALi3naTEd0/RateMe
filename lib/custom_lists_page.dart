@@ -321,7 +321,6 @@ class CustomListDetailsPage extends StatefulWidget {
 
 class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   List<Map<String, dynamic>> albums = [];
-  Map<int, List<dynamic>> albumTracks = {};
   bool isLoading = true;
 
   @override
@@ -330,61 +329,51 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     _loadAlbums();
   }
 
+  /// Calculate average rating for an album
+  Future<double> _calculateAlbumRating(int albumId) async {
+    try {
+      final ratings = await UserData.getRatings(albumId);
+      if (ratings == null || ratings.isEmpty) return 0.0;
+      
+      var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
+      if (ratedTracks.isEmpty) return 0.0;
+      
+      double total = ratedTracks.reduce((a, b) => a + b);
+      return double.parse((total / ratedTracks.length).toStringAsFixed(2));
+    } catch (e) {
+      Logging.severe('Error calculating album rating', e);
+      return 0.0;
+    }
+  }
+
   Future<void> _loadAlbums() async {
     List<Map<String, dynamic>> loadedAlbums = [];
-    widget.list.cleanupAlbumIds(); // Clean list before loading
+    widget.list.cleanupAlbumIds();
     
-    // Create a safe copy of albumIds to iterate
-    final albumIdsToProcess = List<String>.from(widget.list.albumIds);
-    
-    for (String albumId in albumIdsToProcess) {
+    for (String albumId in widget.list.albumIds) {
       try {
-        // Parse the album ID as an integer
         final intAlbumId = int.parse(albumId);
-        final Map<String, dynamic>? legacyAlbum = await UserData.getSavedAlbumById(intAlbumId);
+        final Album? album = await UserData.getSavedAlbumById(intAlbumId);
         
-        if (legacyAlbum != null) {
-          // Convert to unified model and back to ensure all fields are present
-          Album album;
-          try {
-            album = Album.fromLegacy(legacyAlbum);
-          } catch (e) {
-            Logging.severe('Error converting album to unified model: $e');
-            // Still use the original data even if conversion fails
-            loadedAlbums.add(legacyAlbum);
-            continue;
-          }
-          
-          // Create a map with both unified and legacy fields
-          Map<String, dynamic> unifiedAlbum = album.toJson();
-          // Add legacy fields for backward compatibility
-          unifiedAlbum.addAll({
+        if (album != null) {
+          // Convert Album to Map format and add average rating
+          final Map<String, dynamic> albumMap = {
+            ...album.toJson(),
             'collectionId': album.id,
             'collectionName': album.name,
             'artistName': album.artist,
             'artworkUrl100': album.artworkUrl,
-          });
+            'averageRating': await _calculateAlbumRating(album.id),
+          };
           
-          // Load ratings for this album
-          final ratings = await UserData.getSavedAlbumRatings(intAlbumId);
-          double averageRating = 0.0;
-          if (ratings.isNotEmpty) {
-            final total = ratings.fold(0.0, (sum, rating) => sum + rating['rating']);
-            averageRating = total / ratings.length;
-          }
-          unifiedAlbum['averageRating'] = averageRating;
-          
-          loadedAlbums.add(unifiedAlbum);
-          Logging.severe('Successfully loaded album: ${album.name}');
+          loadedAlbums.add(albumMap);
         } else {
           // Remove invalid album ID
-          Logging.severe('Album not found for ID: $albumId, removing from list');
           widget.list.albumIds.remove(albumId);
           await UserData.saveCustomList(widget.list);
         }
       } catch (e) {
         Logging.severe('Error loading album with ID: $albumId - $e');
-        // Remove invalid ID
         widget.list.albumIds.remove(albumId);
         await UserData.saveCustomList(widget.list);
       }
@@ -527,35 +516,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         );
       },
     );
-  }
-
-  Future<void> _fetchAlbumDetails(Map<String, dynamic> album, bool isBandcamp) async {
-    try {
-      if (!isBandcamp) {
-        final url = Uri.parse(
-            'https://itunes.apple.com/lookup?id=${album['collectionId']}&entity=song');
-        final response = await http.get(url);
-        final data = jsonDecode(response.body);
-        
-        // Filter only audio tracks, excluding videos
-        var trackList = data['results']
-            .where((track) => 
-              track['wrapperType'] == 'track' && 
-              track['kind'] == 'song'  // Add this condition to filter out videos
-            )
-            .toList();
-
-        if (mounted) {
-          setState(() {
-            albumTracks[album['collectionId']] = trackList;
-          });
-        }
-      } else {
-        // Bandcamp handling would go here
-      }
-    } catch (e) {
-      Logging.severe('Error fetching album details: $e');
-    }
   }
 
   @override
