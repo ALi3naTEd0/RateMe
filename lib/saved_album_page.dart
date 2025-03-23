@@ -11,9 +11,9 @@ import 'user_data.dart';
 import 'logging.dart';
 import 'share_widget.dart';
 import 'custom_lists_page.dart';
-import 'theme.dart';  // Add this import
-import 'album_model.dart';  // Add this import
-import 'migration_util.dart';  // Add this import for safer conversion
+// Add this import
+import 'album_model.dart'; // Add this import
+// Add this import for safer conversion
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -34,8 +34,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   List<Track> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
-  int albumDurationMillis = 0;  // Add this
-  DateTime? releaseDate;  // Add this
+  int albumDurationMillis = 0; // Add this
+  DateTime? releaseDate; // Add this
   bool isLoading = true;
 
   @override
@@ -48,8 +48,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     try {
       // Convert legacy album to unified model
       unifiedAlbum = Album.fromJson(widget.album);
-      Logging.severe('Initialized album in unified model: ${unifiedAlbum?.name}');
-      
+      Logging.severe(
+          'Initialized album in unified model: ${unifiedAlbum?.name}');
+
       // Load ratings first
       await _loadRatings();
 
@@ -71,15 +72,15 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
   Future<void> _loadRatings() async {
     try {
-      final List<Map<String, dynamic>> savedRatings = 
+      final List<Map<String, dynamic>> savedRatings =
           await UserData.getSavedAlbumRatings(widget.album['collectionId']);
-      
+
       if (mounted) {
         Map<int, double> ratingsMap = {};
         for (var rating in savedRatings) {
           ratingsMap[rating['trackId']] = rating['rating'].toDouble();
         }
-        
+
         setState(() {
           ratings = ratingsMap;
           calculateAverageRating();
@@ -125,27 +126,28 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
-        
+        var ldJsonScript =
+            document.querySelector('script[type="application/ld+json"]');
+
         if (ldJsonScript != null) {
           final ldJson = jsonDecode(ldJsonScript.text);
-          
-          if (ldJson != null && ldJson['track'] != null && ldJson['track']['itemListElement'] != null) {
+
+          if (ldJson != null &&
+              ldJson['track'] != null &&
+              ldJson['track']['itemListElement'] != null) {
             List<Track> tracksData = [];
             var trackItems = ldJson['track']['itemListElement'] as List;
 
             final albumId = widget.album['collectionId'];
             final savedRatings = await UserData.getSavedAlbumRatings(albumId);
-            
+
             for (int i = 0; i < trackItems.length; i++) {
               var item = trackItems[i];
               var track = item['item'];
 
               var props = track['additionalProperty'] as List;
-              var trackIdProp = props.firstWhere(
-                (p) => p['name'] == 'track_id',
-                orElse: () => {'value': 0}
-              );
+              var trackIdProp = props.firstWhere((p) => p['name'] == 'track_id',
+                  orElse: () => {'value': 0});
               int trackId = trackIdProp['value'];
 
               String duration = track['duration'] ?? '';
@@ -163,10 +165,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                 (r) => r['trackId'] == trackId,
                 orElse: () => {'rating': 0.0},
               );
-              
-              if (savedRating != null) {
-                ratings[trackId] = savedRating['rating'].toDouble();
-              }
+
+              ratings[trackId] = savedRating['rating'].toDouble();
             }
 
             if (mounted) {
@@ -174,10 +174,12 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                 tracks = tracksData;
                 try {
                   String dateStr = ldJson['datePublished'];
-                  releaseDate = DateFormat("d MMMM yyyy HH:mm:ss 'GMT'").parse(dateStr);
+                  releaseDate =
+                      DateFormat("d MMMM yyyy HH:mm:ss 'GMT'").parse(dateStr);
                 } catch (e) {
                   try {
-                    releaseDate = DateTime.parse(ldJson['datePublished'].replaceAll(' GMT', 'Z'));
+                    releaseDate = DateTime.parse(
+                        ldJson['datePublished'].replaceAll(' GMT', 'Z'));
                   } catch (e) {
                     releaseDate = DateTime.now();
                   }
@@ -206,11 +208,14 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       final parts = matches.map((m) => int.parse(m.group(1)!)).toList();
 
       int totalMillis = 0;
-      if (parts.length >= 3) {  // H:M:S
+      if (parts.length >= 3) {
+        // H:M:S
         totalMillis = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
-      } else if (parts.length == 2) {  // M:S
+      } else if (parts.length == 2) {
+        // M:S
         totalMillis = ((parts[0] * 60) + parts[1]) * 1000;
-      } else if (parts.length == 1) {  // S
+      } else if (parts.length == 1) {
+        // S
         totalMillis = parts[0] * 1000;
       }
       return totalMillis;
@@ -226,11 +231,12 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           'https://itunes.apple.com/lookup?id=${unifiedAlbum?.id}&entity=song');
       final response = await http.get(url);
       final data = jsonDecode(response.body);
-      
+
       // Convert iTunes tracks to unified model
       List<Track> unifiedTracks = [];
       for (var trackData in data['results']) {
-        if (trackData['wrapperType'] == 'track' && trackData['kind'] == 'song') {
+        if (trackData['wrapperType'] == 'track' &&
+            trackData['kind'] == 'song') {
           unifiedTracks.add(Track(
             id: trackData['trackId'],
             name: trackData['trackName'],
@@ -240,7 +246,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           ));
         }
       }
-      
+
       if (mounted) {
         setState(() {
           tracks = unifiedTracks;
@@ -267,8 +273,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   Future<void> _launchRateYourMusic() async {
     final artistName = widget.album['artistName'];
     final albumName = widget.album['collectionName'];
-    final url = 'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
-    
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName)}+${Uri.encodeComponent(albumName)}&searchtype=l';
+
     try {
       final uri = Uri.parse(url);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -290,7 +297,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
   double _calculateTitleWidth() {
     if (tracks.isEmpty) return 0.4;
-    return (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble().clamp(0.2, 0.5);
+    return (0.5 - (tracks.length / 100).clamp(0.0, 0.4))
+        .toDouble()
+        .clamp(0.2, 0.5);
   }
 
   Widget _buildTrackSlider(int trackId) {
@@ -300,7 +309,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              data: Theme.of(context).sliderTheme,  // Replace getSliderTheme with direct theme access
+              data: Theme.of(context)
+                  .sliderTheme, // Replace getSliderTheme with direct theme access
               child: Slider(
                 min: 0,
                 max: 10,
@@ -327,7 +337,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
-    
+
     // Handle release date safely
     String formattedDate;
     try {
@@ -335,8 +345,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           ? (releaseDate != null
               ? DateFormat('d MMMM yyyy').format(releaseDate!)
               : 'Unknown Date')
-          : (widget.album['releaseDate'] != null 
-              ? DateFormat('d MMMM yyyy').format(DateTime.parse(widget.album['releaseDate']))
+          : (widget.album['releaseDate'] != null
+              ? DateFormat('d MMMM yyyy')
+                  .format(DateTime.parse(widget.album['releaseDate']))
               : 'Unknown Date');
     } catch (e) {
       formattedDate = 'Unknown Date';
@@ -344,9 +355,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     }
 
     // Get artist and album name with fallbacks
-    final artistName = widget.album['artistName'] ?? widget.album['artist'] ?? 'Unknown Artist';
-    final albumName = widget.album['collectionName'] ?? widget.album['name'] ?? 'Unknown Album';
-    
+    final artistName = widget.album['artistName'] ??
+        widget.album['artist'] ??
+        'Unknown Artist';
+    final albumName = widget.album['collectionName'] ??
+        widget.album['name'] ??
+        'Unknown Album';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(albumName),
@@ -361,8 +376,10 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Image.network(
-                      widget.album['artworkUrl100']?.replaceAll('100x100', '600x600') ?? 
-                      widget.album['artworkUrl'] ?? '',
+                      widget.album['artworkUrl100']
+                              ?.replaceAll('100x100', '600x600') ??
+                          widget.album['artworkUrl'] ??
+                          '',
                       width: 300,
                       height: 300,
                       fit: BoxFit.cover,
@@ -379,29 +396,39 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                         _buildInfoRow("Artist", artistName),
                         _buildInfoRow("Album", albumName),
                         _buildInfoRow("Release Date", formattedDate),
-                        _buildInfoRow("Duration", formatDuration(albumDurationMillis)),
+                        _buildInfoRow(
+                            "Duration", formatDuration(albumDurationMillis)),
                         const SizedBox(height: 8),
-                        _buildInfoRow("Rating", averageRating.toStringAsFixed(2), fontSize: 20),
+                        _buildInfoRow(
+                            "Rating", averageRating.toStringAsFixed(2),
+                            fontSize: 20),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.playlist_add, color: Colors.white),
-                              label: const Text('Manage Lists', style: TextStyle(color: Colors.white)),
+                              icon: const Icon(Icons.playlist_add,
+                                  color: Colors.white),
+                              label: const Text('Manage Lists',
+                                  style: TextStyle(color: Colors.white)),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
                                 minimumSize: const Size(150, 45),
                               ),
                               onPressed: () => _showAddToListDialog(context),
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.settings, color: Colors.white), // Changed from more_vert to settings
-                              label: const Text('Options', style: TextStyle(color: Colors.white)),
+                              icon: const Icon(Icons.settings,
+                                  color: Colors
+                                      .white), // Changed from more_vert to settings
+                              label: const Text('Options',
+                                  style: TextStyle(color: Colors.white)),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
                                 minimumSize: const Size(150, 45),
                               ),
                               onPressed: () => _showOptionsDialog(context),
@@ -416,32 +443,37 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      columnSpacing: 12,  // Reduce spacing between columns
-                      headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      columnSpacing: 12, // Reduce spacing between columns
+                      headingTextStyle:
+                          const TextStyle(fontWeight: FontWeight.bold),
                       columns: [
-                        DataColumn(
+                        const DataColumn(
                           label: SizedBox(
-                            width: 35,  // Reducido de 40
+                            width: 35, // Reducido de 40
                             child: Center(child: Text('No.')),
                           ),
                           numeric: true,
                         ),
-                        DataColumn(
+                        const DataColumn(
                           label: Text('Title'),
                           // Default alignment (left)
                         ),
                         DataColumn(
                           label: Container(
                             width: 70,
-                            alignment: Alignment.center,  // Asegura alineación central
-                            child: Text('Length', textAlign: TextAlign.center),
+                            alignment:
+                                Alignment.center, // Asegura alineación central
+                            child: const Text('Length',
+                                textAlign: TextAlign.center),
                           ),
                         ),
                         DataColumn(
                           label: Container(
                             width: 175,
-                            alignment: Alignment.center,  // Asegura alineación central
-                            child: Text('Rating', textAlign: TextAlign.center),
+                            alignment:
+                                Alignment.center, // Asegura alineación central
+                            child: const Text('Rating',
+                                textAlign: TextAlign.center),
                           ),
                         ),
                       ],
@@ -452,9 +484,10 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                           cells: [
                             DataCell(
                               SizedBox(
-                                width: 35,  // Reducido de 40
+                                width: 35, // Reducido de 40
                                 child: Center(
-                                  child: Text(track.position?.toString() ?? ''),
+                                  // Remove the ?? '' since position isn't nullable
+                                  child: Text(track.position.toString()),
                                 ),
                               ),
                             ),
@@ -463,7 +496,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                 message: track.name,
                                 child: ConstrainedBox(
                                   constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * titleWidthFactor,
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                            titleWidthFactor,
                                   ),
                                   child: Text(
                                     track.name,
@@ -510,7 +545,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     var refreshKey = ValueKey(DateTime.now());
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(  // Wrap in StatefulBuilder
+      builder: (context) => StatefulBuilder(
+        // Wrap in StatefulBuilder
         builder: (context, setState) => AlertDialog(
           title: const Text('Manage Lists'),
           content: Column(
@@ -526,7 +562,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               ),
               const Divider(),
               FutureBuilder<List<CustomList>>(
-                key: refreshKey,  // Use key to force rebuild
+                key: refreshKey, // Use key to force rebuild
                 future: UserData.getCustomLists(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
@@ -539,19 +575,22 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: lists.map((CustomList list) {
-                          final isInList = list.albumIds.contains(widget.album['collectionId'].toString());
+                          final isInList = list.albumIds.contains(
+                              widget.album['collectionId'].toString());
                           return CheckboxListTile(
                             title: Text(list.name),
                             subtitle: Text('${list.albumIds.length} albums'),
                             value: isInList,
                             onChanged: (bool? value) async {
                               if (value == true) {
-                                list.albumIds.add(widget.album['collectionId'].toString());
+                                list.albumIds.add(
+                                    widget.album['collectionId'].toString());
                               } else {
-                                list.albumIds.remove(widget.album['collectionId'].toString());
+                                list.albumIds.remove(
+                                    widget.album['collectionId'].toString());
                               }
                               await UserData.saveCustomList(list);
-                              
+
                               // Update UI immediately
                               setState(() {
                                 refreshKey = ValueKey(DateTime.now());
@@ -560,10 +599,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(value == true 
-                                      ? 'Added to "${list.name}"' 
-                                      : 'Removed from "${list.name}"'
-                                    ),
+                                    content: Text(value == true
+                                        ? 'Added to "${list.name}"'
+                                        : 'Removed from "${list.name}"'),
                                     duration: const Duration(seconds: 1),
                                   ),
                                 );
@@ -645,26 +683,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     }
   }
 
-  Future<void> _addToExistingList(String listId) async {
-    final lists = await UserData.getCustomLists();
-    final selectedList = lists.firstWhere((list) => list.id == listId);
-    if (!selectedList.albumIds.contains(widget.album['collectionId'].toString())) {
-      selectedList.albumIds.add(widget.album['collectionId'].toString());
-      await UserData.saveCustomList(selectedList);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added to "${selectedList.name}"')),
-        );
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Already in "${selectedList.name}"')),
-        );
-      }
-    }
-  }
-
   void _showOptionsDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -678,14 +696,21 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               title: const Text('Import Album'),
               onTap: () async {
                 Navigator.pop(context);
-                final album = await UserData.importAlbum(context);
+                // Store context in local variable
+                final currentContext = context;
+                final album = await UserData.importAlbum(currentContext);
+
+                // Check if we're still mounted before using the context
                 if (album != null && mounted) {
+                  // ignore: use_build_context_synchronously
                   Navigator.pushReplacement(
-                    context,
+                    currentContext,
                     MaterialPageRoute(
                       builder: (context) => SavedAlbumPage(
                         album: album,
-                        isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
+                        isBandcamp:
+                            album['url']?.toString().contains('bandcamp.com') ??
+                                false,
                       ),
                     ),
                   );
@@ -698,6 +723,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               onTap: () async {
                 Navigator.pop(context);
                 if (!mounted) return;
+                // ignore: use_build_context_synchronously
                 await UserData.exportAlbum(context, widget.album);
               },
             ),
@@ -713,7 +739,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context);  // Close options dialog
+    Navigator.pop(context); // Close options dialog
     showDialog(
       context: context,
       builder: (context) {
@@ -734,11 +760,12 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  final path =
+                      await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
                     if (!mounted) return;
-                    
+
                     if (Platform.isAndroid) {
                       showModalBottomSheet(
                         context: context,
@@ -753,29 +780,41 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                   onTap: () async {
                                     Navigator.pop(context);
                                     try {
-                                      final downloadDir = Directory('/storage/emulated/0/Download');
-                                      final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                      final newPath = '${downloadDir.path}/$fileName';
+                                      final downloadDir = Directory(
+                                          '/storage/emulated/0/Download');
+                                      final fileName =
+                                          'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                      final newPath =
+                                          '${downloadDir.path}/$fileName';
                                       // Copy from temp to Downloads
                                       await File(path).copy(newPath);
-                                      
+
                                       // Scan file with MediaScanner
-                                      const platform = MethodChannel('com.example.rateme/media_scanner');
+                                      const platform = MethodChannel(
+                                          'com.example.rateme/media_scanner');
                                       try {
-                                        await platform.invokeMethod('scanFile', {'path': newPath});
+                                        await platform.invokeMethod(
+                                            'scanFile', {'path': newPath});
                                       } catch (e) {
-                                        print('MediaScanner error: $e');
+                                        Logging.severe(
+                                            'MediaScanner error: $e');
                                       }
-                                      
+
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Saved to Downloads: $fileName')),
                                         );
                                       }
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error saving file: $e')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Error saving file: $e')),
                                         );
                                       }
                                     }
@@ -790,8 +829,11 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                       await Share.shareXFiles([XFile(path)]);
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error sharing: $e')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content:
+                                                  Text('Error sharing: $e')),
                                         );
                                       }
                                     }

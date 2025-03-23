@@ -1,20 +1,24 @@
 import 'package:logging/logging.dart';
+import 'package:flutter/foundation.dart';
 
 class Logging {
+  static final _logger = Logger('RateMe');
+
   static void setupLogging() {
-    // Only log errors in production
-    Logger.root.level = Level.SEVERE;
+    Logger.root.level = Level.ALL;
     Logger.root.onRecord.listen((record) {
-      if (record.level >= Level.SEVERE) {
-        print('${record.level.name}: ${record.time}: ${record.message}');
+      // Use debugPrint instead of print for better logging
+      debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+      if (record.error != null) {
+        debugPrint('Error: ${record.error}');
+      }
+      if (record.stackTrace != null) {
+        debugPrint('Stack trace: ${record.stackTrace}');
       }
     });
   }
 
   static void severe(String message, [dynamic error, StackTrace? stackTrace]) {
-    // Only log actual errors, not debug info
-    if (error != null) {
-      Logger.root.severe(message, error, stackTrace);
-    }
+    _logger.severe(message, error, stackTrace);
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';  // For MethodChannel
+import 'package:flutter/services.dart'; // For MethodChannel
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';  // This includes all URL launching functions
+import 'package:url_launcher/url_launcher.dart'; // This includes all URL launching functions
 import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -11,8 +11,8 @@ import 'logging.dart';
 import 'custom_lists_page.dart';
 import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
-import 'theme.dart';  // Add this import
-import 'album_model.dart';  // Add this import
+// Add this import
+import 'album_model.dart'; // Add this import
 import 'model_mapping_service.dart';
 
 class DetailsPage extends StatefulWidget {
@@ -21,7 +21,7 @@ class DetailsPage extends StatefulWidget {
   final Map<int, double>? initialRatings;
 
   const DetailsPage({
-    super.key, 
+    super.key,
     required this.album,
     this.isBandcamp = true,
     this.initialRatings,
@@ -55,18 +55,18 @@ class _DetailsPageState extends State<DetailsPage> {
       if (ModelMappingService.isLegacyFormat(widget.album)) {
         Logging.severe('Converting legacy album format to unified model');
         unifiedAlbum = await _convertToUnified(widget.album);
-        
+
         // Debug point 4: Conversion result
         Logging.severe('Converted to unified model:', unifiedAlbum?.toJson());
       } else {
         unifiedAlbum = Album.fromJson(widget.album);
       }
-      
+
       // Load additional data if needed
       if (unifiedAlbum != null) {
         await _loadAdditionalData();
       }
-      
+
       if (mounted) {
         setState(() => isLoading = false);
       }
@@ -95,7 +95,7 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _loadAdditionalData() async {
     // Load tracks, ratings, etc.
     if (unifiedAlbum == null) return;
-    
+
     try {
       // Load tracks based on platform
       if (unifiedAlbum!.platform == 'itunes') {
@@ -103,7 +103,7 @@ class _DetailsPageState extends State<DetailsPage> {
       } else if (unifiedAlbum!.platform == 'bandcamp') {
         await _fetchBandcampTracks();
       }
-      
+
       // Load ratings
       await _loadRatings();
     } catch (e) {
@@ -114,8 +114,9 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _loadRatings() async {
     try {
       int albumId = unifiedAlbum?.id ?? DateTime.now().millisecondsSinceEpoch;
-      List<Map<String, dynamic>> savedRatings = await UserData.getSavedAlbumRatings(albumId);
-      
+      List<Map<String, dynamic>> savedRatings =
+          await UserData.getSavedAlbumRatings(albumId);
+
       Map<int, double> ratingsMap = {};
       for (var rating in savedRatings) {
         ratingsMap[rating['trackId']] = rating['rating'].toDouble();
@@ -138,27 +139,27 @@ class _DetailsPageState extends State<DetailsPage> {
       final response = await http.get(Uri.parse(url!));
       if (response.statusCode == 200) {
         final document = parse(response.body);
-        var ldJsonScript = document.querySelector('script[type="application/ld+json"]');
-        
+        var ldJsonScript =
+            document.querySelector('script[type="application/ld+json"]');
+
         if (ldJsonScript != null) {
           final ldJson = jsonDecode(ldJsonScript.text);
-          
+
           if (ldJson != null && ldJson['track'] != null) {
             var trackItems = ldJson['track']['itemListElement'] as List;
             List<Map<String, dynamic>> tracksData = [];
 
             final albumId = unifiedAlbum?.id;
-            final oldRatingsByPosition = await UserData.migrateAlbumRatings(albumId!);
-            
+            final oldRatingsByPosition =
+                await UserData.migrateAlbumRatings(albumId!);
+
             for (int i = 0; i < trackItems.length; i++) {
               var item = trackItems[i];
               var track = item['item'];
               var props = track['additionalProperty'] as List;
-              
-              var trackIdProp = props.firstWhere(
-                (p) => p['name'] == 'track_id',
-                orElse: () => {'value': null}
-              );
+
+              var trackIdProp = props.firstWhere((p) => p['name'] == 'track_id',
+                  orElse: () => {'value': null});
               int trackId = trackIdProp['value'];
               int position = i + 1;
 
@@ -166,7 +167,8 @@ class _DetailsPageState extends State<DetailsPage> {
                 final oldRating = oldRatingsByPosition[position];
                 if (oldRating != null) {
                   double rating = (oldRating['rating'] as num).toDouble();
-                  await UserData.saveNewRating(albumId, trackId, position, rating);
+                  await UserData.saveNewRating(
+                      albumId, trackId, position, rating);
                   ratings[trackId] = rating;
                 }
               }
@@ -216,11 +218,14 @@ class _DetailsPageState extends State<DetailsPage> {
       final parts = matches.map((m) => int.parse(m.group(1)!)).toList();
 
       int totalMillis = 0;
-      if (parts.length >= 3) {  // H:M:S
+      if (parts.length >= 3) {
+        // H:M:S
         totalMillis = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
-      } else if (parts.length == 2) {  // M:S
+      } else if (parts.length == 2) {
+        // M:S
         totalMillis = ((parts[0] * 60) + parts[1]) * 1000;
-      } else if (parts.length == 1) {  // S
+      } else if (parts.length == 1) {
+        // S
         totalMillis = parts[0] * 1000;
       }
       return totalMillis;
@@ -236,15 +241,13 @@ class _DetailsPageState extends State<DetailsPage> {
           'https://itunes.apple.com/lookup?id=${unifiedAlbum?.id}&entity=song');
       final response = await http.get(url);
       final data = jsonDecode(response.body);
-      
+
       // Filter only audio tracks, excluding video content
       var trackList = data['results']
-          .where((track) => 
-            track['wrapperType'] == 'track' && 
-            track['kind'] == 'song'
-          )
+          .where((track) =>
+              track['wrapperType'] == 'track' && track['kind'] == 'song')
           .toList();
-      
+
       if (mounted) {
         setState(() {
           tracks = trackList;
@@ -254,6 +257,8 @@ class _DetailsPageState extends State<DetailsPage> {
           } else {
             releaseDate = DateTime.now();
           }
+          // Calculate total duration
+          calculateAlbumDuration();
         });
       }
     } catch (error, stackTrace) {
@@ -284,6 +289,7 @@ class _DetailsPageState extends State<DetailsPage> {
         totalDuration += track['duration'] as int;
       }
     } else {
+      // For iTunes tracks
       for (var track in tracks) {
         if (track['trackTimeMillis'] != null) {
           totalDuration += track['trackTimeMillis'] as int;
@@ -306,8 +312,9 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _launchRateYourMusic() async {
     final artistName = unifiedAlbum?.artistName;
     final albumName = unifiedAlbum?.collectionName;
-    final url = 'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName!)}+${Uri.encodeComponent(albumName!)}&searchtype=l';
-    
+    final url =
+        'https://rateyourmusic.com/search?searchterm=${Uri.encodeComponent(artistName!)}+${Uri.encodeComponent(albumName!)}&searchtype=l';
+
     try {
       final uri = Uri.parse(url);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -329,7 +336,9 @@ class _DetailsPageState extends State<DetailsPage> {
 
   double _calculateTitleWidth() {
     if (tracks.isEmpty) return 0.4;
-    return (0.5 - (tracks.length / 100).clamp(0.0, 0.4)).toDouble().clamp(0.2, 0.5);
+    return (0.5 - (tracks.length / 100).clamp(0.0, 0.4))
+        .toDouble()
+        .clamp(0.2, 0.5);
   }
 
   String _formatReleaseDate() {
@@ -356,54 +365,6 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
-  Future<bool> _verifyAlbumImport(Map<String, dynamic> importedAlbum) async {
-    // Normalize strings for comparison
-    String currentArtist = unifiedAlbum?.artistName.toString().toLowerCase() ?? '';
-    String currentAlbum = unifiedAlbum?.collectionName.toString().toLowerCase() ?? '';
-    String importArtist = importedAlbum['artistName'].toString().toLowerCase();
-    String importAlbum = importedAlbum['collectionName'].toString().toLowerCase();
-
-    // Check if albums match (case insensitive)
-    if (currentArtist == importArtist && currentAlbum == importAlbum) {
-      return true;
-    }
-
-    // Show warning dialog for different albums
-    bool? proceed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Different Album'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('The imported album is different from the current one:'),
-            const SizedBox(height: 8),
-            Text('Current: ${unifiedAlbum?.artistName} - ${unifiedAlbum?.collectionName}'),
-            Text('Import: ${importedAlbum['artistName']} - ${importedAlbum['collectionName']}'),
-            const SizedBox(height: 16),
-            const Text('Do you want to switch to the imported album?'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('Switch Album'),
-          ),
-        ],
-      ),
-    );
-
-    return proceed ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
@@ -422,7 +383,9 @@ class _DetailsPageState extends State<DetailsPage> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Image.network(
-                      unifiedAlbum?.artworkUrl100?.replaceAll('100x100', '600x600') ?? '',
+                      unifiedAlbum?.artworkUrl100
+                              .replaceAll('100x100', '600x600') ??
+                          '',
                       width: 300,
                       height: 300,
                       fit: BoxFit.cover,
@@ -434,12 +397,17 @@ class _DetailsPageState extends State<DetailsPage> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        _buildInfoRow("Artist", unifiedAlbum?.artistName ?? 'Unknown Artist'),
-                        _buildInfoRow("Album", unifiedAlbum?.collectionName ?? 'Unknown Album'),
+                        _buildInfoRow("Artist",
+                            unifiedAlbum?.artistName ?? 'Unknown Artist'),
+                        _buildInfoRow("Album",
+                            unifiedAlbum?.collectionName ?? 'Unknown Album'),
                         _buildInfoRow("Release Date", _formatReleaseDate()),
-                        _buildInfoRow("Duration", formatDuration(albumDurationMillis)),
+                        _buildInfoRow(
+                            "Duration", formatDuration(albumDurationMillis)),
                         const SizedBox(height: 8),
-                        _buildInfoRow("Rating", averageRating.toStringAsFixed(2), fontSize: 20),
+                        _buildInfoRow(
+                            "Rating", averageRating.toStringAsFixed(2),
+                            fontSize: 20),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -451,25 +419,31 @@ class _DetailsPageState extends State<DetailsPage> {
                                 final albumToSave = unifiedAlbum?.toJson();
                                 albumToSave?['tracks'] = tracks;
                                 await _saveAlbum();
-                                
+
                                 // Add to saved albums list
                                 await UserData.addToSavedAlbums(albumToSave!);
-                                
+
                                 if (!mounted) return;
                                 _showAddToListDialog(context);
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
                                 minimumSize: const Size(150, 45),
                               ),
-                              child: const Text('Save Album', style: TextStyle(color: Colors.white)),
+                              child: const Text('Save Album',
+                                  style: TextStyle(color: Colors.white)),
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.settings, color: Colors.white), // Changed from more_vert to settings
-                              label: const Text('Options', style: TextStyle(color: Colors.white)),
+                              icon: const Icon(Icons.settings,
+                                  color: Colors
+                                      .white), // Changed from more_vert to settings
+                              label: const Text('Options',
+                                  style: TextStyle(color: Colors.white)),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
                                 minimumSize: const Size(150, 45),
                               ),
                               onPressed: () => _showOptionsDialog(context),
@@ -485,52 +459,58 @@ class _DetailsPageState extends State<DetailsPage> {
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       columnSpacing: 12,
-                      headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      headingTextStyle:
+                          const TextStyle(fontWeight: FontWeight.bold),
                       columns: [
-                        DataColumn(
+                        const DataColumn(
                           label: SizedBox(
-                            width: 35,  // Reducido de 40
+                            width: 35, // Reducido de 40
                             child: Center(child: Text('No.')),
                           ),
                           numeric: true,
                         ),
-                        DataColumn(
+                        const DataColumn(
                           label: Center(child: Text('Title')),
                         ),
                         DataColumn(
                           label: Container(
-                            width: 65,  // Reducido de 70
+                            width: 65, // Reducido de 70
                             alignment: Alignment.center,
-                            child: Text('Length', textAlign: TextAlign.center),
+                            child: const Text('Length',
+                                textAlign: TextAlign.center),
                           ),
                         ),
                         DataColumn(
                           label: Container(
-                            width: 160,  // Reducido de 175
+                            width: 160, // Reducido de 175
                             alignment: Alignment.center,
-                            child: Text('Rating', textAlign: TextAlign.center),
+                            child: const Text('Rating',
+                                textAlign: TextAlign.center),
                           ),
                         ),
                       ],
                       rows: tracks.map((track) {
                         final trackId = track['trackId'] ?? 0;
-                        final duration = unifiedAlbum?.platform == 'bandcamp' 
+                        final duration = unifiedAlbum?.platform == 'bandcamp'
                             ? track['duration'] ?? 0
                             : track['trackTimeMillis'] ?? 0;
-                        
+
                         return DataRow(
                           cells: [
                             DataCell(
                               SizedBox(
-                                width: 35,  // Reducido de 40
+                                width: 35, // Reducido de 40
                                 child: Center(
                                   child: Text(track['trackNumber'].toString()),
                                 ),
                               ),
                             ),
                             DataCell(_buildTrackTitle(
-                              unifiedAlbum?.platform == 'bandcamp' ? track['title'] : track['trackName'],
-                              MediaQuery.of(context).size.width * titleWidthFactor,
+                              unifiedAlbum?.platform == 'bandcamp'
+                                  ? track['title']
+                                  : track['trackName'],
+                              MediaQuery.of(context).size.width *
+                                  titleWidthFactor,
                             )),
                             DataCell(
                               SizedBox(
@@ -593,7 +573,8 @@ class _DetailsPageState extends State<DetailsPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              data: Theme.of(context).sliderTheme,  // Replace getSliderTheme with direct theme access
+              data: Theme.of(context)
+                  .sliderTheme, // Replace getSliderTheme with direct theme access
               child: Slider(
                 min: 0,
                 max: 10,
@@ -679,10 +660,12 @@ class _DetailsPageState extends State<DetailsPage> {
                 return SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: lists.map((CustomList list) => ListTile(
-                      title: Text(list.name),
-                      onTap: () => Navigator.pop(context, list.id),
-                    )).toList(),
+                    children: lists
+                        .map((CustomList list) => ListTile(
+                              title: Text(list.name),
+                              onTap: () => Navigator.pop(context, list.id),
+                            ))
+                        .toList(),
                   ),
                 );
               },
@@ -758,20 +741,8 @@ class _DetailsPageState extends State<DetailsPage> {
     });
   }
 
-  void _handleImageShare(String imagePath) async {
-    try {
-      await Share.shareXFiles([XFile(imagePath)]);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: $e')),
-        );
-      }
-    }
-  }
-
   void _showShareDialog(BuildContext context) {
-    Navigator.pop(context);  // Close options dialog
+    Navigator.pop(context); // Close options dialog
     showDialog(
       context: context,
       builder: (context) {
@@ -792,11 +763,12 @@ class _DetailsPageState extends State<DetailsPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  final path =
+                      await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
                     if (!mounted) return;
-                    
+
                     if (Platform.isAndroid) {
                       showModalBottomSheet(
                         context: context,
@@ -811,30 +783,42 @@ class _DetailsPageState extends State<DetailsPage> {
                                   onTap: () async {
                                     Navigator.pop(context);
                                     try {
-                                      final downloadDir = Directory('/storage/emulated/0/Download');
-                                      final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                      final newPath = '${downloadDir.path}/$fileName';
-                                      
+                                      final downloadDir = Directory(
+                                          '/storage/emulated/0/Download');
+                                      final fileName =
+                                          'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                      final newPath =
+                                          '${downloadDir.path}/$fileName';
+
                                       // Copy from temp to Downloads
                                       await File(path).copy(newPath);
-                                      
+
                                       // Scan file with MediaScanner
-                                      const platform = MethodChannel('com.example.rateme/media_scanner');
+                                      const platform = MethodChannel(
+                                          'com.example.rateme/media_scanner');
                                       try {
-                                        await platform.invokeMethod('scanFile', {'path': newPath});
+                                        await platform.invokeMethod(
+                                            'scanFile', {'path': newPath});
                                       } catch (e) {
-                                        print('MediaScanner error: $e');
+                                        Logging.severe(
+                                            'MediaScanner error: $e'); // Replace print with proper logging
                                       }
-                                      
+
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Saved to Downloads: $fileName')),
                                         );
                                       }
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error saving file: $e')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Error saving file: $e')),
                                         );
                                       }
                                     }
@@ -849,8 +833,11 @@ class _DetailsPageState extends State<DetailsPage> {
                                       await Share.shareXFiles([XFile(path)]);
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error sharing: $e')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content:
+                                                  Text('Error sharing: $e')),
                                         );
                                       }
                                     }
@@ -888,7 +875,7 @@ class _DetailsPageState extends State<DetailsPage> {
     try {
       // Keep using Map<String, dynamic> for albumToSave
       await UserData.addToSavedAlbums(unifiedAlbum?.toJson() ?? {});
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Album saved successfully')),

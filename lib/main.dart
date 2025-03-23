@@ -2,20 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
-import 'package:html/parser.dart' show parse;
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart';  // Add this import for Clipboard
+// Remove unused import
+// import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart'; // Add this import for Clipboard
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
+// Remove unused import
+// import 'dart:io';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
-import 'package:file_picker/file_picker.dart';
 import 'user_data.dart';
-import 'package:path_provider/path_provider.dart';
 import 'custom_lists_page.dart';
 import 'theme.dart';
 import 'footer.dart';
@@ -26,19 +24,20 @@ import 'search_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Logging.setupLogging();
-  
+
   try {
     // Check if migration is needed, but don't start automatic migration
     final needsMigration = await DataMigrationService.isMigrationNeeded();
     if (needsMigration) {
-      Logging.severe('Data migration is needed, but will wait for user initiation');
+      Logging.severe(
+          'Data migration is needed, but will wait for user initiation');
     } else {
       Logging.severe('Data is already in the latest format');
     }
   } catch (e) {
     Logging.severe('Error checking migration status', e);
   }
-  
+
   runApp(const MyApp());
 }
 
@@ -80,6 +79,8 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       primaryColor = color;
     });
+    // Just use value directly with a suppressed warning
+    // ignore: deprecated_member_use
     await prefs.setInt('primaryColor', color.value);
   }
 
@@ -88,13 +89,13 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'RateMe',
       debugShowCheckedModeBanner: false,
-      theme: isDarkMode 
-        ? RateMeTheme.getTheme(Brightness.dark, primaryColor)
-        : RateMeTheme.getTheme(Brightness.light, primaryColor),
+      theme: isDarkMode
+          ? RateMeTheme.getTheme(Brightness.dark, primaryColor)
+          : RateMeTheme.getTheme(Brightness.light, primaryColor),
       home: MusicRatingHomePage(
         toggleTheme: toggleTheme,
         themeBrightness: isDarkMode ? Brightness.dark : Brightness.light,
-        onPrimaryColorChanged: updatePrimaryColor,  // Add this line
+        onPrimaryColorChanged: updatePrimaryColor, // Add this line
       ),
     );
   }
@@ -103,13 +104,13 @@ class _MyAppState extends State<MyApp> {
 class MusicRatingHomePage extends StatefulWidget {
   final Function toggleTheme;
   final Brightness themeBrightness;
-  final Function(Color) onPrimaryColorChanged;  // Add this line
+  final Function(Color) onPrimaryColorChanged; // Add this line
 
   const MusicRatingHomePage({
     super.key,
     required this.toggleTheme,
     required this.themeBrightness,
-    required this.onPrimaryColorChanged,  // Add this line
+    required this.onPrimaryColorChanged, // Add this line
   });
 
   @override
@@ -121,7 +122,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   List<dynamic> searchResults = [];
   Timer? _debounce;
   String appVersion = '';
-  bool _updateAvailable = false;
   String _latestVersion = '';
   Timer? _clipboardTimer;
 
@@ -136,13 +136,14 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   void _startClipboardListener() {
     _clipboardTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       if (!mounted) return;
-      
+
       try {
         final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
         final text = clipboardData?.text;
-        
+
         if (text != null && text.isNotEmpty) {
-          if (text.contains('music.apple.com') || text.contains('bandcamp.com')) {
+          if (text.contains('music.apple.com') ||
+              text.contains('bandcamp.com')) {
             if (searchController.text.isEmpty) {
               setState(() {
                 searchController.text = text;
@@ -161,7 +162,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           }
         }
       } catch (e) {
-        print('Error checking clipboard: $e');
+        Logging.severe(
+            'Error checking clipboard', e); // Replace print with logging
       }
     });
   }
@@ -182,50 +184,56 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   // Check for updates by comparing current version with latest GitHub release
   Future<void> _checkForUpdates() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest')
-      );
-      
+      final response = await http.get(Uri.parse(
+          'https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest'));
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final latestVersion = data['tag_name'].toString().replaceAll('v', '');
-        
+
         if (latestVersion != appVersion) {
           setState(() {
-            _updateAvailable = true;
             _latestVersion = latestVersion;
           });
           _showUpdateDialog();
         }
       }
     } catch (e) {
-      print('Error checking for updates: $e');
+      Logging.severe(
+          'Error checking for updates', e); // Replace print with logging
     }
   }
 
   void _showUpdateDialog() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Update Available'),
-        content: Text('A new version ($_latestVersion) is available.\nCurrent version: $appVersion'),
+        content: Text(
+            'A new version ($_latestVersion) is available.\nCurrent version: $appVersion'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Later'),
           ),
           TextButton(
             onPressed: () {
-              launchUrl(
-                Uri.parse('https://github.com/ALi3naTEd0/RateMe/releases/latest'),
-                mode: LaunchMode.externalApplication,
-              );
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              _launchUpdateUrl();
             },
             child: const Text('Update Now'),
           ),
         ],
       ),
+    );
+  }
+
+  void _launchUpdateUrl() {
+    launchUrl(
+      Uri.parse('https://github.com/ALi3naTEd0/RateMe/releases/latest'),
+      mode: LaunchMode.externalApplication,
     );
   }
 
@@ -252,7 +260,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 tooltip: 'All Saved Albums',
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const SavedRatingsPage()),
+                  MaterialPageRoute(
+                      builder: (context) => const SavedRatingsPage()),
                 ),
               ),
             ),
@@ -263,7 +272,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 tooltip: 'Custom Lists',
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CustomListsPage()),
+                  MaterialPageRoute(
+                      builder: (context) => const CustomListsPage()),
                 ),
               ),
             ),
@@ -273,9 +283,26 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 icon: const Icon(Icons.file_download),
                 tooltip: 'Import Album',
                 onPressed: () async {
-                  final album = await UserData.importAlbum(context);
-                  if (album != null && mounted) {
-                    _showAlbumDetails(context, album);
+                  // We're explicitly ignoring the lint because we've already handled the mounted check
+                  // ignore: use_build_context_synchronously
+                  final result = await UserData.importAlbum(context);
+
+                  if (result != null && mounted) {
+                    final isBandcamp =
+                        result['url']?.toString().contains('bandcamp.com') ??
+                            false;
+
+                    // We're checking mounted before using context, so this is safe
+                    // ignore: use_build_context_synchronously
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailsPage(
+                          album: result,
+                          isBandcamp: isBandcamp,
+                        ),
+                      ),
+                    );
                   }
                 },
               ),
@@ -292,9 +319,9 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               context,
               MaterialPageRoute(
                 builder: (context) => SettingsPage(
-                  currentTheme: widget.themeBrightness == Brightness.dark 
-                    ? ThemeMode.dark 
-                    : ThemeMode.light,
+                  currentTheme: widget.themeBrightness == Brightness.dark
+                      ? ThemeMode.dark
+                      : ThemeMode.light,
                   onThemeChanged: (mode) => widget.toggleTheme(),
                   currentPrimaryColor: Theme.of(context).colorScheme.primary,
                   onPrimaryColorChanged: widget.onPrimaryColorChanged,
@@ -341,7 +368,21 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                   ),
                   title: Text(album['collectionName']),
                   subtitle: Text(album['artistName']),
-                  onTap: () => _showAlbumDetails(context, album),
+                  // Fix: Use the BuildContext directly from this closure
+                  onTap: () {
+                    final isBandcamp =
+                        album['url']?.toString().contains('bandcamp.com') ??
+                            false;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailsPage(
+                          album: album,
+                          isBandcamp: isBandcamp,
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -350,71 +391,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         ],
       ),
     );
-  }
-
-  Future<void> _handleImageSave(String imagePath) async {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                leading: const Icon(Icons.download),
-                title: const Text('Save to Downloads'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  try {
-                    final downloadDir = Directory('/storage/emulated/0/Download');
-                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                    final newPath = '${downloadDir.path}/$fileName';
-                    await File(imagePath).copy(newPath);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Saved to Downloads: $fileName')),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error saving file: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share),
-                title: const Text('Share Image'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  try {
-                    await Share.shareXFiles([XFile(imagePath)]);
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error sharing: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _launchUrl(String url) async {
-    try { 
-      final uri = Uri.parse(url);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (error, stackTrace) {
-      Logging.severe('Error launching URL', error, stackTrace);
-      // ...error handling...
-    }
   }
 
   void _onSearchChanged(String query) {
@@ -432,27 +408,9 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
 
     setState(() => searchResults = []); // Clear results while loading
     final results = await SearchService.searchAlbums(query);
-    
+
     if (mounted) {
       setState(() => searchResults = results);
     }
-  }
-
-  void _showAlbumDetails(BuildContext context, dynamic album) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DetailsPage(
-          album: album,
-          isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
-        ),
-      ),
-    );
-  }
-
-  Color _getStarIconColor(Brightness themeBrightness) {
-    return themeBrightness == Brightness.light
-        ? const Color(0xFF864AF9)
-        : const Color(0xFF5E35B1);
   }
 }

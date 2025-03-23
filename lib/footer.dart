@@ -44,7 +44,19 @@ class _AppVersionFooterState extends State<AppVersionFooter> {
           style: TextStyle(
             fontSize: 14,
             decoration: TextDecoration.underline,
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8) ?? Colors.grey,
+            color: Theme.of(context).textTheme.bodySmall?.color?.withValues(
+                      red:
+                          (Theme.of(context).textTheme.bodySmall?.color?.r ?? 0)
+                              .toDouble(),
+                      green:
+                          (Theme.of(context).textTheme.bodySmall?.color?.g ?? 0)
+                              .toDouble(),
+                      blue:
+                          (Theme.of(context).textTheme.bodySmall?.color?.b ?? 0)
+                              .toDouble(),
+                      alpha: 204, // 0.8 * 255 = 204
+                    ) ??
+                Colors.grey,
             fontWeight: FontWeight.w400,
           ),
         ),

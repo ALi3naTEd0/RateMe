@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:io';
-import 'migration_util.dart';
+// Remove the unused import
+// import 'package:share_plus/share_plus.dart';
 import 'album_model.dart';
 import 'logging.dart';
 
@@ -27,30 +25,25 @@ class CustomList {
     List<String>? albumIds,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : 
-    albumIds = albumIds ?? [],
-    createdAt = createdAt ?? DateTime.now(),
-    updatedAt = updatedAt ?? DateTime.now();
+  })  : albumIds = albumIds ?? [],
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   void cleanupAlbumIds() {
     // Remove nulls, empty strings and invalid IDs
-    albumIds.removeWhere((id) => 
-      id == null || 
-      id.isEmpty || 
-      int.tryParse(id) == null
-    );
+    albumIds.removeWhere((id) => id.isEmpty || int.tryParse(id) == null);
     // Remove duplicates
     albumIds = albumIds.toSet().toList();
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'description': description,
-    'albumIds': albumIds,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-  };
+        'id': id,
+        'name': name,
+        'description': description,
+        'albumIds': albumIds,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+      };
 
   factory CustomList.fromJson(Map<String, dynamic> json) {
     final list = CustomList(
@@ -252,19 +245,17 @@ class _CustomListsPageState extends State<CustomListsPage> {
               : ReorderableListView.builder(
                   onReorder: (oldIndex, newIndex) async {
                     if (newIndex > oldIndex) newIndex--;
-                    
+
                     // 1. Update UI first
                     setState(() {
                       final item = lists.removeAt(oldIndex);
                       lists.insert(newIndex, item);
                     });
-                    
+
                     // 2. Save lists directly in SharedPreferences
                     final prefs = await SharedPreferences.getInstance();
-                    await prefs.setStringList(
-                      'custom_lists',
-                      lists.map((l) => jsonEncode(l.toJson())).toList()
-                    );
+                    await prefs.setStringList('custom_lists',
+                        lists.map((l) => jsonEncode(l.toJson())).toList());
                   },
                   itemCount: lists.length,
                   itemBuilder: (context, index) {
@@ -296,7 +287,8 @@ class _CustomListsPageState extends State<CustomListsPage> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => CustomListDetailsPage(list: list),
+                          builder: (context) =>
+                              CustomListDetailsPage(list: list),
                         ),
                       ).then((_) => _loadLists()),
                     );
@@ -334,10 +326,10 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     try {
       final ratings = await UserData.getRatings(albumId);
       if (ratings == null || ratings.isEmpty) return 0.0;
-      
+
       var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
       if (ratedTracks.isEmpty) return 0.0;
-      
+
       double total = ratedTracks.reduce((a, b) => a + b);
       return double.parse((total / ratedTracks.length).toStringAsFixed(2));
     } catch (e) {
@@ -350,25 +342,23 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     List<Map<String, dynamic>> loadedAlbums = [];
     List<String> idsToRemove = [];
     widget.list.cleanupAlbumIds();
-    
+
     for (String albumId in widget.list.albumIds) {
       try {
         final intAlbumId = int.parse(albumId);
         final Album? album = await UserData.getSavedAlbumById(intAlbumId);
-        
+
         if (album != null) {
           final metadata = album.metadata?['metadata'] ?? album.metadata;
           final albumMap = {
             'collectionId': album.id,
-            'collectionName': metadata?['name'] ?? 
-                            metadata?['collectionName'] ?? 
-                            album.name,
-            'artistName': metadata?['artist'] ?? 
-                         metadata?['artistName'] ?? 
-                         album.artist,
-            'artworkUrl100': metadata?['artworkUrl'] ?? 
-                            metadata?['artworkUrl100'] ?? 
-                            album.artworkUrl,
+            'collectionName':
+                metadata?['name'] ?? metadata?['collectionName'] ?? album.name,
+            'artistName':
+                metadata?['artist'] ?? metadata?['artistName'] ?? album.artist,
+            'artworkUrl100': metadata?['artworkUrl'] ??
+                metadata?['artworkUrl100'] ??
+                album.artworkUrl,
             'platform': album.platform,
             'url': metadata?['url'] ?? album.url,
             'averageRating': await _calculateAlbumRating(album.id),
@@ -382,13 +372,13 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         idsToRemove.add(albumId);
       }
     }
-    
+
     // Remove invalid IDs after iteration is complete
     if (idsToRemove.isNotEmpty) {
       widget.list.albumIds.removeWhere((id) => idsToRemove.contains(id));
       await UserData.saveCustomList(widget.list);
     }
-    
+
     if (mounted) {
       setState(() {
         albums = loadedAlbums;
@@ -408,7 +398,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Are you sure you want to remove this album from the list?'),
+            const Text(
+                'Are you sure you want to remove this album from the list?'),
             const SizedBox(height: 16),
             Text(
               album['artistName'] ?? 'Unknown Artist',
@@ -446,20 +437,24 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   void _openAlbumDetails(int index) {
     final album = albums[index];
-    
+
     // Create a compatibility wrapper for SavedAlbumPage
     final albumWithDefaults = Map<String, dynamic>.from(album);
-    
+
     // Ensure all required fields exist
-    albumWithDefaults['collectionId'] = album['collectionId'] ?? album['id'] ?? 0;
-    albumWithDefaults['artistName'] = album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
-    albumWithDefaults['collectionName'] = album['collectionName'] ?? album['name'] ?? 'Unknown Album';
-    albumWithDefaults['artworkUrl100'] = album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
-    
+    albumWithDefaults['collectionId'] =
+        album['collectionId'] ?? album['id'] ?? 0;
+    albumWithDefaults['artistName'] =
+        album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
+    albumWithDefaults['collectionName'] =
+        album['collectionName'] ?? album['name'] ?? 'Unknown Album';
+    albumWithDefaults['artworkUrl100'] =
+        album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
+
     // Determine if this is a Bandcamp album
-    final isBandcamp = album['platform'] == 'bandcamp' || 
-                      (album['url']?.toString().contains('bandcamp.com') ?? false);
-    
+    final isBandcamp = album['platform'] == 'bandcamp' ||
+        (album['url']?.toString().contains('bandcamp.com') ?? false);
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -469,18 +464,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         ),
       ),
     ).then((_) => _loadAlbums());
-  }
-
-  void _handleImageShare(String imagePath) async {
-    try {
-      await Share.shareXFiles([XFile(imagePath)]);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: $e')),
-        );
-      }
-    }
   }
 
   void _showShareDialog(BuildContext context) {
@@ -502,7 +485,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  final path =
+                      await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -621,13 +605,20 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                   itemBuilder: (context, index) {
                     final album = albums[index];
                     // Add null safety check for album attributes
-                    final artistName = album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
-                    final albumName = album['collectionName'] ?? album['name'] ?? 'Unknown Album';
-                    final artworkUrl = album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
+                    final artistName = album['artistName'] ??
+                        album['artist'] ??
+                        'Unknown Artist';
+                    final albumName = album['collectionName'] ??
+                        album['name'] ??
+                        'Unknown Album';
+                    final artworkUrl =
+                        album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
                     final rating = album['averageRating'] ?? 0.0;
 
                     return ListTile(
-                      key: ValueKey(album['collectionId'] ?? album['id'] ?? index.toString()),
+                      key: ValueKey(album['collectionId'] ??
+                          album['id'] ??
+                          index.toString()),
                       leading: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -638,7 +629,9 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: isDarkTheme ? Colors.white : Colors.black),
+                                  color: isDarkTheme
+                                      ? Colors.white
+                                      : Colors.black),
                             ),
                             child: Center(
                               child: Text(
@@ -646,7 +639,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: isDarkTheme ? Colors.white : Colors.black,
+                                  color:
+                                      isDarkTheme ? Colors.white : Colors.black,
                                 ),
                               ),
                             ),

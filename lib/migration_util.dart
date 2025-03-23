@@ -1,4 +1,3 @@
-import 'package:logging/logging.dart';
 import 'dart:convert';
 import 'album_model.dart';
 import 'logging.dart';
@@ -14,7 +13,7 @@ class MigrationUtil {
       return null;
     }
   }
-  
+
   /// Check if an album can be converted to the model format
   static bool canConvertToModel(Map<String, dynamic> legacyAlbum) {
     try {
@@ -24,22 +23,24 @@ class MigrationUtil {
       return false;
     }
   }
-  
+
   /// Pretty-print album data for debugging
   static String prettyPrintAlbum(Map<String, dynamic> album) {
-    final encoder = JsonEncoder.withIndent('  ');
+    const encoder = JsonEncoder.withIndent('  ');
     try {
       return encoder.convert({
         'id': album['collectionId'],
         'name': album['collectionName'],
         'artist': album['artistName'],
-        'platform': album['url']?.toString().contains('bandcamp.com') == true ? 'bandcamp' : 'itunes',
+        'platform': album['url']?.toString().contains('bandcamp.com') == true
+            ? 'bandcamp'
+            : 'itunes',
       });
     } catch (e) {
       return 'Invalid album format: $e';
     }
   }
-  
+
   /// Check if tracks can be converted to Track model
   static bool validateTracks(List<dynamic> tracks, bool isBandcamp) {
     try {

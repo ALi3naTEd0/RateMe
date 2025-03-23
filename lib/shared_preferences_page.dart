@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class SharedPreferencesPage extends StatefulWidget {
   const SharedPreferencesPage({super.key});
@@ -47,7 +49,8 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
-                  child: const Text('Exportar', style: TextStyle(color: Colors.white)),
+                  child: const Text('Exportar',
+                      style: TextStyle(color: Colors.white)),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
@@ -55,7 +58,8 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
-                  child: const Text('Importar', style: TextStyle(color: Colors.white)),
+                  child: const Text('Importar',
+                      style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -92,7 +96,8 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
       );
     } else {
       final defaultDir = await getExternalStorageDirectory();
-      filePath = path.join(defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
+      filePath = path.join(
+          defaultDir?.path ?? '/storage/emulated/0/Download', defaultFileName);
     }
 
     if (filePath != null) {
@@ -134,7 +139,8 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      dialogTitle: 'Select JSON file to import', // Changed from 'Seleccione el archivo JSON a importar'
+      dialogTitle:
+          'Select JSON file to import', // Changed from 'Seleccione el archivo JSON a importar'
     );
 
     if (result != null) {
@@ -166,7 +172,7 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
         if (context.mounted) {
           // Check if the widget is still mounted
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(
                   'SharedPreferences data imported successfully'), // Changed from 'Los datos de SharedPreferences...'
             ),
@@ -178,7 +184,8 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
         // Check if the widget is still mounted
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No file selected for import'), // Changed from 'No se seleccionó ningún archivo...'
+            content: Text(
+                'No file selected for import'), // Changed from 'No se seleccionó ningún archivo...'
           ),
         );
       }

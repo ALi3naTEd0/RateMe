@@ -4,7 +4,7 @@ import 'dart:io';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
-import 'logging.dart';  // Add this import
+import 'logging.dart'; // Add this import
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -27,36 +27,37 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     try {
       final savedAlbums = await UserData.getSavedAlbums();
       List<Map<String, dynamic>> loadedAlbums = [];
-      
+
       for (var album in savedAlbums) {
         try {
           final metadata = album['metadata']?['metadata'] ?? album['metadata'];
-          
+
           final albumMap = {
-            'collectionId': metadata?['id'] ?? 
-                           metadata?['collectionId'] ?? 
-                           album['id'] ?? 
-                           album['collectionId'],
-            'collectionName': metadata?['collectionName'] ?? 
-                            metadata?['name'] ?? 
-                            album['name'] ?? 
-                            album['collectionName'],
-            'artistName': metadata?['artistName'] ?? 
-                         metadata?['artist'] ?? 
-                         album['artist'] ?? 
-                         album['artistName'],
-            'artworkUrl100': metadata?['artworkUrl100'] ?? 
-                            metadata?['artworkUrl'] ?? 
-                            album['artworkUrl'] ?? 
-                            album['artworkUrl100'],
+            'collectionId': metadata?['id'] ??
+                metadata?['collectionId'] ??
+                album['id'] ??
+                album['collectionId'],
+            'collectionName': metadata?['collectionName'] ??
+                metadata?['name'] ??
+                album['name'] ??
+                album['collectionName'],
+            'artistName': metadata?['artistName'] ??
+                metadata?['artist'] ??
+                album['artist'] ??
+                album['artistName'],
+            'artworkUrl100': metadata?['artworkUrl100'] ??
+                metadata?['artworkUrl'] ??
+                album['artworkUrl'] ??
+                album['artworkUrl100'],
             'platform': metadata?['platform'] ?? album['platform'] ?? 'unknown',
             'url': metadata?['url'] ?? album['url'],
-            'averageRating': await _calculateAlbumRating(
-              metadata?['id'] ?? metadata?['collectionId'] ?? album['id'] ?? album['collectionId']
-            ),
+            'averageRating': await _calculateAlbumRating(metadata?['id'] ??
+                metadata?['collectionId'] ??
+                album['id'] ??
+                album['collectionId']),
             'metadata': metadata,
           };
-          
+
           loadedAlbums.add(albumMap);
         } catch (e) {
           continue;
@@ -81,32 +82,16 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     try {
       final ratings = await UserData.getRatings(albumId);
       if (ratings == null || ratings.isEmpty) return 0.0;
-      
+
       var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
       if (ratedTracks.isEmpty) return 0.0;
-      
+
       double total = ratedTracks.reduce((a, b) => a + b);
       return double.parse((total / ratedTracks.length).toStringAsFixed(2));
     } catch (e) {
       Logging.severe('Error calculating album rating', e);
       return 0.0;
     }
-  }
-
-  double _calculateAverageRating(List<Map<String, dynamic>> ratings) {
-    if (ratings.isEmpty) return 0.0;
-    var uniqueRatings = <int, double>{};
-
-    for (var rating in ratings.reversed) {
-      if (!uniqueRatings.containsKey(rating['trackId'])) {
-        uniqueRatings[rating['trackId']] = rating['rating'];
-      }
-    }
-
-    if (uniqueRatings.isEmpty) return 0.0;
-
-    double totalRating = uniqueRatings.values.reduce((a, b) => a + b);
-    return totalRating / uniqueRatings.length;
   }
 
   void _deleteAlbum(int index) async {
@@ -155,9 +140,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           albums.removeAt(index);
         });
       }
-      await UserData.saveAlbumOrder(
-        albums.map<String>((album) => album['collectionId'].toString()).toList()
-      );
+      await UserData.saveAlbumOrder(albums
+          .map<String>((album) => album['collectionId'].toString())
+          .toList());
     }
   }
 
@@ -168,10 +153,11 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       MaterialPageRoute(
         builder: (context) => SavedAlbumPage(
           album: album,
-          isBandcamp: album['url']?.toString().contains('bandcamp.com') ?? false,
+          isBandcamp:
+              album['url']?.toString().contains('bandcamp.com') ?? false,
         ),
       ),
-    ).then((_) => _loadAlbums());  // Reload when returning
+    ).then((_) => _loadAlbums()); // Reload when returning
   }
 
   Widget _buildAlbumActions(int index) {
@@ -197,14 +183,15 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     });
 
     List<String> albumIds = albums
-        .map<String>((album) => (album['id'] ?? album['collectionId']).toString())
+        .map<String>(
+            (album) => (album['id'] ?? album['collectionId']).toString())
         .toList();
     UserData.saveAlbumOrder(albumIds);
   }
 
   void _handleImageShare(String imagePath) async {
     try {
-      await Share.shareXFiles([XFile(imagePath)]);  // Replace ShareExtend.share
+      await Share.shareXFiles([XFile(imagePath)]); // Replace ShareExtend.share
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -235,7 +222,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  final path = await ShareWidget.shareKey.currentState?.saveAsImage();
+                  final path =
+                      await ShareWidget.shareKey.currentState?.saveAsImage();
                   if (mounted && path != null) {
                     Navigator.pop(context);
                     showModalBottomSheet(
@@ -251,19 +239,28 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                 onTap: () async {
                                   Navigator.pop(context);
                                   try {
-                                    final downloadDir = Directory('/storage/emulated/0/Download');
-                                    final fileName = 'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                    final newPath = '${downloadDir.path}/$fileName';
+                                    final downloadDir = Directory(
+                                        '/storage/emulated/0/Download');
+                                    final fileName =
+                                        'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                    final newPath =
+                                        '${downloadDir.path}/$fileName';
                                     await File(path).copy(newPath);
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Saved to Downloads: $fileName')),
                                       );
                                     }
                                   } catch (e) {
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Error saving file: $e')),
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content:
+                                                Text('Error saving file: $e')),
                                       );
                                     }
                                   }
@@ -372,18 +369,25 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   itemBuilder: (context, index) {
                     // Null safety check
                     final album = albums[index];
-                    if (album == null || (album['collectionId'] == null && album['id'] == null)) {
+                    if ((album['collectionId'] == null &&
+                        album['id'] == null)) {
                       return ListTile(
                         key: Key("error_$index"),
                         title: const Text("Error: Invalid album data"),
                       );
                     }
-                    
+
                     // Support both ID formats
-                    final albumId = (album['id'] ?? album['collectionId']).toString();
-                    final artistName = album['artist'] ?? album['artistName'] ?? 'Unknown Artist';
-                    final albumName = album['name'] ?? album['collectionName'] ?? 'Unknown Album';
-                    final artworkUrl = album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
+                    final albumId =
+                        (album['id'] ?? album['collectionId']).toString();
+                    final artistName = album['artist'] ??
+                        album['artistName'] ??
+                        'Unknown Artist';
+                    final albumName = album['name'] ??
+                        album['collectionName'] ??
+                        'Unknown Album';
+                    final artworkUrl =
+                        album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
                     final rating = album['averageRating'] ?? 0.0;
 
                     return ListTile(
@@ -398,7 +402,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                  color: isDarkTheme ? Colors.white : Colors.black),
+                                  color: isDarkTheme
+                                      ? Colors.white
+                                      : Colors.black),
                             ),
                             child: Center(
                               child: Text(
@@ -406,7 +412,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: isDarkTheme ? Colors.white : Colors.black,
+                                  color:
+                                      isDarkTheme ? Colors.white : Colors.black,
                                 ),
                               ),
                             ),

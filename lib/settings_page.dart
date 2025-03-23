@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'user_data.dart';
 import 'data_migration_service.dart';
 import 'logging.dart';
@@ -49,11 +47,6 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  Future<void> _saveTextColorSetting(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('useDarkButtonText', value);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,7 +90,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-          
+
           // Color Section
           Card(
             margin: const EdgeInsets.all(8),
@@ -133,7 +126,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   title: const Text('Primary Color'),
                   subtitle: Text(
-                    '#${pickerColor.value.toRadixString(16).toUpperCase().substring(2)}',
+                    // Change ColorToHex to colorToHex to follow Dart naming conventions
+                    colorToHex(pickerColor).toString().toUpperCase(),
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodySmall?.color,
                       fontFamily: 'monospace',
@@ -154,17 +148,23 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: const Text('Button Text Color'),
                   trailing: Switch(
                     value: useDarkText,
-                    thumbIcon: MaterialStateProperty.resolveWith<Icon?>((states) {
+                    thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
                       return Icon(
-                        useDarkText ? Icons.format_color_text : Icons.format_color_reset,
+                        useDarkText
+                            ? Icons.format_color_text
+                            : Icons.format_color_reset,
                         size: 16,
                         color: useDarkText ? Colors.black : Colors.white,
                       );
                     }),
-                    inactiveTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                    inactiveTrackColor: HSLColor.fromColor(
+                            Theme.of(context).colorScheme.primary)
+                        .withAlpha(0.5)
+                        .toColor(),
                     activeTrackColor: Theme.of(context).colorScheme.primary,
                     activeColor: Colors.black, // When active, always black
-                    inactiveThumbColor: Colors.white, // When inactive, always white
+                    inactiveThumbColor:
+                        Colors.white, // When inactive, always white
                     onChanged: (bool value) async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('useDarkButtonText', value);
@@ -199,7 +199,10 @@ class _SettingsPageState extends State<SettingsPage> {
                             Text(
                               'Sample Text',
                               style: TextStyle(
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.color,
                               ),
                             ),
                             const Spacer(),
@@ -207,7 +210,8 @@ class _SettingsPageState extends State<SettingsPage> {
                               onPressed: () {},
                               style: FilledButton.styleFrom(
                                 backgroundColor: pickerColor,
-                                foregroundColor: useDarkText ? Colors.black : Colors.white,
+                                foregroundColor:
+                                    useDarkText ? Colors.black : Colors.white,
                                 textStyle: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -223,7 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-          
+
           // Data Management Section
           Card(
             margin: const EdgeInsets.all(8),
@@ -245,16 +249,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       FutureBuilder<bool>(
                         future: DataMigrationService.isMigrationNeeded(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return const SizedBox(
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             );
                           }
-                          
+
                           final needsMigration = snapshot.data ?? false;
-                          
+
                           return needsMigration
                               ? Container(
                                   padding: const EdgeInsets.symmetric(
@@ -262,7 +267,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Text(
@@ -274,13 +280,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                   ),
                                 )
-                              : const Icon(Icons.check_circle, color: Colors.green);
+                              : const Icon(Icons.check_circle,
+                                  color: Colors.green);
                         },
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Standard Backup Options
                 ListTile(
                   leading: const Icon(Icons.file_upload),
@@ -294,14 +301,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle: const Text('Restore data from a backup file'),
                   onTap: () async => await UserData.importData(context),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Data Conversion
                 ListTile(
                   leading: const Icon(Icons.sync),
                   title: const Text('Convert to Unified Format'),
-                  subtitle: const Text('Convert all albums to the unified data model'),
+                  subtitle: const Text(
+                      'Convert all albums to the unified data model'),
                   onTap: () => _showUnifiedFormatDialog(context),
                 ),
                 ListTile(
@@ -313,17 +321,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.system_update_alt),
                   title: const Text('Import & Convert Old Backup'),
-                  subtitle: const Text('Convert and import old backup directly'),
+                  subtitle:
+                      const Text('Convert and import old backup directly'),
                   onTap: () => BackupConverter.importConvertedBackup(context),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Migration Options
                 ListTile(
                   leading: const Icon(Icons.update),
                   title: const Text('Migrate Data'),
-                  subtitle: const Text('Convert your data to the latest format'),
+                  subtitle:
+                      const Text('Convert your data to the latest format'),
                   onTap: () => _showMigrationDialog(context),
                 ),
                 ListTile(
@@ -367,7 +377,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.delete_forever),
                   title: const Text('Clear Database'),
-                  subtitle: const Text('Delete all saved data (cannot be undone)'),
+                  subtitle:
+                      const Text('Delete all saved data (cannot be undone)'),
                   onTap: () => _showClearDatabaseDialog(context),
                 ),
               ],
@@ -390,7 +401,9 @@ class _SettingsPageState extends State<SettingsPage> {
               setState(() {
                 pickerColor = color;
                 // Automatically calculate if text should be black or white
-                textColor = color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+                textColor = color.computeLuminance() > 0.5
+                    ? Colors.black
+                    : Colors.white;
               });
               widget.onPrimaryColorChanged(color);
             },
@@ -399,9 +412,6 @@ class _SettingsPageState extends State<SettingsPage> {
             enableAlpha: false,
             hexInputBar: true,
             displayThumbColor: true,
-            showLabel: true,
-            paletteType: PaletteType.hsvWithHue,
-            pickerAreaHeightPercent: 0.7,
             labelTypes: const [
               ColorLabelType.hex,
               ColorLabelType.rgb,
@@ -478,10 +488,10 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       // Perform migration
       final migratedCount = await DataMigrationService.migrateAllAlbums();
-      
+
       // Dismiss progress dialog
       if (mounted) Navigator.pop(context);
-      
+
       if (migratedCount > 0) {
         // Ask for confirmation to activate
         if (mounted) {
@@ -508,7 +518,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
           if (shouldActivate == true) {
             final success = await DataMigrationService.activateMigratedData();
-            
+
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -528,7 +538,8 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No data was migrated. You might not have any saved albums.'),
+              content: Text(
+                  'No data was migrated. You might not have any saved albums.'),
               duration: Duration(seconds: 3),
             ),
           );
@@ -537,7 +548,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (e) {
       // Dismiss progress dialog
       if (mounted) Navigator.pop(context);
-      
+
       // Show error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -550,7 +561,7 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     }
   }
-  
+
   Future<void> _rollbackMigration(BuildContext context) async {
     // Show confirm dialog
     final shouldRollback = await showDialog<bool>(
@@ -576,9 +587,9 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
-    
+
     if (shouldRollback != true) return;
-    
+
     // Show progress dialog
     showDialog(
       context: context,
@@ -595,21 +606,20 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-    
+
     try {
       // Attempt rollback
       final success = await DataMigrationService.rollbackMigration();
-      
+
       // Dismiss progress dialog
       if (mounted) Navigator.pop(context);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success 
-              ? 'Migration successfully rolled back' 
-              : 'Rollback failed - no backup data found'
-            ),
+            content: Text(success
+                ? 'Migration successfully rolled back'
+                : 'Rollback failed - no backup data found'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -617,7 +627,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (e) {
       // Dismiss progress dialog
       if (mounted) Navigator.pop(context);
-      
+
       // Show error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -647,8 +657,9 @@ class _SettingsPageState extends State<SettingsPage> {
             Text('• All custom lists'),
             Text('• All settings'),
             SizedBox(height: 16),
-            Text('This action cannot be undone!', 
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            Text('This action cannot be undone!',
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -694,10 +705,9 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: const Text('Convert to Unified Format'),
         content: const Text(
-          'This will convert all your albums to the new unified data model. '
-          'This improves compatibility between different music platforms. '
-          '\n\nYour data will be backed up first for safety.'
-        ),
+            'This will convert all your albums to the new unified data model. '
+            'This improves compatibility between different music platforms. '
+            '\n\nYour data will be backed up first for safety.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -710,9 +720,9 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
-    
+
     if (confirm != true) return;
-    
+
     // Show progress dialog
     showDialog(
       context: context,
@@ -729,15 +739,16 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-    
+
     try {
       final count = await UserData.convertAllAlbumsToUnifiedFormat();
-      
+
       if (mounted) {
         Navigator.pop(context); // Dismiss progress dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully converted $count albums to unified format'),
+            content:
+                Text('Successfully converted $count albums to unified format'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -773,19 +784,18 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-    
+
     try {
       final repairResult = await UserData.repairSavedAlbums();
       final removedRatings = await UserData.cleanupOrphanedRatings();
-      
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${repairResult ? "Albums repaired successfully!" : "No album repairs needed"}\n'
-              'Removed $removedRatings orphaned ratings.'
-            ),
+                '${repairResult ? "Albums repaired successfully!" : "No album repairs needed"}\n'
+                'Removed $removedRatings orphaned ratings.'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -802,5 +812,12 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       }
     }
+  }
+
+  // Rename method from ColorToHex to colorToHex
+  String colorToHex(Color color) {
+    int rgb = ((color.a * 255).round() << 24) | (color.toARGB32() & 0x00FFFFFF);
+    String value = '#${rgb.toRadixString(16).padLeft(6, '0').substring(2)}';
+    return value;
   }
 }
