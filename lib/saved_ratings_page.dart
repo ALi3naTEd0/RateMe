@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart'; // Add this import for MethodChannel
 import 'dart:io';
 import 'user_data.dart';
 import 'saved_album_page.dart';
@@ -14,8 +15,15 @@ class SavedRatingsPage extends StatefulWidget {
 }
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   List<Map<String, dynamic>> albums = [];
   bool isLoading = true;
+
+  static const platform = MethodChannel('com.example.rateme/media_scanner');
 
   @override
   void initState() {
@@ -191,110 +199,134 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   void _handleImageShare(String imagePath) async {
     try {
-      await Share.shareXFiles([XFile(imagePath)]); // Replace ShareExtend.share
+      await Share.shareXFiles([XFile(imagePath)]);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: $e')),
-        );
-      }
+      _showSnackBar('Error sharing: $e');
     }
   }
 
-  void _showShareDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final shareWidget = ShareWidget(
-          key: ShareWidget.shareKey,
-          title: 'Saved Albums',
-          albums: albums,
-        );
-        return AlertDialog(
-          content: SingleChildScrollView(
-            child: shareWidget,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  final path =
-                      await ShareWidget.shareKey.currentState?.saveAsImage();
-                  if (mounted && path != null) {
-                    Navigator.pop(context);
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              ListTile(
-                                leading: const Icon(Icons.download),
-                                title: const Text('Save to Downloads'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  try {
-                                    final downloadDir = Directory(
-                                        '/storage/emulated/0/Download');
-                                    final fileName =
-                                        'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                    final newPath =
-                                        '${downloadDir.path}/$fileName';
-                                    await File(path).copy(newPath);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content: Text(
-                                                'Saved to Downloads: $fileName')),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content:
-                                                Text('Error saving file: $e')),
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.share),
-                                title: const Text('Share Image'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  _handleImageShare(path);
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error saving image: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save & Share'),
-            ),
-          ],
-        );
-      },
+  void _showSnackBar(String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message)),
     );
+  }
+
+  void _showShareDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) {
+          final shareWidget = ShareWidget(
+            key: ShareWidget.shareKey,
+            title: 'Saved Albums',
+            albums: albums,
+          );
+          return AlertDialog(
+            content: SingleChildScrollView(child: shareWidget),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    final path =
+                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                    if (mounted && path != null) {
+                      navigator.pop();
+                      _showShareOptions(path);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      navigator.pop();
+                      _showSnackBar('Error saving image: $e');
+                    }
+                  }
+                },
+                child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showShareOptions(String path) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    if (Platform.isAndroid) {
+      navigator.push(
+        PageRouteBuilder(
+          barrierColor: Colors.black54,
+          opaque: false,
+          pageBuilder: (_, __, ___) => Material(
+            type: MaterialType.transparency,
+            child: Center(
+              child: Container(
+                margin: const EdgeInsets.all(32),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.download),
+                      title: const Text('Save to Downloads'),
+                      onTap: () async {
+                        navigator.pop();
+                        await _saveToDownloads(path);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.share),
+                      title: const Text('Share Image'),
+                      onTap: () {
+                        navigator.pop();
+                        _handleImageShare(path);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      _showSnackBar('Image saved to: $path');
+    }
+  }
+
+  Future<void> _saveToDownloads(String path) async {
+    try {
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      final fileName = path.split('/').last;
+      final newPath = '${downloadDir.path}/$fileName';
+
+      // Copy from temp to Downloads
+      await File(path).copy(newPath);
+
+      // Scan file with MediaScanner
+      try {
+        await platform.invokeMethod('scanFile', {'path': newPath});
+      } catch (e) {
+        Logging.severe('MediaScanner error: $e');
+      }
+
+      _showSnackBar('Saved to Downloads: $fileName');
+    } catch (e) {
+      _showSnackBar('Error saving file: $e');
+    }
   }
 
   @override
@@ -302,6 +334,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      key: scaffoldMessengerKey,
       appBar: AppBar(
         title: const Text('Saved Ratings'),
         actions: [
@@ -310,16 +343,17 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             onSelected: (value) async {
               switch (value) {
                 case 'import':
-                  final success = await UserData.importData(context);
+                  final success =
+                      await UserData.importData(); // Remove context parameter
                   if (success && mounted) {
                     setState(() => _loadAlbums());
                   }
                   break;
                 case 'export':
-                  await UserData.exportData(context);
+                  await UserData.exportData(); // Remove context parameter
                   break;
                 case 'share':
-                  _showShareDialog(context);
+                  _showShareDialog();
                   break;
               }
             },

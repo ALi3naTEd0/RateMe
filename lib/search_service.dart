@@ -87,84 +87,37 @@ class SearchService {
 
     // Handle Bandcamp URLs
     if (query.contains('bandcamp.com')) {
-      try {
-        // Get album info
-        final response = await http.get(Uri.parse(query));
-        final document = parse(response.body);
+      Logging.severe('BANDCAMP URL DETECTED: $query');
+      final results = await _searchBandcamp(query);
 
-        // First try to get JSON-LD data
-        var ldJsonScript =
-            document.querySelector('script[type="application/ld+json"]');
-        if (ldJsonScript != null) {
-          final ldJson = jsonDecode(ldJsonScript.text);
-          Logging.severe('Bandcamp JSON-LD data:', ldJson); // Debug log
+      // Debug the results
+      if (results.isEmpty) {
+        Logging.severe('BANDCAMP SEARCH RETURNED EMPTY RESULTS');
+      } else {
+        Logging.severe('BANDCAMP SEARCH RESULTS COUNT: ${results.length}');
+        Logging.severe('BANDCAMP FIRST RESULT: ${jsonEncode(results.first)}');
 
-          // Extract basic info
-          final albumData = {
-            'collectionName': ldJson['name'],
-            'artistName': ldJson['byArtist']?['name'],
-            'artworkUrl100': ldJson['image'],
-            'url': query,
-            'platform': 'bandcamp',
-            'releaseDate': ldJson['datePublished'],
-          };
+        // Log specific fields we need for the details page
+        final firstResult = results.first;
+        Logging.severe('BANDCAMP RESULT FIELDS CHECK:');
+        Logging.severe('- collectionId: ${firstResult['collectionId']}');
+        Logging.severe('- id: ${firstResult['id']}');
+        Logging.severe('- collectionName: ${firstResult['collectionName']}');
+        Logging.severe('- artistName: ${firstResult['artistName']}');
+        Logging.severe('- artworkUrl100: ${firstResult['artworkUrl100']}');
+        Logging.severe('- url: ${firstResult['url']}');
+        Logging.severe('- platform: ${firstResult['platform']}');
 
-          // Extract tracks
-          if (ldJson['track']?['itemListElement'] != null) {
-            final tracks = [];
-            for (var item in ldJson['track']['itemListElement']) {
-              final track = item['item'];
-              final props = track['additionalProperty'] as List;
-              final trackId = props.firstWhere((p) => p['name'] == 'track_id',
-                  orElse: () => {'value': null})['value'];
-
-              tracks.add({
-                'trackId': trackId ?? DateTime.now().millisecondsSinceEpoch,
-                'trackNumber': item['position'],
-                'trackName': track['name'],
-                'trackTimeMillis': _parseBandcampDuration(track['duration']),
-              });
-            }
-            albumData['tracks'] = tracks;
-          }
-
+        // Check for tracks
+        if (firstResult.containsKey('tracks')) {
           Logging.severe(
-              'Processed Bandcamp album data:', albumData); // Debug log
-          return [albumData];
+              '- tracks count: ${firstResult['tracks']?.length ?? 0}');
+        } else {
+          Logging.severe('- NO TRACKS FOUND');
         }
-
-        // Fallback to meta tags if JSON-LD not available
-        final title = document
-            .querySelector('meta[property="og:title"]')
-            ?.attributes['content'];
-        final artist = document
-            .querySelector('meta[property="og:site_name"]')
-            ?.attributes['content'];
-        final artwork = document
-            .querySelector('meta[property="og:image"]')
-            ?.attributes['content'];
-
-        Logging.severe('Bandcamp meta tags:', {
-          'title': title,
-          'artist': artist,
-          'artwork': artwork
-        }); // Debug log
-
-        if (title != null) {
-          return [
-            {
-              'collectionName': title.split(', by').first.trim(),
-              'artistName': artist ?? title.split(', by').last.trim(),
-              'artworkUrl100': artwork,
-              'url': query,
-              'platform': 'bandcamp'
-            }
-          ];
-        }
-      } catch (e) {
-        Logging.severe('Error processing Bandcamp URL', e);
       }
-      return [];
+
+      return results;
     }
 
     // Handle non-Bandcamp searches
@@ -401,5 +354,189 @@ class SearchService {
       Logging.severe('Error parsing duration', e);
     }
     return 0;
+  }
+
+  /// Search Bandcamp URL - specific handler for Bandcamp URLs
+  static Future<List<dynamic>> _searchBandcamp(String url) async {
+    try {
+      Logging.severe('BANDCAMP SEARCH START: $url');
+
+      // Safety check
+      if (url.trim().isEmpty) {
+        Logging.severe('BANDCAMP URL EMPTY');
+        return [];
+      }
+
+      Logging.severe('Processing Bandcamp URL: $url');
+
+      final response = await http.get(Uri.parse(url));
+
+      Logging.severe('BANDCAMP HTTP STATUS: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        Logging.severe('BANDCAMP HTTP ERROR: ${response.statusCode}');
+        return [];
+      }
+
+      final document = parse(response.body);
+
+      // Try to get JSON-LD data first (most reliable)
+      var ldJsonScript =
+          document.querySelector('script[type="application/ld+json"]');
+
+      Logging.severe('BANDCAMP JSON-LD SCRIPT FOUND: ${ldJsonScript != null}');
+
+      if (ldJsonScript != null && ldJsonScript.text.isNotEmpty) {
+        try {
+          Logging.severe('PARSING BANDCAMP JSON-LD DATA');
+          final ldJson = jsonDecode(ldJsonScript.text);
+          Logging.severe('BANDCAMP JSON-LD PARSED SUCCESSFULLY');
+
+          // Log important LD+JSON fields
+          Logging.severe('BANDCAMP JSON-LD FIELDS:');
+          Logging.severe('- @type: ${ldJson['@type']}');
+          Logging.severe('- name: ${ldJson['name']}');
+          Logging.severe('- byArtist: ${ldJson['byArtist']?['name']}');
+          Logging.severe('- image: ${ldJson['image']}');
+
+          // Create unique ID for Bandcamp
+          final uniqueId = url.hashCode;
+          Logging.severe('BANDCAMP GENERATED ID: $uniqueId');
+
+          final albumData = {
+            'collectionId': uniqueId,
+            'id': uniqueId,
+            'collectionName': ldJson['name'] ?? 'Unknown Album',
+            'artistName': ldJson['byArtist']?['name'] ??
+                ldJson['author']?['name'] ??
+                'Unknown Artist',
+            'artworkUrl100': ldJson['image'] ?? '',
+            'url': url,
+            'platform': 'bandcamp',
+            'releaseDate':
+                ldJson['datePublished'] ?? DateTime.now().toIso8601String(),
+          };
+
+          Logging.severe(
+              'BANDCAMP ALBUM DATA CREATED: ${jsonEncode(albumData)}');
+
+          // Process tracks if available
+          if (ldJson['track'] != null &&
+              ldJson['track']['itemListElement'] != null) {
+            Logging.severe('BANDCAMP TRACKS FOUND');
+            final tracks = [];
+            final trackItems = ldJson['track']['itemListElement'] as List;
+            Logging.severe('BANDCAMP TRACK COUNT: ${trackItems.length}');
+
+            for (var item in trackItems) {
+              final track = item['item'];
+              final position = item['position'] ?? tracks.length + 1;
+
+              var trackId = DateTime.now().millisecondsSinceEpoch;
+              try {
+                final props = track['additionalProperty'] as List;
+                final trackIdProp = props.firstWhere(
+                    (p) => p['name'] == 'track_id',
+                    orElse: () => {'value': trackId});
+                trackId = trackIdProp['value'] ?? trackId;
+              } catch (e) {
+                Logging.severe('Error extracting track ID: $e');
+              }
+
+              tracks.add({
+                'trackId': trackId,
+                'trackNumber': position,
+                'trackName': track['name'] ?? 'Track $position',
+                'trackTimeMillis':
+                    _parseBandcampDuration(track['duration'] ?? ''),
+              });
+            }
+
+            albumData['tracks'] = tracks;
+            Logging.severe('BANDCAMP TRACKS PROCESSED: ${tracks.length}');
+          } else {
+            Logging.severe('NO BANDCAMP TRACKS FOUND IN JSON-LD');
+          }
+
+          Logging.severe('RETURNING BANDCAMP ALBUM DATA');
+          return [albumData];
+        } catch (e, stack) {
+          Logging.severe('ERROR PARSING BANDCAMP JSON-LD DATA: $e', e, stack);
+          // Continue to fallback methods
+        }
+      }
+
+      // Fallback to meta tags
+      Logging.severe('BANDCAMP FALLBACK TO META TAGS');
+      final title = document
+          .querySelector('meta[property="og:title"]')
+          ?.attributes['content'];
+      final artist = document
+          .querySelector('meta[property="og:site_name"]')
+          ?.attributes['content'];
+      final artwork = document
+          .querySelector('meta[property="og:image"]')
+          ?.attributes['content'];
+
+      Logging.severe('BANDCAMP META TAGS:');
+      Logging.severe('- title: $title');
+      Logging.severe('- artist: $artist');
+      Logging.severe('- artwork: $artwork');
+
+      if (title != null) {
+        final albumName =
+            title.contains(', by') ? title.split(', by').first.trim() : title;
+        final artistName = artist ??
+            (title.contains(', by')
+                ? title.split(', by').last.trim()
+                : 'Unknown Artist');
+
+        final albumData = {
+          'collectionId': url.hashCode,
+          'id': url.hashCode,
+          'collectionName': albumName,
+          'artistName': artistName,
+          'artworkUrl100': artwork ?? '',
+          'url': url,
+          'platform': 'bandcamp',
+          'releaseDate': DateTime.now().toIso8601String(),
+        };
+
+        Logging.severe(
+            'Created Bandcamp data from meta tags: $albumName by $artistName');
+        return [albumData];
+      }
+
+      // Last resort - return minimal data
+      Logging.severe(
+          'Could not extract proper metadata from Bandcamp URL, using fallback');
+      final fallbackData = {
+        'collectionId': url.hashCode,
+        'id': url.hashCode,
+        'collectionName': 'Unknown Album',
+        'artistName': 'Unknown Artist',
+        'artworkUrl100': '',
+        'url': url,
+        'platform': 'bandcamp',
+        'releaseDate': DateTime.now().toIso8601String(),
+      };
+      Logging.severe('RETURNING BANDCAMP MINIMAL FALLBACK DATA');
+      return [fallbackData];
+    } catch (e, stack) {
+      Logging.severe('ERROR PROCESSING BANDCAMP URL: $e', e, stack);
+
+      final errorFallbackData = {
+        'collectionId': url.hashCode,
+        'id': url.hashCode,
+        'collectionName': 'Unknown Album (Error)',
+        'artistName': 'Unknown Artist',
+        'artworkUrl100': '',
+        'url': url,
+        'platform': 'bandcamp',
+        'releaseDate': DateTime.now().toIso8601String(),
+      };
+      Logging.severe('RETURNING BANDCAMP ERROR FALLBACK DATA');
+      return [errorFallbackData];
+    }
   }
 }

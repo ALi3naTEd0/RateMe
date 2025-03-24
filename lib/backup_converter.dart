@@ -8,8 +8,13 @@ import 'logging.dart';
 
 /// Tool for converting old backup files to new model format
 class BackupConverter {
-  /// Convert a backup file to new format
-  static Future<bool> convertBackupFile(BuildContext context) async {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  /// Convert a backup file to new format - no longer needs context parameter
+  static Future<bool> convertBackupFile() async {
     try {
       // 1. Select the old backup file
       final result = await FilePicker.platform.pickFiles(
@@ -19,7 +24,7 @@ class BackupConverter {
       );
 
       if (result == null || result.files.isEmpty) {
-        _showSnackBar(context, 'No file selected');
+        _showSnackBar('No file selected');
         return false;
       }
 
@@ -28,9 +33,11 @@ class BackupConverter {
       final jsonData = await file.readAsString();
       final data = jsonDecode(jsonData);
 
-      // 3. Show preview dialog
-      final previewResult = await _showPreviewDialog(context, data);
+      // 3. Get navigator from global key
+      final navigator = navigatorKey.currentState;
+      if (navigator == null) return false;
 
+      final previewResult = await _showPreviewDialog(data);
       if (previewResult != true) {
         return false;
       }
@@ -50,7 +57,7 @@ class BackupConverter {
       );
 
       if (outputPath == null) {
-        _showSnackBar(context, 'Save cancelled');
+        _showSnackBar('Save cancelled');
         return false;
       }
 
@@ -58,17 +65,17 @@ class BackupConverter {
       final newFile = File(outputPath);
       await newFile.writeAsString(jsonEncode(convertedData));
 
-      _showSnackBar(context, 'Backup converted and saved successfully!');
+      _showSnackBar('Backup converted and saved successfully!');
       return true;
     } catch (e, stack) {
       Logging.severe('Error converting backup', e, stack);
-      _showSnackBar(context, 'Error converting backup: $e');
+      _showSnackBar('Error converting backup: $e');
       return false;
     }
   }
 
-  /// Import the converted backup directly
-  static Future<bool> importConvertedBackup(BuildContext context) async {
+  /// Import the converted backup directly - no longer needs context parameter
+  static Future<bool> importConvertedBackup() async {
     try {
       // 1. Select the old backup file
       final result = await FilePicker.platform.pickFiles(
@@ -78,7 +85,7 @@ class BackupConverter {
       );
 
       if (result == null || result.files.isEmpty) {
-        _showSnackBar(context, 'No file selected');
+        _showSnackBar('No file selected');
         return false;
       }
 
@@ -87,9 +94,8 @@ class BackupConverter {
       final jsonData = await file.readAsString();
       final data = jsonDecode(jsonData);
 
-      // 3. Show preview dialog
-      final previewResult = await _showPreviewDialog(context, data);
-
+      // 3. Show preview dialog using navigator key
+      final previewResult = await _showPreviewDialog(data);
       if (previewResult != true) {
         return false;
       }
@@ -98,25 +104,7 @@ class BackupConverter {
       final convertedData = await _convertBackupData(data);
 
       // 5. Show confirmation dialog before replacing data
-      final confirmResult = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Import Converted Data'),
-          content: const Text(
-              'This will replace all existing data with the converted backup. Continue?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Import'),
-            ),
-          ],
-        ),
-      );
-
+      final confirmResult = await _showConfirmationDialog();
       if (confirmResult != true) {
         return false;
       }
@@ -145,11 +133,11 @@ class BackupConverter {
         }
       });
 
-      _showSnackBar(context, 'Backup converted and imported successfully!');
+      _showSnackBar('Backup converted and imported successfully!');
       return true;
     } catch (e, stack) {
       Logging.severe('Error importing converted backup', e, stack);
-      _showSnackBar(context, 'Error importing converted backup: $e');
+      _showSnackBar('Error importing converted backup: $e');
       return false;
     }
   }
@@ -382,62 +370,122 @@ class BackupConverter {
     }
   }
 
-  /// Show file preview dialog
-  static Future<bool?> _showPreviewDialog(
-      BuildContext context, Map<String, dynamic> data) async {
-    int albumCount = 0;
-    int listCount = 0;
+  /// Show file preview dialog using GlobalKey
+  static Future<bool?> _showPreviewDialog(Map<String, dynamic> data) {
+    int albumCount = data['saved_albums']?.length ?? 0;
+    int listCount = data['custom_lists']?.length ?? 0;
 
-    if (data.containsKey('saved_albums') && data['saved_albums'] is List) {
-      albumCount = (data['saved_albums'] as List).length;
-    }
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return Future.value(false);
 
-    if (data.containsKey('custom_lists') && data['custom_lists'] is List) {
-      listCount = (data['custom_lists'] as List).length;
-    }
-
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Convert Backup'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Found $albumCount saved albums'),
-            Text('Found $listCount custom lists'),
-            const SizedBox(height: 16),
-            const Text(
-              'This will convert all albums to the new model format while preserving all your ratings and custom lists.',
-              style: TextStyle(fontStyle: FontStyle.italic),
+    return navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => Material(
+          type: MaterialType.transparency,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Convert Backup',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Text('Found $albumCount saved albums'),
+                  Text('Found $listCount custom lists'),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'This will convert all albums to the new model format while preserving all your ratings and custom lists.',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => navigator.pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => navigator.pop(true),
+                        child: const Text('Convert'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Note: This process creates a new backup file and does not modify your original backup.',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Convert'),
-          ),
-        ],
       ),
     );
   }
 
-  /// Show a snackbar message
-  static void _showSnackBar(BuildContext context, String message) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    }
+  /// Show confirmation dialog using GlobalKey
+  static Future<bool?> _showConfirmationDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return Future.value(false);
+
+    return navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => Material(
+          type: MaterialType.transparency,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Import Converted Data',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                      'This will replace all existing data with the converted backup. Continue?'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => navigator.pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => navigator.pop(true),
+                        child: const Text('Import'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show a snackbar message using the global key
+  static void _showSnackBar(String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }

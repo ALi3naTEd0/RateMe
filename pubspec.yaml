@@ -24,7 +24,7 @@ dependencies:
   url_launcher: ^6.1.14  # Versión estable más reciente
   path_provider: ^2.1.1
   shared_preferences: ^2.2.3
-  file_picker: ^8.0.5  # Downgrade to version compatible with Dart SDK 3.3.1
+  file_picker: ^8.0.5  # Add this line
   share_plus: 7.2.1  # Downgrade to a version compatible with Dart 3.3.1
   html: ^0.15.4
   intl: ^0.20.0

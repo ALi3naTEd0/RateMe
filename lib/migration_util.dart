@@ -44,8 +44,9 @@ class MigrationUtil {
   /// Check if tracks can be converted to Track model
   static bool validateTracks(List<dynamic> tracks, bool isBandcamp) {
     try {
-      for (var track in tracks) {
-        Track.fromLegacy(track, isBandcamp);
+      for (var trackData in tracks) {
+        // Fix: Don't pass index to Track.fromLegacy - use Map instead
+        Track.fromLegacy(Map<String, dynamic>.from(trackData));
       }
       return true;
     } catch (e) {

@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For MethodChannel
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart'; // This includes all URL launching functions
-import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:convert'; // Add this import for jsonEncode
+import 'package:http/http.dart' as http; // Add this import for HTTP requests
 import 'user_data.dart';
 import 'logging.dart';
 import 'custom_lists_page.dart';
 import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
-// Add this import
 import 'album_model.dart'; // Add this import
-import 'model_mapping_service.dart';
+import 'saved_album_page.dart'; // Add this import
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -23,7 +21,7 @@ class DetailsPage extends StatefulWidget {
   const DetailsPage({
     super.key,
     required this.album,
-    this.isBandcamp = true,
+    this.isBandcamp = false,
     this.initialRatings,
   });
 
@@ -32,8 +30,13 @@ class DetailsPage extends StatefulWidget {
 }
 
 class _DetailsPageState extends State<DetailsPage> {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   Album? unifiedAlbum;
-  List<dynamic> tracks = [];
+  List<Track> tracks = [];
   Map<int, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
@@ -48,66 +51,205 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Future<void> _initialize() async {
     try {
-      // Debug point 3: Input data
-      Logging.severe('Details page input data:', widget.album);
+      Logging.severe(
+          'Initializing details page for album: ${widget.album['collectionName'] ?? widget.album['name'] ?? 'Unknown'}');
 
-      // Try to convert to unified model
-      if (ModelMappingService.isLegacyFormat(widget.album)) {
-        Logging.severe('Converting legacy album format to unified model');
-        unifiedAlbum = await _convertToUnified(widget.album);
+      // If album has no tracks, try to fetch them from the API before proceeding
+      if (widget.album['tracks'] == null ||
+          (widget.album['tracks'] is List && widget.album['tracks'].isEmpty)) {
+        Logging.severe('Album has no tracks, attempting to fetch from API');
+        await _fetchTracksIfMissing();
+      }
 
-        // Debug point 4: Conversion result
-        Logging.severe('Converted to unified model:', unifiedAlbum?.toJson());
+      // Log the raw album data for debugging
+      Logging.severe('Raw album data in details page: ${jsonEncode({
+            'id': widget.album['collectionId'] ?? widget.album['id'],
+            'name': widget.album['collectionName'] ?? widget.album['name'],
+            'artist': widget.album['artistName'] ?? widget.album['artist'],
+            'platform': widget.album['platform'],
+            'hasTracks': widget.album.containsKey('tracks'),
+            'trackCount': widget.album['tracks'] is List
+                ? (widget.album['tracks'] as List).length
+                : 0,
+          })}');
+
+      // Convert to unified model if needed
+      if (widget.album is Album) {
+        unifiedAlbum = widget.album;
+      } else if (widget.isBandcamp) {
+        // Handle Bandcamp album
+        unifiedAlbum = Album(
+          id: widget.album['collectionId'] ?? widget.album['id'] ?? 0,
+          name: widget.album['collectionName'] ?? 'Unknown Album',
+          artist: widget.album['artistName'] ?? 'Unknown Artist',
+          artworkUrl: widget.album['artworkUrl100'] ?? '',
+          url: widget.album['url'] ?? '',
+          platform: 'bandcamp',
+          releaseDate: widget.album['releaseDate'] != null
+              ? DateTime.parse(widget.album['releaseDate'])
+              : DateTime.now(),
+          metadata: widget.album,
+          tracks: widget.album['tracks'] != null
+              ? (widget.album['tracks'] as List)
+                  .map<Track>((track) => Track(
+                        id: track['trackId'] ?? 0,
+                        name: track['trackName'] ?? 'Unknown Track',
+                        position: track['trackNumber'] ?? 0,
+                        durationMs: track['trackTimeMillis'] ?? 0,
+                        metadata: track,
+                      ))
+                  .toList()
+              : [],
+        );
       } else {
-        unifiedAlbum = Album.fromJson(widget.album);
+        // iTunes album
+        unifiedAlbum = Album.fromLegacy(widget.album);
       }
 
-      // Load additional data if needed
-      if (unifiedAlbum != null) {
-        await _loadAdditionalData();
+      // Set tracks from unified model
+      tracks = unifiedAlbum?.tracks ?? [];
+
+      // Ensure tracks is never null
+      if (tracks.isEmpty && widget.album['tracks'] is List) {
+        // Handle case where tracks are in the album data but not parsed
+        try {
+          final tracksList = widget.album['tracks'] as List;
+          for (var trackData in tracksList) {
+            if (trackData is Map<String, dynamic>) {
+              tracks.add(Track(
+                id: trackData['trackId'] ?? 0,
+                name: trackData['trackName'] ?? 'Unknown Track',
+                position: trackData['trackNumber'] ?? 0,
+                durationMs: trackData['trackTimeMillis'] ?? 0,
+                metadata: trackData,
+              ));
+            }
+          }
+        } catch (e) {
+          Logging.severe('Error parsing track data', e);
+        }
       }
 
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    } catch (e) {
-      Logging.severe('Error initializing details page', e);
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  }
-
-  Future<Album?> _convertToUnified(Map<String, dynamic> legacyData) async {
-    try {
-      // For iTunes data
-      if (legacyData['collectionId'] != null) {
-        return ModelMappingService.mapItunesSearchResult(legacyData);
-      }
-      // Add more platform checks as needed
-      return null;
-    } catch (e) {
-      Logging.severe('Error converting to unified model', e);
-      return null;
-    }
-  }
-
-  Future<void> _loadAdditionalData() async {
-    // Load tracks, ratings, etc.
-    if (unifiedAlbum == null) return;
-
-    try {
-      // Load tracks based on platform
-      if (unifiedAlbum!.platform == 'itunes') {
-        await _fetchItunesTracks();
-      } else if (unifiedAlbum!.platform == 'bandcamp') {
-        await _fetchBandcampTracks();
-      }
+      // Calculate durations
+      calculateAlbumDuration();
 
       // Load ratings
-      await _loadRatings();
-    } catch (e) {
-      Logging.severe('Error loading additional data', e);
+      if (widget.initialRatings != null) {
+        ratings = Map.from(widget.initialRatings!);
+      } else {
+        await _loadRatings();
+      }
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          calculateAverageRating();
+        });
+      }
+    } catch (e, stack) {
+      Logging.severe('Error initializing details page', e, stack);
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  // Add this new method to fetch tracks for albums that are missing them
+  Future<void> _fetchTracksIfMissing() async {
+    try {
+      final albumId = widget.album['collectionId'] ?? widget.album['id'];
+      if (albumId == null) return;
+
+      Logging.severe('Fetching missing tracks for album ID: $albumId');
+
+      // Try the regular iTunes lookup first
+      final url =
+          Uri.parse('https://itunes.apple.com/lookup?id=$albumId&entity=song');
+      final response = await http.get(url);
+      final data = jsonDecode(response.body);
+
+      // Check if we got tracks
+      if (data['results'] != null && data['results'].length > 1) {
+        final tracks = data['results']
+            .skip(1) // Skip the album info (first result)
+            .where((item) =>
+                item['wrapperType'] == 'track' && item['kind'] == 'song')
+            .toList();
+
+        if (tracks.isNotEmpty) {
+          Logging.severe('Found ${tracks.length} tracks via direct API call');
+          widget.album['tracks'] = tracks;
+          return;
+        }
+      }
+
+      // If no tracks found, try alternate albums
+      Logging.severe('No tracks found, searching for alternate album version');
+      final artistName = widget.album['artistName'] ?? '';
+      final albumName = widget.album['collectionName'] ?? '';
+
+      if (artistName.isNotEmpty && albumName.isNotEmpty) {
+        final searchUrl = Uri.parse(
+            'https://itunes.apple.com/search?term=${Uri.encodeComponent("$artistName $albumName")}'
+            '&entity=album&limit=5');
+
+        final searchResponse = await http.get(searchUrl);
+        final searchData = jsonDecode(searchResponse.body);
+
+        if (searchData['results'] != null && searchData['results'].isNotEmpty) {
+          // Find similar albums
+          for (var album in searchData['results']) {
+            if (album['collectionId'] != albumId &&
+                album['artistName'] == artistName &&
+                album['collectionName']
+                    .toString()
+                    .contains(albumName.split('(')[0].trim())) {
+              // Try this album instead
+              final altUrl = Uri.parse(
+                  'https://itunes.apple.com/lookup?id=${album['collectionId']}&entity=song');
+              final altResponse = await http.get(altUrl);
+              final altData = jsonDecode(altResponse.body);
+
+              if (altData['results'] != null && altData['results'].length > 1) {
+                final altTracks = altData['results']
+                    .skip(1)
+                    .where((item) =>
+                        item['wrapperType'] == 'track' &&
+                        item['kind'] == 'song')
+                    .toList();
+
+                if (altTracks.isNotEmpty) {
+                  Logging.severe(
+                      'Found ${altTracks.length} tracks from alternate album: ${album['collectionName']}');
+                  widget.album['tracks'] = altTracks;
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // If all else fails, create dummy tracks based on trackCount
+      if (widget.album['trackCount'] != null &&
+          widget.album['trackCount'] > 0) {
+        Logging.severe(
+            'Creating dummy tracks based on trackCount: ${widget.album['trackCount']}');
+        final List<dynamic> dummyTracks = [];
+
+        for (int i = 1; i <= widget.album['trackCount']; i++) {
+          dummyTracks.add({
+            'trackId': albumId * 1000 + i,
+            'trackName': 'Track $i',
+            'trackNumber': i,
+            'trackTimeMillis': 0,
+            'kind': 'song',
+            'wrapperType': 'track',
+          });
+        }
+
+        widget.album['tracks'] = dummyTracks;
+      }
+    } catch (e, stack) {
+      Logging.severe('Error fetching missing tracks', e, stack);
     }
   }
 
@@ -133,140 +275,6 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
-  Future<void> _fetchBandcampTracks() async {
-    final url = unifiedAlbum?.url;
-    try {
-      final response = await http.get(Uri.parse(url!));
-      if (response.statusCode == 200) {
-        final document = parse(response.body);
-        var ldJsonScript =
-            document.querySelector('script[type="application/ld+json"]');
-
-        if (ldJsonScript != null) {
-          final ldJson = jsonDecode(ldJsonScript.text);
-
-          if (ldJson != null && ldJson['track'] != null) {
-            var trackItems = ldJson['track']['itemListElement'] as List;
-            List<Map<String, dynamic>> tracksData = [];
-
-            final albumId = unifiedAlbum?.id;
-            final oldRatingsByPosition =
-                await UserData.migrateAlbumRatings(albumId!);
-
-            for (int i = 0; i < trackItems.length; i++) {
-              var item = trackItems[i];
-              var track = item['item'];
-              var props = track['additionalProperty'] as List;
-
-              var trackIdProp = props.firstWhere((p) => p['name'] == 'track_id',
-                  orElse: () => {'value': null});
-              int trackId = trackIdProp['value'];
-              int position = i + 1;
-
-              if (oldRatingsByPosition.containsKey(position)) {
-                final oldRating = oldRatingsByPosition[position];
-                if (oldRating != null) {
-                  double rating = (oldRating['rating'] as num).toDouble();
-                  await UserData.saveNewRating(
-                      albumId, trackId, position, rating);
-                  ratings[trackId] = rating;
-                }
-              }
-
-              tracksData.add({
-                'trackId': trackId,
-                'trackNumber': position,
-                'title': track['name'],
-                'duration': _parseDuration(track['duration']),
-                'position': position,
-              });
-            }
-
-            if (mounted) {
-              setState(() {
-                tracks = tracksData;
-                try {
-                  releaseDate = DateFormat("d MMMM yyyy HH:mm:ss 'GMT'")
-                      .parse(ldJson['datePublished']);
-                } catch (e) {
-                  try {
-                    releaseDate = DateTime.parse(ldJson['datePublished']);
-                  } catch (e) {
-                    releaseDate = DateTime.now();
-                  }
-                }
-                isLoading = false;
-                calculateAlbumDuration();
-                calculateAverageRating();
-              });
-            }
-          }
-        }
-      }
-    } catch (error, stackTrace) {
-      Logging.severe('Error fetching Bandcamp tracks', error, stackTrace);
-    }
-  }
-
-  int _parseDuration(String isoDuration) {
-    try {
-      if (isoDuration.isEmpty) return 0;
-
-      // Extract numbers between letters using regex
-      final regex = RegExp(r'(\d+)(?=[HMS])');
-      final matches = regex.allMatches(isoDuration);
-      final parts = matches.map((m) => int.parse(m.group(1)!)).toList();
-
-      int totalMillis = 0;
-      if (parts.length >= 3) {
-        // H:M:S
-        totalMillis = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
-      } else if (parts.length == 2) {
-        // M:S
-        totalMillis = ((parts[0] * 60) + parts[1]) * 1000;
-      } else if (parts.length == 1) {
-        // S
-        totalMillis = parts[0] * 1000;
-      }
-      return totalMillis;
-    } catch (e) {
-      Logging.severe('Error parsing duration: $isoDuration - $e');
-      return 0;
-    }
-  }
-
-  Future<void> _fetchItunesTracks() async {
-    try {
-      final url = Uri.parse(
-          'https://itunes.apple.com/lookup?id=${unifiedAlbum?.id}&entity=song');
-      final response = await http.get(url);
-      final data = jsonDecode(response.body);
-
-      // Filter only audio tracks, excluding video content
-      var trackList = data['results']
-          .where((track) =>
-              track['wrapperType'] == 'track' && track['kind'] == 'song')
-          .toList();
-
-      if (mounted) {
-        setState(() {
-          tracks = trackList;
-          // Fix date parsing
-          if (unifiedAlbum?.releaseDate != null) {
-            releaseDate = unifiedAlbum!.releaseDate;
-          } else {
-            releaseDate = DateTime.now();
-          }
-          // Calculate total duration
-          calculateAlbumDuration();
-        });
-      }
-    } catch (error, stackTrace) {
-      Logging.severe('Error fetching iTunes tracks', error, stackTrace);
-      if (mounted) setState(() => isLoading = false);
-    }
-  }
-
   void calculateAverageRating() {
     var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
     if (ratedTracks.isNotEmpty) {
@@ -283,20 +291,8 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   void calculateAlbumDuration() {
-    int totalDuration = 0;
-    if (unifiedAlbum?.platform == 'bandcamp') {
-      for (var track in tracks) {
-        totalDuration += track['duration'] as int;
-      }
-    } else {
-      // For iTunes tracks
-      for (var track in tracks) {
-        if (track['trackTimeMillis'] != null) {
-          totalDuration += track['trackTimeMillis'] as int;
-        }
-      }
-    }
-    if (mounted) setState(() => albumDurationMillis = totalDuration);
+    albumDurationMillis =
+        tracks.fold(0, (sum, track) => sum + track.durationMs);
   }
 
   void _updateRating(int trackId, double newRating) async {
@@ -321,7 +317,7 @@ class _DetailsPageState extends State<DetailsPage> {
     } catch (error, stackTrace) {
       Logging.severe('Error launching RateYourMusic', error, stackTrace);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('Could not open RateYourMusic')),
         );
       }
@@ -329,6 +325,7 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   String formatDuration(int millis) {
+    if (millis == 0) return '--:--';
     int seconds = (millis ~/ 1000) % 60;
     int minutes = (millis ~/ 1000) ~/ 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
@@ -342,14 +339,22 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   String _formatReleaseDate() {
-    if (unifiedAlbum?.platform == 'bandcamp') {
-      if (releaseDate == null) return 'Unknown Date';
-      return DateFormat('d MMMM yyyy').format(releaseDate!);
-    } else {
-      // Fix date formatting for non-bandcamp platforms
-      final date = unifiedAlbum?.releaseDate ?? DateTime.now();
-      return DateFormat('d MMMM yyyy').format(date);
+    // Fix release date formatting
+    try {
+      if (unifiedAlbum?.releaseDate != null) {
+        return DateFormat('d MMMM yyyy').format(unifiedAlbum!.releaseDate);
+      } else if (widget.album['releaseDate'] != null) {
+        final dateStr = widget.album['releaseDate'];
+        if (dateStr is String) {
+          final date = DateTime.parse(dateStr);
+          return DateFormat('d MMMM yyyy').format(date);
+        }
+      }
+    } catch (e) {
+      Logging.severe('Error formatting release date', e);
     }
+
+    return 'Unknown Date';
   }
 
   Widget _buildTrackTitle(String title, double maxWidth) {
@@ -365,183 +370,189 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
+  DataRow _buildTrackRow(Track track) {
+    return DataRow(
+      cells: [
+        DataCell(
+          SizedBox(
+            width: 35,
+            child: Center(
+              child: Text(track.position.toString()),
+            ),
+          ),
+        ),
+        DataCell(_buildTrackTitle(
+          track.name,
+          MediaQuery.of(context).size.width * _calculateTitleWidth(),
+        )),
+        DataCell(
+          SizedBox(
+            width: 70,
+            child: Text(
+              formatDuration(track.durationMs),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        DataCell(_buildTrackSlider(track.id)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double titleWidthFactor = _calculateTitleWidth();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(unifiedAlbum?.collectionName ?? 'Unknown Album'),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Image.network(
-                      unifiedAlbum?.artworkUrl100
-                              .replaceAll('100x100', '600x600') ??
-                          '',
-                      width: 300,
-                      height: 300,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.album, size: 300),
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      debugShowCheckedModeBanner: false,
+      theme: Theme.of(context), // Use parent theme
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text(unifiedAlbum?.collectionName ?? 'Unknown Album'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.network(
+                        unifiedAlbum?.artworkUrl100
+                                .replaceAll('100x100', '600x600') ??
+                            '',
+                        width: 300,
+                        height: 300,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.album, size: 300),
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildInfoRow("Artist",
-                            unifiedAlbum?.artistName ?? 'Unknown Artist'),
-                        _buildInfoRow("Album",
-                            unifiedAlbum?.collectionName ?? 'Unknown Album'),
-                        _buildInfoRow("Release Date", _formatReleaseDate()),
-                        _buildInfoRow(
-                            "Duration", formatDuration(albumDurationMillis)),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(
-                            "Rating", averageRating.toStringAsFixed(2),
-                            fontSize: 20),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () async {
-                                // Save album with filtered tracks
-                                final albumToSave = unifiedAlbum?.toJson();
-                                albumToSave?['tracks'] = tracks;
-                                await _saveAlbum();
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          _buildInfoRow("Artist",
+                              unifiedAlbum?.artistName ?? 'Unknown Artist'),
+                          _buildInfoRow("Album",
+                              unifiedAlbum?.collectionName ?? 'Unknown Album'),
+                          _buildInfoRow("Release Date", _formatReleaseDate()),
+                          _buildInfoRow(
+                              "Duration", formatDuration(albumDurationMillis)),
+                          const SizedBox(height: 8),
+                          _buildInfoRow(
+                              "Rating", averageRating.toStringAsFixed(2),
+                              fontSize: 20),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(
+                                onPressed: () async {
+                                  // Save album with filtered tracks
+                                  final albumToSave = unifiedAlbum?.toJson();
+                                  albumToSave?['tracks'] = tracks;
+                                  await _saveAlbum();
 
-                                // Add to saved albums list
-                                await UserData.addToSavedAlbums(albumToSave!);
+                                  // Add to saved albums list
+                                  await UserData.addToSavedAlbums(albumToSave!);
 
-                                if (!mounted) return;
-                                _showAddToListDialog(context);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                minimumSize: const Size(150, 45),
-                              ),
-                              child: const Text('Save Album',
-                                  style: TextStyle(color: Colors.white)),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.settings,
-                                  color: Colors
-                                      .white), // Changed from more_vert to settings
-                              label: const Text('Options',
-                                  style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                minimumSize: const Size(150, 45),
-                              ),
-                              onPressed: () => _showOptionsDialog(context),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                  const Divider(),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columnSpacing: 12,
-                      headingTextStyle:
-                          const TextStyle(fontWeight: FontWeight.bold),
-                      columns: [
-                        const DataColumn(
-                          label: SizedBox(
-                            width: 35, // Reducido de 40
-                            child: Center(child: Text('No.')),
-                          ),
-                          numeric: true,
-                        ),
-                        const DataColumn(
-                          label: Center(child: Text('Title')),
-                        ),
-                        DataColumn(
-                          label: Container(
-                            width: 65, // Reducido de 70
-                            alignment: Alignment.center,
-                            child: const Text('Length',
-                                textAlign: TextAlign.center),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Container(
-                            width: 160, // Reducido de 175
-                            alignment: Alignment.center,
-                            child: const Text('Rating',
-                                textAlign: TextAlign.center),
-                          ),
-                        ),
-                      ],
-                      rows: tracks.map((track) {
-                        final trackId = track['trackId'] ?? 0;
-                        final duration = unifiedAlbum?.platform == 'bandcamp'
-                            ? track['duration'] ?? 0
-                            : track['trackTimeMillis'] ?? 0;
-
-                        return DataRow(
-                          cells: [
-                            DataCell(
-                              SizedBox(
-                                width: 35, // Reducido de 40
-                                child: Center(
-                                  child: Text(track['trackNumber'].toString()),
+                                  if (!mounted) return;
+                                  _showAddToListDialog();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  minimumSize: const Size(150, 45),
                                 ),
+                                child: const Text('Save Album',
+                                    style: TextStyle(color: Colors.white)),
                               ),
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.settings,
+                                    color: Colors
+                                        .white), // Changed from more_vert to settings
+                                label: const Text('Options',
+                                    style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  minimumSize: const Size(150, 45),
+                                ),
+                                onPressed: () => _showOptionsDialog(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columnSpacing: 12,
+                        headingTextStyle:
+                            const TextStyle(fontWeight: FontWeight.bold),
+                        columns: [
+                          const DataColumn(
+                            label: SizedBox(
+                              width: 35, // Reducido de 40
+                              child: Center(child: Text('No.')),
                             ),
-                            DataCell(_buildTrackTitle(
-                              unifiedAlbum?.platform == 'bandcamp'
-                                  ? track['title']
-                                  : track['trackName'],
-                              MediaQuery.of(context).size.width *
+                            numeric: true,
+                          ),
+                          DataColumn(
+                            label: SizedBox(
+                              width: MediaQuery.of(context).size.width *
                                   titleWidthFactor,
-                            )),
-                            DataCell(
-                              SizedBox(
-                                width: 70,
-                                child: Text(
-                                  formatDuration(duration),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
+                              child: const Text('Title'),
                             ),
-                            DataCell(_buildTrackSlider(trackId)),
-                          ],
-                        );
-                      }).toList(),
+                          ),
+                          const DataColumn(
+                            label: SizedBox(
+                              width: 65, // Reducido de 70
+                              child: Center(child: Text('Length')),
+                            ),
+                          ),
+                          const DataColumn(
+                            label: SizedBox(
+                              width: 160, // Reducido de 175
+                              child: Center(child: Text('Rating')),
+                            ),
+                          ),
+                        ],
+                        rows: tracks
+                            .map((track) => _buildTrackRow(track))
+                            .toList(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _launchRateYourMusic,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _launchRateYourMusic,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                      ),
+                      child: const Text(
+                        'Rate on RateYourMusic',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-                    child: const Text(
-                      'Rate on RateYourMusic',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -598,120 +609,157 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
-  void _showOptionsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Album Options'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.file_download),
-              title: const Text('Import Album'),
-              onTap: () async {
-                Navigator.pop(context);
-                // ...existing import code...
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.file_upload),
-              title: const Text('Export Album'),
-              onTap: () async {
-                Navigator.pop(context);
-                if (!mounted) return;
-                if (unifiedAlbum != null) {
-                  await UserData.exportAlbum(context, unifiedAlbum!.toJson());
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Share as Image'),
-              onTap: () => _showShareDialog(context),
-            ),
-          ],
+  void _showOptionsDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Album Options'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.file_download),
+                title: const Text('Import Album'),
+                onTap: () async {
+                  navigator.pop();
+                  final album =
+                      await UserData.importAlbum(); // Remove context parameter
+                  if (album != null && mounted) {
+                    navigator.pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => SavedAlbumPage(
+                          album: album,
+                          isBandcamp: album['url']
+                                  ?.toString()
+                                  .contains('bandcamp.com') ??
+                              false,
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_upload),
+                title: const Text('Export Album'),
+                onTap: () async {
+                  navigator.pop();
+                  if (!mounted) return;
+                  if (unifiedAlbum != null) {
+                    await UserData.exportAlbum(
+                        unifiedAlbum!.toJson()); // Remove context parameter
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('Share as Image'),
+                onTap: () => _showShareDialog(),
+              ),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('Close'),
+                onTap: () => navigator.pop(),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showAddToListDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add to List'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('Create New List'),
-              onTap: () => Navigator.pop(context, 'new'),
-            ),
-            const Divider(),
-            FutureBuilder<List<CustomList>>(
-              future: UserData.getCustomLists(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const CircularProgressIndicator();
-                }
-                final lists = snapshot.data!;
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: lists
-                        .map((CustomList list) => ListTile(
-                              title: Text(list.name),
-                              onTap: () => Navigator.pop(context, list.id),
-                            ))
-                        .toList(),
-                  ),
-                );
-              },
-            ),
-          ],
+  void _showAddToListDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator
+        .push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Add to List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Create New List'),
+                onTap: () => navigator.pop('new'),
+              ),
+              const Divider(),
+              FutureBuilder<List<CustomList>>(
+                future: UserData.getCustomLists(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
+                  final lists = snapshot.data!;
+                  return SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: lists
+                          .map((CustomList list) => ListTile(
+                                title: Text(list.name),
+                                onTap: () => navigator.pop(list.id),
+                              ))
+                          .toList(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
-    ).then((result) async {
+    )
+        .then((result) async {
       if (result == 'new') {
         final nameController = TextEditingController();
         final descController = TextEditingController();
 
-        final createResult = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Create New List'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'List Name',
-                    hintText: 'e.g. Progressive Rock',
+        final createResult = await navigator.push<bool>(
+          PageRouteBuilder(
+            barrierColor: Colors.black54,
+            opaque: false,
+            pageBuilder: (_, __, ___) => AlertDialog(
+              title: const Text('Create New List'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'List Name',
+                      hintText: 'e.g. Progressive Rock',
+                    ),
                   ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (optional)',
+                      hintText: 'e.g. My favorite prog rock albums',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => navigator.pop(false),
+                  child: const Text('Cancel'),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (optional)',
-                    hintText: 'e.g. My favorite prog rock albums',
-                  ),
+                TextButton(
+                  onPressed: () => navigator.pop(true),
+                  child: const Text('Create'),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Create'),
-              ),
-            ],
           ),
         );
 
@@ -734,140 +782,146 @@ class _DetailsPageState extends State<DetailsPage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('Album added to list successfully')),
         );
       }
     });
   }
 
-  void _showShareDialog(BuildContext context) {
-    Navigator.pop(context); // Close options dialog
-    showDialog(
-      context: context,
-      builder: (context) {
-        final shareWidget = ShareWidget(
-          key: ShareWidget.shareKey,
-          album: unifiedAlbum?.toJson() ?? {},
-          tracks: tracks,
-          ratings: ratings,
-          averageRating: averageRating,
-        );
-        return AlertDialog(
-          content: SingleChildScrollView(child: shareWidget),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  final path =
-                      await ShareWidget.shareKey.currentState?.saveAsImage();
-                  if (mounted && path != null) {
-                    Navigator.pop(context);
-                    if (!mounted) return;
+  void _showShareDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
 
-                    if (Platform.isAndroid) {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                ListTile(
-                                  leading: const Icon(Icons.download),
-                                  title: const Text('Save to Downloads'),
-                                  onTap: () async {
-                                    Navigator.pop(context);
-                                    try {
-                                      final downloadDir = Directory(
-                                          '/storage/emulated/0/Download');
-                                      final fileName =
-                                          'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                      final newPath =
-                                          '${downloadDir.path}/$fileName';
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) {
+          final shareWidget = ShareWidget(
+            key: ShareWidget.shareKey,
+            album: unifiedAlbum?.toJson() ?? {},
+            tracks: tracks,
+            ratings: ratings,
+            averageRating: averageRating,
+          );
+          return AlertDialog(
+            content: SingleChildScrollView(child: shareWidget),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    // Call saveAsImage through the widget's state key
+                    final path =
+                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                    if (mounted && path != null) {
+                      navigator.pop();
+                      if (!mounted) return;
 
-                                      // Copy from temp to Downloads
-                                      await File(path).copy(newPath);
-
-                                      // Scan file with MediaScanner
-                                      const platform = MethodChannel(
-                                          'com.example.rateme/media_scanner');
+                      if (Platform.isAndroid) {
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return SafeArea(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  ListTile(
+                                    leading: const Icon(Icons.download),
+                                    title: const Text('Save to Downloads'),
+                                    onTap: () async {
+                                      navigator.pop();
                                       try {
-                                        await platform.invokeMethod(
-                                            'scanFile', {'path': newPath});
-                                      } catch (e) {
-                                        Logging.severe(
-                                            'MediaScanner error: $e'); // Replace print with proper logging
-                                      }
+                                        final downloadDir = Directory(
+                                            '/storage/emulated/0/Download');
+                                        final fileName =
+                                            'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                                        final newPath =
+                                            '${downloadDir.path}/$fileName';
 
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content: Text(
-                                                  'Saved to Downloads: $fileName')),
-                                        );
+                                        // Copy from temp to Downloads
+                                        await File(path).copy(newPath);
+
+                                        // Scan file with MediaScanner
+                                        const platform = MethodChannel(
+                                            'com.example.rateme/media_scanner');
+                                        try {
+                                          await platform.invokeMethod(
+                                              'scanFile', {'path': newPath});
+                                        } catch (e) {
+                                          Logging.severe(
+                                              'MediaScanner error: $e'); // Replace print with proper logging
+                                        }
+
+                                        if (mounted) {
+                                          scaffoldMessengerKey.currentState
+                                              ?.showSnackBar(
+                                            SnackBar(
+                                                content: Text(
+                                                    'Saved to Downloads: $fileName')),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          scaffoldMessengerKey.currentState
+                                              ?.showSnackBar(
+                                            SnackBar(
+                                                content: Text(
+                                                    'Error saving file: $e')),
+                                          );
+                                        }
                                       }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content: Text(
-                                                  'Error saving file: $e')),
-                                        );
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.share),
+                                    title: const Text('Share Image'),
+                                    onTap: () async {
+                                      navigator.pop();
+                                      try {
+                                        await Share.shareXFiles([XFile(path)]);
+                                      } catch (e) {
+                                        if (mounted) {
+                                          scaffoldMessengerKey.currentState
+                                              ?.showSnackBar(
+                                            SnackBar(
+                                                content:
+                                                    Text('Error sharing: $e')),
+                                          );
+                                        }
                                       }
-                                    }
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.share),
-                                  title: const Text('Share Image'),
-                                  onTap: () async {
-                                    Navigator.pop(context);
-                                    try {
-                                      await Share.shareXFiles([XFile(path)]);
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content:
-                                                  Text('Error sharing: $e')),
-                                        );
-                                      }
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Image saved to: $path')),
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      } else {
+                        scaffoldMessengerKey.currentState?.showSnackBar(
+                          SnackBar(content: Text('Image saved to: $path')),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      navigator.pop();
+                      scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('Error saving image: $e')),
                       );
                     }
                   }
-                } catch (e) {
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error saving image: $e')),
-                    );
-                  }
-                }
-              },
-              child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
-            ),
-          ],
-        );
-      },
+                },
+                child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -877,13 +931,13 @@ class _DetailsPageState extends State<DetailsPage> {
       await UserData.addToSavedAlbums(unifiedAlbum?.toJson() ?? {});
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('Album saved successfully')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(content: Text('Error saving album: $e')),
         );
       }

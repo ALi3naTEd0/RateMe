@@ -44,19 +44,9 @@ class _AppVersionFooterState extends State<AppVersionFooter> {
           style: TextStyle(
             fontSize: 14,
             decoration: TextDecoration.underline,
-            color: Theme.of(context).textTheme.bodySmall?.color?.withValues(
-                      red:
-                          (Theme.of(context).textTheme.bodySmall?.color?.r ?? 0)
-                              .toDouble(),
-                      green:
-                          (Theme.of(context).textTheme.bodySmall?.color?.g ?? 0)
-                              .toDouble(),
-                      blue:
-                          (Theme.of(context).textTheme.bodySmall?.color?.b ?? 0)
-                              .toDouble(),
-                      alpha: 204, // 0.8 * 255 = 204
-                    ) ??
-                Colors.grey,
+            // Replace deprecated withOpacity with withAlpha
+            color: Colors.white
+                .withAlpha(204), // 0.8 opacity = 204 alpha (255 * 0.8)
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -92,6 +82,7 @@ class _AppVersionFooterState extends State<AppVersionFooter> {
               const Text('Author: Eduardo Antonio Fortuny Ruvalcaba'),
               const SizedBox(height: 12),
               const Text('License: MIT'),
+              const SizedBox(height: 24), // Increased from 12 to 24
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,

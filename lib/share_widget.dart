@@ -6,14 +6,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 
 class ShareWidget extends StatefulWidget {
-  final Map<String, dynamic>? album; // Make optional
+  final Map<String, dynamic>? album;
   final List<dynamic>? tracks;
   final Map<int, double>? ratings;
   final double? averageRating;
-  final String? title; // New: for custom title
-  final List<Map<String, dynamic>>? albums; // New: for collections
+  final String? title;
+  final List<Map<String, dynamic>>? albums;
 
-  static final GlobalKey<_ShareWidgetState> shareKey = GlobalKey();
+  static final GlobalKey<ShareWidgetState> shareKey = GlobalKey();
+  static final GlobalKey _boundaryKey = GlobalKey();
 
   const ShareWidget({
     super.key,
@@ -32,38 +33,40 @@ class ShareWidget extends StatefulWidget {
             'Must provide either album details or collection details');
 
   @override
-  State<ShareWidget> createState() => _ShareWidgetState();
+  State<ShareWidget> createState() => ShareWidgetState();
 }
 
-class _ShareWidgetState extends State<ShareWidget> {
-  final _boundaryKey = GlobalKey();
-
-  // Method to be called from outside
-  Future<String> saveAsImage() async {
+class ShareWidgetState extends State<ShareWidget> {
+  Future<String?> saveAsImage() async {
     try {
       await Future.delayed(const Duration(milliseconds: 200));
-      final boundary = _boundaryKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary;
+
+      final boundary = ShareWidget._boundaryKey.currentContext
+          ?.findRenderObject() as RenderRepaintBoundary?;
+
+      if (boundary == null) {
+        throw Exception('Could not find boundary widget');
+      }
+
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final pngBytes = byteData!.buffer.asUint8List();
 
+      if (byteData == null) {
+        throw Exception('Could not generate image data');
+      }
+
+      final pngBytes = byteData.buffer.asUint8List();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final safeName = widget.album?['collectionName']
-              ?.toString()
-              .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') ??
-          'album';
-      final fileName = 'RateMe_${safeName}_$timestamp.png';
+      final fileName = 'RateMe_album_$timestamp.png';
 
       if (Platform.isAndroid) {
-        // Create temporary file for Android
         final tempDir = await getTemporaryDirectory();
         final tempPath = '${tempDir.path}/$fileName';
         final tempFile = File(tempPath);
         await tempFile.writeAsBytes(pngBytes);
         return tempPath;
       } else {
-        // For desktop platforms, use FilePicker
+        // For desktop platforms, use file picker
         final String? savePath = await FilePicker.platform.saveFile(
           dialogTitle: 'Save image as',
           fileName: fileName,
@@ -77,10 +80,11 @@ class _ShareWidgetState extends State<ShareWidget> {
           await file.writeAsBytes(pngBytes);
           return savePath;
         }
-        throw Exception('No save location selected');
+        return null;
       }
     } catch (e) {
-      rethrow;
+      debugPrint('Error saving image: $e');
+      return null;
     }
   }
 
@@ -93,7 +97,7 @@ class _ShareWidgetState extends State<ShareWidget> {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      key: _boundaryKey,
+      key: ShareWidget._boundaryKey, // Use the static boundary key
       child: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
         padding: const EdgeInsets.all(16),

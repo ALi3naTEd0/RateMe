@@ -68,6 +68,11 @@ class CustomListsPage extends StatefulWidget {
 }
 
 class _CustomListsPageState extends State<CustomListsPage> {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   List<CustomList> lists = [];
   bool isLoading = true;
 
@@ -91,43 +96,56 @@ class _CustomListsPageState extends State<CustomListsPage> {
     }
   }
 
+  void _showSnackBar(String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _createNewList() async {
     final nameController = TextEditingController();
     final descController = TextEditingController();
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New List'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'List Name',
-                hintText: 'e.g. Progressive Rock',
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    final result = await navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Create New List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'List Name',
+                  hintText: 'e.g. Progressive Rock',
+                ),
               ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'e.g. My favorite prog rock albums',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(false),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                hintText: 'e.g. My favorite prog rock albums',
-              ),
+            TextButton(
+              onPressed: () => navigator.pop(true),
+              child: const Text('Create'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
 
@@ -139,161 +157,188 @@ class _CustomListsPageState extends State<CustomListsPage> {
       );
       await UserData.saveCustomList(newList);
       _loadLists();
+      _showSnackBar('List created successfully');
     }
   }
 
   Future<void> _editList(CustomList list) async {
     final nameController = TextEditingController(text: list.name);
     final descController = TextEditingController(text: list.description);
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit List'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'List Name'),
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    final result = await navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Edit List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'List Name'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(false),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(labelText: 'Description'),
+            TextButton(
+              onPressed: () => navigator.pop(true),
+              child: const Text('Save'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
     if (result == true && nameController.text.isNotEmpty) {
       setState(() {
-        list.name = nameController.text; // Update list name
+        list.name = nameController.text;
         list.description = descController.text;
         list.updatedAt = DateTime.now();
       });
       await UserData.saveCustomList(list);
-      await _loadLists(); // Ensure list is reloaded
+      await _loadLists();
+      _showSnackBar('List updated successfully');
     }
   }
 
   Future<void> _deleteList(CustomList list) async {
-    // Add confirmation dialog
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete List'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Are you sure you want to delete this list?'),
-            const SizedBox(height: 16),
-            Text(
-              list.name,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    final confirm = await navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Delete List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Are you sure you want to delete this list?'),
+              const SizedBox(height: 16),
+              Text(
+                list.name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text('${list.albumIds.length} albums'),
+              if (list.description.isNotEmpty)
+                Text(list.description, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(false),
+              child: const Text('Cancel'),
             ),
-            Text('${list.albumIds.length} albums'),
-            if (list.description.isNotEmpty)
-              Text(list.description, style: const TextStyle(fontSize: 12)),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              onPressed: () => navigator.pop(true),
+              child: const Text('Delete'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
 
     if (confirm == true) {
       await UserData.deleteCustomList(list.id);
       _loadLists();
+      _showSnackBar('List deleted');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Custom Lists')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createNewList,
-        child: const Icon(Icons.add),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : lists.isEmpty
-              ? const Center(child: Text('No custom lists yet'))
-              : ReorderableListView.builder(
-                  onReorder: (oldIndex, newIndex) async {
-                    if (newIndex > oldIndex) newIndex--;
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      debugShowCheckedModeBanner: false,
+      theme: Theme.of(context),
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('Custom Lists'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _createNewList,
+          child: const Icon(Icons.add),
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : lists.isEmpty
+                ? const Center(child: Text('No custom lists yet'))
+                : ReorderableListView.builder(
+                    onReorder: (oldIndex, newIndex) async {
+                      if (newIndex > oldIndex) newIndex--;
 
-                    // 1. Update UI first
-                    setState(() {
-                      final item = lists.removeAt(oldIndex);
-                      lists.insert(newIndex, item);
-                    });
+                      setState(() {
+                        final item = lists.removeAt(oldIndex);
+                        lists.insert(newIndex, item);
+                      });
 
-                    // 2. Save lists directly in SharedPreferences
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setStringList('custom_lists',
-                        lists.map((l) => jsonEncode(l.toJson())).toList());
-                  },
-                  itemCount: lists.length,
-                  itemBuilder: (context, index) {
-                    final list = lists[index];
-                    return ListTile(
-                      key: Key(list.id),
-                      leading: const Icon(Icons.playlist_play),
-                      title: Text(list.name),
-                      subtitle: Text(
-                        list.description.isEmpty
-                            ? '${list.albumIds.length} albums'
-                            : list.description,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(list.albumIds.length.toString()),
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _editList(list),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => _deleteList(list),
-                          ),
-                          const Icon(Icons.drag_handle),
-                        ],
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              CustomListDetailsPage(list: list),
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setStringList('custom_lists',
+                          lists.map((l) => jsonEncode(l.toJson())).toList());
+                    },
+                    itemCount: lists.length,
+                    itemBuilder: (context, index) {
+                      final list = lists[index];
+                      return ListTile(
+                        key: Key(list.id),
+                        leading: const Icon(Icons.playlist_play),
+                        title: Text(list.name),
+                        subtitle: Text(
+                          list.description.isEmpty
+                              ? '${list.albumIds.length} albums'
+                              : list.description,
                         ),
-                      ).then((_) => _loadLists()),
-                    );
-                  },
-                ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(list.albumIds.length.toString()),
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _editList(list),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () => _deleteList(list),
+                            ),
+                            const Icon(Icons.drag_handle),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  CustomListDetailsPage(list: list),
+                            ),
+                          ).then((_) => _loadLists());
+                        },
+                      );
+                    },
+                  ),
+      ),
     );
   }
 }
@@ -312,6 +357,11 @@ class CustomListDetailsPage extends StatefulWidget {
 }
 
 class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   List<Map<String, dynamic>> albums = [];
   bool isLoading = true;
 
@@ -319,6 +369,12 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   void initState() {
     super.initState();
     _loadAlbums();
+  }
+
+  void _showSnackBar(String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   /// Calculate average rating for an album
@@ -349,7 +405,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         final Album? album = await UserData.getSavedAlbumById(intAlbumId);
 
         if (album != null) {
-          final metadata = album.metadata?['metadata'] ?? album.metadata;
+          final metadata = album.metadata['metadata'] ?? album.metadata;
           final albumMap = {
             'collectionId': album.id,
             'collectionName':
@@ -387,58 +443,62 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     }
   }
 
-  void _removeAlbum(int index) async {
-    // Add confirmation dialog
+  Future<void> _removeAlbum(int index) async {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
     final album = albums[index];
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove Album'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-                'Are you sure you want to remove this album from the list?'),
-            const SizedBox(height: 16),
-            Text(
-              album['artistName'] ?? 'Unknown Artist',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+
+    final shouldRemove = await navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Remove Album'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                  'Are you sure you want to remove this album from the list?'),
+              const SizedBox(height: 16),
+              Text(
+                album['artistName'] ?? 'Unknown Artist',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(album['collectionName'] ?? 'Unknown Album'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(false),
+              child: const Text('Cancel'),
             ),
-            Text(album['collectionName'] ?? 'Unknown Album'),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              onPressed: () => navigator.pop(true),
+              child: const Text('Remove'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
-        ],
       ),
     );
 
-    // Only remove if confirmed
-    if (result == true) {
+    if (shouldRemove == true) {
       final albumId = album['collectionId'].toString();
       setState(() {
         widget.list.albumIds.remove(albumId);
         albums.removeAt(index);
       });
       await UserData.saveCustomList(widget.list);
+      _showSnackBar('Album removed from list');
     }
   }
 
   void _openAlbumDetails(int index) {
     final album = albums[index];
-
-    // Create a compatibility wrapper for SavedAlbumPage
     final albumWithDefaults = Map<String, dynamic>.from(album);
 
     // Ensure all required fields exist
@@ -451,7 +511,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     albumWithDefaults['artworkUrl100'] =
         album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
 
-    // Determine if this is a Bandcamp album
     final isBandcamp = album['platform'] == 'bandcamp' ||
         (album['url']?.toString().contains('bandcamp.com') ?? false);
 
@@ -466,212 +525,225 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     ).then((_) => _loadAlbums());
   }
 
-  void _showShareDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final shareWidget = ShareWidget(
-          key: ShareWidget.shareKey,
-          title: widget.list.name,
-          albums: albums,
-        );
-        return AlertDialog(
-          content: SingleChildScrollView(child: shareWidget),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  final path =
-                      await ShareWidget.shareKey.currentState?.saveAsImage();
-                  if (mounted && path != null) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Image saved to: $path')),
-                    );
+  void _showShareDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) {
+          final shareWidget = ShareWidget(
+            key: ShareWidget.shareKey,
+            title: widget.list.name,
+            albums: albums,
+          );
+          return AlertDialog(
+            content: SingleChildScrollView(child: shareWidget),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    final path =
+                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                    if (mounted && path != null) {
+                      navigator.pop();
+                      _showSnackBar('Image saved to: $path');
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      navigator.pop();
+                      _showSnackBar('Error saving image: $e');
+                    }
                   }
-                } catch (e) {
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error saving image: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save Image'),
-            ),
-          ],
-        );
-      },
+                },
+                child: const Text('Save Image'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(widget.list.name),
-            if (widget.list.description.isNotEmpty)
-              Text(
-                widget.list.description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.normal,
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      debugShowCheckedModeBanner: false,
+      theme: Theme.of(context),
+      home: Scaffold(
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.list.name),
+              if (widget.list.description.isNotEmpty)
+                Text(
+                  widget.list.description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                  ),
                 ),
-              ),
-          ],
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.settings),
-            onSelected: (value) async {
-              switch (value) {
-                case 'import':
-                  final success = await UserData.importData(context);
-                  if (success && mounted) {
-                    setState(() => _loadAlbums());
-                  }
-                  break;
-                case 'export':
-                  await UserData.exportData(context);
-                  break;
-                case 'share':
-                  _showShareDialog(context);
-                  break;
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'import',
-                child: Row(
-                  children: [
-                    Icon(Icons.file_download),
-                    SizedBox(width: 8),
-                    Text('Import Data'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'export',
-                child: Row(
-                  children: [
-                    Icon(Icons.file_upload),
-                    SizedBox(width: 8),
-                    Text('Export Data'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'share',
-                child: Row(
-                  children: [
-                    Icon(Icons.share),
-                    SizedBox(width: 8),
-                    Text('Share as Image'),
-                  ],
-                ),
-              ),
             ],
           ),
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : albums.isEmpty
-              ? const Center(child: Text('No albums in this list'))
-              : ReorderableListView.builder(
-                  onReorder: (oldIndex, newIndex) async {
-                    if (newIndex > oldIndex) newIndex--;
-                    setState(() {
-                      final album = albums.removeAt(oldIndex);
-                      albums.insert(newIndex, album);
-                      widget.list.albumIds.clear();
-                      widget.list.albumIds.addAll(
-                        albums.map((a) => a['collectionId'].toString()),
-                      );
-                    });
-                    await UserData.saveCustomList(widget.list);
-                  },
-                  itemCount: albums.length,
-                  itemBuilder: (context, index) {
-                    final album = albums[index];
-                    // Add null safety check for album attributes
-                    final artistName = album['artistName'] ??
-                        album['artist'] ??
-                        'Unknown Artist';
-                    final albumName = album['collectionName'] ??
-                        album['name'] ??
-                        'Unknown Album';
-                    final artworkUrl =
-                        album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
-                    final rating = album['averageRating'] ?? 0.0;
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.settings),
+              onSelected: (value) async {
+                switch (value) {
+                  case 'import':
+                    final success = await UserData.importData();
+                    if (success && mounted) {
+                      setState(() => _loadAlbums());
+                    }
+                    break;
+                  case 'export':
+                    await UserData.exportData();
+                    break;
+                  case 'share':
+                    _showShareDialog();
+                    break;
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'import',
+                  child: Row(
+                    children: [
+                      Icon(Icons.file_download),
+                      SizedBox(width: 8),
+                      Text('Import Data'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'export',
+                  child: Row(
+                    children: [
+                      Icon(Icons.file_upload),
+                      SizedBox(width: 8),
+                      Text('Export Data'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'share',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share),
+                      SizedBox(width: 8),
+                      Text('Share as Image'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : albums.isEmpty
+                ? const Center(child: Text('No albums in this list'))
+                : ReorderableListView.builder(
+                    onReorder: (oldIndex, newIndex) async {
+                      if (newIndex > oldIndex) newIndex--;
+                      setState(() {
+                        final album = albums.removeAt(oldIndex);
+                        albums.insert(newIndex, album);
+                        widget.list.albumIds.clear();
+                        widget.list.albumIds.addAll(
+                          albums.map((a) => a['collectionId'].toString()),
+                        );
+                      });
+                      await UserData.saveCustomList(widget.list);
+                    },
+                    itemCount: albums.length,
+                    itemBuilder: (context, index) {
+                      final album = albums[index];
+                      // Add null safety check for album attributes
+                      final artistName = album['artistName'] ??
+                          album['artist'] ??
+                          'Unknown Artist';
+                      final albumName = album['collectionName'] ??
+                          album['name'] ??
+                          'Unknown Album';
+                      final artworkUrl =
+                          album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
+                      final rating = album['averageRating'] ?? 0.0;
 
-                    return ListTile(
-                      key: ValueKey(album['collectionId'] ??
-                          album['id'] ??
-                          index.toString()),
-                      leading: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: isDarkTheme
-                                      ? Colors.white
-                                      : Colors.black),
-                            ),
-                            child: Center(
-                              child: Text(
-                                rating.toStringAsFixed(2),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      isDarkTheme ? Colors.white : Colors.black,
+                      return ListTile(
+                        key: ValueKey(album['collectionId'] ??
+                            album['id'] ??
+                            index.toString()),
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                    color: isDarkTheme
+                                        ? Colors.white
+                                        : Colors.black),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  rating.toStringAsFixed(2),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDarkTheme
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Image.network(
-                            artworkUrl,
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.album),
-                          ),
-                        ],
-                      ),
-                      title: Text(albumName),
-                      subtitle: Text(artistName),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: () => _removeAlbum(index),
-                          ),
-                          const Icon(Icons.drag_handle),
-                        ],
-                      ),
-                      onTap: () => _openAlbumDetails(index),
-                    );
-                  },
-                ),
+                            const SizedBox(width: 8),
+                            Image.network(
+                              artworkUrl,
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.album),
+                            ),
+                          ],
+                        ),
+                        title: Text(albumName),
+                        subtitle: Text(artistName),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline),
+                              onPressed: () => _removeAlbum(index),
+                            ),
+                            const Icon(Icons.drag_handle),
+                          ],
+                        ),
+                        onTap: () => _openAlbumDetails(index),
+                      );
+                    },
+                  ),
+      ),
     );
   }
 }

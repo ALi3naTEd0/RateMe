@@ -4,16 +4,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:html/parser.dart' show parse;
-import 'dart:io';
-import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart';
 import 'user_data.dart';
 import 'logging.dart';
-import 'share_widget.dart';
 import 'custom_lists_page.dart';
-// Add this import
 import 'album_model.dart'; // Add this import
-// Add this import for safer conversion
+import 'share_widget.dart';
+import 'dart:io';
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -30,6 +26,11 @@ class SavedAlbumPage extends StatefulWidget {
 }
 
 class _SavedAlbumPageState extends State<SavedAlbumPage> {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   Album? unifiedAlbum;
   List<Track> tracks = [];
   Map<int, double> ratings = {};
@@ -282,9 +283,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     } catch (error, stackTrace) {
       Logging.severe('Error launching RateYourMusic', error, stackTrace);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open RateYourMusic')),
-        );
+        _showSnackBar('Could not open RateYourMusic');
       }
     }
   }
@@ -336,535 +335,204 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
   @override
   Widget build(BuildContext context) {
-    double titleWidthFactor = _calculateTitleWidth();
-
-    // Handle release date safely
-    String formattedDate;
-    try {
-      formattedDate = widget.isBandcamp
-          ? (releaseDate != null
-              ? DateFormat('d MMMM yyyy').format(releaseDate!)
-              : 'Unknown Date')
-          : (widget.album['releaseDate'] != null
-              ? DateFormat('d MMMM yyyy')
-                  .format(DateTime.parse(widget.album['releaseDate']))
-              : 'Unknown Date');
-    } catch (e) {
-      formattedDate = 'Unknown Date';
-      Logging.severe('Error formatting date: $e');
-    }
-
-    // Get artist and album name with fallbacks
-    final artistName = widget.album['artistName'] ??
-        widget.album['artist'] ??
-        'Unknown Artist';
-    final albumName = widget.album['collectionName'] ??
-        widget.album['name'] ??
-        'Unknown Album';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(albumName),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Image.network(
-                      widget.album['artworkUrl100']
-                              ?.replaceAll('100x100', '600x600') ??
-                          widget.album['artworkUrl'] ??
-                          '',
-                      width: 300,
-                      height: 300,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        Logging.severe('Error loading artwork: $error');
-                        return const Icon(Icons.album, size: 300);
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildInfoRow("Artist", artistName),
-                        _buildInfoRow("Album", albumName),
-                        _buildInfoRow("Release Date", formattedDate),
-                        _buildInfoRow(
-                            "Duration", formatDuration(albumDurationMillis)),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(
-                            "Rating", averageRating.toStringAsFixed(2),
-                            fontSize: 20),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.playlist_add,
-                                  color: Colors.white),
-                              label: const Text('Manage Lists',
-                                  style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                minimumSize: const Size(150, 45),
+    return MaterialApp(
+      // Add this wrapper
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      theme: Theme.of(context),
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.album['collectionName'] ?? 'Unknown Album'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Album Info Section
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Image.network(
+                            widget.album['artworkUrl100']
+                                    ?.replaceAll('100x100', '600x600') ??
+                                '',
+                            width: 300,
+                            height: 300,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.album, size: 300),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildInfoRow("Artist",
+                              unifiedAlbum?.artistName ?? 'Unknown Artist'),
+                          _buildInfoRow(
+                              "Album", unifiedAlbum?.name ?? 'Unknown Album'),
+                          _buildInfoRow("Release Date", _formatReleaseDate()),
+                          _buildInfoRow(
+                              "Duration", formatDuration(albumDurationMillis)),
+                          const SizedBox(height: 8),
+                          _buildInfoRow(
+                              "Rating", averageRating.toStringAsFixed(2),
+                              fontSize: 20),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(
+                                onPressed: _showAddToListDialog,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  minimumSize: const Size(150, 45),
+                                ),
+                                child: const Text('Manage Lists',
+                                    style: TextStyle(color: Colors.white)),
                               ),
-                              onPressed: () => _showAddToListDialog(context),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.settings,
-                                  color: Colors
-                                      .white), // Changed from more_vert to settings
-                              label: const Text('Options',
-                                  style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                minimumSize: const Size(150, 45),
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.settings,
+                                    color: Colors.white),
+                                label: const Text('Options',
+                                    style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  minimumSize: const Size(150, 45),
+                                ),
+                                onPressed: () => _showOptionsDialog(),
                               ),
-                              onPressed: () => _showOptionsDialog(context),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Divider(),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columnSpacing: 12, // Reduce spacing between columns
-                      headingTextStyle:
-                          const TextStyle(fontWeight: FontWeight.bold),
+                    const Divider(),
+                    // Track List with Ratings
+                    DataTable(
+                      columnSpacing: 12,
                       columns: [
                         const DataColumn(
-                          label: SizedBox(
-                            width: 35, // Reducido de 40
-                            child: Center(child: Text('No.')),
+                            label: SizedBox(
+                                width: 35, child: Center(child: Text('#')))),
+                        DataColumn(
+                          label: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width *
+                                  _calculateTitleWidth(),
+                            ),
+                            child: const Text('Title'),
                           ),
-                          numeric: true,
                         ),
                         const DataColumn(
-                          label: Text('Title'),
-                          // Default alignment (left)
-                        ),
-                        DataColumn(
-                          label: Container(
-                            width: 70,
-                            alignment:
-                                Alignment.center, // Asegura alineación central
-                            child: const Text('Length',
-                                textAlign: TextAlign.center),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Container(
-                            width: 175,
-                            alignment:
-                                Alignment.center, // Asegura alineación central
-                            child: const Text('Rating',
-                                textAlign: TextAlign.center),
-                          ),
-                        ),
+                            label: SizedBox(
+                                width: 65,
+                                child: Center(child: Text('Length')))),
+                        const DataColumn(
+                            label: SizedBox(
+                                width: 160,
+                                child: Center(child: Text('Rating')))),
                       ],
                       rows: tracks.map((track) {
                         final trackId = track.id;
-                        final duration = track.durationMs;
                         return DataRow(
                           cells: [
+                            DataCell(Text(track.position.toString())),
                             DataCell(
-                              SizedBox(
-                                width: 35, // Reducido de 40
-                                child: Center(
-                                  // Remove the ?? '' since position isn't nullable
-                                  child: Text(track.position.toString()),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width *
+                                      _calculateTitleWidth(),
                                 ),
-                              ),
-                            ),
-                            DataCell(
-                              Tooltip(
-                                message: track.name,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width *
-                                            titleWidthFactor,
-                                  ),
-                                  child: Text(
-                                    track.name,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 70,
                                 child: Text(
-                                  formatDuration(duration),
-                                  textAlign: TextAlign.center,
+                                  track.name,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
+                            DataCell(Text(formatDuration(track.durationMs))),
                             DataCell(_buildTrackSlider(trackId)),
                           ],
                         );
                       }).toList(),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _launchRateYourMusic,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                    ),
-                    child: const Text(
-                      'Rate on RateYourMusic',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-    );
-  }
-
-  Future<void> _showAddToListDialog(BuildContext context) async {
-    // Key to force FutureBuilder update
-    var refreshKey = ValueKey(DateTime.now());
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        // Wrap in StatefulBuilder
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Manage Lists'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('Create New List'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await _showCreateListDialog();
-                },
-              ),
-              const Divider(),
-              FutureBuilder<List<CustomList>>(
-                key: refreshKey, // Use key to force rebuild
-                future: UserData.getCustomLists(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  final lists = snapshot.data!;
-                  return SizedBox(
-                    height: 300,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: lists.map((CustomList list) {
-                          final isInList = list.albumIds.contains(
-                              widget.album['collectionId'].toString());
-                          return CheckboxListTile(
-                            title: Text(list.name),
-                            subtitle: Text('${list.albumIds.length} albums'),
-                            value: isInList,
-                            onChanged: (bool? value) async {
-                              if (value == true) {
-                                list.albumIds.add(
-                                    widget.album['collectionId'].toString());
-                              } else {
-                                list.albumIds.remove(
-                                    widget.album['collectionId'].toString());
-                              }
-                              await UserData.saveCustomList(list);
-
-                              // Update UI immediately
-                              setState(() {
-                                refreshKey = ValueKey(DateTime.now());
-                              });
-
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(value == true
-                                        ? 'Added to "${list.name}"'
-                                        : 'Removed from "${list.name}"'),
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                        }).toList(),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _launchRateYourMusic,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                      ),
+                      child: const Text(
+                        'Rate on RateYourMusic',
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Future<void> _showCreateListDialog() async {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    final createResult = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New List'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'List Name',
-                hintText: 'e.g. Progressive Rock',
+  void _showShareDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) {
+          final shareWidget = ShareWidget(
+            key: ShareWidget.shareKey,
+            album: widget.album,
+            tracks: tracks.map((t) => t.toJson()).toList(),
+            ratings: ratings,
+            averageRating: averageRating,
+          );
+
+          return AlertDialog(
+            content: SingleChildScrollView(child: shareWidget),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: const Text('Cancel'),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                hintText: 'e.g. My favorite prog rock albums',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-
-    if (createResult == true && nameController.text.isNotEmpty) {
-      final newList = CustomList(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: nameController.text,
-        description: descController.text,
-        albumIds: [widget.album['collectionId'].toString()],
-      );
-      await UserData.saveCustomList(newList);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to new list')),
-        );
-      }
-    }
-  }
-
-  void _showOptionsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Album Options'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.file_download),
-              title: const Text('Import Album'),
-              onTap: () async {
-                Navigator.pop(context);
-                // Store context in local variable
-                final currentContext = context;
-                final album = await UserData.importAlbum(currentContext);
-
-                // Check if we're still mounted before using the context
-                if (album != null && mounted) {
-                  // ignore: use_build_context_synchronously
-                  Navigator.pushReplacement(
-                    currentContext,
-                    MaterialPageRoute(
-                      builder: (context) => SavedAlbumPage(
-                        album: album,
-                        isBandcamp:
-                            album['url']?.toString().contains('bandcamp.com') ??
-                                false,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.file_upload),
-              title: const Text('Export Album'),
-              onTap: () async {
-                Navigator.pop(context);
-                if (!mounted) return;
-                // ignore: use_build_context_synchronously
-                await UserData.exportAlbum(context, widget.album);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Share as Image'),
-              onTap: () => _showShareDialog(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showShareDialog(BuildContext context) {
-    Navigator.pop(context); // Close options dialog
-    showDialog(
-      context: context,
-      builder: (context) {
-        final shareWidget = ShareWidget(
-          key: ShareWidget.shareKey,
-          album: widget.album,
-          tracks: tracks,
-          ratings: ratings,
-          averageRating: averageRating,
-        );
-        return AlertDialog(
-          content: SingleChildScrollView(child: shareWidget),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  final path =
-                      await ShareWidget.shareKey.currentState?.saveAsImage();
-                  if (mounted && path != null) {
-                    Navigator.pop(context);
-                    if (!mounted) return;
-
-                    if (Platform.isAndroid) {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                ListTile(
-                                  leading: const Icon(Icons.download),
-                                  title: const Text('Save to Downloads'),
-                                  onTap: () async {
-                                    Navigator.pop(context);
-                                    try {
-                                      final downloadDir = Directory(
-                                          '/storage/emulated/0/Download');
-                                      final fileName =
-                                          'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
-                                      final newPath =
-                                          '${downloadDir.path}/$fileName';
-                                      // Copy from temp to Downloads
-                                      await File(path).copy(newPath);
-
-                                      // Scan file with MediaScanner
-                                      const platform = MethodChannel(
-                                          'com.example.rateme/media_scanner');
-                                      try {
-                                        await platform.invokeMethod(
-                                            'scanFile', {'path': newPath});
-                                      } catch (e) {
-                                        Logging.severe(
-                                            'MediaScanner error: $e');
-                                      }
-
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content: Text(
-                                                  'Saved to Downloads: $fileName')),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content: Text(
-                                                  'Error saving file: $e')),
-                                        );
-                                      }
-                                    }
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.share),
-                                  title: const Text('Share Image'),
-                                  onTap: () async {
-                                    Navigator.pop(context);
-                                    try {
-                                      await Share.shareXFiles([XFile(path)]);
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content:
-                                                  Text('Error sharing: $e')),
-                                        );
-                                      }
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Image saved to: $path')),
-                      );
+              TextButton(
+                onPressed: () async {
+                  try {
+                    final path =
+                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                    if (mounted && path != null) {
+                      navigator.pop();
+                      _showShareOptions(path);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      navigator.pop();
+                      _showSnackBar('Error saving image: $e');
                     }
                   }
-                } catch (e) {
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error saving image: $e')),
-                    );
-                  }
-                }
-              },
-              child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
-            ),
-          ],
-        );
-      },
+                },
+                child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
+              ),
+            ],
+          );
+        },
+      ),
     );
+  }
+
+  void _showShareOptions(String path) {
+    // ...existing code...
   }
 
   Widget _buildInfoRow(String label, String value, {double fontSize = 16}) {
@@ -886,5 +554,213 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         ],
       ),
     );
+  }
+
+  void _showSnackBar(String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showAddToListDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator
+        .push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Add to List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Create New List'),
+                onTap: () => navigator.pop('new'),
+              ),
+              const Divider(),
+              FutureBuilder<List<CustomList>>(
+                future: UserData.getCustomLists(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
+                  final lists = snapshot.data!;
+                  return SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: lists
+                          .map((list) => ListTile(
+                                title: Text(list.name),
+                                onTap: () => navigator.pop(list.id),
+                              ))
+                          .toList(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    )
+        .then((result) async {
+      if (result == 'new') {
+        _showCreateListDialog();
+      } else if (result != null) {
+        final lists = await UserData.getCustomLists();
+        final selectedList = lists.firstWhere((list) => list.id == result);
+        selectedList.albumIds.add(widget.album['collectionId'].toString());
+        await UserData.saveCustomList(selectedList);
+        _showSnackBar('Added to "${selectedList.name}"');
+      }
+    });
+  }
+
+  void _showCreateListDialog() async {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    final createResult = await navigator.push<bool>(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Create New List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'List Name',
+                  hintText: 'e.g. Progressive Rock',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'e.g. My favorite prog rock albums',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => navigator.pop(true),
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (createResult == true && nameController.text.isNotEmpty) {
+      final newList = CustomList(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: nameController.text,
+        description: descController.text,
+        albumIds: [widget.album['collectionId'].toString()],
+      );
+      await UserData.saveCustomList(newList);
+      if (mounted) {
+        _showSnackBar('Added to new list');
+      }
+    }
+  }
+
+  void _showOptionsDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Album Options'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.file_download),
+                title: const Text('Import Album'),
+                onTap: () async {
+                  navigator.pop();
+                  final album = await UserData.importAlbum();
+                  if (album != null && mounted) {
+                    navigator.pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => SavedAlbumPage(
+                          album: album,
+                          isBandcamp: album['url']
+                                  ?.toString()
+                                  .contains('bandcamp.com') ??
+                              false,
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_upload),
+                title: const Text('Export Album'),
+                onTap: () async {
+                  navigator.pop();
+                  if (mounted) {
+                    await UserData.exportAlbum(widget.album);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('Share as Image'),
+                onTap: () {
+                  navigator.pop();
+                  _showShareDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('Close'),
+                onTap: () => navigator.pop(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatReleaseDate() {
+    // Fix release date formatting
+    try {
+      if (unifiedAlbum?.releaseDate != null) {
+        return DateFormat('d MMMM yyyy').format(unifiedAlbum!.releaseDate);
+      } else if (widget.album['releaseDate'] != null) {
+        final dateStr = widget.album['releaseDate'];
+        if (dateStr is String) {
+          final date = DateTime.parse(dateStr);
+          return DateFormat('d MMMM yyyy').format(date);
+        }
+      }
+    } catch (e) {
+      Logging.severe('Error formatting release date', e);
+    }
+
+    return 'Unknown Date';
   }
 }
