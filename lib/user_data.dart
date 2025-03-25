@@ -1267,34 +1267,60 @@ class UserData {
     }
   }
 
-  /// Check if an album exists in saved albums
-  static Future<bool> albumExists(String albumId) async {
+  /// Check if an album exists in saved albums - improved Bandcamp detection
+  static Future<bool> albumExists(String identifier) async {
     try {
+      Logging.severe('Checking if album exists: $identifier');
+
       final prefs = await SharedPreferences.getInstance();
       List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
 
       for (String albumJson in savedAlbums) {
         try {
           final album = jsonDecode(albumJson);
+
+          // Check all possible ID formats
           final savedId =
               album['id']?.toString() ?? album['collectionId']?.toString();
-          if (savedId == albumId) {
+          if (savedId == identifier) {
+            Logging.severe('Found album by ID match');
             return true;
           }
 
-          // Also check URL for Bandcamp albums
-          if (album['url'] != null && album['url'] == albumId) {
-            return true;
+          // Special handling for Bandcamp - check URL
+          final savedUrl = album['url']?.toString() ?? '';
+          final checkUrl = identifier.toString();
+
+          if (savedUrl.isNotEmpty && checkUrl.isNotEmpty) {
+            // Normalize URLs for comparison
+            final normalizedSaved = _normalizeBandcampUrl(savedUrl);
+            final normalizedCheck = _normalizeBandcampUrl(checkUrl);
+
+            if (normalizedSaved == normalizedCheck) {
+              Logging.severe('Found album by Bandcamp URL match');
+              return true;
+            }
           }
         } catch (e) {
           continue;
         }
       }
+
+      Logging.severe('Album not found in saved albums');
       return false;
     } catch (e) {
       Logging.severe('Error checking if album exists', e);
       return false;
     }
+  }
+
+  /// Helper to normalize Bandcamp URLs for comparison
+  static String _normalizeBandcampUrl(String url) {
+    // Remove protocol
+    url = url.replaceAll(RegExp(r'https?://'), '');
+    // Remove trailing slash
+    url = url.replaceAll(RegExp(r'/$'), '');
+    return url.toLowerCase();
   }
 
   static Future<Map<String, dynamic>?> getSavedAlbumByUrlOrId(
