@@ -4,9 +4,27 @@ import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'album_model.dart';
 import 'logging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service to handle interactions with different music platforms
 class PlatformService {
+  // Add Spotify API constants
+  static const String _spotifyTokenEndpoint =
+      'https://accounts.spotify.com/api/token';
+  static const String _spotifySearchEndpoint =
+      'https://api.spotify.com/v1/search';
+  static const String _spotifyAlbumEndpoint =
+      'https://api.spotify.com/v1/albums';
+
+  // Spotify credentials - replace with your actual values
+  static const String _spotifyClientId = 'YOUR_ACTUAL_SPOTIFY_CLIENT_ID';
+  static const String _spotifyClientSecret =
+      'YOUR_ACTUAL_SPOTIFY_CLIENT_SECRET';
+
+  // Token storage keys
+  static const String _spotifyTokenKey = 'spotify_access_token';
+  static const String _spotifyTokenExpiryKey = 'spotify_token_expiry';
+
   /// Detect platform from URL or search term
   static String detectPlatform(String input) {
     if (input.contains('music.apple.com') ||
@@ -14,7 +32,8 @@ class PlatformService {
       return 'itunes';
     } else if (input.contains('bandcamp.com')) {
       return 'bandcamp';
-    } else if (input.contains('spotify.com')) {
+    } else if (input.contains('spotify.com') ||
+        input.contains('open.spotify')) {
       return 'spotify';
     } else if (input.contains('deezer.com')) {
       return 'deezer';
@@ -22,6 +41,13 @@ class PlatformService {
       // Default to iTunes for search terms
       return 'itunes';
     }
+  }
+
+  // Change from variable to function declaration
+  static Map<String, dynamic> normalizeResult(
+      Map<String, dynamic> album, String platform) {
+    album['platform'] = platform;
+    return album;
   }
 
   /// Search for albums across all platforms
@@ -66,7 +92,7 @@ class PlatformService {
             albumInfo['tracks'] = tracks;
 
             // Return just the album with its tracks
-            return [albumInfo];
+            return [normalizeResult(albumInfo, 'itunes')];
           }
         }
       } catch (e) {
@@ -75,46 +101,240 @@ class PlatformService {
       return [];
     }
 
-    final platform = detectPlatform(query);
+    // Handle Spotify URLs
+    if (query.contains('spotify.com') || query.contains('open.spotify')) {
+      try {
+        final albumId = _extractSpotifyAlbumId(query);
+        if (albumId != null) {
+          final album = await fetchSpotifyAlbum(albumId);
+          return album != null ? [normalizeResult(album, 'spotify')] : [];
+        }
+      } catch (e) {
+        Logging.severe('Error processing Spotify URL', e);
+      }
+      return [];
+    }
 
-    switch (platform) {
-      case 'bandcamp':
-        final album = await fetchBandcampAlbum(query);
-        return album != null
-            ? [
-                {
-                  'collectionName': album.name,
-                  'artistName': album.artist,
-                  'artworkUrl100': album.artworkUrl,
-                  'collectionId': album.id,
-                  'url': album.url,
-                  'platform': 'bandcamp',
-                  'releaseDate': album.releaseDate.toIso8601String(),
-                  'wrapperType': 'collection',
-                  'collectionType': 'Album',
-                  'trackCount': album.tracks.length,
-                  'tracks': album.tracks
-                      .map((track) => ({
-                            'trackId': track.id,
-                            'trackNumber': track.position,
-                            'trackName': track.name,
-                            'trackTimeMillis': track.durationMs,
-                            'kind': 'song',
-                            'wrapperType': 'track',
-                          }))
-                      .toList(),
-                }
-              ]
-            : [];
-      case 'spotify':
-        // TODO: Implement Spotify search
-        throw UnimplementedError('Spotify search not implemented yet');
-      case 'deezer':
-        // TODO: Implement Deezer search
-        throw UnimplementedError('Deezer search not implemented yet');
-      case 'itunes':
-      default:
-        return await searchiTunesAlbums(query);
+    // Handle platform-specific searches
+    final platform = detectPlatform(query);
+    try {
+      switch (platform) {
+        case 'spotify':
+          final results = await searchSpotifyAlbums(query);
+          return results
+              .map((album) => normalizeResult(album, 'spotify'))
+              .toList();
+        case 'bandcamp':
+          final album = await fetchBandcampAlbum(query);
+          return album != null
+              ? [normalizeResult(album.toJson(), 'bandcamp')]
+              : [];
+        case 'deezer':
+          // TODO: Implement Deezer search
+          return [];
+        case 'itunes':
+        default:
+          final results = await searchiTunesAlbums(query);
+          return results
+              .map((album) => normalizeResult(album, 'itunes'))
+              .toList();
+      }
+    } catch (e) {
+      Logging.severe('Error searching albums', e);
+      return [];
+    }
+  }
+
+  /// Extract Spotify album ID from URL
+  static String? _extractSpotifyAlbumId(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+
+      // Handle different Spotify URL formats
+      if (pathSegments.contains('album') &&
+          pathSegments.length > pathSegments.indexOf('album') + 1) {
+        return pathSegments[pathSegments.indexOf('album') + 1];
+      }
+
+      return null;
+    } catch (e) {
+      Logging.severe('Error extracting Spotify album ID', e);
+      return null;
+    }
+  }
+
+  /// Get Spotify access token
+  static Future<String?> _getSpotifyToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedToken = prefs.getString(_spotifyTokenKey);
+      final expiryTime = prefs.getInt(_spotifyTokenExpiryKey) ?? 0;
+
+      // Check if token is still valid
+      if (storedToken != null &&
+          expiryTime > DateTime.now().millisecondsSinceEpoch) {
+        return storedToken;
+      }
+
+      // Get new token
+      final basicAuth =
+          base64Encode(utf8.encode('$_spotifyClientId:$_spotifyClientSecret'));
+      final response = await http.post(
+        Uri.parse(_spotifyTokenEndpoint),
+        headers: {
+          'Authorization': 'Basic $basicAuth',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {'grant_type': 'client_credentials'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final accessToken = data['access_token'];
+        final expiresIn = data['expires_in'] as int; // Ensure this is an int
+
+        // Save token with expiry time - make sure it's an int
+        final expiryTimeMs =
+            DateTime.now().millisecondsSinceEpoch + (expiresIn * 1000);
+        await prefs.setString(_spotifyTokenKey, accessToken);
+        await prefs.setInt(_spotifyTokenExpiryKey, expiryTimeMs);
+
+        return accessToken;
+      } else {
+        Logging.severe('Failed to get Spotify token: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      Logging.severe('Error getting Spotify token', e);
+      return null;
+    }
+  }
+
+  /// Search Spotify for albums
+  static Future<List<dynamic>> searchSpotifyAlbums(String query) async {
+    try {
+      Logging.severe('Searching Spotify for: $query');
+      final token = await _getSpotifyToken();
+      if (token == null) {
+        Logging.severe('No Spotify token available');
+        return [];
+      }
+
+      final url = Uri.parse(
+          '$_spotifySearchEndpoint?q=${Uri.encodeComponent(query)}&type=album&limit=50');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode != 200) {
+        Logging.severe(
+            'Spotify search failed: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+
+      final data = jsonDecode(response.body);
+      final albums = data['albums']['items'] as List;
+      Logging.severe('Found ${albums.length} Spotify albums');
+
+      // Convert albums to standardized format
+      final List<dynamic> result = [];
+      for (var album in albums) {
+        // Get full album details including tracks
+        final fullAlbum = await fetchSpotifyAlbum(album['id']);
+        if (fullAlbum != null) {
+          result.add(fullAlbum);
+        }
+      }
+
+      return result;
+    } catch (e) {
+      Logging.severe('Error searching Spotify albums', e);
+      return [];
+    }
+  }
+
+  /// Fetch a Spotify album by ID
+  static Future<Map<String, dynamic>?> fetchSpotifyAlbum(String albumId) async {
+    try {
+      Logging.severe('Fetching Spotify album: $albumId');
+      final token = await _getSpotifyToken();
+      if (token == null) return null;
+
+      final url = Uri.parse('$_spotifyAlbumEndpoint/$albumId');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode != 200) {
+        Logging.severe('Failed to fetch Spotify album: ${response.statusCode}');
+        return null;
+      }
+
+      final spotifyAlbum = jsonDecode(response.body);
+
+      // Fetch tracks (in batches if necessary since Spotify might paginate tracks)
+      List<dynamic> allTracks = [];
+      String? tracksUrl = spotifyAlbum['tracks']['href'];
+
+      while (tracksUrl != null) {
+        final tracksResponse = await http.get(
+          Uri.parse(tracksUrl),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+
+        if (tracksResponse.statusCode == 200) {
+          final tracksData = jsonDecode(tracksResponse.body);
+          allTracks.addAll(tracksData['items']);
+          tracksUrl = tracksData['next']; // Move to next page or null
+        } else {
+          tracksUrl = null;
+        }
+      }
+
+      // Convert to standardized format
+      return {
+        'collectionId': spotifyAlbum['id'],
+        'collectionName': spotifyAlbum['name'],
+        'artistName': spotifyAlbum['artists'][0]['name'],
+        'artworkUrl100': spotifyAlbum['images'].isNotEmpty
+            ? spotifyAlbum['images'][0]['url']
+            : '',
+        'url': spotifyAlbum['external_urls']['spotify'],
+        'platform': 'spotify',
+        'releaseDate': spotifyAlbum['release_date'],
+        'trackCount': spotifyAlbum['total_tracks'],
+        'wrapperType': 'collection',
+        'collectionType': 'Album',
+        'tracks': allTracks.map((track) {
+          // Extract track duration_ms in a way that safely converts to int
+          int trackDuration = 0;
+          if (track['duration_ms'] != null) {
+            if (track['duration_ms'] is int) {
+              trackDuration = track['duration_ms'];
+            } else {
+              trackDuration = (track['duration_ms'] as num).toInt();
+            }
+          }
+
+          return {
+            'trackId': track['id'],
+            'trackNumber': track['track_number'],
+            'trackName': track['name'],
+            'trackTimeMillis': trackDuration,
+            'kind': 'song',
+            'wrapperType': 'track',
+            'artistName': track['artists'][0]['name'],
+            'previewUrl': track['preview_url'],
+          };
+        }).toList(),
+        'metadata': spotifyAlbum,
+      };
+    } catch (e) {
+      Logging.severe('Error fetching Spotify album', e);
+      return null;
     }
   }
 

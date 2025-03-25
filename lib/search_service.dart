@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'logging.dart';
+import 'platform_service.dart'; // Add this import
 
 class SearchService {
   /// Detect platform from URL or search term
@@ -87,41 +88,20 @@ class SearchService {
 
     // Handle Bandcamp URLs
     if (query.contains('bandcamp.com')) {
-      Logging.severe('BANDCAMP URL DETECTED: $query');
-      final results = await _searchBandcamp(query);
-
-      // Debug the results
-      if (results.isEmpty) {
-        Logging.severe('BANDCAMP SEARCH RETURNED EMPTY RESULTS');
-      } else {
-        Logging.severe('BANDCAMP SEARCH RESULTS COUNT: ${results.length}');
-        Logging.severe('BANDCAMP FIRST RESULT: ${jsonEncode(results.first)}');
-
-        // Log specific fields we need for the details page
-        final firstResult = results.first;
-        Logging.severe('BANDCAMP RESULT FIELDS CHECK:');
-        Logging.severe('- collectionId: ${firstResult['collectionId']}');
-        Logging.severe('- id: ${firstResult['id']}');
-        Logging.severe('- collectionName: ${firstResult['collectionName']}');
-        Logging.severe('- artistName: ${firstResult['artistName']}');
-        Logging.severe('- artworkUrl100: ${firstResult['artworkUrl100']}');
-        Logging.severe('- url: ${firstResult['url']}');
-        Logging.severe('- platform: ${firstResult['platform']}');
-
-        // Check for tracks
-        if (firstResult.containsKey('tracks')) {
-          Logging.severe(
-              '- tracks count: ${firstResult['tracks']?.length ?? 0}');
-        } else {
-          Logging.severe('- NO TRACKS FOUND');
-        }
+      try {
+        final album =
+            await _searchBandcamp(query); // This uses the private method
+        return album;
+      } catch (e) {
+        Logging.severe('Error processing Bandcamp URL', e);
       }
-
-      return results;
+      return [];
     }
 
-    // Handle non-Bandcamp searches
-    return await searchiTunesAlbums(query);
+    // Handle platform-specific searches
+    final platform = PlatformService.detectPlatform(query);
+    final results = await PlatformService.searchiTunesAlbums(query);
+    return results.map((album) => {'platform': platform, ...album}).toList();
   }
 
   /// Enhanced iTunes search with better handling of clean versions

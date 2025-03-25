@@ -31,6 +31,7 @@ dependencies:
   logging: ^1.2.0
   flutter_launcher_icons: ^0.14.3
   flutter_colorpicker: ^1.1.0  # Downgrade to stable version
+  flutter_svg: ^2.0.9  # Add this for SVG icons
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -76,13 +77,14 @@ flutter_launcher_icons:
 
 # The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
-
   assets:
+    - lib/icons/
+    - lib/icons/apple_music.svg
+    - lib/icons/bandcamp.svg
+    - lib/icons/spotify.svg
+    - lib/icons/deezer.svg
+    - lib/icons/youtube_music.svg
     - assets/app-icon.png
 
   # To add assets to your application, add an assets section, like this:

@@ -9,6 +9,9 @@ class RateMeTheme {
     // Remove the useless constant and default value comment since it's hardcoded
     const buttonTextColor = Colors.white;
 
+    // Define icon colors based on theme
+    final iconColor = isDark ? Colors.white : Colors.grey.shade900;
+
     return ThemeData(
       brightness: brightness,
       colorScheme:
@@ -20,6 +23,19 @@ class RateMeTheme {
         primaryContainer: primaryColor,
         secondaryContainer: primaryColor,
       ),
+      // Add icon theme configuration
+      iconTheme: IconThemeData(
+        color: iconColor,
+        size: 24.0,
+      ),
+      // Define platform icon theme separately
+      extensions: [
+        PlatformIconTheme(
+          color: iconColor,
+          selectedColor: primaryColor,
+          disabledColor: isDark ? Colors.white38 : Colors.black38,
+        ),
+      ],
       // Updated slider theme
       sliderTheme: SliderThemeData(
         activeTrackColor: primaryColor,
@@ -57,4 +73,43 @@ class RateMeTheme {
   /// Default dark theme
   static ThemeData get dark =>
       getTheme(Brightness.dark, const Color(0xFF864AF9));
+}
+
+// Add a custom theme extension for platform icons
+class PlatformIconTheme extends ThemeExtension<PlatformIconTheme> {
+  final Color color;
+  final Color selectedColor;
+  final Color disabledColor;
+
+  const PlatformIconTheme({
+    required this.color,
+    required this.selectedColor,
+    required this.disabledColor,
+  });
+
+  @override
+  PlatformIconTheme copyWith({
+    Color? color,
+    Color? selectedColor,
+    Color? disabledColor,
+  }) {
+    return PlatformIconTheme(
+      color: color ?? this.color,
+      selectedColor: selectedColor ?? this.selectedColor,
+      disabledColor: disabledColor ?? this.disabledColor,
+    );
+  }
+
+  @override
+  ThemeExtension<PlatformIconTheme> lerp(
+    ThemeExtension<PlatformIconTheme>? other,
+    double t,
+  ) {
+    if (other is! PlatformIconTheme) return this;
+    return PlatformIconTheme(
+      color: Color.lerp(color, other.color, t)!,
+      selectedColor: Color.lerp(selectedColor, other.selectedColor, t)!,
+      disabledColor: Color.lerp(disabledColor, other.disabledColor, t)!,
+    );
+  }
 }
