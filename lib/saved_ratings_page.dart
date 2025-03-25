@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart'; // Add this import for MethodChannel
+import 'package:flutter/services.dart'; // For MethodChannel
 import 'dart:io';
+import 'dart:convert'; // Add this import for json
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
-import 'logging.dart'; // Add this import
+import 'logging.dart';
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -36,41 +37,52 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       final savedAlbums = await UserData.getSavedAlbums();
       List<Map<String, dynamic>> loadedAlbums = [];
 
+      Logging.severe('Loading ${savedAlbums.length} saved albums');
+
       for (var album in savedAlbums) {
         try {
-          final metadata = album['metadata']?['metadata'] ?? album['metadata'];
+          // Log the raw data to help with debugging
+          Logging.severe('Processing album: ${json.encode({
+                'id': album['id'] ?? album['collectionId'],
+                'name': album['name'] ?? album['collectionName'],
+              })}');
 
+          // Extract both ID formats to ensure we get something
+          final albumId = album['id'] ?? album['collectionId'];
+          if (albumId == null) {
+            Logging.severe('Album has no ID, skipping');
+            continue;
+          }
+
+          // Normalize album to consistent format
           final albumMap = {
-            'collectionId': metadata?['id'] ??
-                metadata?['collectionId'] ??
-                album['id'] ??
-                album['collectionId'],
-            'collectionName': metadata?['collectionName'] ??
-                metadata?['name'] ??
-                album['name'] ??
-                album['collectionName'],
-            'artistName': metadata?['artistName'] ??
-                metadata?['artist'] ??
-                album['artist'] ??
-                album['artistName'],
-            'artworkUrl100': metadata?['artworkUrl100'] ??
-                metadata?['artworkUrl'] ??
-                album['artworkUrl'] ??
-                album['artworkUrl100'],
-            'platform': metadata?['platform'] ?? album['platform'] ?? 'unknown',
-            'url': metadata?['url'] ?? album['url'],
-            'averageRating': await _calculateAlbumRating(metadata?['id'] ??
-                metadata?['collectionId'] ??
-                album['id'] ??
-                album['collectionId']),
-            'metadata': metadata,
+            'id': albumId,
+            'collectionId': albumId,
+            'name': album['name'] ?? album['collectionName'] ?? 'Unknown Album',
+            'collectionName':
+                album['name'] ?? album['collectionName'] ?? 'Unknown Album',
+            'artist':
+                album['artist'] ?? album['artistName'] ?? 'Unknown Artist',
+            'artistName':
+                album['artist'] ?? album['artistName'] ?? 'Unknown Artist',
+            'artworkUrl': album['artworkUrl'] ?? album['artworkUrl100'] ?? '',
+            'artworkUrl100':
+                album['artworkUrl'] ?? album['artworkUrl100'] ?? '',
+            'platform': album['platform'] ?? 'unknown',
+            'url': album['url'] ?? '',
+            'tracks': album['tracks'] ?? [],
+            'averageRating': await _calculateAlbumRating(albumId),
           };
 
+          Logging.severe('Added album to display list: ${albumMap['name']}');
           loadedAlbums.add(albumMap);
-        } catch (e) {
+        } catch (e, stack) {
+          Logging.severe('Error processing album', e, stack);
           continue;
         }
       }
+
+      Logging.severe('Loaded ${loadedAlbums.length} albums for display');
 
       if (mounted) {
         setState(() {
@@ -78,7 +90,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      Logging.severe('Error loading albums in saved_ratings_page', e, stack);
       if (mounted) {
         setState(() => isLoading = false);
       }
@@ -86,18 +99,46 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   }
 
   /// Calculate average rating for an album
-  Future<double> _calculateAlbumRating(int albumId) async {
+  Future<double> _calculateAlbumRating(dynamic albumId) async {
     try {
-      final ratings = await UserData.getRatings(albumId);
-      if (ratings == null || ratings.isEmpty) return 0.0;
+      // Handle both string and int IDs consistently
+      final normalizedId = albumId.toString();
+      Logging.severe('Calculating rating for album ID: $normalizedId');
 
-      var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
-      if (ratedTracks.isEmpty) return 0.0;
+      // Get ratings from UserData
+      final List<Map<String, dynamic>> savedRatings =
+          await UserData.getSavedAlbumRatings(normalizedId);
 
-      double total = ratedTracks.reduce((a, b) => a + b);
-      return double.parse((total / ratedTracks.length).toStringAsFixed(2));
-    } catch (e) {
-      Logging.severe('Error calculating album rating', e);
+      if (savedRatings.isEmpty) {
+        Logging.severe('No ratings found for album ID: $normalizedId');
+        return 0.0;
+      }
+
+      Logging.severe(
+          'Found ${savedRatings.length} ratings for album $normalizedId');
+
+      // Filter non-zero ratings
+      var validRatings = savedRatings
+          .where((r) => r['rating'] != null && r['rating'] > 0)
+          .map((r) => r['rating'].toDouble())
+          .toList();
+
+      if (validRatings.isEmpty) {
+        Logging.severe('No valid ratings found for album ID: $normalizedId');
+        return 0.0;
+      }
+
+      // Calculate average
+      double total = validRatings.reduce((a, b) => a + b);
+      double average = total / validRatings.length;
+
+      Logging.severe(
+          'Album $normalizedId average rating: $average from ${validRatings.length} tracks');
+
+      return double.parse(average.toStringAsFixed(2));
+    } catch (e, stack) {
+      Logging.severe(
+          'Error calculating album rating for ID: $albumId', e, stack);
       return 0.0;
     }
   }
@@ -222,8 +263,12 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         pageBuilder: (_, __, ___) {
           final shareWidget = ShareWidget(
             key: ShareWidget.shareKey,
-            title: 'Saved Albums',
-            albums: albums,
+            album: albums.first, // Use first album as main album
+            tracks: const [], // Empty tracks for album list view
+            ratings: const {}, // Empty ratings for album list view
+            averageRating: 0.0, // No average for album list view
+            title: 'My Album Collection', // Add title
+            albums: albums, // Add selected albums for collection view
           );
           return AlertDialog(
             content: SingleChildScrollView(child: shareWidget),

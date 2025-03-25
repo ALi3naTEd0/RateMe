@@ -4,8 +4,6 @@ import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
-// Remove the unused import
-// import 'package:share_plus/share_plus.dart';
 import 'album_model.dart';
 import 'logging.dart';
 
@@ -31,7 +29,7 @@ class CustomList {
 
   void cleanupAlbumIds() {
     // Remove nulls, empty strings and invalid IDs
-    albumIds.removeWhere((id) => id.isEmpty || int.tryParse(id) == null);
+    albumIds.removeWhere((id) => id.isEmpty);
     // Remove duplicates
     albumIds = albumIds.toSet().toList();
   }
@@ -378,54 +376,90 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   }
 
   /// Calculate average rating for an album
-  Future<double> _calculateAlbumRating(int albumId) async {
+  Future<double> _calculateAlbumRating(dynamic albumId) async {
     try {
-      final ratings = await UserData.getRatings(albumId);
-      if (ratings == null || ratings.isEmpty) return 0.0;
+      // Handle both string and int albumIds consistently
+      final normalizedId = albumId.toString();
+      Logging.severe('Calculating rating for album ID: $normalizedId');
 
-      var ratedTracks = ratings.values.where((rating) => rating > 0).toList();
-      if (ratedTracks.isEmpty) return 0.0;
+      // Get ratings from UserData
+      final List<Map<String, dynamic>> savedRatings =
+          await UserData.getSavedAlbumRatings(normalizedId);
 
-      double total = ratedTracks.reduce((a, b) => a + b);
-      return double.parse((total / ratedTracks.length).toStringAsFixed(2));
-    } catch (e) {
-      Logging.severe('Error calculating album rating', e);
+      if (savedRatings.isEmpty) {
+        Logging.severe('No ratings found for album ID: $normalizedId');
+        return 0.0;
+      }
+
+      Logging.severe(
+          'Found ${savedRatings.length} ratings for album $normalizedId');
+
+      // Filter non-zero ratings
+      var validRatings = savedRatings
+          .where((r) => r['rating'] != null && r['rating'] > 0)
+          .map((r) => r['rating'].toDouble())
+          .toList();
+
+      if (validRatings.isEmpty) {
+        Logging.severe('No valid ratings found for album ID: $normalizedId');
+        return 0.0;
+      }
+
+      // Calculate average
+      double total = validRatings.reduce((a, b) => a + b);
+      double average = total / validRatings.length;
+
+      Logging.severe(
+          'Album $normalizedId has average rating $average from ${validRatings.length} rated tracks');
+
+      return double.parse(average.toStringAsFixed(2));
+    } catch (e, stack) {
+      Logging.severe('Error calculating album rating', e, stack);
       return 0.0;
     }
   }
 
   Future<void> _loadAlbums() async {
+    // Replace the old implementation with this:
     List<Map<String, dynamic>> loadedAlbums = [];
     List<String> idsToRemove = [];
     widget.list.cleanupAlbumIds();
 
-    for (String albumId in widget.list.albumIds) {
+    Logging.severe(
+        'Loading albums for list: ${widget.list.name} with ${widget.list.albumIds.length} albums');
+
+    for (String albumIdStr in widget.list.albumIds) {
       try {
-        final intAlbumId = int.parse(albumId);
-        final Album? album = await UserData.getSavedAlbumById(intAlbumId);
+        // Use our new helper function
+        Album? album = await UserData.getAlbumByAnyId(albumIdStr);
 
         if (album != null) {
-          final metadata = album.metadata['metadata'] ?? album.metadata;
+          Logging.severe('Found album: ${album.name}');
+
+          // Create a map with all fields normalized
           final albumMap = {
+            'id': album.id,
             'collectionId': album.id,
-            'collectionName':
-                metadata?['name'] ?? metadata?['collectionName'] ?? album.name,
-            'artistName':
-                metadata?['artist'] ?? metadata?['artistName'] ?? album.artist,
-            'artworkUrl100': metadata?['artworkUrl'] ??
-                metadata?['artworkUrl100'] ??
-                album.artworkUrl,
+            'name': album.name,
+            'collectionName': album.name,
+            'artist': album.artist,
+            'artistName': album.artist,
+            'artworkUrl': album.artworkUrl,
+            'artworkUrl100': album.artworkUrl,
             'platform': album.platform,
-            'url': metadata?['url'] ?? album.url,
+            'url': album.url,
+            'tracks': album.tracks.map((t) => t.toJson()).toList(),
             'averageRating': await _calculateAlbumRating(album.id),
-            'metadata': metadata,
           };
+
           loadedAlbums.add(albumMap);
         } else {
-          idsToRemove.add(albumId);
+          Logging.severe('Album not found, will remove ID: $albumIdStr');
+          idsToRemove.add(albumIdStr);
         }
-      } catch (e) {
-        idsToRemove.add(albumId);
+      } catch (e, stack) {
+        Logging.severe('Error processing album ID: $albumIdStr', e, stack);
+        idsToRemove.add(albumIdStr);
       }
     }
 
@@ -433,7 +467,11 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     if (idsToRemove.isNotEmpty) {
       widget.list.albumIds.removeWhere((id) => idsToRemove.contains(id));
       await UserData.saveCustomList(widget.list);
+      Logging.severe(
+          'Removed ${idsToRemove.length} invalid album IDs from list');
     }
+
+    Logging.severe('Loaded ${loadedAlbums.length} albums for display in list');
 
     if (mounted) {
       setState(() {
@@ -536,8 +574,12 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         pageBuilder: (_, __, ___) {
           final shareWidget = ShareWidget(
             key: ShareWidget.shareKey,
-            title: widget.list.name,
-            albums: albums,
+            album: albums.first, // Use first album as main album
+            tracks: const [], // Empty tracks list for collection view
+            ratings: const {}, // Empty ratings for collection view
+            averageRating: 0.0, // No average for collection view
+            title: widget.list.name, // Add list name as title
+            albums: albums, // Add full albums list for collection view
           );
           return AlertDialog(
             content: SingleChildScrollView(child: shareWidget),

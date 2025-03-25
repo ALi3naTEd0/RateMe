@@ -4,33 +4,29 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'album_model.dart'; // Add this import for Track class
 
 class ShareWidget extends StatefulWidget {
-  final Map<String, dynamic>? album;
-  final List<dynamic>? tracks;
-  final Map<int, double>? ratings;
-  final double? averageRating;
+  static final GlobalKey<ShareWidgetState> shareKey =
+      GlobalKey<ShareWidgetState>();
+  static final GlobalKey _boundaryKey = GlobalKey(); // Add static boundary key
+
+  final Map<String, dynamic> album;
+  final List<Track> tracks;
+  final Map<String, double> ratings;
+  final double averageRating;
   final String? title;
   final List<Map<String, dynamic>>? albums;
 
-  static final GlobalKey<ShareWidgetState> shareKey = GlobalKey();
-  static final GlobalKey _boundaryKey = GlobalKey();
-
   const ShareWidget({
-    super.key,
-    this.album,
-    this.tracks,
-    this.ratings,
-    this.averageRating,
+    Key? key,
+    required this.album,
+    required this.tracks,
+    required this.ratings,
+    required this.averageRating,
     this.title,
     this.albums,
-  }) : assert(
-            (album != null &&
-                    tracks != null &&
-                    ratings != null &&
-                    averageRating != null) ||
-                (title != null && albums != null),
-            'Must provide either album details or collection details');
+  }) : super(key: key);
 
   @override
   State<ShareWidget> createState() => ShareWidgetState();
@@ -111,49 +107,51 @@ class ShareWidgetState extends State<ShareWidget> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          widget.title!,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        if (widget.title != null)
+          Text(
+            widget.title!,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
         const Divider(),
-        ...widget.albums!
-            .map((album) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    children: [
-                      Image.network(
-                        album['artworkUrl100'],
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.album, size: 60),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              album['collectionName'] ?? 'Unknown Album',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(album['artistName'] ?? 'Unknown Artist'),
-                            Text(
-                              'Rating: ${(album['averageRating'] ?? 0.0).toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+        if (widget.albums != null)
+          ...widget.albums!
+              .map((album) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        Image.network(
+                          album['artworkUrl100'] ?? '',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.album, size: 60),
                         ),
-                      ),
-                    ],
-                  ),
-                ))
-            .toList(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                album['collectionName'] ?? 'Unknown Album',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              Text(album['artistName'] ?? 'Unknown Artist'),
+                              Text(
+                                'Rating: ${(album['averageRating'] ?? 0.0).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ))
+              .toList(),
       ],
     );
   }
@@ -166,7 +164,7 @@ class ShareWidgetState extends State<ShareWidget> {
         Row(
           children: [
             Image.network(
-              widget.album!['artworkUrl100'],
+              widget.album['artworkUrl100'] ?? '',
               width: 100,
               height: 100,
               fit: BoxFit.cover,
@@ -179,15 +177,15 @@ class ShareWidgetState extends State<ShareWidget> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.album!['collectionName'],
+                    widget.album['collectionName'] ?? 'Unknown Album',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   Text(
-                    widget.album!['artistName'],
+                    widget.album['artistName'] ?? 'Unknown Artist',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    'Average Rating: ${widget.averageRating!.toStringAsFixed(1)}',
+                    'Average Rating: ${widget.averageRating.toStringAsFixed(1)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -199,11 +197,26 @@ class ShareWidgetState extends State<ShareWidget> {
           ],
         ),
         const Divider(height: 32),
-        // Track list
-        ...widget.tracks!.map((track) {
-          final trackId = track['trackId'];
-          final rating = widget.ratings![trackId] ?? 0.0;
-          final duration = track['duration'] ?? track['trackTimeMillis'] ?? 0;
+        // Add debug information
+        Text(
+          "Tracks: ${widget.tracks.length}, ID type: ${widget.tracks.isNotEmpty ? widget.tracks.first.id.runtimeType : 'unknown'}",
+          style: const TextStyle(fontSize: 10, color: Colors.grey),
+        ),
+
+        // Track list with improved error handling
+        ...widget.tracks.map((track) {
+          // Safely get the track ID as string for ratings lookup
+          String trackIdStr = track.id.toString();
+          double rating = widget.ratings[trackIdStr] ?? 0.0;
+
+          // Log any issues for debugging
+          if (widget.ratings.containsKey(trackIdStr)) {
+            debugPrint("Found rating $rating for track $trackIdStr");
+          } else {
+            // Try alternative keys
+            debugPrint(
+                "No rating found for track $trackIdStr, available keys: ${widget.ratings.keys.join(', ')}");
+          }
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -213,22 +226,22 @@ class ShareWidgetState extends State<ShareWidget> {
                 SizedBox(
                   width: 30,
                   child: Text(
-                    track['trackNumber'].toString(),
+                    track.position.toString(),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 // Title
                 Expanded(
                   child: Text(
-                    track['title'] ?? track['trackName'] ?? 'Unknown Track',
+                    track.name,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // Duration
                 SizedBox(
-                  width: 70, // Fixed width for duration to align ratings
+                  width: 70,
                   child: Text(
-                    formatDuration(duration),
+                    formatDuration(track.durationMs),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -237,9 +250,7 @@ class ShareWidgetState extends State<ShareWidget> {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    rating
-                        .toInt()
-                        .toString(), // Changed from toStringAsFixed(1) to toInt()
+                    rating.toInt().toString(),
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       color: rating > 0
@@ -253,7 +264,7 @@ class ShareWidgetState extends State<ShareWidget> {
               ],
             ),
           );
-        }),
+        }).toList(),
       ],
     );
   }

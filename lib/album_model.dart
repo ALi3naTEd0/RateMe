@@ -31,13 +31,23 @@ class Album {
 
   // Create from JSON (new format)
   factory Album.fromJson(Map<String, dynamic> json) {
-    List<Track> parsedTracks = [];
+    // Handle ID conversion
+    dynamic albumId = json['id'] ?? json['collectionId'];
+    if (albumId is String && int.tryParse(albumId) != null) {
+      albumId = int.parse(albumId);
+    }
 
-    // Parse tracks if available
+    List<Track> parsedTracks = [];
     if (json['tracks'] != null && json['tracks'] is List) {
       for (var trackJson in json['tracks']) {
         try {
           if (trackJson is Map<String, dynamic>) {
+            // Handle track ID conversion
+            dynamic trackId = trackJson['id'] ?? trackJson['trackId'];
+            if (trackId is int) {
+              trackId = trackId.toString();
+            }
+            trackJson['id'] = trackId;
             parsedTracks.add(Track.fromJson(trackJson));
           }
         } catch (e) {
@@ -62,7 +72,7 @@ class Album {
     }
 
     return Album(
-      id: json['id'] ?? json['collectionId'] ?? 0,
+      id: albumId ?? 0,
       name: json['name'] ?? json['collectionName'] ?? 'Unknown Album',
       artist: json['artist'] ?? json['artistName'] ?? 'Unknown Artist',
       artworkUrl: json['artworkUrl'] ?? json['artworkUrl100'] ?? '',
@@ -81,15 +91,22 @@ class Album {
     if (legacy.containsKey('tracks') && legacy['tracks'] is List) {
       for (var trackData in legacy['tracks']) {
         try {
-          tracks.add(Track(
-            id: trackData['trackId'] ?? 0,
-            name:
-                trackData['trackName'] ?? trackData['title'] ?? 'Unknown Track',
-            position: trackData['trackNumber'] ?? 0,
-            durationMs:
-                trackData['trackTimeMillis'] ?? trackData['duration'] ?? 0,
-            metadata: trackData,
-          ));
+          // Only try to parse maps, not Track objects
+          if (trackData is Map<String, dynamic>) {
+            tracks.add(Track(
+              id: trackData['trackId'] ?? trackData['id'] ?? 0,
+              name: trackData['trackName'] ??
+                  trackData['title'] ??
+                  'Unknown Track',
+              position: trackData['trackNumber'] ?? trackData['position'] ?? 0,
+              durationMs:
+                  trackData['trackTimeMillis'] ?? trackData['duration'] ?? 0,
+              metadata: trackData,
+            ));
+          } else if (trackData is Track) {
+            // If it's already a Track object, add it directly
+            tracks.add(trackData);
+          }
         } catch (e) {
           debugPrint('Error parsing legacy track: $e');
         }
@@ -113,6 +130,28 @@ class Album {
       releaseDate = DateTime.now();
     }
 
+    // Determine platform - have better detection
+    String platform = legacy['platform']?.toString() ?? 'unknown';
+
+    // Try to detect platform from ID format or URL if not specified
+    if (platform == 'unknown') {
+      final albumId =
+          legacy['id']?.toString() ?? legacy['collectionId']?.toString() ?? '';
+      final url = legacy['url']?.toString() ?? '';
+
+      if (url.contains('bandcamp.com')) {
+        platform = 'bandcamp';
+      } else if (albumId.isNotEmpty &&
+          albumId.length > 10 &&
+          !albumId.contains(RegExp(r'^[0-9]+$'))) {
+        platform = 'spotify';
+      } else if (albumId.isNotEmpty && int.tryParse(albumId) != null) {
+        platform = 'itunes';
+      }
+
+      debugPrint('Auto-detected platform as $platform based on ID/URL format');
+    }
+
     return Album(
       id: legacy['collectionId'] ??
           legacy['id'] ??
@@ -121,7 +160,7 @@ class Album {
       artist: legacy['artistName'] ?? legacy['artist'] ?? 'Unknown Artist',
       artworkUrl: legacy['artworkUrl100'] ?? legacy['artworkUrl'] ?? '',
       url: legacy['url'] ?? legacy['collectionViewUrl'] ?? '',
-      platform: legacy['platform'] ?? 'unknown',
+      platform: platform,
       releaseDate: releaseDate,
       metadata: legacy,
       tracks: tracks,

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'album_model.dart';
 import 'logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_keys.dart'; // Add this import
 
 /// Service to handle interactions with different music platforms
 class PlatformService {
@@ -16,10 +17,9 @@ class PlatformService {
   static const String _spotifyAlbumEndpoint =
       'https://api.spotify.com/v1/albums';
 
-  // Spotify credentials - replace with your actual values
-  static const String _spotifyClientId = 'YOUR_ACTUAL_SPOTIFY_CLIENT_ID';
-  static const String _spotifyClientSecret =
-      'YOUR_ACTUAL_SPOTIFY_CLIENT_SECRET';
+  // Update to use the imported API keys from api_keys.dart
+  static const String _spotifyClientId = ApiKeys.spotifyClientId;
+  static const String _spotifyClientSecret = ApiKeys.spotifyClientSecret;
 
   // Token storage keys
   static const String _spotifyTokenKey = 'spotify_access_token';
@@ -106,8 +106,11 @@ class PlatformService {
       try {
         final albumId = _extractSpotifyAlbumId(query);
         if (albumId != null) {
+          Logging.severe('Spotify album ID extracted: $albumId');
           final album = await fetchSpotifyAlbum(albumId);
           return album != null ? [normalizeResult(album, 'spotify')] : [];
+        } else {
+          Logging.severe('Could not extract Spotify album ID from URL: $query');
         }
       } catch (e) {
         Logging.severe('Error processing Spotify URL', e);
@@ -157,6 +160,12 @@ class PlatformService {
         return pathSegments[pathSegments.indexOf('album') + 1];
       }
 
+      // Handle shortened URLs that redirect
+      if (pathSegments.isNotEmpty && pathSegments.last.length >= 22) {
+        // This might be an album ID directly in the path
+        return pathSegments.last;
+      }
+
       return null;
     } catch (e) {
       Logging.severe('Error extracting Spotify album ID', e);
@@ -174,8 +183,11 @@ class PlatformService {
       // Check if token is still valid
       if (storedToken != null &&
           expiryTime > DateTime.now().millisecondsSinceEpoch) {
+        Logging.severe('Using cached Spotify token');
         return storedToken;
       }
+
+      Logging.severe('Requesting new Spotify token');
 
       // Get new token
       final basicAuth =
@@ -200,9 +212,12 @@ class PlatformService {
         await prefs.setString(_spotifyTokenKey, accessToken);
         await prefs.setInt(_spotifyTokenExpiryKey, expiryTimeMs);
 
+        Logging.severe(
+            'New Spotify token obtained, expires in $expiresIn seconds');
         return accessToken;
       } else {
-        Logging.severe('Failed to get Spotify token: ${response.statusCode}');
+        Logging.severe(
+            'Failed to get Spotify token: ${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
@@ -238,13 +253,34 @@ class PlatformService {
       final albums = data['albums']['items'] as List;
       Logging.severe('Found ${albums.length} Spotify albums');
 
-      // Convert albums to standardized format
+      // For performance reasons, only get full details for top 5 albums
       final List<dynamic> result = [];
-      for (var album in albums) {
-        // Get full album details including tracks
-        final fullAlbum = await fetchSpotifyAlbum(album['id']);
+      for (var i = 0; i < albums.length && i < 5; i++) {
+        final fullAlbum = await fetchSpotifyAlbum(albums[i]['id']);
         if (fullAlbum != null) {
           result.add(fullAlbum);
+        }
+      }
+
+      // For remaining albums, add basic info without tracks
+      if (albums.length > 5) {
+        for (var i = 5; i < albums.length; i++) {
+          var album = albums[i];
+          result.add({
+            'collectionId': album['id'],
+            'collectionName': album['name'],
+            'artistName': album['artists'][0]['name'],
+            'artworkUrl100':
+                album['images'].isNotEmpty ? album['images'][0]['url'] : '',
+            'url': album['external_urls']['spotify'],
+            'platform': 'spotify',
+            'releaseDate': album['release_date'],
+            'trackCount': album['total_tracks'],
+            'wrapperType': 'collection',
+            'collectionType': 'Album',
+            'tracks': [], // Empty tracks for basic info
+            'metadata': album,
+          });
         }
       }
 
@@ -275,6 +311,17 @@ class PlatformService {
 
       final spotifyAlbum = jsonDecode(response.body);
 
+      // Log entire album response for debugging
+      Logging.severe('Spotify album raw data: ${jsonEncode({
+            'id': spotifyAlbum['id'],
+            'name': spotifyAlbum['name'],
+            'artist': spotifyAlbum['artists'][0]['name'],
+            'images': spotifyAlbum['images'],
+            'urls': spotifyAlbum['external_urls'],
+            'releaseDate': spotifyAlbum['release_date'],
+            'totalTracks': spotifyAlbum['total_tracks'],
+          })}');
+
       // Fetch tracks (in batches if necessary since Spotify might paginate tracks)
       List<dynamic> allTracks = [];
       String? tracksUrl = spotifyAlbum['tracks']['href'];
@@ -289,16 +336,40 @@ class PlatformService {
           final tracksData = jsonDecode(tracksResponse.body);
           allTracks.addAll(tracksData['items']);
           tracksUrl = tracksData['next']; // Move to next page or null
+
+          // Log first track for debugging
+          if (tracksData['items'].isNotEmpty) {
+            final firstTrack = tracksData['items'][0];
+            Logging.severe('First track sample: ${jsonEncode({
+                  'id': firstTrack['id'],
+                  'name': firstTrack['name'],
+                  'track_number': firstTrack['track_number'],
+                  'duration_ms': firstTrack['duration_ms'],
+                  'artists':
+                      firstTrack['artists'].map((a) => a['name']).toList(),
+                  'preview_url': firstTrack['preview_url'],
+                })}');
+          }
         } else {
           tracksUrl = null;
         }
       }
 
-      // Convert to standardized format
-      return {
+      // Log track count
+      Logging.severe(
+          'Found ${allTracks.length} tracks for Spotify album $albumId');
+
+      // Convert to standardized format - make sure all required fields are present
+      final result = {
+        'id': spotifyAlbum['id'],
         'collectionId': spotifyAlbum['id'],
+        'name': spotifyAlbum['name'],
         'collectionName': spotifyAlbum['name'],
+        'artist': spotifyAlbum['artists'][0]['name'],
         'artistName': spotifyAlbum['artists'][0]['name'],
+        'artworkUrl': spotifyAlbum['images'].isNotEmpty
+            ? spotifyAlbum['images'][0]['url']
+            : '',
         'artworkUrl100': spotifyAlbum['images'].isNotEmpty
             ? spotifyAlbum['images'][0]['url']
             : '',
@@ -320,20 +391,38 @@ class PlatformService {
           }
 
           return {
+            'id': track['id'],
             'trackId': track['id'],
             'trackNumber': track['track_number'],
+            'position': track['track_number'],
             'trackName': track['name'],
+            'name': track['name'],
             'trackTimeMillis': trackDuration,
+            'durationMs': trackDuration,
             'kind': 'song',
             'wrapperType': 'track',
             'artistName': track['artists'][0]['name'],
+            'artist': track['artists'][0]['name'],
             'previewUrl': track['preview_url'],
           };
         }).toList(),
         'metadata': spotifyAlbum,
       };
-    } catch (e) {
-      Logging.severe('Error fetching Spotify album', e);
+
+      // Final debugging before returning
+      Logging.severe('Converted Spotify album to app format: ${jsonEncode({
+            'id': result['id'],
+            'name': result['name'],
+            'artist': result['artist'],
+            'tracks': 'Array with ${result['tracks'].length} tracks',
+            'trackKeys': result['tracks'].isNotEmpty
+                ? result['tracks'][0].keys.toList()
+                : [],
+          })}');
+
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error fetching Spotify album', e, stack);
       return null;
     }
   }
@@ -653,39 +742,42 @@ class PlatformService {
       }
 
       final document = parse(response.body);
-
-      // Extract album info from JSON-LD
       var ldJsonScript =
           document.querySelector('script[type="application/ld+json"]');
       if (ldJsonScript == null) {
-        Logging.severe(
-            'BANDCAMP: No JSON-LD script found, trying fallback methods');
         throw Exception('Could not find album data');
       }
 
       final ldJson = jsonDecode(ldJsonScript.text);
       Logging.severe('BANDCAMP: Successfully parsed JSON-LD data');
 
-      // Extract album info with detailed logging
-      String title = document
-              .querySelector('meta[property="og:title"]')
-              ?.attributes['content'] ??
-          ldJson['name'] ??
-          'Unknown Title';
-      Logging.severe('BANDCAMP: Extracted title: $title');
+      // Extract artist name first - prioritize byArtist field
+      String artist = ldJson['byArtist']?['name'] ?? '';
+      if (artist.isEmpty) {
+        artist = document
+                .querySelector('meta[property="og:site_name"]')
+                ?.attributes['content'] ??
+            'Unknown Artist';
+      }
 
-      String artist = document
-              .querySelector('meta[property="og:site_name"]')
-              ?.attributes['content'] ??
-          ldJson['byArtist']?['name'] ??
-          'Unknown Artist';
-      Logging.severe('BANDCAMP: Extracted artist: $artist');
+      // Extract album title - don't split by comma anymore
+      String title = ldJson['name'] ?? 'Unknown Album';
+      // Remove any "by Artist" suffix if it exists
+      if (title.toLowerCase().contains(' by ${artist.toLowerCase()}')) {
+        title = title
+            .substring(
+                0, title.toLowerCase().indexOf(' by ${artist.toLowerCase()}'))
+            .trim();
+      }
 
+      Logging.severe(
+          'BANDCAMP: Extracted title: "$title" and artist: "$artist"');
+
+      // Continue with rest of album data extraction
       String artworkUrl = document
               .querySelector('meta[property="og:image"]')
               ?.attributes['content'] ??
           '';
-      Logging.severe('BANDCAMP: Extracted artwork URL: $artworkUrl');
 
       // Parse release date
       DateTime releaseDate;

@@ -139,9 +139,16 @@ class _MyAppState extends State<MyApp> {
               lowerText.contains('.bandcamp.') ||
               lowerText.contains('bandcamp:');
 
-          if (isAppleMusic || isBandcamp) {
-            Logging.severe(
-                'Music URL detected: ${isAppleMusic ? "Apple Music" : "Bandcamp"}');
+          final bool isSpotify = lowerText.contains('spotify.com') ||
+              lowerText.contains('open.spotify');
+
+          if (isAppleMusic || isBandcamp || isSpotify) {
+            String platform = 'unknown';
+            if (isAppleMusic) platform = 'Apple Music';
+            if (isBandcamp) platform = 'Bandcamp';
+            if (isSpotify) platform = 'Spotify';
+
+            Logging.severe('Music URL detected: $platform');
 
             setState(() {
               searchController.text = text;
@@ -149,8 +156,9 @@ class _MyAppState extends State<MyApp> {
             });
 
             scaffoldMessengerKey.currentState?.showSnackBar(
-              const SnackBar(
-                  content: Text('URL detected and pasted into search')),
+              SnackBar(
+                  content:
+                      Text('$platform URL detected and pasted into search')),
             );
           }
         }
@@ -431,18 +439,27 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               lowerText.contains('.bandcamp.') ||
               lowerText.contains('bandcamp:');
 
-          if (isAppleMusic || isBandcamp) {
-            Logging.severe(
-                'Music URL detected: ${isAppleMusic ? "Apple Music" : "Bandcamp"}');
+          final bool isSpotify = lowerText.contains('spotify.com') ||
+              lowerText.contains('open.spotify');
+
+          if (isAppleMusic || isBandcamp || isSpotify) {
+            String platform = 'unknown';
+            if (isAppleMusic) platform = 'Apple Music';
+            if (isBandcamp) platform = 'Bandcamp';
+            if (isSpotify) platform = 'Spotify';
+
+            Logging.severe('Music URL detected: $platform');
 
             setState(() {
               searchController.text = text;
               _performSearch(text);
             });
 
-            if (mounted) {
-              _showSnackBar('URL detected and pasted into search');
-            }
+            scaffoldMessengerKey.currentState?.showSnackBar(
+              SnackBar(
+                  content:
+                      Text('$platform URL detected and pasted into search')),
+            );
           }
         }
       } catch (e) {

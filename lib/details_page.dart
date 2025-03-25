@@ -37,7 +37,7 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Album? unifiedAlbum;
   List<Track> tracks = [];
-  Map<int, double> ratings = {};
+  Map<String, double> ratings = {};
   double averageRating = 0.0;
   int albumDurationMillis = 0;
   DateTime? releaseDate;
@@ -52,14 +52,7 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> _initialize() async {
     try {
       Logging.severe(
-          'Initializing details page for album: ${widget.album['collectionName'] ?? widget.album['name'] ?? 'Unknown'}');
-
-      // If album has no tracks, try to fetch them from the API before proceeding
-      if (widget.album['tracks'] == null ||
-          (widget.album['tracks'] is List && widget.album['tracks'].isEmpty)) {
-        Logging.severe('Album has no tracks, attempting to fetch from API');
-        await _fetchTracksIfMissing();
-      }
+          'Initializing details page for album: ${widget.album['collectionName'] ?? widget.album['name'] ?? 'Unknown'} from platform ${widget.album['platform'] ?? 'unknown'}');
 
       // Log the raw album data for debugging
       Logging.severe('Raw album data in details page: ${jsonEncode({
@@ -70,12 +63,51 @@ class _DetailsPageState extends State<DetailsPage> {
             'hasTracks': widget.album.containsKey('tracks'),
             'trackCount': widget.album['tracks'] is List
                 ? (widget.album['tracks'] as List).length
-                : 0,
+                : widget.album['trackCount'] ?? 0,
+            'firstTrackKeys': widget.album['tracks'] is List &&
+                    (widget.album['tracks'] as List).isNotEmpty
+                ? (widget.album['tracks'][0] as Map<String, dynamic>)
+                    .keys
+                    .toList()
+                : [],
           })}');
+
+      // If album has no tracks, try to fetch them from the API before proceeding
+      if (widget.album['tracks'] == null ||
+          (widget.album['tracks'] is List && widget.album['tracks'].isEmpty)) {
+        Logging.severe('Album has no tracks, attempting to fetch from API');
+        await _fetchTracksIfMissing();
+      }
 
       // Convert to unified model if needed
       if (widget.album is Album) {
         unifiedAlbum = widget.album;
+      } else if (widget.album['platform'] == 'spotify') {
+        // Handle Spotify album with detailed logging
+        Logging.severe('Converting Spotify album to unified model');
+
+        // Make sure we have all the required fields
+        unifiedAlbum = Album(
+          id: widget.album['id'] ?? widget.album['collectionId'] ?? 0,
+          name: widget.album['name'] ??
+              widget.album['collectionName'] ??
+              'Unknown Album',
+          artist: widget.album['artist'] ??
+              widget.album['artistName'] ??
+              'Unknown Artist',
+          artworkUrl:
+              widget.album['artworkUrl'] ?? widget.album['artworkUrl100'] ?? '',
+          url: widget.album['url'] ?? '',
+          platform: 'spotify',
+          releaseDate: widget.album['releaseDate'] != null
+              ? DateTime.tryParse(widget.album['releaseDate']) ?? DateTime.now()
+              : DateTime.now(),
+          metadata: widget.album,
+          tracks: _extractTracksFromAlbum(widget.album),
+        );
+
+        Logging.severe(
+            'Successfully converted Spotify album to unified model with ${unifiedAlbum?.tracks.length ?? 0} tracks');
       } else if (widget.isBandcamp) {
         // Handle Bandcamp album
         unifiedAlbum = Album(
@@ -109,6 +141,17 @@ class _DetailsPageState extends State<DetailsPage> {
       // Set tracks from unified model
       tracks = unifiedAlbum?.tracks ?? [];
 
+      // Debug the tracks
+      Logging.severe('Extracted ${tracks.length} tracks from album');
+      if (tracks.isNotEmpty) {
+        Logging.severe('First track: ${jsonEncode({
+              'id': tracks[0].id,
+              'name': tracks[0].name,
+              'position': tracks[0].position,
+              'duration': tracks[0].durationMs,
+            })}');
+      }
+
       // Ensure tracks is never null
       if (tracks.isEmpty && widget.album['tracks'] is List) {
         // Handle case where tracks are in the album data but not parsed
@@ -117,16 +160,23 @@ class _DetailsPageState extends State<DetailsPage> {
           for (var trackData in tracksList) {
             if (trackData is Map<String, dynamic>) {
               tracks.add(Track(
-                id: trackData['trackId'] ?? 0,
-                name: trackData['trackName'] ?? 'Unknown Track',
-                position: trackData['trackNumber'] ?? 0,
-                durationMs: trackData['trackTimeMillis'] ?? 0,
+                id: trackData['trackId'] ?? trackData['id'] ?? 0,
+                name: trackData['trackName'] ??
+                    trackData['name'] ??
+                    'Unknown Track',
+                position:
+                    trackData['trackNumber'] ?? trackData['position'] ?? 0,
+                durationMs: trackData['trackTimeMillis'] ??
+                    trackData['durationMs'] ??
+                    0,
                 metadata: trackData,
               ));
             }
           }
-        } catch (e) {
-          Logging.severe('Error parsing track data', e);
+          Logging.severe(
+              'Manually parsed ${tracks.length} tracks from album data');
+        } catch (e, stack) {
+          Logging.severe('Error parsing track data', e, stack);
         }
       }
 
@@ -255,13 +305,12 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Future<void> _loadRatings() async {
     try {
-      int albumId = unifiedAlbum?.id ?? DateTime.now().millisecondsSinceEpoch;
-      List<Map<String, dynamic>> savedRatings =
-          await UserData.getSavedAlbumRatings(albumId);
+      final albumId = unifiedAlbum?.id ?? '';
+      final savedRatings = await UserData.getSavedAlbumRatings(albumId);
 
-      Map<int, double> ratingsMap = {};
+      Map<String, double> ratingsMap = {};
       for (var rating in savedRatings) {
-        ratingsMap[rating['trackId']] = rating['rating'].toDouble();
+        ratingsMap[rating['trackId'].toString()] = rating['rating'].toDouble();
       }
 
       if (mounted) {
@@ -295,14 +344,24 @@ class _DetailsPageState extends State<DetailsPage> {
         tracks.fold(0, (sum, track) => sum + track.durationMs);
   }
 
-  void _updateRating(int trackId, double newRating) async {
+  void _updateRating(dynamic trackId, double newRating) async {
+    final ratingKey = trackId.toString();
+
+    // Add logging to track what's happening
+    Logging.severe('Updating rating for track $trackId to $newRating');
+
     setState(() {
-      ratings[trackId] = newRating;
+      ratings[ratingKey] = newRating;
       calculateAverageRating();
     });
 
-    int albumId = unifiedAlbum?.id ?? DateTime.now().millisecondsSinceEpoch;
+    // Make sure we have a valid album ID
+    final albumId = unifiedAlbum?.id ?? DateTime.now().millisecondsSinceEpoch;
+
+    // Save the rating with proper ID handling
     await UserData.saveRating(albumId, trackId, newRating);
+    Logging.severe(
+        'Rating saved successfully for album $albumId, track $trackId');
   }
 
   Future<void> _launchRateYourMusic() async {
@@ -577,30 +636,29 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
-  Widget _buildTrackSlider(int trackId) {
+  Widget _buildTrackSlider(dynamic trackId) {
+    final ratingKey = trackId.toString();
     return SizedBox(
       width: 150,
       child: Row(
         children: [
           Expanded(
             child: SliderTheme(
-              data: Theme.of(context)
-                  .sliderTheme, // Replace getSliderTheme with direct theme access
+              data: Theme.of(context).sliderTheme,
               child: Slider(
                 min: 0,
                 max: 10,
                 divisions: 10,
-                value: ratings[trackId] ?? 0.0,
-                label: (ratings[trackId] ?? 0.0).toStringAsFixed(0),
+                value: ratings[ratingKey] ?? 0.0,
+                label: (ratings[ratingKey] ?? 0.0).toStringAsFixed(0),
                 onChanged: (newRating) => _updateRating(trackId, newRating),
               ),
             ),
           ),
           SizedBox(
-            width: 25, // Fixed width for rating number
+            width: 25,
             child: Text(
-              (ratings[trackId] ?? 0).toStringAsFixed(0),
-              style: const TextStyle(fontSize: 16),
+              (ratings[ratingKey] ?? 0).toStringAsFixed(0),
               textAlign: TextAlign.end,
             ),
           ),
@@ -793,6 +851,35 @@ class _DetailsPageState extends State<DetailsPage> {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
+    // Add some debug logging
+    Logging.severe(
+        'Preparing to show share dialog with ${tracks.length} tracks');
+    if (tracks.isNotEmpty) {
+      Logging.severe(
+          'First track: ${tracks[0].id} (${tracks[0].id.runtimeType}), ${tracks[0].name}');
+    }
+
+    // Log some info about the ratings map
+    Logging.severe('Ratings map has ${ratings.length} entries');
+    if (ratings.isNotEmpty) {
+      Logging.severe(
+          'First rating key type: ${ratings.keys.first.runtimeType}');
+    }
+
+    // Convert ratings to string keys and ensure all track IDs are properly represented
+    final stringRatings = <String, double>{};
+    for (var entry in ratings.entries) {
+      stringRatings[entry.key.toString()] = entry.value;
+    }
+
+    // Add ratings for any missing tracks with zero values
+    for (var track in tracks) {
+      final trackIdStr = track.id.toString();
+      if (!stringRatings.containsKey(trackIdStr)) {
+        stringRatings[trackIdStr] = 0.0;
+      }
+    }
+
     navigator.push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
@@ -802,7 +889,7 @@ class _DetailsPageState extends State<DetailsPage> {
             key: ShareWidget.shareKey,
             album: unifiedAlbum?.toJson() ?? {},
             tracks: tracks,
-            ratings: ratings,
+            ratings: stringRatings, // Use our prepared string ratings map
             averageRating: averageRating,
           );
           return AlertDialog(
@@ -927,20 +1014,120 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Future<void> _saveAlbum() async {
     try {
-      // Keep using Map<String, dynamic> for albumToSave
-      await UserData.addToSavedAlbums(unifiedAlbum?.toJson() ?? {});
+      if (unifiedAlbum == null) return;
+
+      Logging.severe(
+          'Saving album: ${unifiedAlbum!.name} (ID: ${unifiedAlbum!.id})');
+
+      // Convert album to JSON with full track data
+      final albumData = unifiedAlbum!.toJson();
+
+      // Ensure tracks are properly serialized
+      albumData['tracks'] = tracks.map((track) => track.toJson()).toList();
+
+      // Log what we're trying to save
+      Logging.severe(
+          'Saving album with ${tracks.length} tracks and ID type: ${unifiedAlbum!.id.runtimeType}');
+
+      // Save album first and wait for completion
+      await UserData.addToSavedAlbums(albumData);
+
+      // Verify the album was saved
+      final albumExists =
+          await UserData.albumExists(unifiedAlbum!.id.toString());
+      if (!albumExists) {
+        Logging.severe(
+            'WARNING: Album may not have been saved correctly. ID: ${unifiedAlbum!.id}');
+      } else {
+        Logging.severe('Album saved successfully. ID: ${unifiedAlbum!.id}');
+      }
+
+      // Brief delay to ensure album is saved before ratings
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Save ratings separately with improved error handling
+      int ratingsSaved = 0;
+      for (var entry in ratings.entries) {
+        try {
+          // Parse track ID - properly handle numeric strings
+          dynamic trackId;
+          if (int.tryParse(entry.key) != null) {
+            trackId = int.parse(entry.key);
+          } else {
+            trackId = entry.key; // Keep as string if not numeric
+          }
+
+          // Only save non-zero ratings (important!)
+          if (entry.value > 0) {
+            await UserData.saveRating(
+              unifiedAlbum!.id,
+              trackId,
+              entry.value,
+            );
+            ratingsSaved++;
+            Logging.severe('Saved rating for track $trackId: ${entry.value}');
+          }
+        } catch (e) {
+          Logging.severe('Error saving rating for track ${entry.key}: $e');
+        }
+      }
+
+      Logging.severe(
+          'Saved $ratingsSaved ratings for album ${unifiedAlbum!.id}');
 
       if (mounted) {
         scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('Album saved successfully')),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      Logging.severe('Error saving album', e, stack);
       if (mounted) {
         scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(content: Text('Error saving album: $e')),
         );
       }
     }
+  }
+
+  // Helper method to extract tracks from album data
+  List<Track> _extractTracksFromAlbum(Map<String, dynamic> album) {
+    List<Track> result = [];
+
+    try {
+      if (album['tracks'] is List) {
+        final tracksList = album['tracks'] as List;
+        Logging.severe(
+            'Extracting ${tracksList.length} tracks from album data');
+
+        for (var i = 0; i < tracksList.length; i++) {
+          try {
+            final trackData = tracksList[i];
+            if (trackData is Map<String, dynamic>) {
+              result.add(Track(
+                id: trackData['trackId'] ??
+                    trackData['id'] ??
+                    (album['id'] * 1000 + i + 1),
+                name: trackData['trackName'] ??
+                    trackData['name'] ??
+                    'Track ${i + 1}',
+                position:
+                    trackData['trackNumber'] ?? trackData['position'] ?? i + 1,
+                durationMs: trackData['trackTimeMillis'] ??
+                    trackData['durationMs'] ??
+                    0,
+                metadata: trackData,
+              ));
+            }
+          } catch (e) {
+            Logging.severe('Error parsing track at index $i: $e');
+          }
+        }
+      }
+    } catch (e, stack) {
+      Logging.severe('Error extracting tracks from album', e, stack);
+    }
+
+    return result;
   }
 }

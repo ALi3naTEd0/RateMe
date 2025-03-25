@@ -60,13 +60,33 @@ class UserData {
     }
   }
 
+  /// Get saved album ratings with proper ID handling for both string and int IDs
   static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(
-      int albumId) async {
+      dynamic albumId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      String key = '$_ratingsPrefix$albumId';
-      List<String> ratings = prefs.getStringList(key) ?? [];
-      return ratings.map((r) => jsonDecode(r) as Map<String, dynamic>).toList();
+      final key = '$_ratingsPrefix${_normalizeId(albumId)}';
+      Logging.severe('Getting ratings with key: $key');
+
+      final List<String> savedRatings = prefs.getStringList(key) ?? [];
+      Logging.severe('Found ${savedRatings.length} saved ratings');
+
+      // Log sample for debugging
+      if (savedRatings.isNotEmpty) {
+        Logging.severe('Sample rating JSON: ${savedRatings.first}');
+      }
+
+      return savedRatings.map((ratingJson) {
+        try {
+          final rating = jsonDecode(ratingJson);
+          // Ensure trackId is always consistent
+          rating['trackId'] = _normalizeId(rating['trackId']);
+          return rating as Map<String, dynamic>;
+        } catch (e, stack) {
+          Logging.severe('Error parsing rating JSON: $ratingJson', e, stack);
+          return {'trackId': '0', 'rating': 0.0, 'error': true};
+        }
+      }).toList();
     } catch (e, stackTrace) {
       Logging.severe(
           'Error getting saved ratings for album $albumId', e, stackTrace);
@@ -100,40 +120,102 @@ class UserData {
       List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
       List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
 
-      // ALWAYS convert to unified Album model first
+      // Convert to Album object if not already
       Album album;
       if (albumData is Album) {
         album = albumData;
       } else {
+        // Extra logging for debugging
+        Logging.severe(
+            'Converting album to unified format: ${albumData['name'] ?? albumData['collectionName']}');
+
+        // Ensure platform is preserved during conversion
+        String platform = albumData['platform']?.toString() ?? 'unknown';
+        Logging.severe('Original platform: $platform');
+
+        // Special handling for Spotify albums
+        final albumId = albumData['id']?.toString() ??
+            albumData['collectionId']?.toString() ??
+            '';
+        if (albumId.isNotEmpty &&
+            albumId.length > 10 &&
+            !albumId.contains(RegExp(r'^[0-9]+$'))) {
+          if (platform == 'unknown') {
+            platform = 'spotify';
+            albumData['platform'] = 'spotify';
+            Logging.severe(
+                'Auto-detected platform as Spotify based on ID format');
+          }
+        }
+
         album = Album.fromLegacy(albumData);
-      }
 
-      // Save in unified format
-      final albumJson = jsonEncode(album.toJson());
-      String albumId = album.id.toString();
-      String? albumUrl = album.url; // Get the URL for Bandcamp comparison
-
-      // Check if exists
-      bool exists = false;
-      for (String savedAlbumJson in savedAlbums) {
-        final saved = jsonDecode(savedAlbumJson);
-        if (saved['id']?.toString() == albumId || // Check ID
-            saved['collectionId']?.toString() == albumId || // Check legacy ID
-            (saved['url'] == albumUrl)) {
-          // Check URL for Bandcamp
-          exists = true;
-          break;
+        // Double-check that platform was properly transferred
+        if (album.platform != platform && platform != 'unknown') {
+          Logging.severe(
+              'Platform mismatch! Expected: $platform, Got: ${album.platform}. Fixing...');
+          // Create a corrected album with the right platform
+          album = Album(
+            id: album.id,
+            name: album.name,
+            artist: album.artist,
+            artworkUrl: album.artworkUrl,
+            url: album.url,
+            platform: platform,
+            releaseDate: album.releaseDate,
+            metadata: album.metadata,
+            tracks: album.tracks,
+          );
         }
       }
 
-      if (!exists) {
+      // Get album ID as string for consistent comparison
+      String albumId = album.id.toString();
+      Logging.severe(
+          'Processed album ID: $albumId (Platform: ${album.platform})');
+
+      // Check if album already exists
+      bool exists = false;
+      int existingIndex = -1;
+
+      for (int i = 0; i < savedAlbums.length; i++) {
+        try {
+          final saved = jsonDecode(savedAlbums[i]);
+          final savedId =
+              (saved['id'] ?? saved['collectionId'])?.toString() ?? '';
+
+          if (savedId == albumId) {
+            exists = true;
+            existingIndex = i;
+            break;
+          }
+        } catch (e) {
+          Logging.severe('Error checking existing album: $e');
+        }
+      }
+
+      // Convert to JSON for storage
+      final albumJson = jsonEncode(album.toJson());
+
+      if (exists) {
+        // Update existing album
+        Logging.severe('Updating existing album at index $existingIndex');
+        savedAlbums[existingIndex] = albumJson;
+      } else {
+        // Add new album
+        Logging.severe('Adding new album');
         savedAlbums.add(albumJson);
         albumOrder.add(albumId);
-        await prefs.setStringList(_savedAlbumsKey, savedAlbums);
-        await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
       }
-    } catch (e) {
-      Logging.severe('Error saving album', e);
+
+      // Save changes
+      await prefs.setStringList(_savedAlbumsKey, savedAlbums);
+      await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
+
+      Logging.severe(
+          'Album saved successfully. Platform: ${album.platform}, Total albums: ${savedAlbums.length}');
+    } catch (e, stack) {
+      Logging.severe('Error saving album', e, stack);
       rethrow;
     }
   }
@@ -144,16 +226,23 @@ class UserData {
       List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
       List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
 
+      // Get album ID as string for consistent comparison
       String albumId = (album['id'] ?? album['collectionId']).toString();
 
+      Logging.severe('Deleting album with ID: $albumId');
+
       // Remove from albums list
+      int removedCount = 0;
       savedAlbums.removeWhere((albumJson) {
         try {
           Map<String, dynamic> savedAlbum = jsonDecode(albumJson);
           String savedId =
               (savedAlbum['id'] ?? savedAlbum['collectionId']).toString();
-          return savedId == albumId;
+          bool shouldRemove = savedId == albumId;
+          if (shouldRemove) removedCount++;
+          return shouldRemove;
         } catch (e) {
+          Logging.severe('Error checking album for removal: $e');
           return false;
         }
       });
@@ -162,21 +251,31 @@ class UserData {
       albumOrder.remove(albumId);
 
       // Also delete ratings
-      await _deleteRatings(int.parse(albumId));
+      await _deleteRatings(albumId);
+
+      Logging.severe('Removed $removedCount albums with ID: $albumId');
 
       // Save updated lists
       await prefs.setStringList(_savedAlbumsKey, savedAlbums);
       await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
+
+      Logging.severe('Album deletion complete for ID: $albumId');
     } catch (e, stackTrace) {
       Logging.severe('Error deleting album', e, stackTrace);
       rethrow;
     }
   }
 
-  static Future<void> _deleteRatings(int collectionId) async {
+  static Future<void> _deleteRatings(dynamic albumId) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.remove('saved_ratings_$collectionId');
+      String key = '$_ratingsPrefix${_normalizeId(albumId)}';
+
+      Logging.severe('Deleting ratings with key: $key');
+
+      bool removed = await prefs.remove(key);
+
+      Logging.severe('Ratings removal success: $removed');
     } catch (e) {
       Logging.severe('Error deleting ratings', e);
     }
@@ -200,46 +299,6 @@ class UserData {
     } catch (e) {
       Logging.severe('Error getting saved album order', e);
       return [];
-    }
-  }
-
-  static Future<void> saveRating(
-      int albumId, int trackId, double rating) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String key = '$_ratingsPrefix$albumId';
-      List<String> ratings = prefs.getStringList(key) ?? [];
-
-      // Create new rating data
-      final ratingData = {
-        'trackId': trackId,
-        'rating': rating,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
-
-      // Find and update existing rating or add new one
-      bool found = false;
-      for (int i = 0; i < ratings.length; i++) {
-        try {
-          Map<String, dynamic> existingRating = jsonDecode(ratings[i]);
-          if (existingRating['trackId'] == trackId) {
-            ratings[i] = jsonEncode(ratingData);
-            found = true;
-            break;
-          }
-        } catch (e) {
-          // Skip invalid rating
-        }
-      }
-
-      if (!found) {
-        ratings.add(jsonEncode(ratingData));
-      }
-
-      await prefs.setStringList(key, ratings);
-    } catch (e, stackTrace) {
-      Logging.severe('Error saving rating', e, stackTrace);
-      rethrow;
     }
   }
 
@@ -313,11 +372,12 @@ class UserData {
     }
   }
 
-  static Future<Map<int, double>?> getRatings(int albumId) async {
+  /// Get ratings with better error handling and type conversion
+  static Future<Map<int, double>?> getRatings(dynamic albumId) async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String key = '$_ratingsPrefix$albumId';
-      List<String>? savedRatings = prefs.getStringList(key);
+      final prefs = await SharedPreferences.getInstance();
+      final key = '$_ratingsPrefix${_normalizeId(albumId)}';
+      final List<String>? savedRatings = prefs.getStringList(key);
 
       if (savedRatings == null || savedRatings.isEmpty) {
         return null;
@@ -325,10 +385,22 @@ class UserData {
 
       Map<int, double> result = {};
       for (String ratingJson in savedRatings) {
-        Map<String, dynamic> rating = jsonDecode(ratingJson);
-        int trackId = rating['trackId'];
-        double ratingValue = rating['rating'].toDouble();
-        result[trackId] = ratingValue;
+        try {
+          Map<String, dynamic> rating = jsonDecode(ratingJson);
+
+          // Handle string or int trackId
+          int trackId;
+          if (rating['trackId'] is String) {
+            trackId = int.parse(rating['trackId']);
+          } else {
+            trackId = rating['trackId'];
+          }
+
+          double ratingValue = rating['rating'].toDouble();
+          result[trackId] = ratingValue;
+        } catch (e) {
+          Logging.severe('Error parsing rating: $e', e);
+        }
       }
 
       return result;
@@ -685,8 +757,7 @@ class UserData {
     }
   }
 
-  static Future<void> migrateRatings(
-      int albumId, List<Map<String, dynamic>> tracks) async {
+  static Future<void> migrateRatings(int albumId, List<dynamic> tracks) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final oldRatingsKey = '$_ratingsPrefix$albumId';
@@ -696,9 +767,20 @@ class UserData {
 
       // Create new ratings with correct track IDs
       List<Map<String, dynamic>> newRatings = [];
-      for (var track in tracks) {
-        final position = track['position'] ?? track['trackNumber'] ?? 0;
-        final trackId = track['trackId'];
+      for (var trackObj in tracks) {
+        // Handle both Map<String, dynamic> and Track objects
+        int? trackId;
+        int? position;
+
+        if (trackObj is Map<String, dynamic>) {
+          position = trackObj['position'] ?? trackObj['trackNumber'] ?? 0;
+          trackId = trackObj['trackId'] ?? trackObj['id'];
+        } else if (trackObj is Track) {
+          position = trackObj.position;
+          trackId = trackObj.id;
+        }
+
+        if (trackId == null) continue;
 
         // Find ratings by position
         for (var ratingJson in oldRatings) {
@@ -1243,6 +1325,226 @@ class UserData {
       return null;
     } catch (e) {
       Logging.severe('Error getting saved album', e);
+      return null;
+    }
+  }
+
+  /// Convert any ID type to string for storage
+  static String _normalizeId(dynamic id) {
+    if (id == null) return '';
+    return id.toString();
+  }
+
+  /// Save rating with proper ID handling for both string and int IDs
+  static Future<void> saveRating(
+      dynamic albumId, dynamic trackId, double rating) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final albumKey = '$_ratingsPrefix${_normalizeId(albumId)}';
+      Logging.severe('Saving rating for album key: $albumKey, track: $trackId');
+
+      // Verify if album exists in saved albums
+      final albumExists = await _verifyAlbumExists(albumId);
+      if (!albumExists) {
+        Logging.severe(
+            'Warning: Attempting to save rating for album that may not exist: $albumId');
+      }
+
+      final List<String> ratings = prefs.getStringList(albumKey) ?? [];
+
+      // Ensure trackId is normalized
+      final normalizedTrackId = _normalizeId(trackId);
+
+      final ratingData = {
+        'trackId': normalizedTrackId,
+        'rating': rating,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // Update or add rating
+      int existingIndex = ratings.indexWhere((ratingJson) {
+        try {
+          final existing = jsonDecode(ratingJson);
+          return _normalizeId(existing['trackId']) == normalizedTrackId;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (existingIndex >= 0) {
+        Logging.severe('Updating existing rating at index $existingIndex');
+        ratings[existingIndex] = jsonEncode(ratingData);
+      } else {
+        Logging.severe('Adding new rating');
+        ratings.add(jsonEncode(ratingData));
+      }
+
+      await prefs.setStringList(albumKey, ratings);
+      Logging.severe(
+          'Saved rating successfully. Total ratings for this album: ${ratings.length}');
+
+      // Debug list keys to verify storage
+      _debugListStoredAlbumIds(prefs);
+    } catch (e, stack) {
+      Logging.severe('Error saving rating', e, stack);
+      rethrow;
+    }
+  }
+
+  // Add this missing method
+  static Future<bool> _verifyAlbumExists(dynamic albumId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> savedAlbumsJson =
+          prefs.getStringList(_savedAlbumsKey) ?? [];
+
+      final normalizedId = _normalizeId(albumId);
+
+      for (var albumJson in savedAlbumsJson) {
+        try {
+          final album = jsonDecode(albumJson);
+          final savedId = _normalizeId(album['id'] ?? album['collectionId']);
+          if (savedId == normalizedId) {
+            return true;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      return false;
+    } catch (e) {
+      Logging.severe('Error verifying album exists: $e');
+      return false;
+    }
+  }
+
+  // Debug helper to list all stored album IDs
+  static Future<void> _debugListStoredAlbumIds(SharedPreferences prefs) async {
+    try {
+      final keys =
+          prefs.getKeys().where((k) => k.startsWith(_ratingsPrefix)).toList();
+      Logging.severe('Stored rating keys: ${keys.join(', ')}');
+
+      final savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      final savedIds = <String>[];
+      for (var albumJson in savedAlbums) {
+        try {
+          final album = jsonDecode(albumJson);
+          savedIds.add(_normalizeId(album['id'] ?? album['collectionId']));
+        } catch (e) {
+          continue;
+        }
+      }
+      Logging.severe('Saved album IDs: ${savedIds.join(', ')}');
+    } catch (e) {
+      Logging.severe('Error listing stored album IDs', e);
+    }
+  }
+
+  /// Save rating with track position information (useful for Bandcamp)
+  static Future<void> saveRatingWithPosition(
+      dynamic albumId, dynamic trackId, int position, double rating) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final normalizedId = _normalizeId(albumId);
+      final albumKey = '$_ratingsPrefix$normalizedId';
+
+      // Verify the album exists
+      final albumExists = await _verifyAlbumExists(albumId);
+      if (!albumExists) {
+        Logging.severe('Cannot save rating - album does not exist: $albumId');
+        return;
+      }
+
+      // Get existing ratings for this album
+      final List<String> ratings = prefs.getStringList(albumKey) ?? [];
+
+      // Create the rating with position information
+      final ratingData = {
+        'trackId': _normalizeId(trackId),
+        'position': position,
+        'rating': rating,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // Update or add the rating
+      int existingIndex = ratings.indexWhere((ratingJson) {
+        try {
+          final existing = jsonDecode(ratingJson);
+          return _normalizeId(existing['trackId']) == _normalizeId(trackId) ||
+              (existing['position'] == position);
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (existingIndex >= 0) {
+        ratings[existingIndex] = jsonEncode(ratingData);
+      } else {
+        ratings.add(jsonEncode(ratingData));
+      }
+
+      // Save the updated ratings
+      await prefs.setStringList(albumKey, ratings);
+      Logging.severe(
+          'Saved rating with position for album $albumId, track $trackId, position $position');
+    } catch (e, stack) {
+      Logging.severe('Error saving rating with position', e, stack);
+    }
+  }
+
+  /// Get album by ID from any source (string or int)
+  static Future<Album?> getAlbumByAnyId(dynamic albumId) async {
+    try {
+      final normalizedId = _normalizeId(albumId);
+      Logging.severe(
+          'Getting album by any ID format: $albumId (normalized: $normalizedId)');
+
+      // Try to get using unified method first
+      Album? album = await getUnifiedAlbum(normalizedId);
+      if (album != null) {
+        Logging.severe('Found album using unified method: ${album.name}');
+        return album;
+      }
+
+      // If that fails, try with int conversion for legacy method
+      if (int.tryParse(normalizedId) != null) {
+        album = await getSavedAlbumById(int.parse(normalizedId));
+        if (album != null) {
+          Logging.severe('Found album using legacy int method: ${album.name}');
+          return album;
+        }
+      }
+
+      // Try by string representation as last resort
+      final prefs = await SharedPreferences.getInstance();
+      final savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+
+      for (String json in savedAlbums) {
+        try {
+          final data = jsonDecode(json);
+          final savedId = _normalizeId(data['id'] ?? data['collectionId']);
+
+          if (savedId == normalizedId) {
+            // Use fromLegacy if needed
+            if (data.containsKey('modelVersion')) {
+              album = Album.fromJson(data);
+            } else {
+              album = Album.fromLegacy(data);
+            }
+
+            Logging.severe('Found album using raw JSON scan: ${album.name}');
+            return album;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+
+      Logging.severe('No album found with ID: $albumId');
+      return null;
+    } catch (e, stack) {
+      Logging.severe('Error getting album by any ID', e, stack);
       return null;
     }
   }
