@@ -418,10 +418,14 @@ class _DetailsPageState extends State<DetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Add these lines to calculate page width
+    // Calculate page width consistently with other pages (85% of screen width)
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
+
+    // Calculate DataTable width to fit within our constraints
+    // This allows the DataTable to scale properly while staying within our pageWidth
+    final dataTableWidth = pageWidth - 16; // Apply small padding
 
     return MaterialApp(
       navigatorKey: navigatorKey,
@@ -455,18 +459,16 @@ class _DetailsPageState extends State<DetailsPage> {
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Center(
-                  // Wrap with Center
-                  child: SizedBox(
-                    // Add SizedBox to constrain width
-                    width: pageWidth,
+            : Center(
+                // Center the content
+                child: SizedBox(
+                  width: pageWidth, // Apply consistent width constraint
+                  child: SingleChildScrollView(
                     child: Column(
-                      // Keep existing Column children
-                      // ...existing Column content...
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 16),
+                        // Album artwork
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Image.network(
@@ -480,6 +482,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                 const Icon(Icons.album, size: 300),
                           ),
                         ),
+                        // Album info section
                         Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -499,6 +502,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                   "Rating", averageRating.toStringAsFixed(2),
                                   fontSize: 20),
                               const SizedBox(height: 16),
+                              // Buttons row
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 mainAxisSize: MainAxisSize.min,
@@ -529,8 +533,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                   const SizedBox(width: 12),
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.settings,
-                                        color: Colors
-                                            .white), // Changed from more_vert to settings
+                                        color: Colors.white),
                                     label: const Text('Options',
                                         style: TextStyle(color: Colors.white)),
                                     style: ElevatedButton.styleFrom(
@@ -547,61 +550,60 @@ class _DetailsPageState extends State<DetailsPage> {
                           ),
                         ),
                         const Divider(),
-                        DataTable(
-                          columnSpacing: 12,
-                          columns: [
-                            const DataColumn(
-                              label: SizedBox(
-                                width: 35,
-                                child: Center(child: Text('#')),
-                              ),
-                            ),
-                            DataColumn(
-                              label: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width *
-                                      _calculateTitleWidth(),
+                        // DataTable for tracks - make sure it fits within the width constraint
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: dataTableWidth,
+                          ),
+                          child: DataTable(
+                            columnSpacing: 12,
+                            columns: [
+                              const DataColumn(
+                                label: SizedBox(
+                                  width: 35,
+                                  child: Center(child: Text('#')),
                                 ),
-                                child: const Text('Title'),
                               ),
-                            ),
-                            const DataColumn(
-                              label: SizedBox(
-                                width: 65,
-                                child: Center(child: Text('Length')),
-                              ),
-                            ),
-                            const DataColumn(
-                              label: SizedBox(
-                                width: 160,
-                                child: Center(child: Text('Rating')),
-                              ),
-                            ),
-                          ],
-                          rows: tracks.map((track) {
-                            final trackId = track.id;
-                            return DataRow(
-                              cells: [
-                                DataCell(Text(track.position.toString())),
-                                DataCell(
-                                  ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width *
-                                              _calculateTitleWidth(),
-                                    ),
-                                    child: Text(
-                                      track.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                              DataColumn(
+                                label: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                            _calculateTitleWidth(),
                                   ),
+                                  child: const Text('Title'),
                                 ),
-                                DataCell(
-                                    Text(formatDuration(track.durationMs))),
-                                DataCell(_buildTrackSlider(trackId)),
-                              ],
-                            );
-                          }).toList(),
+                              ),
+                              const DataColumn(
+                                label: SizedBox(
+                                  width: 65,
+                                  child: Center(child: Text('Length')),
+                                ),
+                              ),
+                              const DataColumn(
+                                label: SizedBox(
+                                  width: 160,
+                                  child: Center(child: Text('Rating')),
+                                ),
+                              ),
+                            ],
+                            rows: tracks.map((track) {
+                              final trackId = track.id;
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(track.position.toString())),
+                                  DataCell(_buildTrackTitle(
+                                    track.name,
+                                    MediaQuery.of(context).size.width *
+                                        _calculateTitleWidth(),
+                                  )),
+                                  DataCell(
+                                      Text(formatDuration(track.durationMs))),
+                                  DataCell(_buildTrackSlider(trackId)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
@@ -1139,5 +1141,19 @@ class _DetailsPageState extends State<DetailsPage> {
     }
 
     return result;
+  }
+
+  // Add this method to DetailsPage
+  Widget _buildTrackTitle(String title, double maxWidth) {
+    return Tooltip(
+      message: title,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Text(
+          title,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
   }
 }

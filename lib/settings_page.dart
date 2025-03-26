@@ -7,7 +7,6 @@ import 'logging.dart';
 import 'backup_converter.dart';
 import 'debug_util.dart';
 
-// Change StatelessWidget to StatefulWidget
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
   final Function(ThemeMode) onThemeChanged;
@@ -23,11 +22,9 @@ class SettingsPage extends StatefulWidget {
   });
 
   @override
-  // Change to reference existing _SettingsPageState instead of creating a new one
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-// Keep the existing _SettingsPageState class unchanged
 class _SettingsPageState extends State<SettingsPage> {
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();

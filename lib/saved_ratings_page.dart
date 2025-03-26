@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart'; // For MethodChannel
-import 'dart:io';
 import 'dart:convert'; // Add this import for json
 import 'user_data.dart';
 import 'saved_album_page.dart';
-import 'share_widget.dart';
 import 'logging.dart';
 
 class SavedRatingsPage extends StatefulWidget {
@@ -18,13 +14,9 @@ class SavedRatingsPage extends StatefulWidget {
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
 
   List<Map<String, dynamic>> albums = [];
   bool isLoading = true;
-
-  static const platform = MethodChannel('com.example.rateme/media_scanner');
 
   @override
   void initState() {
@@ -238,145 +230,10 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     UserData.saveAlbumOrder(albumIds);
   }
 
-  void _handleImageShare(String imagePath) async {
-    try {
-      await Share.shareXFiles([XFile(imagePath)]);
-    } catch (e) {
-      _showSnackBar('Error sharing: $e');
-    }
-  }
-
-  void _showSnackBar(String message) {
-    scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  void _showShareDialog() {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) {
-          final shareWidget = ShareWidget(
-            key: ShareWidget.shareKey,
-            album: albums.first, // Use first album as main album
-            tracks: const [], // Empty tracks for album list view
-            ratings: const {}, // Empty ratings for album list view
-            averageRating: 0.0, // No average for album list view
-            title: 'My Album Collection', // Add title
-            albums: albums, // Add selected albums for collection view
-          );
-          return AlertDialog(
-            content: SingleChildScrollView(child: shareWidget),
-            actions: [
-              TextButton(
-                onPressed: () => navigator.pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final path =
-                        await ShareWidget.shareKey.currentState?.saveAsImage();
-                    if (mounted && path != null) {
-                      navigator.pop();
-                      _showShareOptions(path);
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      navigator.pop();
-                      _showSnackBar('Error saving image: $e');
-                    }
-                  }
-                },
-                child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  void _showShareOptions(String path) {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    if (Platform.isAndroid) {
-      navigator.push(
-        PageRouteBuilder(
-          barrierColor: Colors.black54,
-          opaque: false,
-          pageBuilder: (_, __, ___) => Material(
-            type: MaterialType.transparency,
-            child: Center(
-              child: Container(
-                margin: const EdgeInsets.all(32),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.download),
-                      title: const Text('Save to Downloads'),
-                      onTap: () async {
-                        navigator.pop();
-                        await _saveToDownloads(path);
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.share),
-                      title: const Text('Share Image'),
-                      onTap: () {
-                        navigator.pop();
-                        _handleImageShare(path);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      _showSnackBar('Image saved to: $path');
-    }
-  }
-
-  Future<void> _saveToDownloads(String path) async {
-    try {
-      final downloadDir = Directory('/storage/emulated/0/Download');
-      final fileName = path.split('/').last;
-      final newPath = '${downloadDir.path}/$fileName';
-
-      // Copy from temp to Downloads
-      await File(path).copy(newPath);
-
-      // Scan file with MediaScanner
-      try {
-        await platform.invokeMethod('scanFile', {'path': newPath});
-      } catch (e) {
-        Logging.severe('MediaScanner error: $e');
-      }
-
-      _showSnackBar('Saved to Downloads: $fileName');
-    } catch (e) {
-      _showSnackBar('Error saving file: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    // Calculate page width consistently with main page (85% of screen width)
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
@@ -405,12 +262,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           Padding(
             padding: EdgeInsets.only(right: horizontalPadding),
             child: IconButton(
-              padding: EdgeInsets.zero, // Remove padding from icon button
-              visualDensity: VisualDensity.compact, // Make it more compact
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
               icon: const Icon(Icons.settings),
               onPressed: () => showMenu(
                 context: context,
-                position: const RelativeRect.fromLTRB(100, 100, 0, 0),
+                position: const RelativeRect.fromLTRB(
+                    100, 50, 0, 0), // Back to original position
                 items: const [
                   PopupMenuItem<String>(
                     value: 'import',
@@ -432,16 +290,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                       ],
                     ),
                   ),
-                  PopupMenuItem<String>(
-                    value: 'share',
-                    child: Row(
-                      children: [
-                        Icon(Icons.share),
-                        SizedBox(width: 8),
-                        Text('Share as Image'),
-                      ],
-                    ),
-                  ),
                 ],
               ).then((value) async {
                 switch (value) {
@@ -454,9 +302,6 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                     break;
                   case 'export':
                     await UserData.exportData(); // Remove context parameter
-                    break;
-                  case 'share':
-                    _showShareDialog();
                     break;
                 }
               }),

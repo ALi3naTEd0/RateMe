@@ -33,6 +33,8 @@ class _AppVersionFooterState extends State<AppVersionFooter> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () => _showAboutDialog(context),
       child: Container(
@@ -44,10 +46,12 @@ class _AppVersionFooterState extends State<AppVersionFooter> {
           style: TextStyle(
             fontSize: 14,
             decoration: TextDecoration.underline,
-            // Replace deprecated withOpacity with withAlpha
-            color: Colors.white
-                .withAlpha(204), // 0.8 opacity = 204 alpha (255 * 0.8)
-            fontWeight: FontWeight.w400,
+            color: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.color
+                ?.withAlpha(isDark ? 178 : 204), // Less opacity for dark theme
+            fontWeight: FontWeight.normal,
           ),
         ),
       ),

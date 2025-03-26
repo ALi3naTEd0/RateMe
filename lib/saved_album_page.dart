@@ -669,12 +669,28 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     );
   }
 
+  Widget _buildTrackTitle(String title, double maxWidth) {
+    return Tooltip(
+      message: title,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Text(
+          title,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Add these lines to calculate page width
+    // Calculate page width consistently with other pages (85% of screen width)
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
+
+    // Calculate DataTable width to fit within our constraints
+    final dataTableWidth = pageWidth - 16; // Apply small padding
 
     return MaterialApp(
       navigatorKey: navigatorKey,
@@ -705,17 +721,19 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               ],
             ),
           ),
+          // Remove the actions property completely to remove the 3-dot menu icon
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Center(
-                  // Wrap with Center
-                  child: SizedBox(
-                    // Add SizedBox to constrain width
-                    width: pageWidth,
+            : Center(
+                // Center the content
+                child: SizedBox(
+                  width: pageWidth, // Apply consistent width constraint
+                  child: SingleChildScrollView(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        const SizedBox(height: 16),
                         // Album Info Section
                         Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -778,56 +796,54 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                           ),
                         ),
                         const Divider(),
-                        // Track List with Ratings
-                        DataTable(
-                          columnSpacing: 12,
-                          columns: [
-                            const DataColumn(
-                                label: SizedBox(
-                                    width: 35,
-                                    child: Center(child: Text('#')))),
-                            DataColumn(
-                              label: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width *
-                                      _calculateTitleWidth(),
-                                ),
-                                child: const Text('Title'),
-                              ),
-                            ),
-                            const DataColumn(
-                                label: SizedBox(
-                                    width: 65,
-                                    child: Center(child: Text('Length')))),
-                            const DataColumn(
-                                label: SizedBox(
-                                    width: 160,
-                                    child: Center(child: Text('Rating')))),
-                          ],
-                          rows: tracks.map((track) {
-                            final trackId = track.id;
-                            return DataRow(
-                              cells: [
-                                DataCell(Text(track.position.toString())),
-                                DataCell(
-                                  ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width *
-                                              _calculateTitleWidth(),
-                                    ),
-                                    child: Text(
-                                      track.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                        // Track List with Ratings - Wrap in ConstrainedBox
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: dataTableWidth,
+                          ),
+                          child: DataTable(
+                            columnSpacing: 12,
+                            columns: [
+                              const DataColumn(
+                                  label: SizedBox(
+                                      width: 35,
+                                      child: Center(child: Text('#')))),
+                              DataColumn(
+                                label: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                            _calculateTitleWidth(),
                                   ),
+                                  child: const Text('Title'),
                                 ),
-                                DataCell(
-                                    Text(formatDuration(track.durationMs))),
-                                DataCell(_buildTrackSlider(trackId)),
-                              ],
-                            );
-                          }).toList(),
+                              ),
+                              const DataColumn(
+                                  label: SizedBox(
+                                      width: 65,
+                                      child: Center(child: Text('Length')))),
+                              const DataColumn(
+                                  label: SizedBox(
+                                      width: 160,
+                                      child: Center(child: Text('Rating')))),
+                            ],
+                            rows: tracks.map((track) {
+                              final trackId = track.id;
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(track.position.toString())),
+                                  DataCell(_buildTrackTitle(
+                                    track.name,
+                                    MediaQuery.of(context).size.width *
+                                        _calculateTitleWidth(),
+                                  )),
+                                  DataCell(
+                                      Text(formatDuration(track.durationMs))),
+                                  DataCell(_buildTrackSlider(trackId)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(

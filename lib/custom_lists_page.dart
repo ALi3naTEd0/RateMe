@@ -693,7 +693,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                 icon: const Icon(Icons.settings),
                 onPressed: () => showMenu(
                   context: context,
-                  position: const RelativeRect.fromLTRB(100, 100, 0, 0),
+                  position: const RelativeRect.fromLTRB(100, 50, 0, 0),
                   items: [
                     const PopupMenuItem<String>(
                       value: 'import',
