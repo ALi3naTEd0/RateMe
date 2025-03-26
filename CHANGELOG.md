@@ -1,8 +1,25 @@
 # Changelog
 
-All notable changes to the RateMe app will be documented in this file.
+All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+### Added
+- Fixed dialog size issues in Add to List dialogs
+- Added constrained dimensions to list dialogs (50% width, 50% height)
+- Added scrollable content in list management dialogs
+- Added proper handling of long content in dialog boxes
+- Improved dialog layout consistency across the app
+- Added checkbox-based list selection for better UX
+- Added multi-select capability for list management
+- Added immediate visual feedback for list selection
+- Added proper handling for adding/removing albums from multiple lists
+
+### Fixed
+- Fixed overflow errors in list management dialogs
+- Fixed layout issues in create list dialog
+- Fixed dialog sizing on different screen sizes
+- Fixed scrolling issues in list content
 
 ### Added
 - Unified Data Model to ensure consistent handling of albums across different platforms
