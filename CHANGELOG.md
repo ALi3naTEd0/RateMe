@@ -12,6 +12,10 @@ All notable changes to the RateMe app will be documented in this file.
 - Improved error handling throughout the app
 - Support for different music platforms with standardized data format
 - Better backward compatibility with older app versions
+- Support for Spotify URLs in clipboard detection
+- Platform icons for better visual identification of music sources (Apple Music, Spotify, Bandcamp)
+- Better error handling for album data parsing
+- Global clipboard monitoring for easier URL import
 
 ### Changed
 - Reorganized Settings page with grouped options
@@ -19,6 +23,12 @@ All notable changes to the RateMe app will be documented in this file.
 - Enhanced custom lists management
 - More robust sharing functionality
 - Better handling of app themes and colors
+- UI/UX Improvement: Applied consistent 85% width layout to all screens for better readability
+- Refactored entire app from BuildContext-based navigation to GlobalKey approach
+- Added tooltips for track names that display full title on hover
+- Improved responsive design for various screen sizes
+- Enhanced image sharing capabilities
+- Standardized page layouts across all screens
 
 ### Fixed
 - Issues with albums not appearing in custom lists
@@ -27,6 +37,18 @@ All notable changes to the RateMe app will be documented in this file.
 - Display issues with album artwork on certain devices
 - Custom list sorting and reordering bugs
 - Various stability improvements
+- Issue with slider tooltips not displaying properly
+- Inconsistent UI widths between different screens
+- Rating verification process for improved data integrity
+- Platform detection for different album sources
+- Album migration and conversion reliability
+
+### Technical
+- Reduced context-dependent code for better maintainability
+- Implemented consistent navigation pattern using GlobalKeys
+- Improved error logging throughout the application
+- Optimized performance with const constructors where appropriate
+- Better separation of UI and business logic
 
 ## [2.0.0] - 2025-03-20
 
