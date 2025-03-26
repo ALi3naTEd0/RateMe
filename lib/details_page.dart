@@ -416,52 +416,8 @@ class _DetailsPageState extends State<DetailsPage> {
     return 'Unknown Date';
   }
 
-  Widget _buildTrackTitle(String title, double maxWidth) {
-    return Tooltip(
-      message: title,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: Text(
-          title,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  }
-
-  DataRow _buildTrackRow(Track track) {
-    return DataRow(
-      cells: [
-        DataCell(
-          SizedBox(
-            width: 35,
-            child: Center(
-              child: Text(track.position.toString()),
-            ),
-          ),
-        ),
-        DataCell(_buildTrackTitle(
-          track.name,
-          MediaQuery.of(context).size.width * _calculateTitleWidth(),
-        )),
-        DataCell(
-          SizedBox(
-            width: 70,
-            child: Text(
-              formatDuration(track.durationMs),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        DataCell(_buildTrackSlider(track.id)),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    double titleWidthFactor = _calculateTitleWidth();
-
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
@@ -557,44 +513,59 @@ class _DetailsPageState extends State<DetailsPage> {
                       ),
                     ),
                     const Divider(),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columnSpacing: 12,
-                        headingTextStyle:
-                            const TextStyle(fontWeight: FontWeight.bold),
-                        columns: [
-                          const DataColumn(
-                            label: SizedBox(
-                              width: 35, // Reducido de 40
-                              child: Center(child: Text('No.')),
-                            ),
-                            numeric: true,
+                    DataTable(
+                      columnSpacing: 12,
+                      columns: [
+                        const DataColumn(
+                          label: SizedBox(
+                            width: 35,
+                            child: Center(child: Text('#')),
                           ),
-                          DataColumn(
-                            label: SizedBox(
-                              width: MediaQuery.of(context).size.width *
-                                  titleWidthFactor,
-                              child: const Text('Title'),
+                        ),
+                        DataColumn(
+                          label: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width *
+                                  _calculateTitleWidth(),
                             ),
+                            child: const Text('Title'),
                           ),
-                          const DataColumn(
-                            label: SizedBox(
-                              width: 65, // Reducido de 70
-                              child: Center(child: Text('Length')),
+                        ),
+                        const DataColumn(
+                          label: SizedBox(
+                            width: 65,
+                            child: Center(child: Text('Length')),
+                          ),
+                        ),
+                        const DataColumn(
+                          label: SizedBox(
+                            width: 160,
+                            child: Center(child: Text('Rating')),
+                          ),
+                        ),
+                      ],
+                      rows: tracks.map((track) {
+                        final trackId = track.id;
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(track.position.toString())),
+                            DataCell(
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width *
+                                      _calculateTitleWidth(),
+                                ),
+                                child: Text(
+                                  track.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ),
-                          const DataColumn(
-                            label: SizedBox(
-                              width: 160, // Reducido de 175
-                              child: Center(child: Text('Rating')),
-                            ),
-                          ),
-                        ],
-                        rows: tracks
-                            .map((track) => _buildTrackRow(track))
-                            .toList(),
-                      ),
+                            DataCell(Text(formatDuration(track.durationMs))),
+                            DataCell(_buildTrackSlider(trackId)),
+                          ],
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
