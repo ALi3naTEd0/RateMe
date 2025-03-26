@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For MethodChannel
 import 'package:url_launcher/url_launcher.dart'; // This includes all URL launching functions
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Add this import
 import 'dart:io';
 import 'dart:convert'; // Add this import for jsonEncode
 import 'package:http/http.dart' as http; // Add this import for HTTP requests
@@ -42,11 +43,13 @@ class _DetailsPageState extends State<DetailsPage> {
   int albumDurationMillis = 0;
   DateTime? releaseDate;
   bool isLoading = true;
+  bool useDarkButtonText = false;
 
   @override
   void initState() {
     super.initState();
     _initialize();
+    _loadButtonPreference();
   }
 
   Future<void> _initialize() async {
@@ -507,38 +510,41 @@ class _DetailsPageState extends State<DetailsPage> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  ElevatedButton(
+                                  FilledButton(
                                     onPressed: () async {
-                                      // Save album with filtered tracks
-                                      final albumToSave =
-                                          unifiedAlbum?.toJson();
-                                      albumToSave?['tracks'] = tracks;
-                                      await _saveAlbum();
-
-                                      // Add to saved albums list
-                                      await UserData.addToSavedAlbums(
-                                          albumToSave!);
-
-                                      if (!mounted) return;
-                                      _showAddToListDialog();
+                                      // Remove the auto-save here
+                                      _showAddToListDialog(); // Just show the dialog directly
                                     },
-                                    style: ElevatedButton.styleFrom(
+                                    style: FilledButton.styleFrom(
                                       backgroundColor:
                                           Theme.of(context).colorScheme.primary,
+                                      foregroundColor: useDarkButtonText
+                                          ? Colors.black
+                                          : Colors.white,
                                       minimumSize: const Size(150, 45),
                                     ),
-                                    child: const Text('Save Album',
-                                        style: TextStyle(color: Colors.white)),
+                                    child: const Text('Save Album'),
                                   ),
                                   const SizedBox(width: 12),
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.settings,
-                                        color: Colors.white),
-                                    label: const Text('Options',
-                                        style: TextStyle(color: Colors.white)),
-                                    style: ElevatedButton.styleFrom(
+                                  FilledButton.icon(
+                                    // Changed from ElevatedButton.icon
+                                    icon: Icon(Icons.settings,
+                                        color: useDarkButtonText
+                                            ? Colors.black
+                                            : Colors.white),
+                                    label: Text(
+                                      'Options',
+                                      style: TextStyle(
+                                          color: useDarkButtonText
+                                              ? Colors.black
+                                              : Colors.white),
+                                    ),
+                                    style: FilledButton.styleFrom(
                                       backgroundColor:
                                           Theme.of(context).colorScheme.primary,
+                                      foregroundColor: useDarkButtonText
+                                          ? Colors.black
+                                          : Colors.white,
                                       minimumSize: const Size(150, 45),
                                     ),
                                     onPressed: () => _showOptionsDialog(),
@@ -606,16 +612,17 @@ class _DetailsPageState extends State<DetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        ElevatedButton(
+                        FilledButton(
+                          // Changed from ElevatedButton
                           onPressed: _launchRateYourMusic,
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor:
                                 Theme.of(context).colorScheme.primary,
+                            foregroundColor:
+                                useDarkButtonText ? Colors.black : Colors.white,
+                            minimumSize: const Size(150, 45),
                           ),
-                          child: const Text(
-                            'Rate on RateYourMusic',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                          child: const Text('Rate on RateYourMusic'),
                         ),
                         const SizedBox(height: 40),
                       ],
@@ -747,41 +754,91 @@ class _DetailsPageState extends State<DetailsPage> {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
+    // Track selected lists
+    Map<String, bool> selectedLists = {};
+
     navigator
         .push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
-        pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Add to List'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('Create New List'),
-                onTap: () => navigator.pop('new'),
-              ),
-              const Divider(),
-              FutureBuilder<List<CustomList>>(
-                future: UserData.getCustomLists(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  final lists = snapshot.data!;
-                  return SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: lists
-                          .map((CustomList list) => ListTile(
-                                title: Text(list.name),
-                                onTap: () => navigator.pop(list.id),
-                              ))
-                          .toList(),
+        pageBuilder: (_, __, ___) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Save to Lists'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.5,
+              height: MediaQuery.of(context).size.height * 0.5,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton.icon(
+                    icon: Icon(Icons.add,
+                        color: useDarkButtonText ? Colors.black : Colors.white),
+                    label: Text('Create New List',
+                        style: TextStyle(
+                            color: useDarkButtonText
+                                ? Colors.black
+                                : Colors.white)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor:
+                          useDarkButtonText ? Colors.black : Colors.white,
                     ),
-                  );
-                },
+                    onPressed: () => navigator.pop('new'),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: FutureBuilder<List<CustomList>>(
+                      future: UserData.getCustomLists(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        final lists = snapshot.data!;
+
+                        // Initialize selected state for lists containing the album
+                        for (var list in lists) {
+                          if (!selectedLists.containsKey(list.id)) {
+                            selectedLists[list.id] = list.albumIds
+                                .contains(unifiedAlbum?.id.toString());
+                          }
+                        }
+
+                        return ListView(
+                          children: lists
+                              .map((list) => CheckboxListTile(
+                                    title: Text(list.name),
+                                    subtitle:
+                                        Text('${list.albumIds.length} albums'),
+                                    value: selectedLists[list.id] ?? false,
+                                    onChanged: (bool? value) {
+                                      setState(() {
+                                        selectedLists[list.id] = value ?? false;
+                                      });
+                                    },
+                                  ))
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(null),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor:
+                      useDarkButtonText ? Colors.black : Colors.white,
+                ),
+                onPressed: () => navigator.pop(selectedLists),
+                child: const Text('Save'),
               ),
             ],
           ),
@@ -789,74 +846,117 @@ class _DetailsPageState extends State<DetailsPage> {
       ),
     )
         .then((result) async {
+      if (result == null) return; // Dialog cancelled
+
       if (result == 'new') {
-        final nameController = TextEditingController();
-        final descController = TextEditingController();
+        _showCreateListDialog();
+        return;
+      }
 
-        final createResult = await navigator.push<bool>(
-          PageRouteBuilder(
-            barrierColor: Colors.black54,
-            opaque: false,
-            pageBuilder: (_, __, ___) => AlertDialog(
-              title: const Text('Create New List'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'List Name',
-                      hintText: 'e.g. Progressive Rock',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: descController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
-                      hintText: 'e.g. My favorite prog rock albums',
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => navigator.pop(false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => navigator.pop(true),
-                  child: const Text('Create'),
-                ),
-              ],
-            ),
-          ),
-        );
+      // Save the album first since user made selections
+      final albumToSave = unifiedAlbum?.toJson();
+      albumToSave?['tracks'] = tracks;
+      await _saveAlbum();
+      await UserData.addToSavedAlbums(albumToSave!);
 
-        if (createResult == true && nameController.text.isNotEmpty) {
-          final newList = CustomList(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            name: nameController.text,
-            description: descController.text,
-            albumIds: [unifiedAlbum?.id.toString() ?? ''],
-          );
-          await UserData.saveCustomList(newList);
-        }
-      } else if (result != null) {
-        final lists = await UserData.getCustomLists();
-        final selectedList = lists.firstWhere((list) => list.id == result);
-        if (!selectedList.albumIds.contains(unifiedAlbum?.id.toString())) {
-          selectedList.albumIds.add(unifiedAlbum?.id.toString() ?? '');
-          await UserData.saveCustomList(selectedList);
+      // Handle selected lists
+      final Map<String, bool> selections = result as Map<String, bool>;
+      final lists = await UserData.getCustomLists();
+      int addedCount = 0;
+      int removedCount = 0;
+
+      for (var list in lists) {
+        final isSelected = selections[list.id] ?? false;
+        final hasAlbum = list.albumIds.contains(unifiedAlbum?.id.toString());
+
+        if (isSelected && !hasAlbum) {
+          // Add to list
+          list.albumIds.add(unifiedAlbum?.id.toString() ?? '');
+          await UserData.saveCustomList(list);
+          addedCount++;
+        } else if (!isSelected && hasAlbum) {
+          // Remove from list
+          list.albumIds.remove(unifiedAlbum?.id.toString());
+          await UserData.saveCustomList(list);
+          removedCount++;
         }
       }
 
       if (mounted) {
-        scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('Album added to list successfully')),
-        );
+        String message = '';
+        if (addedCount > 0) message += 'Added to $addedCount lists. ';
+        if (removedCount > 0) message += 'Removed from $removedCount lists.';
+        if (message.isNotEmpty) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(message.trim())),
+          );
+        }
       }
     });
+  }
+
+  void _showCreateListDialog() {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Create New List'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'List Name',
+                  hintText: 'e.g. Progressive Rock',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'e.g. My favorite prog rock albums',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (nameController.text.isNotEmpty) {
+                  final newList = CustomList(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: nameController.text,
+                    description: descController.text,
+                    albumIds: [unifiedAlbum?.id.toString() ?? ''],
+                  );
+                  await UserData.saveCustomList(newList);
+                  if (mounted) {
+                    scaffoldMessengerKey.currentState?.showSnackBar(
+                      SnackBar(content: Text('Created list "${newList.name}"')),
+                    );
+                  }
+                }
+                navigator.pop();
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showShareDialog() {
@@ -1155,5 +1255,14 @@ class _DetailsPageState extends State<DetailsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadButtonPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        useDarkButtonText = prefs.getBool('useDarkButtonText') ?? false;
+      });
+    }
   }
 }

@@ -10,6 +10,7 @@ import 'custom_lists_page.dart';
 import 'album_model.dart'; // Add this import
 import 'share_widget.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -38,11 +39,22 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   int albumDurationMillis = 0; // Add this
   DateTime? releaseDate; // Add this
   bool isLoading = true;
+  bool useDarkButtonText = false;
 
   @override
   void initState() {
     super.initState();
     _initialize();
+    _loadButtonPreference();
+  }
+
+  Future<void> _loadButtonPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        useDarkButtonText = prefs.getBool('useDarkButtonText') ?? false;
+      });
+    }
   }
 
   Future<void> _initialize() async {
@@ -767,25 +779,35 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  ElevatedButton(
+                                  FilledButton(
                                     onPressed: _showAddToListDialog,
-                                    style: ElevatedButton.styleFrom(
+                                    style: FilledButton.styleFrom(
                                       backgroundColor:
                                           Theme.of(context).colorScheme.primary,
+                                      foregroundColor: useDarkButtonText
+                                          ? Colors.black
+                                          : Colors.white,
                                       minimumSize: const Size(150, 45),
                                     ),
-                                    child: const Text('Manage Lists',
-                                        style: TextStyle(color: Colors.white)),
+                                    child: const Text('Manage Lists'),
                                   ),
                                   const SizedBox(width: 12),
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.settings,
-                                        color: Colors.white),
-                                    label: const Text('Options',
-                                        style: TextStyle(color: Colors.white)),
-                                    style: ElevatedButton.styleFrom(
+                                  FilledButton.icon(
+                                    icon: Icon(Icons.settings,
+                                        color: useDarkButtonText
+                                            ? Colors.black
+                                            : Colors.white),
+                                    label: Text('Options',
+                                        style: TextStyle(
+                                            color: useDarkButtonText
+                                                ? Colors.black
+                                                : Colors.white)),
+                                    style: FilledButton.styleFrom(
                                       backgroundColor:
                                           Theme.of(context).colorScheme.primary,
+                                      foregroundColor: useDarkButtonText
+                                          ? Colors.black
+                                          : Colors.white,
                                       minimumSize: const Size(150, 45),
                                     ),
                                     onPressed: () => _showOptionsDialog(),
@@ -846,16 +868,17 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        ElevatedButton(
+                        FilledButton(
+                          // Changed from ElevatedButton
                           onPressed: _launchRateYourMusic,
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor:
                                 Theme.of(context).colorScheme.primary,
+                            foregroundColor:
+                                useDarkButtonText ? Colors.black : Colors.white,
+                            minimumSize: const Size(150, 45),
                           ),
-                          child: const Text(
-                            'Rate on RateYourMusic',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                          child: const Text('Rate on RateYourMusic'),
                         ),
                         const SizedBox(height: 40),
                       ],
@@ -965,41 +988,92 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
+    // Track selected lists
+    Map<String, bool> selectedLists = {};
+
     navigator
         .push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
-        pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Add to List'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('Create New List'),
-                onTap: () => navigator.pop('new'),
-              ),
-              const Divider(),
-              FutureBuilder<List<CustomList>>(
-                future: UserData.getCustomLists(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  final lists = snapshot.data!;
-                  return SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: lists
-                          .map((list) => ListTile(
-                                title: Text(list.name),
-                                onTap: () => navigator.pop(list.id),
-                              ))
-                          .toList(),
+        pageBuilder: (_, __, ___) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Add to List'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.5,
+              height: MediaQuery.of(context).size.height * 0.5,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton.icon(
+                    icon: Icon(Icons.add,
+                        color: useDarkButtonText ? Colors.black : Colors.white),
+                    label: Text('Create New List',
+                        style: TextStyle(
+                            color: useDarkButtonText
+                                ? Colors.black
+                                : Colors.white)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor:
+                          useDarkButtonText ? Colors.black : Colors.white,
+                      minimumSize: const Size(200, 45),
                     ),
-                  );
-                },
+                    onPressed: () => navigator.pop('new'),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: FutureBuilder<List<CustomList>>(
+                      future: UserData.getCustomLists(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        final lists = snapshot.data!;
+
+                        // Initialize selected state for lists containing the album
+                        for (var list in lists) {
+                          if (!selectedLists.containsKey(list.id)) {
+                            selectedLists[list.id] = list.albumIds
+                                .contains(unifiedAlbum?.id.toString());
+                          }
+                        }
+
+                        return ListView(
+                          children: lists
+                              .map((list) => CheckboxListTile(
+                                    title: Text(list.name),
+                                    subtitle:
+                                        Text('${list.albumIds.length} albums'),
+                                    value: selectedLists[list.id] ?? false,
+                                    onChanged: (bool? value) {
+                                      setState(() {
+                                        selectedLists[list.id] = value ?? false;
+                                      });
+                                    },
+                                  ))
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(null),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor:
+                      useDarkButtonText ? Colors.black : Colors.white,
+                ),
+                onPressed: () => navigator.pop(selectedLists),
+                child: const Text('Save'),
               ),
             ],
           ),
@@ -1007,14 +1081,45 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       ),
     )
         .then((result) async {
+      if (result == null) return;
+
       if (result == 'new') {
         _showCreateListDialog();
-      } else if (result != null) {
-        final lists = await UserData.getCustomLists();
-        final selectedList = lists.firstWhere((list) => list.id == result);
-        selectedList.albumIds.add(widget.album['collectionId'].toString());
-        await UserData.saveCustomList(selectedList);
-        _showSnackBar('Added to "${selectedList.name}"');
+        return;
+      }
+
+      // Handle selected lists
+      final Map<String, bool> selections = result as Map<String, bool>;
+      final lists = await UserData.getCustomLists();
+      int addedCount = 0;
+      int removedCount = 0;
+
+      for (var list in lists) {
+        final isSelected = selections[list.id] ?? false;
+        final hasAlbum = list.albumIds.contains(unifiedAlbum?.id.toString());
+
+        if (isSelected && !hasAlbum) {
+          // Add to list
+          list.albumIds.add(unifiedAlbum?.id.toString() ?? '');
+          await UserData.saveCustomList(list);
+          addedCount++;
+        } else if (!isSelected && hasAlbum) {
+          // Remove from list
+          list.albumIds.remove(unifiedAlbum?.id.toString());
+          await UserData.saveCustomList(list);
+          removedCount++;
+        }
+      }
+
+      if (mounted) {
+        String message = '';
+        if (addedCount > 0) message += 'Added to $addedCount lists. ';
+        if (removedCount > 0) message += 'Removed from $removedCount lists.';
+        if (message.isNotEmpty) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(message.trim())),
+          );
+        }
       }
     });
   }
@@ -1032,25 +1137,33 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         opaque: false,
         pageBuilder: (_, __, ___) => AlertDialog(
           title: const Text('Create New List'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'List Name',
-                  hintText: 'e.g. Progressive Rock',
-                ),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+              maxWidth: MediaQuery.of(context).size.width * 0.85,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'List Name',
+                      hintText: 'e.g. Progressive Rock',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (optional)',
+                      hintText: 'e.g. My favorite prog rock albums',
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                  hintText: 'e.g. My favorite prog rock albums',
-                ),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(

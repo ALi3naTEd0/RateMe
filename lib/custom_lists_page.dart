@@ -73,11 +73,23 @@ class _CustomListsPageState extends State<CustomListsPage> {
 
   List<CustomList> lists = [];
   bool isLoading = true;
+  bool useDarkButtonText = false; // Add this field
 
   @override
   void initState() {
     super.initState();
     _loadLists();
+    _loadButtonPreference(); // Add this call
+  }
+
+  Future<void> _loadButtonPreference() async {
+    // Add this method
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        useDarkButtonText = prefs.getBool('useDarkButtonText') ?? false;
+      });
+    }
   }
 
   Future<void> _loadLists() async {
@@ -294,6 +306,8 @@ class _CustomListsPageState extends State<CustomListsPage> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: _createNewList,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: useDarkButtonText ? Colors.black : Colors.white,
           child: const Icon(Icons.add),
         ),
         body: Center(
@@ -801,7 +815,9 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      rating.toStringAsFixed(2),
+                                      rating == 10
+                                          ? '10.0'
+                                          : rating.toStringAsFixed(2),
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,

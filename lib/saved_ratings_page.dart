@@ -364,7 +364,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                                 ),
                                 child: Center(
                                   child: Text(
-                                    rating.toStringAsFixed(2),
+                                    rating == 10
+                                        ? '10.0'
+                                        : rating.toStringAsFixed(2),
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
