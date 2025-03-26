@@ -12,7 +12,7 @@ class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
 
   @override
-  _SavedRatingsPageState createState() => _SavedRatingsPageState();
+  State<SavedRatingsPage> createState() => _SavedRatingsPageState();
 }
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
@@ -377,144 +377,179 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    final horizontalPadding =
+        (MediaQuery.of(context).size.width - pageWidth) / 2;
 
     return Scaffold(
       key: scaffoldMessengerKey,
       appBar: AppBar(
-        title: const Text('Saved Ratings'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.settings),
-            onSelected: (value) async {
-              switch (value) {
-                case 'import':
-                  final success =
-                      await UserData.importData(); // Remove context parameter
-                  if (success && mounted) {
-                    setState(() => _loadAlbums());
-                  }
-                  break;
-                case 'export':
-                  await UserData.exportData(); // Remove context parameter
-                  break;
-                case 'share':
-                  _showShareDialog();
-                  break;
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'import',
-                child: Row(
-                  children: [
-                    Icon(Icons.file_download),
-                    SizedBox(width: 8),
-                    Text('Import Data'),
-                  ],
-                ),
+        centerTitle: false,
+        automaticallyImplyLeading: false, // Disable default back button
+        title: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                padding: EdgeInsets.zero, // Remove padding from icon button
+                visualDensity: VisualDensity.compact, // Make it more compact
+                onPressed: () => Navigator.of(context).pop(),
               ),
-              const PopupMenuItem<String>(
-                value: 'export',
-                child: Row(
-                  children: [
-                    Icon(Icons.file_upload),
-                    SizedBox(width: 8),
-                    Text('Export Data'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'share',
-                child: Row(
-                  children: [
-                    Icon(Icons.share),
-                    SizedBox(width: 8),
-                    Text('Share as Image'),
-                  ],
-                ),
-              ),
+              const SizedBox(width: 8),
+              const Text('Saved Ratings'),
             ],
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: horizontalPadding),
+            child: IconButton(
+              padding: EdgeInsets.zero, // Remove padding from icon button
+              visualDensity: VisualDensity.compact, // Make it more compact
+              icon: const Icon(Icons.settings),
+              onPressed: () => showMenu(
+                context: context,
+                position: const RelativeRect.fromLTRB(100, 100, 0, 0),
+                items: const [
+                  PopupMenuItem<String>(
+                    value: 'import',
+                    child: Row(
+                      children: [
+                        Icon(Icons.file_download),
+                        SizedBox(width: 8),
+                        Text('Import Data'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'export',
+                    child: Row(
+                      children: [
+                        Icon(Icons.file_upload),
+                        SizedBox(width: 8),
+                        Text('Export Data'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share),
+                        SizedBox(width: 8),
+                        Text('Share as Image'),
+                      ],
+                    ),
+                  ),
+                ],
+              ).then((value) async {
+                switch (value) {
+                  case 'import':
+                    final success =
+                        await UserData.importData(); // Remove context parameter
+                    if (success && mounted) {
+                      setState(() => _loadAlbums());
+                    }
+                    break;
+                  case 'export':
+                    await UserData.exportData(); // Remove context parameter
+                    break;
+                  case 'share':
+                    _showShareDialog();
+                    break;
+                }
+              }),
+            ),
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : albums.isEmpty
-              ? const Center(child: Text('No saved albums found'))
-              : ReorderableListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  itemCount: albums.length,
-                  onReorder: _onReorder,
-                  itemBuilder: (context, index) {
-                    // Null safety check
-                    final album = albums[index];
-                    if ((album['collectionId'] == null &&
-                        album['id'] == null)) {
-                      return ListTile(
-                        key: Key("error_$index"),
-                        title: const Text("Error: Invalid album data"),
-                      );
-                    }
+      body: Center(
+        // Add this Center widget
+        child: SizedBox(
+          // Add this SizedBox for width constraint
+          width: pageWidth,
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : albums.isEmpty
+                  ? const Center(child: Text('No saved albums found'))
+                  : ReorderableListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      itemCount: albums.length,
+                      onReorder: _onReorder,
+                      itemBuilder: (context, index) {
+                        // Null safety check
+                        final album = albums[index];
+                        if ((album['collectionId'] == null &&
+                            album['id'] == null)) {
+                          return ListTile(
+                            key: Key("error_$index"),
+                            title: const Text("Error: Invalid album data"),
+                          );
+                        }
 
-                    // Support both ID formats
-                    final albumId =
-                        (album['id'] ?? album['collectionId']).toString();
-                    final artistName = album['artist'] ??
-                        album['artistName'] ??
-                        'Unknown Artist';
-                    final albumName = album['name'] ??
-                        album['collectionName'] ??
-                        'Unknown Album';
-                    final artworkUrl =
-                        album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
-                    final rating = album['averageRating'] ?? 0.0;
+                        // Support both ID formats
+                        final albumId =
+                            (album['id'] ?? album['collectionId']).toString();
+                        final artistName = album['artist'] ??
+                            album['artistName'] ??
+                            'Unknown Artist';
+                        final albumName = album['name'] ??
+                            album['collectionName'] ??
+                            'Unknown Album';
+                        final artworkUrl =
+                            album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
+                        final rating = album['averageRating'] ?? 0.0;
 
-                    return ListTile(
-                      key: Key(albumId),
-                      leading: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: isDarkTheme
-                                      ? Colors.white
-                                      : Colors.black),
-                            ),
-                            child: Center(
-                              child: Text(
-                                rating.toStringAsFixed(2),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      isDarkTheme ? Colors.white : Colors.black,
+                        return ListTile(
+                          key: Key(albumId),
+                          leading: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                      color: isDarkTheme
+                                          ? Colors.white
+                                          : Colors.black),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    rating.toStringAsFixed(2),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDarkTheme
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Image.network(
+                                artworkUrl,
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.album),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Image.network(
-                            artworkUrl,
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.album),
-                          ),
-                        ],
-                      ),
-                      title: Text(albumName),
-                      subtitle: Text(artistName),
-                      trailing: _buildAlbumActions(index),
-                      onTap: () => _openSavedAlbumDetails(index),
-                    );
-                  },
-                ),
+                          title: Text(albumName),
+                          subtitle: Text(artistName),
+                          trailing: _buildAlbumActions(index),
+                          onTap: () => _openSavedAlbumDetails(index),
+                        );
+                      },
+                    ),
+        ),
+      ),
     );
   }
 }

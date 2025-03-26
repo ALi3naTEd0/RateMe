@@ -125,10 +125,7 @@ class _MyAppState extends State<MyApp> {
         final text = clipboardData?.text;
 
         if (text != null && text.isNotEmpty && searchController.text.isEmpty) {
-          // Log the clipboard content for debugging
-          Logging.severe('Clipboard content detected: $text');
-
-          // Improve URL detection with more comprehensive checks
+          // Check if the text contains music URLs before logging
           final lowerText = text.toLowerCase();
           final bool isAppleMusic = lowerText.contains('music.apple.com') ||
               lowerText.contains('itunes.apple.com') ||
@@ -142,13 +139,15 @@ class _MyAppState extends State<MyApp> {
           final bool isSpotify = lowerText.contains('spotify.com') ||
               lowerText.contains('open.spotify');
 
+          // Only log and process if it's a music URL
           if (isAppleMusic || isBandcamp || isSpotify) {
             String platform = 'unknown';
             if (isAppleMusic) platform = 'Apple Music';
             if (isBandcamp) platform = 'Bandcamp';
             if (isSpotify) platform = 'Spotify';
 
-            Logging.severe('Music URL detected: $platform');
+            // Only log the music URL detection, not the full content
+            Logging.severe('$platform URL detected in clipboard');
 
             setState(() {
               searchController.text = text;
@@ -425,10 +424,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         final text = clipboardData?.text;
 
         if (text != null && text.isNotEmpty && searchController.text.isEmpty) {
-          // Log the clipboard content for debugging
-          Logging.severe('Clipboard content detected: $text');
-
-          // Improve URL detection with more comprehensive checks
+          // Check if the text contains music URLs before logging
           final lowerText = text.toLowerCase();
           final bool isAppleMusic = lowerText.contains('music.apple.com') ||
               lowerText.contains('itunes.apple.com') ||
@@ -442,13 +438,15 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           final bool isSpotify = lowerText.contains('spotify.com') ||
               lowerText.contains('open.spotify');
 
+          // Only log and process if it's a music URL
           if (isAppleMusic || isBandcamp || isSpotify) {
             String platform = 'unknown';
             if (isAppleMusic) platform = 'Apple Music';
             if (isBandcamp) platform = 'Bandcamp';
             if (isSpotify) platform = 'Spotify';
 
-            Logging.severe('Music URL detected: $platform');
+            // Only log the music URL detection, not the full content
+            Logging.severe('$platform URL detected in clipboard');
 
             setState(() {
               searchController.text = text;
@@ -595,8 +593,12 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate the search bar width - we'll use this for consistency
+    // Use the exact same calculations as in MyApp for consistency
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
+    final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
+
+    // Add the same icon adjustment for consistency
+    const iconAdjustment = 8.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -608,13 +610,10 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
         ),
         centerTitle: true,
-        // Adjust leading width to align with search bar
-        leadingWidth:
-            (MediaQuery.of(context).size.width - searchWidth) / 2 + 120,
+        // Use the same padding calculations as MyApp
+        leadingWidth: sideOffset + 120 - iconAdjustment,
         leading: Padding(
-          padding: EdgeInsets.only(
-            left: (MediaQuery.of(context).size.width - searchWidth) / 2 - 20,
-          ),
+          padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
@@ -678,11 +677,9 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
         ),
         actions: [
-          // Add right padding to align with search bar
+          // Use the same padding calculation as MyApp
           Padding(
-            padding: EdgeInsets.only(
-              right: (MediaQuery.of(context).size.width - searchWidth) / 2 - 20,
-            ),
+            padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
             child: IconButton(
               icon: const Icon(Icons.settings),
               tooltip: 'Settings',
@@ -741,23 +738,28 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                 ? const Center(child: CircularProgressIndicator())
                 : searchResults.isEmpty
                     ? Center(child: Container()) // Empty state
-                    : ListView.builder(
-                        itemCount: searchResults.length,
-                        itemBuilder: (context, index) {
-                          final album = searchResults[index];
-                          return PlatformUI.buildAlbumCard(
-                            album: album,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DetailsPage(album: album),
-                                ),
+                    : Center(
+                        child: SizedBox(
+                          width: searchWidth, // Ensure consistent width
+                          child: ListView.builder(
+                            itemCount: searchResults.length,
+                            itemBuilder: (context, index) {
+                              final album = searchResults[index];
+                              return PlatformUI.buildAlbumCard(
+                                album: album,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          DetailsPage(album: album),
+                                    ),
+                                  );
+                                },
                               );
                             },
-                          );
-                        },
+                          ),
+                        ),
                       ),
           ),
           const AppVersionFooter(),

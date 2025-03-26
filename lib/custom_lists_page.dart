@@ -263,6 +263,10 @@ class _CustomListsPageState extends State<CustomListsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    final horizontalPadding =
+        (MediaQuery.of(context).size.width - pageWidth) / 2;
+
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
@@ -270,72 +274,92 @@ class _CustomListsPageState extends State<CustomListsPage> {
       theme: Theme.of(context),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Custom Lists'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          title: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 8),
+                const Text('Custom Lists'),
+              ],
+            ),
           ),
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: _createNewList,
           child: const Icon(Icons.add),
         ),
-        body: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : lists.isEmpty
-                ? const Center(child: Text('No custom lists yet'))
-                : ReorderableListView.builder(
-                    onReorder: (oldIndex, newIndex) async {
-                      if (newIndex > oldIndex) newIndex--;
+        body: Center(
+          child: SizedBox(
+            width: pageWidth,
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : lists.isEmpty
+                    ? const Center(child: Text('No custom lists yet'))
+                    : ReorderableListView.builder(
+                        onReorder: (oldIndex, newIndex) async {
+                          if (newIndex > oldIndex) newIndex--;
 
-                      setState(() {
-                        final item = lists.removeAt(oldIndex);
-                        lists.insert(newIndex, item);
-                      });
+                          setState(() {
+                            final item = lists.removeAt(oldIndex);
+                            lists.insert(newIndex, item);
+                          });
 
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setStringList('custom_lists',
-                          lists.map((l) => jsonEncode(l.toJson())).toList());
-                    },
-                    itemCount: lists.length,
-                    itemBuilder: (context, index) {
-                      final list = lists[index];
-                      return ListTile(
-                        key: Key(list.id),
-                        leading: const Icon(Icons.playlist_play),
-                        title: Text(list.name),
-                        subtitle: Text(
-                          list.description.isEmpty
-                              ? '${list.albumIds.length} albums'
-                              : list.description,
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(list.albumIds.length.toString()),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _editList(list),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _deleteList(list),
-                            ),
-                            const Icon(Icons.drag_handle),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  CustomListDetailsPage(list: list),
-                            ),
-                          ).then((_) => _loadLists());
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setStringList(
+                              'custom_lists',
+                              lists
+                                  .map((l) => jsonEncode(l.toJson()))
+                                  .toList());
                         },
-                      );
-                    },
-                  ),
+                        itemCount: lists.length,
+                        itemBuilder: (context, index) {
+                          final list = lists[index];
+                          return ListTile(
+                            key: Key(list.id),
+                            leading: const Icon(Icons.playlist_play),
+                            title: Text(list.name),
+                            subtitle: Text(
+                              list.description.isEmpty
+                                  ? '${list.albumIds.length} albums'
+                                  : list.description,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(list.albumIds.length.toString()),
+                                IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () => _editList(list),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  onPressed: () => _deleteList(list),
+                                ),
+                                const Icon(Icons.drag_handle),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      CustomListDetailsPage(list: list),
+                                ),
+                              ).then((_) => _loadLists());
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ),
       ),
     );
   }
@@ -616,6 +640,10 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    final horizontalPadding =
+        (MediaQuery.of(context).size.width - pageWidth) / 2;
+
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
@@ -623,168 +651,196 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
       theme: Theme.of(context),
       home: Scaffold(
         appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.list.name),
-              if (widget.list.description.isNotEmpty)
-                Text(
-                  widget.list.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
-                  ),
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          title: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-            ],
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          actions: [
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.settings),
-              onSelected: (value) async {
-                switch (value) {
-                  case 'import':
-                    final success = await UserData.importData();
-                    if (success && mounted) {
-                      setState(() => _loadAlbums());
-                    }
-                    break;
-                  case 'export':
-                    await UserData.exportData();
-                    break;
-                  case 'share':
-                    _showShareDialog();
-                    break;
-                }
-              },
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem<String>(
-                  value: 'import',
-                  child: Row(
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.file_download),
-                      SizedBox(width: 8),
-                      Text('Import Data'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'export',
-                  child: Row(
-                    children: [
-                      Icon(Icons.file_upload),
-                      SizedBox(width: 8),
-                      Text('Export Data'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'share',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share),
-                      SizedBox(width: 8),
-                      Text('Share as Image'),
+                      Text(widget.list.name),
+                      if (widget.list.description.isNotEmpty)
+                        Text(
+                          widget.list.description,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ],
             ),
+          ),
+          actions: [
+            Padding(
+              padding: EdgeInsets.only(right: horizontalPadding),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.settings),
+                onPressed: () => showMenu(
+                  context: context,
+                  position: const RelativeRect.fromLTRB(100, 100, 0, 0),
+                  items: [
+                    const PopupMenuItem<String>(
+                      value: 'import',
+                      child: Row(
+                        children: [
+                          Icon(Icons.file_download),
+                          SizedBox(width: 8),
+                          Text('Import Data'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'export',
+                      child: Row(
+                        children: [
+                          Icon(Icons.file_upload),
+                          SizedBox(width: 8),
+                          Text('Export Data'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'share',
+                      child: Row(
+                        children: [
+                          Icon(Icons.share),
+                          SizedBox(width: 8),
+                          Text('Share as Image'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ).then((value) async {
+                  switch (value) {
+                    case 'import':
+                      final success = await UserData.importData();
+                      if (success && mounted) {
+                        setState(() => _loadAlbums());
+                      }
+                      break;
+                    case 'export':
+                      await UserData.exportData();
+                      break;
+                    case 'share':
+                      _showShareDialog();
+                      break;
+                  }
+                }),
+              ),
+            ),
           ],
         ),
-        body: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : albums.isEmpty
-                ? const Center(child: Text('No albums in this list'))
-                : ReorderableListView.builder(
-                    onReorder: (oldIndex, newIndex) async {
-                      if (newIndex > oldIndex) newIndex--;
-                      setState(() {
-                        final album = albums.removeAt(oldIndex);
-                        albums.insert(newIndex, album);
-                        widget.list.albumIds.clear();
-                        widget.list.albumIds.addAll(
-                          albums.map((a) => a['collectionId'].toString()),
-                        );
-                      });
-                      await UserData.saveCustomList(widget.list);
-                    },
-                    itemCount: albums.length,
-                    itemBuilder: (context, index) {
-                      final album = albums[index];
-                      // Add null safety check for album attributes
-                      final artistName = album['artistName'] ??
-                          album['artist'] ??
-                          'Unknown Artist';
-                      final albumName = album['collectionName'] ??
-                          album['name'] ??
-                          'Unknown Album';
-                      final artworkUrl =
-                          album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
-                      final rating = album['averageRating'] ?? 0.0;
+        body: Center(
+          child: SizedBox(
+            width: pageWidth,
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : albums.isEmpty
+                    ? const Center(child: Text('No albums in this list'))
+                    : ReorderableListView.builder(
+                        onReorder: (oldIndex, newIndex) async {
+                          if (newIndex > oldIndex) newIndex--;
+                          setState(() {
+                            final album = albums.removeAt(oldIndex);
+                            albums.insert(newIndex, album);
+                            widget.list.albumIds.clear();
+                            widget.list.albumIds.addAll(
+                              albums.map((a) => a['collectionId'].toString()),
+                            );
+                          });
+                          await UserData.saveCustomList(widget.list);
+                        },
+                        itemCount: albums.length,
+                        itemBuilder: (context, index) {
+                          final album = albums[index];
+                          // Add null safety check for album attributes
+                          final artistName = album['artistName'] ??
+                              album['artist'] ??
+                              'Unknown Artist';
+                          final albumName = album['collectionName'] ??
+                              album['name'] ??
+                              'Unknown Album';
+                          final artworkUrl = album['artworkUrl100'] ??
+                              album['artworkUrl'] ??
+                              '';
+                          final rating = album['averageRating'] ?? 0.0;
 
-                      return ListTile(
-                        key: ValueKey(album['collectionId'] ??
-                            album['id'] ??
-                            index.toString()),
-                        leading: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                    color: isDarkTheme
-                                        ? Colors.white
-                                        : Colors.black),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  rating.toStringAsFixed(2),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDarkTheme
-                                        ? Colors.white
-                                        : Colors.black,
+                          return ListTile(
+                            key: ValueKey(album['collectionId'] ??
+                                album['id'] ??
+                                index.toString()),
+                            leading: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: isDarkTheme
+                                            ? Colors.white
+                                            : Colors.black),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      rating.toStringAsFixed(2),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDarkTheme
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Image.network(
+                                  artworkUrl,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(Icons.album),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Image.network(
-                              artworkUrl,
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.album),
+                            title: Text(albumName),
+                            subtitle: Text(artistName),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  onPressed: () => _removeAlbum(index),
+                                ),
+                                const Icon(Icons.drag_handle),
+                              ],
                             ),
-                          ],
-                        ),
-                        title: Text(albumName),
-                        subtitle: Text(artistName),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: () => _removeAlbum(index),
-                            ),
-                            const Icon(Icons.drag_handle),
-                          ],
-                        ),
-                        onTap: () => _openAlbumDetails(index),
-                      );
-                    },
-                  ),
+                            onTap: () => _openAlbumDetails(index),
+                          );
+                        },
+                      ),
+          ),
+        ),
       ),
     );
   }

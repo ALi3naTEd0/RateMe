@@ -640,8 +640,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              data: Theme.of(context)
-                  .sliderTheme, // Replace getSliderTheme with direct theme access
+              data: const SliderThemeData(
+                showValueIndicator: ShowValueIndicator.always,
+              ),
               child: Slider(
                 min: 0,
                 max: 10,
@@ -656,7 +657,10 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
             width: 25,
             child: Text(
               (ratings[trackIdStr] ?? 0).toStringAsFixed(0),
-              style: const TextStyle(fontSize: 16),
+              // Explicitly define the const value in another way:
+              style: const TextStyle(
+                fontSize: 16,
+              ),
               textAlign: TextAlign.end,
             ),
           ),
@@ -667,147 +671,180 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Add these lines to calculate page width
+    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    final horizontalPadding =
+        (MediaQuery.of(context).size.width - pageWidth) / 2;
+
     return MaterialApp(
-      // Add this wrapper
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
-      theme: Theme.of(context),
       debugShowCheckedModeBanner: false,
+      theme: Theme.of(context),
       home: Scaffold(
         appBar: AppBar(
-          title: Text(widget.album['collectionName'] ?? 'Unknown Album'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          title: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.album['collectionName'] ?? 'Unknown Album',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Album Info Section
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Image.network(
-                            widget.album['artworkUrl100']
-                                    ?.replaceAll('100x100', '600x600') ??
-                                '',
-                            width: 300,
-                            height: 300,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.album, size: 300),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildInfoRow("Artist",
-                              unifiedAlbum?.artistName ?? 'Unknown Artist'),
-                          _buildInfoRow(
-                              "Album", unifiedAlbum?.name ?? 'Unknown Album'),
-                          _buildInfoRow("Release Date", _formatReleaseDate()),
-                          _buildInfoRow(
-                              "Duration", formatDuration(albumDurationMillis)),
-                          const SizedBox(height: 8),
-                          _buildInfoRow(
-                              "Rating", averageRating.toStringAsFixed(2),
-                              fontSize: 20),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
+                child: Center(
+                  // Wrap with Center
+                  child: SizedBox(
+                    // Add SizedBox to constrain width
+                    width: pageWidth,
+                    child: Column(
+                      children: [
+                        // Album Info Section
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
                             children: [
-                              ElevatedButton(
-                                onPressed: _showAddToListDialog,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  minimumSize: const Size(150, 45),
-                                ),
-                                child: const Text('Manage Lists',
-                                    style: TextStyle(color: Colors.white)),
+                              Image.network(
+                                widget.album['artworkUrl100']
+                                        ?.replaceAll('100x100', '600x600') ??
+                                    '',
+                                width: 300,
+                                height: 300,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.album, size: 300),
                               ),
-                              const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.settings,
-                                    color: Colors.white),
-                                label: const Text('Options',
-                                    style: TextStyle(color: Colors.white)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  minimumSize: const Size(150, 45),
-                                ),
-                                onPressed: () => _showOptionsDialog(),
+                              const SizedBox(height: 16),
+                              _buildInfoRow("Artist",
+                                  unifiedAlbum?.artistName ?? 'Unknown Artist'),
+                              _buildInfoRow("Album",
+                                  unifiedAlbum?.name ?? 'Unknown Album'),
+                              _buildInfoRow(
+                                  "Release Date", _formatReleaseDate()),
+                              _buildInfoRow("Duration",
+                                  formatDuration(albumDurationMillis)),
+                              const SizedBox(height: 8),
+                              _buildInfoRow(
+                                  "Rating", averageRating.toStringAsFixed(2),
+                                  fontSize: 20),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: _showAddToListDialog,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.primary,
+                                      minimumSize: const Size(150, 45),
+                                    ),
+                                    child: const Text('Manage Lists',
+                                        style: TextStyle(color: Colors.white)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.settings,
+                                        color: Colors.white),
+                                    label: const Text('Options',
+                                        style: TextStyle(color: Colors.white)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.primary,
+                                      minimumSize: const Size(150, 45),
+                                    ),
+                                    onPressed: () => _showOptionsDialog(),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const Divider(),
-                    // Track List with Ratings
-                    DataTable(
-                      columnSpacing: 12,
-                      columns: [
-                        const DataColumn(
-                            label: SizedBox(
-                                width: 35, child: Center(child: Text('#')))),
-                        DataColumn(
-                          label: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width *
-                                  _calculateTitleWidth(),
-                            ),
-                            child: const Text('Title'),
-                          ),
                         ),
-                        const DataColumn(
-                            label: SizedBox(
-                                width: 65,
-                                child: Center(child: Text('Length')))),
-                        const DataColumn(
-                            label: SizedBox(
-                                width: 160,
-                                child: Center(child: Text('Rating')))),
-                      ],
-                      rows: tracks.map((track) {
-                        final trackId = track.id;
-                        return DataRow(
-                          cells: [
-                            DataCell(Text(track.position.toString())),
-                            DataCell(
-                              ConstrainedBox(
+                        const Divider(),
+                        // Track List with Ratings
+                        DataTable(
+                          columnSpacing: 12,
+                          columns: [
+                            const DataColumn(
+                                label: SizedBox(
+                                    width: 35,
+                                    child: Center(child: Text('#')))),
+                            DataColumn(
+                              label: ConstrainedBox(
                                 constraints: BoxConstraints(
                                   maxWidth: MediaQuery.of(context).size.width *
                                       _calculateTitleWidth(),
                                 ),
-                                child: Text(
-                                  track.name,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: const Text('Title'),
                               ),
                             ),
-                            DataCell(Text(formatDuration(track.durationMs))),
-                            DataCell(_buildTrackSlider(trackId)),
+                            const DataColumn(
+                                label: SizedBox(
+                                    width: 65,
+                                    child: Center(child: Text('Length')))),
+                            const DataColumn(
+                                label: SizedBox(
+                                    width: 160,
+                                    child: Center(child: Text('Rating')))),
                           ],
-                        );
-                      }).toList(),
+                          rows: tracks.map((track) {
+                            final trackId = track.id;
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(track.position.toString())),
+                                DataCell(
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                              _calculateTitleWidth(),
+                                    ),
+                                    child: Text(
+                                      track.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                    Text(formatDuration(track.durationMs))),
+                                DataCell(_buildTrackSlider(trackId)),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _launchRateYourMusic,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                          ),
+                          child: const Text(
+                            'Rate on RateYourMusic',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _launchRateYourMusic,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                      ),
-                      child: const Text(
-                        'Rate on RateYourMusic',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
+                  ),
                 ),
               ),
       ),
