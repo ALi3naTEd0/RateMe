@@ -1,84 +1,79 @@
-# Performance Improvements
+# Core Functionality
 
-## Network Optimizations
-- [ ] Add image caching for album artwork
-- [ ] Implement network request timeouts for API calls
-- [ ] Cache API responses for frequently accessed data
-- [ ] Add retry logic for failed network requests
-- [ ] Implement progressive image loading (low-res first)
-
-## Data Processing
-- [ ] Cache calculated album ratings instead of recalculating every time
-- [ ] Implement lazy loading for track lists
-- [ ] Batch process JSON parsing operations
-- [ ] Add indexing for faster album lookups
-- [ ] Cache model conversions (legacy to unified format)
-
-## UI Optimizations
-- [ ] Remove nested MaterialApp instances
-- [ ] Optimize widget rebuilds using const constructors where possible
-- [ ] Implement pagination for long lists
-- [ ] Add loading placeholders for images
-- [ ] Consider using ListView.builder for long lists
-
-## Memory Management
-- [ ] Clear image caches when app is in background
-- [ ] Implement proper disposal of heavy resources
-- [ ] Add memory usage monitoring
-- [ ] Optimize large data structures
-
-## Authentication & Services
-- [ ] Implement proper Spotify OAuth2 authentication flow
-- [ ] Add Apple Music authentication using MusicKit
-- [ ] Integrate Last.fm API authentication
-- [ ] Add Deezer authentication flow
-- [ ] Implement token refresh mechanism
-- [ ] Add secure token storage
-- [ ] Add token expiration handling
-- [ ] Implement service connection status persistence
-
-## Local Music Support
-- [ ] Implement local music folder scanning
-- [ ] Add metadata extraction from audio files
-  - [ ] ID3 tags support
-  - [ ] FLAC metadata support
-  - [ ] M4A metadata support
-- [ ] Generate thumbnails for local albums
-- [ ] Handle various audio formats (MP3, FLAC, M4A, OGG)
-- [ ] Add watch service for folder changes
-- [ ] Handle album art extraction from files
-- [ ] Implement local music indexing
-- [ ] Add support for nested folder structures
+## Database & Storage
+- [ ] Implement SQLite database with drift/moor
+- [ ] Create base models for albums, tracks, ratings, lists
+- [ ] Add indices for common lookups (albumId, platform)
+- [ ] Setup proper database migration system
+- [ ] Add backup/restore functionality
+- [ ] Implement data consistency checks
+- [ ] Add database vacuum mechanism
+- [ ] Setup data validation and cleanup
 
 ## Caching System
-- [ ] Implement disk cache for album artwork
-  - [ ] Add size limits
-  - [ ] Add cache cleanup mechanism
-  - [ ] Add cache prioritization
-- [ ] Add memory cache for frequently accessed data
-- [ ] Implement API response caching
+- [ ] Setup disk cache for images and API responses
+  - [ ] Add configurable size limits
+  - [ ] Implement LRU cache eviction
+  - [ ] Add background cleanup job
+- [ ] Implement memory cache for frequent data
 - [ ] Add offline mode support
-- [ ] Cache audio file metadata
-- [ ] Implement playlist caching
-- [ ] Add cache invalidation strategies
-- [ ] Implement background cache warming
+- [ ] Setup cache warming strategy
+- [ ] Add cache invalidation rules
 
-## Database Optimizations
-- [ ] Add SQLite database for better performance
-- [ ] Implement proper database migrations
-- [ ] Add indices for common queries
-- [ ] Implement bulk operations
-- [ ] Add database vacuum mechanism
-- [ ] Implement database backup system
-- [ ] Add data consistency checks
-- [ ] Implement proper error recovery
+## Platform Integration
+- [ ] Apple Music authentication and API integration
+- [ ] Spotify OAuth2 implementation
+- [ ] Last.fm API integration with scrobbling
+- [ ] Deezer API connection
+- [ ] Token management system
+  - [ ] Secure storage
+  - [ ] Auto refresh
+  - [ ] Status tracking
+- [ ] Local files support
+  - [ ] Folder scanning
+  - [ ] Metadata extraction (ID3, FLAC, M4A)
+  - [ ] Album art handling
+  - [ ] Background indexing
+
+## Performance
+- [ ] Image loading optimization
+  - [ ] Progressive loading
+  - [ ] Proper caching
+  - [ ] Size optimization
+- [ ] Network request handling
+  - [ ] Timeouts
+  - [ ] Retry logic
+  - [ ] Rate limiting
+- [ ] Batch operations for database
+- [ ] Memory management
+  - [ ] Resource disposal
+  - [ ] Cache clearing
+  - [ ] Memory monitoring
+
+## UI/UX
+- [ ] Fix MaterialApp nesting
+- [ ] Optimize widget rebuilds
+- [ ] Add pagination for lists
+- [ ] Implement loading placeholders
+- [ ] Use ListView.builder consistently
+- [ ] Add pull-to-refresh
+- [ ] Improve error states
+- [ ] Add proper loading states
 
 ## Background Tasks
-- [ ] Add WorkManager for Android
-- [ ] Implement background scan for new music
-- [ ] Add periodic cache cleanup
-- [ ] Implement background metadata updates
-- [ ] Add notification system for long-running tasks
-- [ ] Handle background audio playback properly
-- [ ] Implement background data sync
-- [ ] Add battery optimization considerations
+- [ ] Setup WorkManager for Android
+- [ ] Implement periodic tasks
+  - [ ] Cache cleanup
+  - [ ] Library scanning
+  - [ ] Metadata updates
+- [ ] Add notification system
+- [ ] Handle background playback
+- [ ] Implement battery optimizations
+
+## Testing & Quality
+- [ ] Add unit tests for core functionality
+- [ ] Implement integration tests
+- [ ] Add UI tests for critical flows
+- [ ] Setup CI/CD pipeline
+- [ ] Add error reporting
+- [ ] Implement crash analytics
