@@ -7,6 +7,7 @@ import 'saved_album_page.dart';
 import 'share_widget.dart';
 import 'album_model.dart';
 import 'logging.dart';
+import 'widgets/skeleton_loading.dart'; // Add this import
 
 // Model for custom album lists
 class CustomList {
@@ -73,8 +74,14 @@ class _CustomListsPageState extends State<CustomListsPage> {
       GlobalKey<NavigatorState>();
 
   List<CustomList> lists = [];
+  List<CustomList> displayedLists = []; // For pagination
   bool isLoading = true;
   bool useDarkButtonText = false;
+
+  // Pagination variables
+  int itemsPerPage = 20; // Changed from 15 to 20 to match SavedRatingsPage
+  int currentPage = 0;
+  int totalPages = 0;
 
   @override
   void initState() {
@@ -102,6 +109,40 @@ class _CustomListsPageState extends State<CustomListsPage> {
           list.cleanupAlbumIds();
         }
         isLoading = false;
+
+        // Calculate pagination
+        totalPages = (lists.length / itemsPerPage).ceil();
+        _updateDisplayedLists();
+      });
+    }
+  }
+
+  void _updateDisplayedLists() {
+    final startIndex = currentPage * itemsPerPage;
+    final endIndex = (currentPage + 1) * itemsPerPage;
+
+    setState(() {
+      displayedLists = lists.sublist(
+        startIndex,
+        endIndex > lists.length ? lists.length : endIndex,
+      );
+    });
+  }
+
+  void _nextPage() {
+    if (currentPage < totalPages - 1) {
+      setState(() {
+        currentPage++;
+        _updateDisplayedLists();
+      });
+    }
+  }
+
+  void _previousPage() {
+    if (currentPage > 0) {
+      setState(() {
+        currentPage--;
+        _updateDisplayedLists();
       });
     }
   }
@@ -333,28 +374,81 @@ class _CustomListsPageState extends State<CustomListsPage> {
           child: SizedBox(
             width: pageWidth,
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 8, // Show 8 placeholder items
+                          itemBuilder: (context, index) =>
+                              const ListCardSkeleton(),
+                        ),
+                      ),
+                    ],
+                  )
                 : lists.isEmpty
                     ? const Center(child: Text('No custom lists yet'))
-                    : ReorderableListView.builder(
-                        onReorder: (oldIndex, newIndex) async {
-                          if (newIndex > oldIndex) newIndex--;
-                          setState(() {
-                            final item = lists.removeAt(oldIndex);
-                            lists.insert(newIndex, item);
-                          });
-                          final prefs = await SharedPreferences.getInstance();
-                          await prefs.setStringList(
-                              'custom_lists',
-                              lists
-                                  .map((l) => jsonEncode(l.toJson()))
-                                  .toList());
-                        },
-                        itemCount: lists.length,
-                        itemBuilder: (context, index) {
-                          final list = lists[index];
-                          return _buildCompactListCard(list, index);
-                        },
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: ReorderableListView.builder(
+                              onReorder: (oldIndex, newIndex) async {
+                                // Convert display indices to global indices
+                                final globalOldIndex =
+                                    currentPage * itemsPerPage + oldIndex;
+                                final globalNewIndex =
+                                    currentPage * itemsPerPage +
+                                        (newIndex > oldIndex
+                                            ? newIndex - 1
+                                            : newIndex);
+
+                                setState(() {
+                                  final item = lists.removeAt(globalOldIndex);
+                                  lists.insert(globalNewIndex, item);
+
+                                  _updateDisplayedLists();
+                                });
+
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.setStringList(
+                                    'custom_lists',
+                                    lists
+                                        .map((l) => jsonEncode(l.toJson()))
+                                        .toList());
+                              },
+                              itemCount: displayedLists.length,
+                              itemBuilder: (context, index) {
+                                final list = displayedLists[index];
+                                return _buildCompactListCard(list, index);
+                              },
+                            ),
+                          ),
+                          // Pagination controls
+                          if (totalPages > 1)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back),
+                                    onPressed:
+                                        currentPage > 0 ? _previousPage : null,
+                                    tooltip: 'Previous page',
+                                  ),
+                                  Text('${currentPage + 1} / $totalPages'),
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_forward),
+                                    onPressed: currentPage < totalPages - 1
+                                        ? _nextPage
+                                        : null,
+                                    tooltip: 'Next page',
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
           ),
         ),

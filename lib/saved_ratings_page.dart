@@ -3,6 +3,20 @@ import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'logging.dart';
+import 'widgets/skeleton_loading.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Define the enum outside the class to make it accessible everywhere
+enum SortOrder {
+  custom,
+  nameAsc,
+  nameDesc,
+  artistAsc,
+  artistDesc,
+  ratingDesc,
+  ratingAsc,
+  dateAdded
+}
 
 class SavedRatingsPage extends StatefulWidget {
   const SavedRatingsPage({super.key});
@@ -13,13 +27,42 @@ class SavedRatingsPage extends StatefulWidget {
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
   List<Map<String, dynamic>> albums = [];
+  List<Map<String, dynamic>> displayedAlbums = []; // For pagination
   List<String> albumOrder = [];
   bool isLoading = true;
+
+  // Pagination variables
+  int itemsPerPage = 20;
+  int currentPage = 0;
+  int totalPages = 0;
+
+  // Add sorting options - using the enum defined outside the class
+  SortOrder currentSortOrder = SortOrder.custom;
 
   @override
   void initState() {
     super.initState();
+    _loadSortPreference();
     _loadAlbums();
+  }
+
+  Future<void> _loadSortPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSortIndex = prefs.getInt('album_sort_order');
+
+      if (savedSortIndex != null &&
+          savedSortIndex >= 0 &&
+          savedSortIndex < SortOrder.values.length) {
+        setState(() {
+          currentSortOrder = SortOrder.values[savedSortIndex];
+          Logging.severe(
+              'Loaded saved sort order: $currentSortOrder ($savedSortIndex)');
+        });
+      }
+    } catch (e) {
+      Logging.severe('Error loading sort preference: $e');
+    }
   }
 
   Future<void> _loadAlbums() async {
@@ -144,6 +187,12 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           albums = orderedAlbums;
           albumOrder = order;
           isLoading = false;
+
+          // Calculate pagination
+          totalPages = (albums.length / itemsPerPage).ceil();
+
+          // Apply the current sort
+          _applySorting();
         });
       }
     } catch (e, stack) {
@@ -155,6 +204,232 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         });
       }
     }
+  }
+
+  // Add method to sort albums based on the current sort order
+  void _applySorting() {
+    switch (currentSortOrder) {
+      case SortOrder.custom:
+        // Use the existing albumOrder
+        break;
+
+      case SortOrder.nameAsc:
+        albums.sort((a, b) {
+          final nameA = a['name'] ?? a['collectionName'] ?? '';
+          final nameB = b['name'] ?? b['collectionName'] ?? '';
+          return nameA.toLowerCase().compareTo(nameB.toLowerCase());
+        });
+        break;
+
+      case SortOrder.nameDesc:
+        albums.sort((a, b) {
+          final nameA = a['name'] ?? a['collectionName'] ?? '';
+          final nameB = b['name'] ?? b['collectionName'] ?? '';
+          return nameB.toLowerCase().compareTo(nameA.toLowerCase());
+        });
+        break;
+
+      case SortOrder.artistAsc:
+        albums.sort((a, b) {
+          final artistA = a['artist'] ?? a['artistName'] ?? '';
+          final artistB = b['artist'] ?? b['artistName'] ?? '';
+          return artistA.toLowerCase().compareTo(artistB.toLowerCase());
+        });
+        break;
+
+      case SortOrder.artistDesc:
+        albums.sort((a, b) {
+          final artistA = a['artist'] ?? a['artistName'] ?? '';
+          final artistB = b['artist'] ?? b['artistName'] ?? '';
+          return artistB.toLowerCase().compareTo(artistA.toLowerCase());
+        });
+        break;
+
+      case SortOrder.ratingDesc:
+        albums.sort((a, b) {
+          final ratingA = a['averageRating'] ?? 0.0;
+          final ratingB = b['averageRating'] ?? 0.0;
+          return ratingB.compareTo(ratingA);
+        });
+        break;
+
+      case SortOrder.ratingAsc:
+        albums.sort((a, b) {
+          final ratingA = a['averageRating'] ?? 0.0;
+          final ratingB = b['averageRating'] ?? 0.0;
+          return ratingA.compareTo(ratingB);
+        });
+        break;
+
+      case SortOrder.dateAdded:
+        // If we have a saved timestamp use it, otherwise keep the existing order
+        if (albums.isNotEmpty && albums[0].containsKey('savedTimestamp')) {
+          albums.sort((a, b) {
+            final timeA = a['savedTimestamp'] ?? 0;
+            final timeB = b['savedTimestamp'] ?? 0;
+            return timeB.compareTo(timeA); // Newest first
+          });
+        }
+        break;
+    }
+
+    // Update the displayed albums
+    _updateDisplayedAlbums();
+
+    // If it's not custom order, update the album order for saving
+    if (currentSortOrder != SortOrder.custom) {
+      albumOrder = albums
+          .map(
+              (a) => a['id']?.toString() ?? a['collectionId']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+    }
+  }
+
+  void _updateDisplayedAlbums() {
+    final startIndex = currentPage * itemsPerPage;
+    final endIndex = (currentPage + 1) * itemsPerPage;
+
+    setState(() {
+      displayedAlbums = albums.sublist(
+        startIndex,
+        endIndex > albums.length ? albums.length : endIndex,
+      );
+    });
+  }
+
+  void _nextPage() {
+    if (currentPage < totalPages - 1) {
+      setState(() {
+        currentPage++;
+        _updateDisplayedAlbums();
+      });
+    }
+  }
+
+  void _previousPage() {
+    if (currentPage > 0) {
+      setState(() {
+        currentPage--;
+        _updateDisplayedAlbums();
+      });
+    }
+  }
+
+  void _showSortOptionsMenu(BuildContext context) {
+    showMenu<SortOrder>(
+      context: context,
+      position: const RelativeRect.fromLTRB(100, 50, 0, 0),
+      items: [
+        _buildPopupMenuItem(SortOrder.custom, 'Custom Order', Icons.sort),
+        _buildPopupMenuItem(
+            SortOrder.nameAsc, 'Name (A-Z)', Icons.arrow_upward),
+        _buildPopupMenuItem(
+            SortOrder.nameDesc, 'Name (Z-A)', Icons.arrow_downward),
+        _buildPopupMenuItem(SortOrder.artistAsc, 'Artist (A-Z)', Icons.person),
+        _buildPopupMenuItem(
+            SortOrder.artistDesc, 'Artist (Z-A)', Icons.person_outline),
+        _buildPopupMenuItem(
+            SortOrder.ratingDesc, 'Rating (High-Low)', Icons.star),
+        _buildPopupMenuItem(
+            SortOrder.ratingAsc, 'Rating (Low-High)', Icons.star_border),
+        _buildPopupMenuItem(
+            SortOrder.dateAdded, 'Recently Added', Icons.calendar_today),
+        const PopupMenuDivider(),
+        PopupMenuItem<SortOrder>(
+          value: null, // Special value to indicate reset
+          child: Row(
+            children: [
+              Icon(
+                Icons.restore,
+                size: 20,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Reset to Default Order',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ).then((sortOrder) async {
+      if (sortOrder == null) {
+        // Reset to default (custom order)
+        if (currentSortOrder != SortOrder.custom) {
+          setState(() {
+            currentSortOrder = SortOrder.custom;
+            _applySorting();
+          });
+
+          // Save the preference
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('album_sort_order', SortOrder.custom.index);
+
+          // Save the album order
+          await UserData.saveAlbumOrder(albumOrder);
+        }
+        return;
+      }
+
+      if (sortOrder != currentSortOrder) {
+        setState(() {
+          currentSortOrder = sortOrder;
+          _applySorting();
+        });
+
+        // Save the preference
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('album_sort_order', sortOrder.index);
+
+        // Save the new order if it's a custom order
+        if (sortOrder == SortOrder.custom) {
+          await UserData.saveAlbumOrder(albumOrder);
+        }
+      }
+    });
+  }
+
+  PopupMenuItem<SortOrder> _buildPopupMenuItem(
+      SortOrder value, String text, IconData icon) {
+    return PopupMenuItem<SortOrder>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: currentSortOrder == value
+                ? Theme.of(context).colorScheme.primary
+                : null,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontWeight: currentSortOrder == value
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              color: currentSortOrder == value
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+          ),
+          if (currentSortOrder == value)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Icon(
+                Icons.check,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -183,46 +458,133 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             ],
           ),
         ),
+        actions: [
+          // Add sort button with label showing current sort
+          Padding(
+            padding: EdgeInsets.only(right: horizontalPadding),
+            child: Row(
+              children: [
+                if (!isLoading && albums.isNotEmpty)
+                  Text(
+                    _getSortOrderLabel(),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.sort),
+                  tooltip: 'Sort Albums',
+                  onPressed: () => _showSortOptionsMenu(context),
+                ),
+              ],
+            ),
+          )
+        ],
       ),
       body: Center(
-        child: isLoading
-            ? const CircularProgressIndicator()
-            : albums.isEmpty
-                ? const Text('No saved albums')
-                : SizedBox(
-                    width: pageWidth,
-                    child: ReorderableListView.builder(
-                      itemCount: albums.length,
-                      onReorder: (oldIndex, newIndex) async {
-                        if (oldIndex < newIndex) {
-                          newIndex -= 1;
-                        }
-
-                        setState(() {
-                          final album = albums.removeAt(oldIndex);
-                          albums.insert(newIndex, album);
-
-                          // Update album order
-                          albumOrder = albums
-                              .map((a) =>
-                                  a['id']?.toString() ??
-                                  a['collectionId']?.toString() ??
-                                  '')
-                              .where((id) => id.isNotEmpty)
-                              .toList();
-                        });
-
-                        // Save the new order
-                        await UserData.saveAlbumOrder(albumOrder);
-                      },
-                      itemBuilder: (context, index) {
-                        final album = albums[index];
-                        return _buildCompactAlbumCard(album, index);
-                      },
+        child: SizedBox(
+          width: pageWidth,
+          child: isLoading
+              ? Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: 10, // Show 10 placeholder items
+                        itemBuilder: (context, index) =>
+                            const AlbumCardSkeleton(),
+                      ),
                     ),
-                  ),
+                  ],
+                )
+              : albums.isEmpty
+                  ? const Text('No saved albums')
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: ReorderableListView.builder(
+                            itemCount: displayedAlbums.length,
+                            onReorder: (oldIndex, newIndex) async {
+                              // Convert display indices to global indices
+                              final globalOldIndex =
+                                  currentPage * itemsPerPage + oldIndex;
+                              final globalNewIndex =
+                                  currentPage * itemsPerPage +
+                                      (newIndex > oldIndex
+                                          ? newIndex - 1
+                                          : newIndex);
+
+                              setState(() {
+                                final album = albums.removeAt(globalOldIndex);
+                                albums.insert(globalNewIndex, album);
+
+                                // Update album order
+                                albumOrder = albums
+                                    .map((a) =>
+                                        a['id']?.toString() ??
+                                        a['collectionId']?.toString() ??
+                                        '')
+                                    .where((id) => id.isNotEmpty)
+                                    .toList();
+
+                                _updateDisplayedAlbums();
+                              });
+
+                              await UserData.saveAlbumOrder(albumOrder);
+                            },
+                            itemBuilder: (context, index) {
+                              final album = displayedAlbums[index];
+                              return _buildCompactAlbumCard(album, index);
+                            },
+                          ),
+                        ),
+                        // Pagination controls
+                        if (totalPages > 1)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_back),
+                                  onPressed:
+                                      currentPage > 0 ? _previousPage : null,
+                                  tooltip: 'Previous page',
+                                ),
+                                Text('${currentPage + 1} / $totalPages'),
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_forward),
+                                  onPressed: currentPage < totalPages - 1
+                                      ? _nextPage
+                                      : null,
+                                  tooltip: 'Next page',
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+        ),
       ),
     );
+  }
+
+  String _getSortOrderLabel() {
+    switch (currentSortOrder) {
+      case SortOrder.custom:
+        return "Custom";
+      case SortOrder.nameAsc:
+        return "Name ↑";
+      case SortOrder.nameDesc:
+        return "Name ↓";
+      case SortOrder.artistAsc:
+        return "Artist ↑";
+      case SortOrder.artistDesc:
+        return "Artist ↓";
+      case SortOrder.ratingDesc:
+        return "Rating ↓";
+      case SortOrder.ratingAsc:
+        return "Rating ↑";
+      case SortOrder.dateAdded:
+        return "Recent";
+    }
   }
 
   Widget _buildCompactAlbumCard(Map<String, dynamic> album, int index) {
@@ -414,16 +776,37 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       try {
         final success = await UserData.deleteAlbum(album);
         if (success) {
+          // Immediately update UI
           setState(() {
-            albums.removeAt(index);
-            // Also update the album order
+            // First remove from displayed albums for immediate feedback
+            final displayedIndex = albums.indexOf(displayedAlbums[index]);
+            if (displayedIndex >= 0) {
+              albums.removeAt(displayedIndex);
+            } else {
+              // If we can't find in all albums, directly remove from displayed
+              displayedAlbums.removeAt(index);
+            }
+
+            // Update album order
             albumOrder = albums
                 .map((a) =>
                     a['id']?.toString() ?? a['collectionId']?.toString() ?? '')
                 .where((id) => id.isNotEmpty)
                 .toList();
-            UserData.saveAlbumOrder(albumOrder);
+
+            // Update pagination if needed
+            totalPages = (albums.length / itemsPerPage).ceil();
+            if (currentPage >= totalPages && currentPage > 0) {
+              currentPage = totalPages - 1;
+            }
+
+            // Update displayed albums
+            _updateDisplayedAlbums();
           });
+
+          // Save the album order
+          await UserData.saveAlbumOrder(albumOrder);
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Album deleted')),

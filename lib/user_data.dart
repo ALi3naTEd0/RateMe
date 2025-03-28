@@ -157,26 +157,173 @@ class UserData {
 
   // ALBUM METHODS
 
-  /// Save an album to the database
-  static Future<bool> addToSavedAlbums(Map<String, dynamic> albumData) async {
+  /// Add an album to the saved albums list
+  static Future<bool> addToSavedAlbums(Map<String, dynamic> album) async {
     try {
-      await initializeDatabase();
+      // Create a clean copy of the album data to avoid modifying the original
+      final Map<String, dynamic> albumToSave = Map<String, dynamic>.from(album);
+      Logging.severe(
+          'Preparing album for saving: ${albumToSave["collectionName"] ?? albumToSave["name"]}');
 
-      // Convert to Album model
-      Album album;
-      try {
-        album = Album.fromJson(albumData);
-      } catch (e) {
-        album = Album.fromLegacy(albumData);
+      // Add saved timestamp for sorting by date added
+      albumToSave['savedTimestamp'] = DateTime.now().millisecondsSinceEpoch;
+
+      // Ensure ID is consistently stored as a string
+      var albumId = albumToSave['id'] ?? albumToSave['collectionId'];
+      if (albumId == null) {
+        Logging.severe('Cannot save album: No ID found');
+        return false;
       }
 
-      // Save to database
-      await DatabaseHelper.instance.insertAlbum(album);
+      // Make sure albumId is a string
+      final albumIdStr = albumId.toString();
+      albumToSave['id'] = albumIdStr;
 
-      Logging.severe('Album saved to database: ${album.name}');
-      return true;
+      // Get database instance
+      final db = await getDatabaseInstance();
+
+      // First, get the table info to see what columns exist
+      final List<Map<String, dynamic>> tableInfo =
+          await db.rawQuery("PRAGMA table_info(albums)");
+      final List<String> existingColumns =
+          tableInfo.map((col) => col['name'].toString()).toList();
+
+      Logging.severe('Album table columns: $existingColumns');
+
+      // Create a map with only the columns that exist in the table
+      final Map<String, dynamic> compatibleData = {};
+
+      // Always include ID
+      compatibleData['id'] = albumIdStr;
+
+      // Map standard fields to their possible column names in the database
+      final fieldMappings = {
+        // Common mappings between our data model and database schema
+        'name': ['name', 'collection_name', 'collectionName'],
+        'artist': ['artist', 'artist_name', 'artistName'],
+        'artwork': [
+          'artwork_url',
+          'artworkUrl',
+          'artwork_url100',
+          'artworkUrl100'
+        ],
+        'platform': ['platform', 'source'],
+        'url': ['url', 'album_url', 'albumUrl'],
+        'savedTimestamp': ['saved_timestamp', 'savedTimestamp'],
+      };
+
+      // Process each field using the mappings
+      for (var field in fieldMappings.keys) {
+        final possibleColumns = fieldMappings[field]!;
+        final valueFields = [
+          ...possibleColumns
+        ]; // Fields to check in source data
+
+        // Find a value for this type of field
+        dynamic fieldValue;
+        for (var valueField in valueFields) {
+          if (albumToSave.containsKey(valueField) &&
+              albumToSave[valueField] != null) {
+            fieldValue = albumToSave[valueField];
+            break;
+          }
+        }
+
+        // If we found a value, add it to any matching column in the database
+        if (fieldValue != null) {
+          for (var column in possibleColumns) {
+            if (existingColumns.contains(column)) {
+              compatibleData[column] = fieldValue;
+            }
+          }
+        }
+      }
+
+      // Handle tracks separately - if the column exists and tracks are available
+      if (existingColumns.contains('tracks') &&
+          albumToSave.containsKey('tracks')) {
+        try {
+          // Convert tracks to a simple list if needed
+          if (albumToSave['tracks'] is List) {
+            compatibleData['tracks'] = jsonEncode(albumToSave['tracks']);
+          } else if (albumToSave['tracks'] is String) {
+            // Already a string, just copy it
+            compatibleData['tracks'] = albumToSave['tracks'];
+          }
+        } catch (e) {
+          Logging.severe('Error encoding tracks: $e');
+        }
+      }
+
+      // Add any raw columns that exist in both album and database schema
+      // This handles columns we didn't explicitly map above
+      for (var key in albumToSave.keys) {
+        if (existingColumns.contains(key) && !compatibleData.containsKey(key)) {
+          compatibleData[key] = albumToSave[key];
+        }
+      }
+
+      // Check if album already exists
+      final existingAlbums = await db.query(
+        'albums',
+        where: 'id = ?',
+        whereArgs: [albumIdStr],
+      );
+
+      Logging.severe(
+          'Saving album with compatible fields: ${compatibleData.keys.join(", ")}');
+
+      // Insert or update the album
+      try {
+        if (existingAlbums.isEmpty) {
+          await db.insert('albums', compatibleData);
+          Logging.severe('Inserted new album: $albumIdStr');
+        } else {
+          await db.update(
+            'albums',
+            compatibleData,
+            where: 'id = ?',
+            whereArgs: [albumIdStr],
+          );
+          Logging.severe('Updated existing album: $albumIdStr');
+        }
+        return true;
+      } catch (e, stack) {
+        Logging.severe(
+            'Database operation failed, attempting fallback:', e, stack);
+
+        // Fallback: use minimal required fields
+        try {
+          final minimalData = {
+            'id': albumIdStr,
+          };
+
+          // Add any fields that definitely exist in the database
+          for (var col in existingColumns) {
+            if (compatibleData.containsKey(col)) {
+              minimalData[col] = compatibleData[col];
+            }
+          }
+
+          if (existingAlbums.isEmpty) {
+            await db.insert('albums', minimalData);
+          } else {
+            await db.update(
+              'albums',
+              minimalData,
+              where: 'id = ?',
+              whereArgs: [albumIdStr],
+            );
+          }
+          Logging.severe('Album saved with minimal data: $albumIdStr');
+          return true;
+        } catch (e2, stack2) {
+          Logging.severe('Final fallback attempt failed:', e2, stack2);
+          return false;
+        }
+      }
     } catch (e, stack) {
-      Logging.severe('Error saving album to database', e, stack);
+      Logging.severe('Error saving album:', e, stack);
       return false;
     }
   }
@@ -223,20 +370,54 @@ class UserData {
     }
   }
 
-  /// Delete an album from database
+  /// Delete album and all associated data (ratings, list relationships)
   static Future<bool> deleteAlbum(Map<String, dynamic> album) async {
     try {
-      await initializeDatabase();
+      final db = await getDatabaseInstance();
 
+      // Get the album ID in a consistent format
       final albumId = album['id'] ?? album['collectionId'];
       if (albumId == null) {
         Logging.severe('Cannot delete album: No ID found');
         return false;
       }
 
-      await DatabaseHelper.instance.deleteAlbum(albumId.toString());
+      Logging.severe('Deleting album with ID: $albumId');
 
-      Logging.severe('Album deleted: $albumId');
+      // Use a transaction to ensure all operations succeed or fail together
+      await db.transaction((txn) async {
+        // Delete the album
+        int deleted = await txn.delete(
+          'albums',
+          where: 'id = ?',
+          whereArgs: [albumId],
+        );
+
+        // Delete any ratings associated with this album
+        int ratingsDeleted = await txn.delete(
+          'ratings',
+          where: 'album_id = ?',
+          whereArgs: [albumId],
+        );
+
+        // Delete list relationships
+        int relationshipsDeleted = await txn.delete(
+          'album_lists',
+          where: 'album_id = ?',
+          whereArgs: [albumId],
+        );
+
+        // Remove from album order
+        await txn.delete(
+          'album_order',
+          where: 'album_id = ?',
+          whereArgs: [albumId],
+        );
+
+        Logging.severe(
+            'Deleted: $deleted album, $ratingsDeleted ratings, $relationshipsDeleted list relationships');
+      });
+
       return true;
     } catch (e, stack) {
       Logging.severe('Error deleting album', e, stack);
@@ -286,16 +467,44 @@ class UserData {
   static Future<bool> saveRating(
       dynamic albumId, dynamic trackId, double rating) async {
     try {
-      await initializeDatabase();
+      final db = await getDatabaseInstance();
 
-      // Ensure consistent string IDs
+      // Always convert IDs to strings for consistency
       final albumIdStr = albumId.toString();
       final trackIdStr = trackId.toString();
 
-      await DatabaseHelper.instance.saveRating(albumIdStr, trackIdStr, rating);
-
       Logging.severe(
-          'Rating saved: Album $albumIdStr, Track $trackIdStr, Rating $rating');
+          'Saving rating for album: $albumIdStr, track: $trackIdStr, rating: $rating');
+
+      // First check if this rating already exists
+      final List<Map<String, dynamic>> existingRatings = await db.query(
+        'ratings',
+        where: 'album_id = ? AND track_id = ?',
+        whereArgs: [albumIdStr, trackIdStr],
+      );
+
+      final ratingData = {
+        'album_id': albumIdStr,
+        'track_id': trackIdStr,
+        'rating': rating,
+        'updated_at': DateTime.now().millisecondsSinceEpoch
+      };
+
+      if (existingRatings.isEmpty) {
+        // Insert new rating
+        await db.insert('ratings', ratingData);
+        Logging.severe('Inserted new rating');
+      } else {
+        // Update existing rating
+        await db.update(
+          'ratings',
+          ratingData,
+          where: 'album_id = ? AND track_id = ?',
+          whereArgs: [albumIdStr, trackIdStr],
+        );
+        Logging.severe('Updated existing rating');
+      }
+
       return true;
     } catch (e, stack) {
       Logging.severe('Error saving rating', e, stack);
@@ -362,39 +571,73 @@ class UserData {
   /// Save a custom list
   static Future<bool> saveCustomList(CustomList list) async {
     try {
-      await initializeDatabase();
+      // Make sure IDs are cleaned before saving
+      list.cleanupAlbumIds();
 
-      // Update timestamp
-      list.updatedAt = DateTime.now();
+      Logging.severe(
+          'Saving custom list: ${list.name} with ${list.albumIds.length} albums');
 
-      // Save list to database
-      await DatabaseHelper.instance.insertCustomList({
+      final db = await getDatabaseInstance();
+
+      // First save the list info
+      final Map<String, dynamic> listData = {
         'id': list.id,
         'name': list.name,
         'description': list.description,
-        'createdAt': list.createdAt.toIso8601String(),
-        'updatedAt': list.updatedAt.toIso8601String(),
+        'created_at': list.createdAt.toIso8601String(),
+        'updated_at': list.updatedAt.toIso8601String(),
+      };
+
+      // Begin transaction
+      await db.transaction((txn) async {
+        // Check if list exists
+        final existing = await txn
+            .query('custom_lists', where: 'id = ?', whereArgs: [list.id]);
+
+        if (existing.isEmpty) {
+          await txn.insert('custom_lists', listData);
+          Logging.severe('Created new list: ${list.name}');
+        } else {
+          await txn.update(
+            'custom_lists',
+            listData,
+            where: 'id = ?',
+            whereArgs: [list.id],
+          );
+          Logging.severe('Updated existing list: ${list.name}');
+        }
+
+        // Delete old album associations
+        await txn.delete(
+          'album_lists',
+          where: 'list_id = ?',
+          whereArgs: [list.id],
+        );
+
+        // Add new album associations
+        for (int i = 0; i < list.albumIds.length; i++) {
+          final albumId = list.albumIds[i];
+
+          // Skip empty IDs
+          if (albumId.isEmpty) continue;
+
+          Logging.severe('Adding album ID: $albumId to list ${list.name}');
+
+          await txn.insert(
+            'album_lists',
+            {
+              'list_id': list.id,
+              'album_id': albumId,
+              'position': i,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
       });
 
-      // Clear existing album relationships
-      final db = await DatabaseHelper.instance.database;
-      await db.delete(
-        'album_lists',
-        where: 'list_id = ?',
-        whereArgs: [list.id],
-      );
-
-      // Add album-list relationships
-      for (int i = 0; i < list.albumIds.length; i++) {
-        await DatabaseHelper.instance
-            .addAlbumToList(list.albumIds[i], list.id, i);
-      }
-
-      Logging.severe(
-          'Custom list saved: ${list.name} with ${list.albumIds.length} albums');
       return true;
-    } catch (e) {
-      Logging.severe('Error saving custom list', e);
+    } catch (e, stack) {
+      Logging.severe('Error saving custom list', e, stack);
       return false;
     }
   }

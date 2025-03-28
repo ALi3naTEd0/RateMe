@@ -13,6 +13,7 @@ import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'album_model.dart'; // Add this import
 import 'saved_album_page.dart'; // Add this import
+import 'widgets/skeleton_loading.dart'; // Add this import
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -460,11 +461,10 @@ class _DetailsPageState extends State<DetailsPage> {
             ),
           ),
         ),
-        body: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                // Center the content
-                child: SizedBox(
+        body: Center(
+          child: isLoading
+              ? _buildSkeletonAlbumDetails()
+              : SizedBox(
                   width: pageWidth, // Apply consistent width constraint
                   child: SingleChildScrollView(
                     child: Column(
@@ -629,7 +629,121 @@ class _DetailsPageState extends State<DetailsPage> {
                     ),
                   ),
                 ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonAlbumDetails() {
+    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+
+    return SizedBox(
+      width: pageWidth,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 16),
+            // Album artwork placeholder
+            Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withAlpha((Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .a *
+                            0.3)
+                        .toInt()),
+                borderRadius: BorderRadius.circular(4),
               ),
+              child: const Center(
+                child: Icon(Icons.album, size: 100, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Album info placeholders
+            ...List.generate(
+                4,
+                (index) => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4.0),
+                      child: SkeletonLoading(width: 250, height: 20),
+                    )),
+
+            const SizedBox(height: 12),
+
+            // Rating placeholder
+            const SkeletonLoading(width: 100, height: 32),
+
+            const SizedBox(height: 16),
+
+            // Buttons placeholder
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SkeletonLoading(width: 120, height: 45, borderRadius: 8),
+                SizedBox(width: 12),
+                SkeletonLoading(width: 120, height: 45, borderRadius: 8),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+            const Divider(),
+
+            // Tracks table placeholder
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Column(
+                children: List.generate(
+                    8,
+                    (index) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: [
+                              // Track number
+                              const SizedBox(
+                                  width: 30,
+                                  child: Center(
+                                      child: SkeletonLoading(
+                                          width: 15, height: 15))),
+                              const SizedBox(width: 8),
+                              // Track title
+                              const Expanded(
+                                  child: SkeletonLoading(height: 16)),
+                              const SizedBox(width: 8),
+                              // Track duration
+                              const SizedBox(
+                                  width: 40,
+                                  child: SkeletonLoading(height: 16)),
+                              const SizedBox(width: 8),
+                              // Rating slider
+                              Container(
+                                width: 150,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withAlpha((Theme.of(context)
+                                                  .colorScheme
+                                                  .surfaceContainerHighest
+                                                  .a *
+                                              0.3)
+                                          .toInt()),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -853,42 +967,107 @@ class _DetailsPageState extends State<DetailsPage> {
         return;
       }
 
-      // Save the album first since user made selections
-      final albumToSave = unifiedAlbum?.toJson();
-      albumToSave?['tracks'] = tracks;
-      await _saveAlbum();
-      await UserData.addToSavedAlbums(albumToSave!);
+      try {
+        // Save the album first since user made selections
+        final albumToSave = unifiedAlbum?.toJson() ?? widget.album;
 
-      // Handle selected lists
-      final Map<String, bool> selections = result as Map<String, bool>;
-      final lists = await UserData.getCustomLists();
-      int addedCount = 0;
-      int removedCount = 0;
+        // Debug info
+        Logging.severe('Adding album to lists: ${jsonEncode({
+              'id': albumToSave['id'] ?? albumToSave['collectionId'],
+              'name': albumToSave['name'] ?? albumToSave['collectionName'],
+            })}');
 
-      for (var list in lists) {
-        final isSelected = selections[list.id] ?? false;
-        final hasAlbum = list.albumIds.contains(unifiedAlbum?.id.toString());
-
-        if (isSelected && !hasAlbum) {
-          // Add to list
-          list.albumIds.add(unifiedAlbum?.id.toString() ?? '');
-          await UserData.saveCustomList(list);
-          addedCount++;
-        } else if (!isSelected && hasAlbum) {
-          // Remove from list
-          list.albumIds.remove(unifiedAlbum?.id.toString());
-          await UserData.saveCustomList(list);
-          removedCount++;
+        // First make sure the album is saved to database
+        final saveResult = await UserData.addToSavedAlbums(albumToSave);
+        if (!saveResult) {
+          Logging.severe('Failed to save album before adding to list');
+          if (mounted) {
+            scaffoldMessengerKey.currentState?.showSnackBar(
+              const SnackBar(content: Text('Error saving album to database')),
+            );
+          }
+          return;
         }
-      }
 
-      if (mounted) {
-        String message = '';
-        if (addedCount > 0) message += 'Added to $addedCount lists. ';
-        if (removedCount > 0) message += 'Removed from $removedCount lists.';
-        if (message.isNotEmpty) {
+        // Get the album ID as string - try multiple fields for compatibility
+        String? albumIdStr;
+
+        // Try to get ID from the album
+        if (albumToSave['id'] != null) {
+          albumIdStr = albumToSave['id'].toString();
+        } else if (albumToSave['collectionId'] != null) {
+          albumIdStr = albumToSave['collectionId'].toString();
+        } else if (unifiedAlbum?.id != null) {
+          albumIdStr = unifiedAlbum!.id.toString();
+        }
+
+        if (albumIdStr == null || albumIdStr.isEmpty) {
+          Logging.severe('Cannot add to list - album ID is null or empty');
+          if (mounted) {
+            scaffoldMessengerKey.currentState?.showSnackBar(
+              const SnackBar(content: Text('Error: Album has no ID')),
+            );
+          }
+          return;
+        }
+
+        Logging.severe('Using album ID for list operations: $albumIdStr');
+
+        // Handle selected lists
+        final Map<String, bool> selections = result as Map<String, bool>;
+        final lists = await UserData.getCustomLists();
+        int addedCount = 0;
+        int removedCount = 0;
+
+        for (var list in lists) {
+          final isSelected = selections[list.id] ?? false;
+          final hasAlbum = list.albumIds.contains(albumIdStr);
+
+          Logging.severe(
+              'List ${list.name}: selected=$isSelected, hasAlbum=$hasAlbum');
+
+          if (isSelected && !hasAlbum) {
+            // Add to list
+            list.albumIds.add(albumIdStr);
+            final success = await UserData.saveCustomList(list);
+            if (success) {
+              addedCount++;
+              Logging.severe('Added album to list ${list.name}');
+            } else {
+              Logging.severe('Failed to add album to list ${list.name}');
+            }
+          } else if (!isSelected && hasAlbum) {
+            // Remove from list
+            list.albumIds.remove(albumIdStr);
+            final success = await UserData.saveCustomList(list);
+            if (success) {
+              removedCount++;
+              Logging.severe('Removed album from list ${list.name}');
+            } else {
+              Logging.severe('Failed to remove album from list ${list.name}');
+            }
+          }
+        }
+
+        if (mounted) {
+          String message = '';
+          if (addedCount > 0) message += 'Added to $addedCount lists. ';
+          if (removedCount > 0) message += 'Removed from $removedCount lists.';
+          if (message.isNotEmpty) {
+            scaffoldMessengerKey.currentState?.showSnackBar(
+              SnackBar(content: Text(message.trim())),
+            );
+          } else {
+            scaffoldMessengerKey.currentState?.showSnackBar(
+              const SnackBar(content: Text('No changes to lists')),
+            );
+          }
+        }
+      } catch (e, stack) {
+        Logging.severe('Error while updating lists', e, stack);
+        if (mounted) {
           scaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(content: Text(message.trim())),
+            SnackBar(content: Text('Error: $e')),
           );
         }
       }
@@ -936,11 +1115,33 @@ class _DetailsPageState extends State<DetailsPage> {
             TextButton(
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
+                  // Save the album first
+                  final albumToSave = unifiedAlbum?.toJson() ?? widget.album;
+                  if (albumToSave is Map<String, dynamic> &&
+                      !albumToSave.containsKey('id')) {
+                    albumToSave['id'] = albumToSave['collectionId'];
+                  }
+
+                  // Make sure we have an ID before saving
+                  final albumId =
+                      albumToSave['id'] ?? albumToSave['collectionId'];
+                  if (albumId == null) {
+                    Logging.severe('Cannot create list - no album ID found');
+                    return;
+                  }
+
+                  // Convert ID to string for consistent handling
+                  final albumIdStr = albumId.toString();
+
+                  // Save the album
+                  await UserData.addToSavedAlbums(albumToSave);
+
+                  // Create the list with the album
                   final newList = CustomList(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     name: nameController.text,
                     description: descController.text,
-                    albumIds: [unifiedAlbum?.id.toString() ?? ''],
+                    albumIds: [albumIdStr],
                   );
                   await UserData.saveCustomList(newList);
                   if (mounted) {
@@ -1122,84 +1323,6 @@ class _DetailsPageState extends State<DetailsPage> {
         },
       ),
     );
-  }
-
-  Future<void> _saveAlbum() async {
-    try {
-      if (unifiedAlbum == null) return;
-
-      Logging.severe(
-          'Saving album: ${unifiedAlbum!.name} (ID: ${unifiedAlbum!.id})');
-
-      // Convert album to JSON with full track data
-      final albumData = unifiedAlbum!.toJson();
-
-      // Ensure tracks are properly serialized
-      albumData['tracks'] = tracks.map((track) => track.toJson()).toList();
-
-      // Log what we're trying to save
-      Logging.severe(
-          'Saving album with ${tracks.length} tracks and ID type: ${unifiedAlbum!.id.runtimeType}');
-
-      // Save album first and wait for completion
-      await UserData.addToSavedAlbums(albumData);
-
-      // Verify the album was saved
-      final albumExists =
-          await UserData.albumExists(unifiedAlbum!.id.toString());
-      if (!albumExists) {
-        Logging.severe(
-            'WARNING: Album may not have been saved correctly. ID: ${unifiedAlbum!.id}');
-      } else {
-        Logging.severe('Album saved successfully. ID: ${unifiedAlbum!.id}');
-      }
-
-      // Brief delay to ensure album is saved before ratings
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Save ratings separately with improved error handling
-      int ratingsSaved = 0;
-      for (var entry in ratings.entries) {
-        try {
-          // Parse track ID - properly handle numeric strings
-          dynamic trackId;
-          if (int.tryParse(entry.key) != null) {
-            trackId = int.parse(entry.key);
-          } else {
-            trackId = entry.key; // Keep as string if not numeric
-          }
-
-          // Only save non-zero ratings (important!)
-          if (entry.value > 0) {
-            await UserData.saveRating(
-              unifiedAlbum!.id,
-              trackId,
-              entry.value,
-            );
-            ratingsSaved++;
-            Logging.severe('Saved rating for track $trackId: ${entry.value}');
-          }
-        } catch (e) {
-          Logging.severe('Error saving rating for track ${entry.key}: $e');
-        }
-      }
-
-      Logging.severe(
-          'Saved $ratingsSaved ratings for album ${unifiedAlbum!.id}');
-
-      if (mounted) {
-        scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('Album saved successfully')),
-        );
-      }
-    } catch (e, stack) {
-      Logging.severe('Error saving album', e, stack);
-      if (mounted) {
-        scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(content: Text('Error saving album: $e')),
-        );
-      }
-    }
   }
 
   // Helper method to extract tracks from album data

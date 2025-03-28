@@ -11,6 +11,7 @@ import 'album_model.dart'; // Add this import
 import 'share_widget.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'widgets/skeleton_loading.dart';
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -736,7 +737,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           // Remove the actions property completely to remove the 3-dot menu icon
         ),
         body: isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? _buildSkeletonAlbumDetails()
             : Center(
                 // Center the content
                 child: SizedBox(
@@ -886,6 +887,120 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonAlbumDetails() {
+    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+
+    return SizedBox(
+      width: pageWidth,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 16),
+            // Album artwork placeholder
+            Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withAlpha((Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .a *
+                            0.3)
+                        .toInt()),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Center(
+                child: Icon(Icons.album, size: 100, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Album info placeholders
+            ...List.generate(
+                4,
+                (index) => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4.0),
+                      child: SkeletonLoading(width: 250, height: 20),
+                    )),
+
+            const SizedBox(height: 12),
+
+            // Rating placeholder
+            const SkeletonLoading(width: 100, height: 32),
+
+            const SizedBox(height: 16),
+
+            // Buttons placeholder
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SkeletonLoading(width: 120, height: 45, borderRadius: 8),
+                SizedBox(width: 12),
+                SkeletonLoading(width: 120, height: 45, borderRadius: 8),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+            const Divider(),
+
+            // Tracks table placeholder
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Column(
+                children: List.generate(
+                    8,
+                    (index) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: [
+                              // Track number
+                              const SizedBox(
+                                  width: 30,
+                                  child: Center(
+                                      child: SkeletonLoading(
+                                          width: 15, height: 15))),
+                              const SizedBox(width: 8),
+                              // Track title
+                              const Expanded(
+                                  child: SkeletonLoading(height: 16)),
+                              const SizedBox(width: 8),
+                              // Track duration
+                              const SizedBox(
+                                  width: 40,
+                                  child: SkeletonLoading(height: 16)),
+                              const SizedBox(width: 8),
+                              // Rating slider
+                              Container(
+                                width: 150,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withAlpha((Theme.of(context)
+                                                  .colorScheme
+                                                  .surfaceContainerHighest
+                                                  .a *
+                                              0.3)
+                                          .toInt()),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

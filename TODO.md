@@ -21,9 +21,9 @@
 - [x] Standardize component sizes (48x48px icons and rating boxes)
 - [x] Add proper loading states
 - [x] Create desktop-optimized layout
-- [ ] Add pagination for lists
-- [ ] Implement loading placeholders
-- [ ] Add pull-to-refresh for content updates
+- [x] Add pagination for lists
+- [x] Implement loading placeholders with skeleton UI
+- [ ] Add pull-to-refresh for content updates (allows users to swipe down to refresh data)
 
 ### Data Handling - Core
 - [x] Unify album model across different platforms
