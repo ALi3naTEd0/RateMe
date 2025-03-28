@@ -5,68 +5,35 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Fixed dialog size issues in Add to List dialogs
-- Added constrained dimensions to list dialogs (50% width, 50% height)
-- Added scrollable content in list management dialogs
-- Added proper handling of long content in dialog boxes
-- Improved dialog layout consistency across the app
-- Added checkbox-based list selection for better UX
-- Added multi-select capability for list management
-- Added immediate visual feedback for list selection
-- Added proper handling for adding/removing albums from multiple lists
-- Fixed theme selection issues by adding proper support for System, Light, and Dark themes
-- Added platform-specific handling to avoid System theme on Linux where it doesn't work properly
-- Improved SQLite database integration and migration from SharedPreferences
-- Enhanced error handling and logging for database operations
-- Fixed album artwork display inconsistencies across the app
-- Standardized UI component sizes for custom list playlist icons and rating boxes to 48x48px
-- Improved track duration parsing for Bandcamp albums
-- Fixed track ID handling to ensure consistent string-based IDs for ratings
+- Implemented SQLite database with migration from SharedPreferences
+- Created unified data models for albums, tracks, ratings, lists
+- Added database maintenance tools (vacuum, integrity check)
+- Added schema detection and column mapping for backward compatibility
+- Added transaction support for batch operations
+- Improved error handling and debug logging for database operations
+- Added database backup/restore functionality with enhanced format
+- Support for Spotify URLs in clipboard detection
+- Platform icons for better visual identification of music sources
+- Standardized UI component sizes for rating boxes and list icons to 48x48px
 
 ### Fixed
-- Fixed overflow errors in list management dialogs
-- Fixed layout issues in create list dialog
-- Fixed dialog sizing on different screen sizes
-- Fixed scrolling issues in list content
-
-### Added
-- Unified Data Model to ensure consistent handling of albums across different platforms
-- Conversion utilities to safely migrate legacy data to the new model
-- Debug tools for diagnosing data issues
-- New Settings options for data management
-- Improved error handling throughout the app
-- Support for different music platforms with standardized data format
-- Better backward compatibility with older app versions
-- Support for Spotify URLs in clipboard detection
-- Platform icons for better visual identification of music sources (Apple Music, Spotify, Bandcamp)
-- Better error handling for album data parsing
-- Global clipboard monitoring for easier URL import
+- Fixed album deletion cascading to custom lists
+- Fixed custom list content synchronization on album deletion
+- Fixed track ID handling to maintain consistency between database and UI
+- Fixed ratings not being calculated correctly in some cases
+- Fixed album artwork display inconsistencies across the app
+- Fixed database schema migration and backward compatibility issues
+- Fixed data integrity issues when accessing album artwork
 
 ### Changed
-- Reorganized Settings page with grouped options
-- Improved album import/export functionality
-- Enhanced custom lists management
-- More robust sharing functionality
-- Better handling of app themes and colors
-- UI/UX Improvement: Applied consistent 85% width layout to all screens for better readability
+- Reorganized Settings page with grouped options for database management
+- Enhanced custom lists management with SQLite backend
+- UI/UX Improvement: Applied consistent 85% width layout to all screens
 - Refactored entire app from BuildContext-based navigation to GlobalKey approach
 - Added tooltips for track names that display full title on hover
 - Improved responsive design for various screen sizes
-- Enhanced image sharing capabilities
-- Standardized page layouts across all screens
-
-### Fixed
-- Issues with albums not appearing in custom lists
-- Problems with inconsistent album data structure
-- Rating calculation errors on some albums
-- Display issues with album artwork on certain devices
-- Custom list sorting and reordering bugs
-- Various stability improvements
-- Issue with slider tooltips not displaying properly
-- Inconsistent UI widths between different screens
-- Rating verification process for improved data integrity
-- Platform detection for different album sources
-- Album migration and conversion reliability
+- Improved dialog layout and sizing consistency across the app
+- Added checkbox-based list selection for better list management UX
 
 ### Technical
 - Reduced context-dependent code for better maintainability
@@ -74,6 +41,10 @@ All notable changes to this project will be documented in this file.
 - Improved error logging throughout the application
 - Optimized performance with const constructors where appropriate
 - Better separation of UI and business logic
+- Implemented proper transaction support for database operations
+- Added database integrity checks and repair functionality
+- Created migration utilities for safe data transition
+- Optimized database queries with prepared statements
 
 ## [2.0.0] - 2025-03-20
 
