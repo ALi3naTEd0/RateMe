@@ -6,7 +6,7 @@ cmake_policy(VERSION 3.10)
 cmake_policy(SET CMP0079 NEW)
 
 set(BINARY_NAME "rateme")
-set(APPLICATION_ID "com.example.rateme")
+set(APPLICATION_ID "com.ali3nated0.rateme")
 
 cmake_policy(SET CMP0063 NEW)
 
