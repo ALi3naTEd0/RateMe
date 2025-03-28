@@ -38,17 +38,20 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Features
 
-- **Multi-Platform Support**: Rate albums from both Apple Music and Bandcamp
+- **Multi-Platform Support**: Rate albums from Apple Music, Bandcamp, Spotify, and Deezer
 - **Track-by-Track Rating**: Rate individual tracks on a 0-10 scale
 - **Custom Lists**: Organize albums into custom lists (e.g., "Best of 2023", "Prog Rock", etc.)
 - **Data Export/Import**: Easily backup and restore your collection
 - **Share as Images**: Generate beautiful images of your ratings to share on social media
-- **Clipboard Detection**: Automatically detects Apple Music and Bandcamp URLs from clipboard
+- **Clipboard Detection**: Automatically detects music platform URLs from clipboard
 - **Unified Data Model**: Compatible data structure across different music platforms
-- **Dark Mode**: Choose between light and dark themes
+- **Dark Mode**: Choose between light, dark, or system themes
 - **Custom Colors**: Personalize the app with your preferred color scheme
 - **Offline Support**: Access your saved albums and ratings without an internet connection
 - **One-Touch Import/Export**: Quickly import/export individual albums or your entire collection
+- **Pull-to-Refresh**: Update content with a simple swipe down gesture
+- **Skeleton UI**: Beautiful loading placeholders while fetching content
+- **Pagination**: Smooth navigation through large collections
 
 ## Screenshots
 
@@ -191,12 +194,15 @@ makepkg -si
 
 - [Flutter](https://flutter.dev/): Used for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
 - [Dart](https://dart.dev/): As the primary programming language, Dart powers the logic and functionality of the **Rate Me!** application.
-- [iTunes API](https://affiliate.itunes.apple.com/resources/documentation/itunes-store-web-service-search-api/): Utilized to search for albums and retrieve detailed album data, the iTunes API serves as the primary data source for the application.
+- [iTunes API](https://affiliate.itunes.apple.com/resources/documentation/itunes-store-web-service-search-api/): Utilized to search for albums and retrieve detailed album data.
+- [Spotify API](https://developer.spotify.com/documentation/web-api/): Integration for searching and retrieving Spotify albums and tracks.
+- [Deezer API](https://developers.deezer.com/api): Music streaming platform API for album and track discovery.
 - **JSON Parser for Bandcamp**: A JSON parser is used to search and retrieve detailed album data from Bandcamp links.
+- [SQLite](https://www.sqlite.org/): Local database for efficient album and track storage.
 
 ## Getting Started
 
-1. **Search for Albums**: Enter an artist or album name to search, or paste an Apple Music/Bandcamp URL
+1. **Search for Albums**: Enter an artist or album name to search, or paste an Apple Music, Bandcamp, or Spotify URL
 2. **Rate Albums**: Open an album and use the sliders to rate each track from 0-10
 3. **Create Lists**: Organize your music by creating custom lists
 4. **Share Your Ratings**: Generate beautiful images of your ratings to share
@@ -209,6 +215,7 @@ RateMe provides several options for managing your data:
 - **Album Exchange**: Share individual albums with friends who use RateMe
 - **Data Conversion**: Convert from older versions of RateMe to the new unified format
 - **Repair Tools**: Fix potential issues with album data
+- **Database Migration**: Seamless upgrade to new database format for better performance
 
 ## Supported Platforms
 
@@ -222,10 +229,11 @@ RateMe provides several options for managing your data:
 
 RateMe uses a unified data model that ensures consistent handling of music from different platforms. This model:
 
-- Works across multiple music platforms (Apple Music, Bandcamp, etc.)
+- Works across multiple music platforms (Apple Music, Bandcamp, Spotify, etc.)
 - Maintains backward compatibility with previous versions
 - Provides consistent field naming and data access
 - Improves reliability and error handling
+- Supports cascading deletes and proper relationships
 
 ## Privacy
 
@@ -241,21 +249,25 @@ This Flutter project follows a modular architecture and uses the Provider patter
 ### Main Components
 
 1. **MusicRatingApp**: Main widget handling theme state and persistence
-2. **SearchPage**: Album search interface with iTunes/Bandcamp support
+2. **SearchPage**: Album search interface with platform integration
 3. **SavedRatingsPage**: Album list management and ratings display
 4. **CustomListsPage**: Custom collections management
 5. **DetailsPage**: Album details and rating interface
 6. **UserData**: Data persistence and management utility
+7. **PlatformService**: Handles interactions with different music platforms
+8. **PlatformUI**: Platform-specific UI elements and styling
 
 ### Data Handling
 
-- **SharedPreferences**: Local storage for albums, ratings, and preferences
-- **HTTP**: API requests to iTunes and JSON parsing for Bandcamp
-- **HTML**: Extraction of structured data from Bandcamp pages
+- **SQLite Database**: Efficient local storage for albums, ratings, and preferences
+- **Migration Utility**: Tools for upgrading data between versions
+- **HTTP**: API requests to music platforms
+- **HTML**: Extraction of structured data from web pages
 
 ### External Integrations
 
 - **iTunes API**: Album and track information via official API
+- **Spotify API**: OAuth2 integration for fetching album and track details
 - **Bandcamp**: Album and track information via embedded JSON-LD data
 - **RateYourMusic**: Additional album information lookup
 
@@ -273,10 +285,14 @@ This Flutter project follows a modular architecture and uses the Provider patter
 
 ## Roadmap
 
-- Implementation of a recommendation system based on user ratings
+- Implementation of Apple Music authentication and API integration
+- Deezer API integration for expanded music catalog access
+- Advanced search filter and sort options
+- Advanced query optimization for large datasets (10,000+ albums)
+- Database telemetry and performance monitoring
+- Full Spotify OAuth2 implementation
 - Integration with additional music streaming services
 - Functionality to share ratings on RateYourMusic.com
-- Offline mode to access ratings without an internet connection
 
 ## Contributions
 
@@ -299,6 +315,7 @@ The MIT License is a permissive license that is short and to the point. It allow
 
 - [http](https://pub.dev/packages/http) - HTTP requests and API integration
 - [shared_preferences](https://pub.dev/packages/shared_preferences) - Local data storage
+- [sqflite](https://pub.dev/packages/sqflite) - SQLite database support
 - [html](https://pub.dev/packages/html) - HTML parsing for structured data
 - [url_launcher](https://pub.dev/packages/url_launcher) - External URL handling
 - [intl](https://pub.dev/packages/intl) - Date formatting
@@ -306,6 +323,8 @@ The MIT License is a permissive license that is short and to the point. It allow
 - [file_picker](https://pub.dev/packages/file_picker) - File selection dialogs
 - [share_plus](https://pub.dev/packages/share_plus) - Content sharing
 - [package_info_plus](https://pub.dev/packages/package_info_plus) - App version info
+- [flutter_svg](https://pub.dev/packages/flutter_svg) - SVG rendering for platform icons
+- [logging](https://pub.dev/packages/logging) - Application logging
 
 ## Contact
 
