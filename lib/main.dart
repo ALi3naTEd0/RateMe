@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
@@ -14,45 +15,48 @@ import 'custom_lists_page.dart';
 import 'theme.dart';
 import 'footer.dart';
 import 'settings_page.dart';
-// Remove the unused import
-// import 'navigation_util.dart';
-import 'platform_service.dart'; // This replaces search_service.dart
+import 'platform_service.dart';
 import 'platform_ui.dart';
-// Remove search_service.dart import since we use platform_service.dart instead
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Logging.setupLogging();
-  runApp(const MyApp());
+
+  // Initialize database
+  await UserData.initializeDatabase();
+
+  // Check if migration is needed
+  final migrationNeeded = await UserData.isMigrationNeeded();
+
+  runApp(MyApp(showMigrationPrompt: migrationNeeded));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final bool showMigrationPrompt;
+
+  const MyApp({
+    super.key,
+    this.showMigrationPrompt = false,
+  });
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode =
+      ThemeMode.system; // Change the default theme mode to system
   Color _primaryColor = const Color(0xFF864AF9);
 
-  // Add these fields for search functionality
   final TextEditingController searchController = TextEditingController();
   List<Map<String, dynamic>> searchResults = [];
   bool _isLoading = false;
   Timer? _debounce;
-  Timer? _clipboardTimer; // Add this field
+  Timer? _clipboardTimer;
 
-  // Remove unused fields
-  // String _appVersion = '';
-  // String _latestVersion = '';
-
-  // Create scaffold messenger key for showing snackbars
   final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
-  // Add a static navigator key if not already present
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -60,30 +64,71 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _loadSettings();
-    _startClipboardListener(); // Add this line
+    _startClipboardListener();
+
+    // Check if migration prompt should be shown
+    if (widget.showMigrationPrompt) {
+      // Add a small delay to allow the app to initialize
+      Future.delayed(const Duration(seconds: 2), () {
+        _showMigrationPrompt();
+      });
+    }
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _themeMode = ThemeMode.values[prefs.getInt('themeMode') ?? 0];
+      // Force to a valid value if the stored value is missing or invalid
+      final themeIndex = prefs.getInt('themeMode');
+
+      // Handle null or missing values
+      if (themeIndex == null) {
+        _themeMode = ThemeMode.system; // Default to system for everyone
+        // Initialize it right away
+        prefs.setInt('themeMode', ThemeMode.system.index);
+      } else {
+        // Map the indices explicitly to avoid potential issues
+        switch (themeIndex) {
+          case 0:
+            _themeMode = ThemeMode.system;
+            break;
+          case 1:
+            _themeMode = ThemeMode.light;
+            break;
+          case 2:
+            _themeMode = ThemeMode.dark;
+            break;
+          default:
+            _themeMode = ThemeMode.system;
+            // Fix invalid value
+            prefs.setInt('themeMode', ThemeMode.system.index);
+        }
+      }
+
+      Logging.severe(
+          'Theme mode loaded: $_themeMode (index: ${_themeMode.index}), isLinux: ${Platform.isLinux}');
       _primaryColor = Color(prefs.getInt('primaryColor') ?? 0xFF864AF9);
     });
   }
 
   void _updateTheme(ThemeMode mode) async {
+    // Simply update the theme without platform-specific warnings
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('themeMode', mode.index);
+
+    // Log when theme changes
+    Logging.severe('Theme changed to: $mode (index: ${mode.index})');
+
     setState(() => _themeMode = mode);
   }
 
   void _updatePrimaryColor(Color color) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('primaryColor', color.toARGB32());
+
     setState(() => _primaryColor = color);
   }
 
-  // Add search method
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() => searchResults = []);
@@ -108,7 +153,6 @@ class _MyAppState extends State<MyApp> {
           _isLoading = false;
         });
 
-        // Use scaffoldMessengerKey instead of direct context
         scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(content: Text('Error searching: $e')),
         );
@@ -125,7 +169,6 @@ class _MyAppState extends State<MyApp> {
         final text = clipboardData?.text;
 
         if (text != null && text.isNotEmpty && searchController.text.isEmpty) {
-          // Check if the text contains music URLs before logging
           final lowerText = text.toLowerCase();
           final bool isAppleMusic = lowerText.contains('music.apple.com') ||
               lowerText.contains('itunes.apple.com') ||
@@ -139,14 +182,12 @@ class _MyAppState extends State<MyApp> {
           final bool isSpotify = lowerText.contains('spotify.com') ||
               lowerText.contains('open.spotify');
 
-          // Only log and process if it's a music URL
           if (isAppleMusic || isBandcamp || isSpotify) {
             String platform = 'unknown';
             if (isAppleMusic) platform = 'Apple Music';
             if (isBandcamp) platform = 'Bandcamp';
             if (isSpotify) platform = 'Spotify';
 
-            // Only log the music URL detection, not the full content
             Logging.severe('$platform URL detected in clipboard');
 
             setState(() {
@@ -167,9 +208,36 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  void _showMigrationPrompt() {
+    if (!mounted) return;
+
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: const Text(
+            'New database format available. Upgrade your data for better performance!'),
+        action: SnackBarAction(
+          label: 'Upgrade',
+          onPressed: () {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (context) => SettingsPage(
+                  currentTheme: _themeMode,
+                  onThemeChanged: _updateTheme,
+                  currentPrimaryColor: _primaryColor,
+                  onPrimaryColorChanged: _updatePrimaryColor,
+                ),
+              ),
+            );
+          },
+        ),
+        duration: const Duration(seconds: 10),
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    _clipboardTimer?.cancel(); // Add this line
+    _clipboardTimer?.cancel();
     searchController.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -177,16 +245,14 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate search width consistently for both search bar and results
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
     final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
 
-    // Add a small adjustment to align icons more precisely with search bar edge
-    const iconAdjustment = 8.0; // Move icons left by this amount
+    const iconAdjustment = 8.0;
 
     return MaterialApp(
-      navigatorKey: navigatorKey, // This is correct
-      scaffoldMessengerKey: scaffoldMessengerKey, // This is correct
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       title: 'RateMe!',
       debugShowCheckedModeBanner: false,
       theme: RateMeTheme.getTheme(Brightness.light, _primaryColor),
@@ -202,10 +268,8 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
           centerTitle: true,
-          // Add adjustments to the leading width
           leadingWidth: sideOffset + 120 - iconAdjustment,
           leading: Padding(
-            // Apply the adjustment to leading padding
             padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -217,7 +281,6 @@ class _MyAppState extends State<MyApp> {
                     icon: const Icon(Icons.library_music_outlined),
                     tooltip: 'All Saved Albums',
                     onPressed: () {
-                      // Use navigatorKey here, not context
                       navigatorKey.currentState?.push(
                         MaterialPageRoute(
                           builder: (context) => const SavedRatingsPage(),
@@ -232,7 +295,6 @@ class _MyAppState extends State<MyApp> {
                     icon: const Icon(Icons.format_list_bulleted),
                     tooltip: 'Custom Lists',
                     onPressed: () {
-                      // Use navigatorKey here, not context
                       navigatorKey.currentState?.push(
                         MaterialPageRoute(
                           builder: (context) => const CustomListsPage(),
@@ -254,7 +316,6 @@ class _MyAppState extends State<MyApp> {
                                 .contains('bandcamp.com') ??
                             false;
 
-                        // Use navigatorKey here, not context
                         navigatorKey.currentState?.push(
                           MaterialPageRoute(
                             builder: (context) => DetailsPage(
@@ -271,14 +332,12 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
           actions: [
-            // Adjust right side too for symmetry
             Padding(
               padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
               child: IconButton(
                 icon: const Icon(Icons.settings),
                 tooltip: 'Settings',
                 onPressed: () {
-                  // Use navigatorKey here, not context
                   navigatorKey.currentState?.push(
                     MaterialPageRoute(
                       builder: (context) => SettingsPage(
@@ -294,14 +353,9 @@ class _MyAppState extends State<MyApp> {
             ),
           ],
         ),
-
-        // ...existing code...
-
         body: Column(
           children: [
             const SizedBox(height: 32),
-
-            // Search bar with proper padding and width
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24.0),
               child: Center(
@@ -311,35 +365,32 @@ class _MyAppState extends State<MyApp> {
                     controller: searchController,
                     decoration: InputDecoration(
                       labelText: 'Search Albums or Paste URL',
-                      // Use a suffix icon button for search
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.search),
-                        onPressed: () => _performSearch(searchController.text),
+                        onPressed: () =>
+                            _performSearch(searchController.text),
                       ),
                     ),
                     onChanged: (query) {
                       if (_debounce?.isActive ?? false) _debounce!.cancel();
-                      _debounce = Timer(const Duration(milliseconds: 500), () {
+                      _debounce =
+                          Timer(const Duration(milliseconds: 500), () {
                         _performSearch(query);
                       });
                     },
-                    // Add maxLength to limit input
                     maxLength: 255,
                   ),
                 ),
               ),
             ),
-
-            // Search results with same width constraint
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : searchResults.isEmpty
-                      ? Center(child: Container()) // Empty state
+                      ? Center(child: Container())
                       : Center(
                           child: SizedBox(
-                            width:
-                                searchWidth, // Use the same width as search bar
+                            width: searchWidth,
                             child: ListView.builder(
                               itemCount: searchResults.length,
                               itemBuilder: (context, index) {
@@ -347,7 +398,6 @@ class _MyAppState extends State<MyApp> {
                                 return PlatformUI.buildAlbumCard(
                                   album: album,
                                   onTap: () {
-                                    // Use navigatorKey here, not context
                                     navigatorKey.currentState?.push(
                                       MaterialPageRoute(
                                         builder: (context) =>
@@ -361,8 +411,6 @@ class _MyAppState extends State<MyApp> {
                           ),
                         ),
             ),
-
-            // Footer
             const AppVersionFooter(),
           ],
         ),
@@ -390,15 +438,10 @@ class MusicRatingHomePage extends StatefulWidget {
 }
 
 class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
-  // Define the required key
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
-
-  // Remove unused fields
-  // final String _appVersion = '';
-  // final String _latestVersion = '';
 
   final TextEditingController searchController = TextEditingController();
   List<dynamic> searchResults = [];
@@ -411,8 +454,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
     super.initState();
     _startClipboardListener();
     _loadAppVersion();
-    // Remove this call since we're replacing it with the implementation in _loadAppVersion
-    // _checkForUpdates();
   }
 
   void _startClipboardListener() {
@@ -424,7 +465,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         final text = clipboardData?.text;
 
         if (text != null && text.isNotEmpty && searchController.text.isEmpty) {
-          // Check if the text contains music URLs before logging
           final lowerText = text.toLowerCase();
           final bool isAppleMusic = lowerText.contains('music.apple.com') ||
               lowerText.contains('itunes.apple.com') ||
@@ -438,14 +478,12 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           final bool isSpotify = lowerText.contains('spotify.com') ||
               lowerText.contains('open.spotify');
 
-          // Only log and process if it's a music URL
           if (isAppleMusic || isBandcamp || isSpotify) {
             String platform = 'unknown';
             if (isAppleMusic) platform = 'Apple Music';
             if (isBandcamp) platform = 'Bandcamp';
             if (isSpotify) platform = 'Spotify';
 
-            // Only log the music URL detection, not the full content
             Logging.severe('$platform URL detected in clipboard');
 
             setState(() {
@@ -475,10 +513,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   Future<void> _loadAppVersion() async {
     final packageInfo = await PackageInfo.fromPlatform();
     if (mounted) {
-      // Get the current version
       final appVersion = packageInfo.version;
 
-      // Check for updates right here instead of calling a separate method
       try {
         final response = await http.get(Uri.parse(
             'https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest'));
@@ -488,7 +524,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           final latestVersion = data['tag_name'].toString().replaceAll('v', '');
 
           if (latestVersion != appVersion && mounted) {
-            // Show update dialog with the versions
             _showUpdateDialog(appVersion, latestVersion);
           }
         }
@@ -498,10 +533,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
     }
   }
 
-  // Remove the now redundant method
-  // Future<void> _checkUpdateNeeded(String currentVersion) async { ... }
-
-  // Update the method signature to accept versions as parameters
   void _showUpdateDialog(String currentVersion, String latestVersion) {
     if (!mounted) return;
 
@@ -577,11 +608,9 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   void _onThemeChanged(ThemeMode mode) {
     setState(() {
       widget.toggleTheme(mode);
-      // Force rebuild of search results when theme changes
       if (searchResults.isNotEmpty) {
         List<Map<String, dynamic>> currentResults = List.from(searchResults);
         searchResults = [];
-        // Use Future.microtask to ensure setState has completed
         Future.microtask(() {
           if (mounted) {
             setState(() => searchResults = currentResults);
@@ -593,11 +622,9 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Use the exact same calculations as in MyApp for consistency
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
     final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
 
-    // Add the same icon adjustment for consistency
     const iconAdjustment = 8.0;
 
     return Scaffold(
@@ -610,7 +637,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
         ),
         centerTitle: true,
-        // Use the same padding calculations as MyApp
         leadingWidth: sideOffset + 120 - iconAdjustment,
         leading: Padding(
           padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
@@ -677,7 +703,6 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
         ),
         actions: [
-          // Use the same padding calculation as MyApp
           Padding(
             padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
             child: IconButton(
@@ -700,20 +725,16 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
       ),
       body: Column(
         children: [
-          // Add spacing at the top for better positioning
           const SizedBox(height: 32),
-
-          // Search bar with proper padding and styling
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
             child: Center(
               child: SizedBox(
-                width: searchWidth, // Use the same width for consistency
+                width: searchWidth,
                 child: TextField(
                   controller: searchController,
                   decoration: InputDecoration(
                     labelText: 'Search Albums or Paste URL',
-                    // Use a suffix icon button for search
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.search),
                       onPressed: () => _performSearch(searchController.text),
@@ -725,22 +746,19 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                       _performSearch(query);
                     });
                   },
-                  // Add maxLength to limit input
                   maxLength: 255,
                 ),
               ),
             ),
           ),
-
-          // Show loading indicator or search results
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : searchResults.isEmpty
-                    ? Center(child: Container()) // Empty state
+                    ? Center(child: Container())
                     : Center(
                         child: SizedBox(
-                          width: searchWidth, // Ensure consistent width
+                          width: searchWidth,
                           child: ListView.builder(
                             itemCount: searchResults.length,
                             itemBuilder: (context, index) {

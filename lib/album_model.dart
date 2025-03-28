@@ -71,15 +71,29 @@ class Album {
       releaseDate = DateTime.now();
     }
 
+    // Ensure artwork URL is properly handled
+    String artworkUrl = '';
+    if (json['artworkUrl'] != null &&
+        json['artworkUrl'].toString().isNotEmpty) {
+      artworkUrl = json['artworkUrl'].toString();
+    } else if (json['artworkUrl100'] != null &&
+        json['artworkUrl100'].toString().isNotEmpty) {
+      artworkUrl = json['artworkUrl100'].toString();
+    } else if (json['artwork_url'] != null &&
+        json['artwork_url'].toString().isNotEmpty) {
+      artworkUrl = json['artwork_url'].toString();
+    }
+
     return Album(
       id: albumId ?? 0,
       name: json['name'] ?? json['collectionName'] ?? 'Unknown Album',
       artist: json['artist'] ?? json['artistName'] ?? 'Unknown Artist',
-      artworkUrl: json['artworkUrl'] ?? json['artworkUrl100'] ?? '',
+      artworkUrl: artworkUrl,
       url: json['url'] ?? '',
       platform: json['platform'] ?? 'unknown',
       releaseDate: releaseDate,
-      metadata: json['metadata'] ?? {},
+      metadata: json['metadata'] ??
+          json, // Store the entire json as metadata if no specific metadata field
       tracks: parsedTracks,
     );
   }

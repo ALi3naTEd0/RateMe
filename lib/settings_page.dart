@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'user_data.dart';
-import 'data_migration_service.dart';
 import 'logging.dart';
-import 'backup_converter.dart';
 import 'debug_util.dart';
+import 'database/database_helper.dart';
+import 'database/migration_utility.dart'; // Add this import for MigrationUtility
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -112,317 +116,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _showUnifiedFormatDialog() {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Convert to Unified Format',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'This will convert all your albums to the new unified data model. '
-                    'This improves compatibility between different music platforms. '
-                    '\n\nYour data will be backed up first for safety.',
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => navigator.pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          navigator.pop(true);
-                          await _performConversion();
-                        },
-                        child: const Text('Convert'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _performConversion() async {
-    _showProgressDialog(
-        'Converting Data', 'Converting albums to unified format...');
-
-    try {
-      final count = await UserData.convertAllAlbumsToUnifiedFormat();
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar('Successfully converted $count albums to unified format');
-    } catch (e) {
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar('Error during conversion: $e');
-    }
-  }
-
-  void _showProgressDialog(String title, String message) {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(message),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showMigrationDialog() {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Migrate Data',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'This will convert your saved data to the latest format. '
-                    'Your data will be backed up first for safety.',
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Note: This process might take a moment depending on '
-                    'how many albums you have saved.',
-                    style: TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => navigator.pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          navigator.pop(true);
-                          await _performMigration();
-                        },
-                        child: const Text('Migrate'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _performMigration() async {
-    _showProgressDialog(
-        'Migrating Data', 'Please wait while your data is being updated...');
-
-    try {
-      final migratedCount = await DataMigrationService.migrateAllAlbums();
-      navigatorKey.currentState?.pop(); // Dismiss progress
-
-      if (migratedCount > 0) {
-        final shouldActivate = await navigatorKey.currentState?.push<bool>(
-          PageRouteBuilder(
-            barrierColor: Colors.black54,
-            opaque: false,
-            pageBuilder: (_, __, ___) => Material(
-              type: MaterialType.transparency,
-              child: Center(
-                child: Container(
-                  margin: const EdgeInsets.all(32),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Migration Complete',
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Successfully migrated $migratedCount albums. '
-                        'Do you want to activate the new data format now?',
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () =>
-                                navigatorKey.currentState?.pop(false),
-                            child: const Text('Not Now'),
-                          ),
-                          TextButton(
-                            onPressed: () =>
-                                navigatorKey.currentState?.pop(true),
-                            child: const Text('Activate'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-
-        if (shouldActivate == true) {
-          final success = await DataMigrationService.activateMigratedData();
-          _showSnackBar(
-            success
-                ? 'New data format activated successfully!'
-                : 'Failed to activate new data format',
-          );
-        }
-      } else {
-        _showSnackBar(
-          'No data was migrated. You might not have any saved albums.',
-        );
-      }
-    } catch (e) {
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar('Error during migration: $e');
-    }
-  }
-
-  Future<void> _rollbackMigration() async {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    final shouldRollback = await navigator.push<bool>(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Rollback Migration',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'This will revert to your previous data format.\n\n'
-                    'This is helpful if you experienced issues after migration.',
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => navigator.pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => navigator.pop(true),
-                        child: const Text('Rollback'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (shouldRollback != true) return;
-
-    _showProgressDialog('Rolling Back Migration',
-        'Please wait while your data is being restored...');
-
-    try {
-      final success = await DataMigrationService.rollbackMigration();
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar(
-        success
-            ? 'Migration successfully rolled back'
-            : 'Rollback failed - no backup data found',
-      );
-    } catch (e) {
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar('Error during rollback: $e');
-    }
-  }
-
   Future<void> _showClearDatabaseDialog() async {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
@@ -486,7 +179,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (result == true) {
       try {
-        await UserData.clearAllData();
+        final db = await DatabaseHelper.instance.database;
+        await db.transaction((txn) async {
+          await txn.delete('albums');
+          await txn.delete('ratings');
+          await txn.delete('custom_lists');
+          await txn.delete('album_lists');
+          await txn.delete('album_order');
+        });
+
         navigatorKey.currentState?.popUntil((route) => route.isFirst);
         _showSnackBar('Database cleared successfully');
       } catch (e) {
@@ -501,8 +202,29 @@ class _SettingsPageState extends State<SettingsPage> {
         'Please wait while your data is being repaired...');
 
     try {
-      final repairResult = await UserData.repairSavedAlbums();
-      final removedRatings = await UserData.cleanupOrphanedRatings();
+      bool repairResult = false;
+      int removedRatings = 0;
+
+      final db = await DatabaseHelper.instance.database;
+
+      final List<Map<String, dynamic>> orphanedRatings = await db.rawQuery('''
+        SELECT ratings.* FROM ratings 
+        LEFT JOIN albums ON ratings.album_id = albums.id
+        WHERE albums.id IS NULL
+      ''');
+
+      if (orphanedRatings.isNotEmpty) {
+        for (var rating in orphanedRatings) {
+          await db.delete(
+            'ratings',
+            where: 'id = ?',
+            whereArgs: [rating['id']],
+          );
+        }
+        removedRatings = orphanedRatings.length;
+        repairResult = true;
+      }
+
       navigatorKey.currentState?.pop(); // Dismiss progress
       _showSnackBar(
         '${repairResult ? "Albums repaired successfully!" : "No album repairs needed"}\n'
@@ -514,11 +236,460 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _importBackupWithProgress() async {
+    _showProgressDialog('Importing Backup', 'Reading backup file...');
+
+    try {
+      final result = await UserData.importData(
+        progressCallback: (stage, progress) {
+          if (mounted) {
+            final navigator = navigatorKey.currentState;
+            if (navigator == null) return;
+
+            navigator.pop();
+            _showProgressDialog(
+              'Importing Backup',
+              stage,
+              progress: progress,
+            );
+          }
+        },
+      );
+
+      navigatorKey.currentState?.pop();
+
+      if (result && mounted) {
+        _showImportSuccessDialog();
+      } else if (!result && mounted) {
+        _showSnackBar('Import failed or was cancelled');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error during backup import', e, stack);
+      navigatorKey.currentState?.pop();
+      _showSnackBar('Import failed: $e');
+    }
+  }
+
+  void _showProgressDialog(String title, String message, {double? progress}) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => Material(
+          type: MaterialType.transparency,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  progress != null
+                      ? LinearProgressIndicator(value: progress)
+                      : const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(message),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performForceMigration() async {
+    _showProgressDialog('Migrating Data', 'Creating temporary backup...');
+
+    try {
+      Logging.severe('Starting force migration process');
+
+      final prefs = await SharedPreferences.getInstance();
+      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+
+      if (savedAlbums.isEmpty) {
+        Logging.severe(
+            'No SharedPreferences data found, rebuilding SQLite database only');
+        await _rebuildSQLiteDatabase();
+      } else {
+        Logging.severe(
+            'Found ${savedAlbums.length} albums in SharedPreferences, migrating to SQLite');
+
+        await MigrationUtility.resetMigrationStatus();
+
+        final backupData = <String, dynamic>{};
+
+        for (final key in prefs.getKeys()) {
+          final value = prefs.get(key);
+          if (value != null) {
+            if (value is List<String>) {
+              backupData[key] = value;
+            } else {
+              backupData[key] = value;
+            }
+          }
+        }
+
+        backupData['_backup_meta'] = {
+          'version': 1,
+          'timestamp': DateTime.now().toIso8601String(),
+          'format': 'legacy'
+        };
+
+        navigatorKey.currentState?.pop();
+        _showProgressDialog(
+            'Rebuilding Database', 'Clearing existing database...');
+
+        final db = await DatabaseHelper.instance.database;
+        await db.transaction((txn) async {
+          await txn.delete('albums');
+          await txn.delete('ratings');
+          await txn.delete('custom_lists');
+          await txn.delete('album_lists');
+          await txn.delete('album_order');
+          await txn.delete('settings');
+        });
+        Logging.severe('Database cleared successfully');
+
+        if (savedAlbums.isNotEmpty) {
+          try {
+            final firstAlbum = jsonDecode(savedAlbums.first);
+            Logging.severe(
+                'First album in migration: id=${firstAlbum['collectionId'] ?? firstAlbum['id']}, name=${firstAlbum['collectionName'] ?? firstAlbum['name']}');
+          } catch (e) {
+            Logging.severe('Error parsing first album for debug: $e');
+          }
+        }
+
+        navigatorKey.currentState?.pop();
+        _showProgressDialog(
+            'Rebuilding Database', 'Importing data from SharedPreferences...');
+
+        final tempDir = await getTemporaryDirectory();
+        final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+        final tempBackupPath =
+            '${tempDir.path}/rateme_migration_$timestamp.json';
+        final file = File(tempBackupPath);
+        await file.writeAsString(jsonEncode(backupData));
+        Logging.severe('Importing directly from file: $tempBackupPath');
+
+        bool success = await MigrationUtility.migrateToSQLite();
+
+        if (!success) {
+          Logging.severe('Direct migration failed, trying file-based import');
+          success = await UserData.importData(
+              fromFile: tempBackupPath, skipFilePicker: true);
+        }
+
+        await file.delete();
+
+        if (success) {
+          Logging.severe(
+              'Data imported successfully from SharedPreferences to SQLite');
+
+          final db = await DatabaseHelper.instance.database;
+          final count =
+              await db.rawQuery('SELECT COUNT(*) as count FROM albums');
+          final albumCount = Sqflite.firstIntValue(count) ?? 0;
+          Logging.severe(
+              'After migration: Album count in database = $albumCount');
+
+          if (albumCount == 0) {
+            Logging.severe(
+                'WARNING: Migration reported success but no albums were imported');
+          }
+        } else {
+          Logging.severe('Migration failed - import returned false');
+        }
+      }
+
+      final stats = await _getMigrationStats();
+
+      navigatorKey.currentState?.pop();
+      _showForceMigrationSuccessDialog(stats);
+    } catch (e, stack) {
+      Logging.severe('Error during force migration', e, stack);
+      navigatorKey.currentState?.pop();
+      _showSnackBar('Migration failed: $e');
+    }
+  }
+
+  Future<void> _rebuildSQLiteDatabase() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      final backupData = <String, dynamic>{};
+
+      backupData['_backup_meta'] = {
+        'version': 2,
+        'timestamp': DateTime.now().toIso8601String(),
+        'format': 'sqlite'
+      };
+
+      final albums = await DatabaseHelper.instance.getAllAlbums();
+      backupData['albums'] = albums;
+      Logging.severe('Exported ${albums.length} albums');
+
+      final ratings = await db.query('ratings');
+      backupData['ratings'] = ratings;
+      Logging.severe('Exported ${ratings.length} ratings');
+
+      final lists = await db.query('custom_lists');
+      backupData['custom_lists'] = lists;
+      Logging.severe('Exported ${lists.length} custom lists');
+
+      final albumLists = await db.query('album_lists');
+      backupData['album_lists'] = albumLists;
+      Logging.severe('Exported ${albumLists.length} album-list relationships');
+
+      final albumOrder = await db.query('album_order', orderBy: 'position ASC');
+      backupData['album_order'] = albumOrder;
+      Logging.severe('Exported album order information');
+
+      final settings = await db.query('settings');
+      backupData['settings'] = settings;
+      Logging.severe('Exported ${settings.length} settings');
+
+      navigatorKey.currentState?.pop();
+      _showProgressDialog(
+          'Rebuilding Database', 'Clearing existing database...');
+
+      await db.transaction((txn) async {
+        await txn.delete('albums');
+        await txn.delete('ratings');
+        await txn.delete('custom_lists');
+        await txn.delete('album_lists');
+        await txn.delete('album_order');
+        await txn.delete('settings');
+      });
+      Logging.severe('Database cleared successfully');
+
+      navigatorKey.currentState?.pop();
+      _showProgressDialog(
+          'Rebuilding Database', 'Importing data into SQLite...');
+
+      await db.transaction((txn) async {
+        if (backupData['albums'] != null) {
+          for (final album in backupData['albums']) {
+            await txn.insert('albums', album);
+          }
+        }
+
+        if (backupData['ratings'] != null) {
+          for (final rating in backupData['ratings']) {
+            await txn.insert('ratings', rating);
+          }
+        }
+
+        if (backupData['custom_lists'] != null) {
+          for (final list in backupData['custom_lists']) {
+            await txn.insert('custom_lists', list);
+          }
+        }
+
+        if (backupData['album_lists'] != null) {
+          for (final albumList in backupData['album_lists']) {
+            await txn.insert('album_lists', albumList);
+          }
+        }
+
+        if (backupData['album_order'] != null) {
+          for (final order in backupData['album_order']) {
+            await txn.insert('album_order', order);
+          }
+        }
+
+        if (backupData['settings'] != null) {
+          for (final setting in backupData['settings']) {
+            await txn.insert('settings', setting);
+          }
+        }
+      });
+
+      Logging.severe('Data imported successfully into SQLite');
+    } catch (e, stack) {
+      Logging.severe('Error rebuilding SQLite database', e, stack);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, int>> _getMigrationStats() async {
+    final stats = {
+      'albums': 0,
+      'ratings': 0,
+      'lists': 0,
+      'listAlbums': 0,
+    };
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      final albumResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM albums');
+      stats['albums'] = Sqflite.firstIntValue(albumResults) ?? 0;
+
+      final ratingResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM ratings');
+      stats['ratings'] = Sqflite.firstIntValue(ratingResults) ?? 0;
+
+      final listResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM custom_lists');
+      stats['lists'] = Sqflite.firstIntValue(listResults) ?? 0;
+
+      final listAlbumResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM album_lists');
+      stats['listAlbums'] = Sqflite.firstIntValue(listAlbumResults) ?? 0;
+    } catch (e) {
+      Logging.severe('Error getting migration stats: $e');
+    }
+
+    return stats;
+  }
+
+  void _showForceMigrationSuccessDialog(Map<String, int> stats) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Migration Successful'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Your database has been successfully rebuilt!'),
+              const SizedBox(height: 16),
+              const Text('Database Contents:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              _buildStatRow(Icons.album, 'Albums', stats['albums'] ?? 0),
+              _buildStatRow(Icons.audiotrack, 'Ratings', stats['ratings'] ?? 0),
+              _buildStatRow(Icons.list, 'Lists', stats['lists'] ?? 0),
+              _buildStatRow(Icons.playlist_add_check, 'Albums in lists',
+                  stats['listAlbums'] ?? 0),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImportSuccessDialog() async {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      final albumResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM albums');
+      final albumCount = Sqflite.firstIntValue(albumResults) ?? 0;
+
+      final ratingResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM ratings');
+      final ratingCount = Sqflite.firstIntValue(ratingResults) ?? 0;
+
+      final listResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM custom_lists');
+      final listCount = Sqflite.firstIntValue(listResults) ?? 0;
+
+      final listAlbumResults =
+          await db.rawQuery('SELECT COUNT(*) as count FROM album_lists');
+      final listAlbumCount = Sqflite.firstIntValue(listAlbumResults) ?? 0;
+
+      navigator.push(
+        PageRouteBuilder(
+          barrierColor: Colors.black54,
+          opaque: false,
+          pageBuilder: (_, __, ___) => AlertDialog(
+            title: const Text('Import Successful'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Your data was imported successfully!'),
+                const SizedBox(height: 16),
+                const Text('Imported Data:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                _buildStatRow(Icons.album, 'Albums', albumCount),
+                _buildStatRow(Icons.audiotrack, 'Ratings', ratingCount),
+                _buildStatRow(Icons.list, 'Lists', listCount),
+                _buildStatRow(Icons.playlist_add_check, 'Albums in lists',
+                    listAlbumCount),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      Logging.severe('Error showing import stats: $e');
+      _showSnackBar('Import completed successfully!');
+    }
+  }
+
+  Widget _buildStatRow(IconData icon, String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          const Spacer(),
+          Text(
+            count.toString(),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String colorToHex(Color color) {
+    int rgb = ((color.a * 255).round() << 24) | (color.toARGB32() & 0x00FFFFFF);
+    String value = '#${rgb.toRadixString(16).padLeft(6, '0').substring(2)}';
+    return value;
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
+
+    // Log current theme mode for debugging
+    Logging.severe(
+        'Current theme mode in settings page: ${widget.currentTheme}');
 
     return MaterialApp(
       navigatorKey: navigatorKey,
@@ -566,12 +737,27 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                       ),
+                      // System theme option without platform-specific warning
+                      RadioListTile<ThemeMode>(
+                        title: const Text('System'),
+                        value: ThemeMode.system,
+                        groupValue: widget.currentTheme,
+                        onChanged: (ThemeMode? mode) {
+                          if (mode != null) {
+                            widget.onThemeChanged(mode);
+                            setState(() {});
+                          }
+                        },
+                      ),
                       RadioListTile<ThemeMode>(
                         title: const Text('Light'),
                         value: ThemeMode.light,
                         groupValue: widget.currentTheme,
                         onChanged: (ThemeMode? mode) {
-                          if (mode != null) widget.onThemeChanged(mode);
+                          if (mode != null) {
+                            widget.onThemeChanged(mode);
+                            setState(() {});
+                          }
                         },
                       ),
                       RadioListTile<ThemeMode>(
@@ -579,7 +765,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         value: ThemeMode.dark,
                         groupValue: widget.currentTheme,
                         onChanged: (ThemeMode? mode) {
-                          if (mode != null) widget.onThemeChanged(mode);
+                          if (mode != null) {
+                            widget.onThemeChanged(mode);
+                            setState(() {});
+                          }
                         },
                       ),
                     ],
@@ -621,7 +810,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       ListTile(
                         title: const Text('Primary Color'),
                         subtitle: Text(
-                          // Change ColorToHex to colorToHex to follow Dart naming conventions
                           colorToHex(pickerColor).toString().toUpperCase(),
                           style: TextStyle(
                             color: Theme.of(context).textTheme.bodySmall?.color,
@@ -729,128 +917,54 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
 
-                // Data Management Section
+                // Data Management Section - ENHANCED
                 Card(
                   margin: const EdgeInsets.all(8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Data Management',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            FutureBuilder<bool>(
-                              future: DataMigrationService.isMigrationNeeded(),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  );
-                                }
-
-                                final needsMigration = snapshot.data ?? false;
-
-                                return needsMigration
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: const Text(
-                                          'Update Available',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      )
-                                    : const Icon(Icons.check_circle,
-                                        color: Colors.green);
-                              },
-                            ),
-                          ],
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'Data Management',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
 
-                      // Standard Backup Options
+                      // Standard Backup Options - Reordered with Import first
+                      ListTile(
+                        leading: const Icon(Icons.file_download),
+                        title: const Text('Import Backup'),
+                        subtitle: const Text('Restore data from a backup file'),
+                        onTap: _importBackupWithProgress,
+                      ),
                       ListTile(
                         leading: const Icon(Icons.file_upload),
                         title: const Text('Export Backup'),
                         subtitle:
                             const Text('Save all your data as a backup file'),
-                        onTap: () async => await UserData
-                            .exportData(), // Remove context parameter
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.file_download),
-                        title: const Text('Import Backup'),
-                        subtitle: const Text('Restore data from a backup file'),
-                        onTap: () async => await UserData
-                            .importData(), // Remove context parameter
-                      ),
-
-                      const Divider(),
-
-                      // Data Conversion
-                      ListTile(
-                        leading: const Icon(Icons.sync),
-                        title: const Text('Convert to Unified Format'),
-                        subtitle: const Text(
-                            'Convert all albums to the unified data model'),
-                        onTap: () => _showUnifiedFormatDialog(),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.sync_alt),
-                        title: const Text('Convert Old Backup'),
-                        subtitle:
-                            const Text('Create new format backup from old one'),
-                        onTap: () => BackupConverter
-                            .convertBackupFile(), // Remove context parameter
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.system_update_alt),
-                        title: const Text('Import & Convert Old Backup'),
-                        subtitle: const Text(
-                            'Convert and import old backup directly'),
-                        onTap: () => BackupConverter
-                            .importConvertedBackup(), // Remove context parameter
+                        onTap: () async {
+                          final success = await UserData.exportData();
+                          if (success) {
+                            _showSnackBar('Backup created successfully');
+                          } else {
+                            _showSnackBar('Failed to create backup');
+                          }
+                        },
                       ),
 
                       const Divider(),
 
-                      // Migration Options
+                      // Migration option with updated name
                       ListTile(
-                        leading: const Icon(Icons.update),
-                        title: const Text('Migrate Data'),
+                        leading: const Icon(Icons.storage),
+                        title: const Text('Migrate to SQLite Database'),
                         subtitle: const Text(
-                            'Convert your data to the latest format'),
-                        onTap: () => _showMigrationDialog(),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.restore),
-                        title: const Text('Rollback Migration'),
-                        subtitle: const Text('Revert to previous data format'),
-                        onTap: () => _rollbackMigration(),
+                            'Convert legacy data to new database format for better performance'),
+                        onTap: () => _performForceMigration(),
                       ),
                     ],
                   ),
@@ -900,12 +1014,5 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-  }
-
-  // Rename method from ColorToHex to colorToHex
-  String colorToHex(Color color) {
-    int rgb = ((color.a * 255).round() << 24) | (color.toARGB32() & 0x00FFFFFF);
-    String value = '#${rgb.toRadixString(16).padLeft(6, '0').substring(2)}';
-    return value;
   }
 }

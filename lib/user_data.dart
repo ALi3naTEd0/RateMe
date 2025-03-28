@@ -1,1577 +1,875 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'logging.dart';
-import 'package:flutter/material.dart';
 import 'dart:io';
-import 'custom_lists_page.dart';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart'; // Add this import for Sqflite
 import 'album_model.dart';
-import 'model_mapping_service.dart';
+import 'logging.dart';
+import 'custom_lists_page.dart';
+import 'database/database_helper.dart';
+import 'database/migration_utility.dart';
 
 class UserData {
-  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  // Flag to track initialization
+  static bool _initialized = false;
 
-  // Storage keys for SharedPreferences
-  static const String _savedAlbumsKey = 'saved_albums';
-  static const String _savedAlbumOrderKey = 'saved_album_order';
-  static const String _ratingsPrefix = 'saved_ratings_';
-  static const String _customListsKey = 'custom_lists';
+  // Modified initialization method to ensure database is properly set up
+  static Future<void> initializeDatabase() async {
+    if (_initialized) return;
 
-  static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
+      // Initialize the database factory first
+      await DatabaseHelper.initialize();
 
-      List<Map<String, dynamic>> albums = [];
-      for (String albumJson in savedAlbums) {
-        try {
-          Map<String, dynamic> album = jsonDecode(albumJson);
-          albums.add(album);
-        } catch (e) {
-          Logging.severe('Error parsing album JSON', e);
-        }
-      }
-
-      // Sort albums based on the album order
-      albums.sort((a, b) {
-        // Convert IDs to string for safe comparison (both new and legacy IDs)
-        String idA = (a['id'] ?? a['collectionId'])?.toString() ?? '';
-        String idB = (b['id'] ?? b['collectionId'])?.toString() ?? '';
-
-        int indexA = albumOrder.indexOf(idA);
-        int indexB = albumOrder.indexOf(idB);
-
-        // Handle case where ID is not in the order list
-        if (indexA == -1) indexA = albumOrder.length;
-        if (indexB == -1) indexB = albumOrder.length;
-
-        return indexA.compareTo(indexB);
-      });
-
-      return albums;
-    } catch (e, stackTrace) {
-      Logging.severe('Error getting saved albums', e, stackTrace);
-      return [];
-    }
-  }
-
-  /// Get saved album ratings with proper ID handling for both string and int IDs
-  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(
-      dynamic albumId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = '$_ratingsPrefix${_normalizeId(albumId)}';
-      Logging.severe('Getting ratings with key: $key');
-
-      final List<String> savedRatings = prefs.getStringList(key) ?? [];
-      Logging.severe('Found ${savedRatings.length} saved ratings');
-
-      // Log sample for debugging
-      if (savedRatings.isNotEmpty) {
-        Logging.severe('Sample rating JSON: ${savedRatings.first}');
-      }
-
-      return savedRatings.map((ratingJson) {
-        try {
-          final rating = jsonDecode(ratingJson);
-          // Ensure trackId is always consistent
-          rating['trackId'] = _normalizeId(rating['trackId']);
-          return rating as Map<String, dynamic>;
-        } catch (e, stack) {
-          Logging.severe('Error parsing rating JSON: $ratingJson', e, stack);
-          return {'trackId': '0', 'rating': 0.0, 'error': true};
-        }
-      }).toList();
-    } catch (e, stackTrace) {
-      Logging.severe(
-          'Error getting saved ratings for album $albumId', e, stackTrace);
-      return [];
-    }
-  }
-
-  static Future<void> saveAlbum(Map<String, dynamic> album) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String albumKey = 'album_${album['collectionId']}';
-
-      // Filter and save only audio tracks
-      if (album['tracks'] != null) {
-        var audioTracks = (album['tracks'] as List)
-            .where((track) =>
-                track['wrapperType'] == 'track' && track['kind'] == 'song')
-            .toList();
-        album['tracks'] = audioTracks;
-      }
-      await prefs.setString(albumKey, jsonEncode(album));
-    } catch (e, stackTrace) {
-      Logging.severe('Error saving album', e, stackTrace);
-      rethrow;
-    }
-  }
-
-  static Future<void> addToSavedAlbums(dynamic albumData) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
-
-      // Convert to Album object if not already
-      Album album;
-      if (albumData is Album) {
-        album = albumData;
-      } else {
-        // Extra logging for debugging
+      // Check if migration is needed
+      if (!await MigrationUtility.isMigrationCompleted()) {
+        // We don't actually do the migration here - it will be triggered from the settings page
         Logging.severe(
-            'Converting album to unified format: ${albumData['name'] ?? albumData['collectionName']}');
-
-        // Ensure platform is preserved during conversion
-        String platform = albumData['platform']?.toString() ?? 'unknown';
-        Logging.severe('Original platform: $platform');
-
-        // Special handling for Spotify albums
-        final albumId = albumData['id']?.toString() ??
-            albumData['collectionId']?.toString() ??
-            '';
-        if (albumId.isNotEmpty &&
-            albumId.length > 10 &&
-            !albumId.contains(RegExp(r'^[0-9]+$'))) {
-          if (platform == 'unknown') {
-            platform = 'spotify';
-            albumData['platform'] = 'spotify';
-            Logging.severe(
-                'Auto-detected platform as Spotify based on ID format');
-          }
-        }
-
-        album = Album.fromLegacy(albumData);
-
-        // Double-check that platform was properly transferred
-        if (album.platform != platform && platform != 'unknown') {
-          Logging.severe(
-              'Platform mismatch! Expected: $platform, Got: ${album.platform}. Fixing...');
-          // Create a corrected album with the right platform
-          album = Album(
-            id: album.id,
-            name: album.name,
-            artist: album.artist,
-            artworkUrl: album.artworkUrl,
-            url: album.url,
-            platform: platform,
-            releaseDate: album.releaseDate,
-            metadata: album.metadata,
-            tracks: album.tracks,
-          );
-        }
+            'Database migration required but not performed automatically');
       }
 
-      // Get album ID as string for consistent comparison
-      String albumId = album.id.toString();
-      Logging.severe(
-          'Processed album ID: $albumId (Platform: ${album.platform})');
-
-      // Check if album already exists
-      bool exists = false;
-      int existingIndex = -1;
-
-      for (int i = 0; i < savedAlbums.length; i++) {
-        try {
-          final saved = jsonDecode(savedAlbums[i]);
-          final savedId =
-              (saved['id'] ?? saved['collectionId'])?.toString() ?? '';
-
-          if (savedId == albumId) {
-            exists = true;
-            existingIndex = i;
-            break;
-          }
-        } catch (e) {
-          Logging.severe('Error checking existing album: $e');
-        }
-      }
-
-      // Convert to JSON for storage
-      final albumJson = jsonEncode(album.toJson());
-
-      if (exists) {
-        // Update existing album
-        Logging.severe('Updating existing album at index $existingIndex');
-        savedAlbums[existingIndex] = albumJson;
-      } else {
-        // Add new album
-        Logging.severe('Adding new album');
-        savedAlbums.add(albumJson);
-        albumOrder.add(albumId);
-      }
-
-      // Save changes
-      await prefs.setStringList(_savedAlbumsKey, savedAlbums);
-      await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
-
-      Logging.severe(
-          'Album saved successfully. Platform: ${album.platform}, Total albums: ${savedAlbums.length}');
+      _initialized = true;
     } catch (e, stack) {
-      Logging.severe('Error saving album', e, stack);
-      rethrow;
+      Logging.severe('Error initializing database', e, stack);
     }
   }
 
-  static Future<void> deleteAlbum(Map<String, dynamic> album) async {
+  /// Check if migration is needed
+  static Future<bool> isMigrationNeeded() async {
     try {
+      // Check migration flag first
       final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      List<String> albumOrder = prefs.getStringList(_savedAlbumOrderKey) ?? [];
+      final migrationCompleted =
+          prefs.getBool('sqlite_migration_completed') ?? false;
 
-      // Get album ID as string for consistent comparison
-      String albumId = (album['id'] ?? album['collectionId']).toString();
-
-      Logging.severe('Deleting album with ID: $albumId');
-
-      // Remove from albums list
-      int removedCount = 0;
-      savedAlbums.removeWhere((albumJson) {
-        try {
-          Map<String, dynamic> savedAlbum = jsonDecode(albumJson);
-          String savedId =
-              (savedAlbum['id'] ?? savedAlbum['collectionId']).toString();
-          bool shouldRemove = savedId == albumId;
-          if (shouldRemove) removedCount++;
-          return shouldRemove;
-        } catch (e) {
-          Logging.severe('Error checking album for removal: $e');
-          return false;
-        }
-      });
-
-      // Remove from order list
-      albumOrder.remove(albumId);
-
-      // Also delete ratings
-      await _deleteRatings(albumId);
-
-      Logging.severe('Removed $removedCount albums with ID: $albumId');
-
-      // Save updated lists
-      await prefs.setStringList(_savedAlbumsKey, savedAlbums);
-      await prefs.setStringList(_savedAlbumOrderKey, albumOrder);
-
-      Logging.severe('Album deletion complete for ID: $albumId');
-    } catch (e, stackTrace) {
-      Logging.severe('Error deleting album', e, stackTrace);
-      rethrow;
-    }
-  }
-
-  static Future<void> _deleteRatings(dynamic albumId) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String key = '$_ratingsPrefix${_normalizeId(albumId)}';
-
-      Logging.severe('Deleting ratings with key: $key');
-
-      bool removed = await prefs.remove(key);
-
-      Logging.severe('Ratings removal success: $removed');
-    } catch (e) {
-      Logging.severe('Error deleting ratings', e);
-    }
-  }
-
-  static Future<void> saveAlbumOrder(List<String> albumIds) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_savedAlbumOrderKey, albumIds);
-    } catch (e, stackTrace) {
-      Logging.severe('Error saving album order', e, stackTrace);
-      rethrow;
-    }
-  }
-
-  static Future<List<String>> getSavedAlbumOrder() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      List<String>? albumIds = prefs.getStringList(_savedAlbumOrderKey);
-      return albumIds ?? [];
-    } catch (e) {
-      Logging.severe('Error getting saved album order', e);
-      return [];
-    }
-  }
-
-  static Future<Album?> getSavedAlbumById(int albumId) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      List<String>? savedAlbumsJson = prefs.getStringList(_savedAlbumsKey);
-
-      if (savedAlbumsJson != null) {
-        for (String json in savedAlbumsJson) {
-          try {
-            Map<String, dynamic> albumData = jsonDecode(json);
-
-            // Check for ID match using either legacy or new format
-            bool isMatch = false;
-            if (albumData.containsKey('collectionId')) {
-              final id = albumData['collectionId'];
-              isMatch = (id is int && id == albumId) ||
-                  (id is String && id == albumId.toString());
-            }
-            if (!isMatch && albumData.containsKey('id')) {
-              final id = albumData['id'];
-              isMatch = (id is int && id == albumId) ||
-                  (id is String && id == albumId.toString());
-            }
-
-            if (isMatch) {
-              // Convert to unified model
-              if (albumData.containsKey('modelVersion')) {
-                // Already in unified format
-                return Album.fromJson(albumData);
-              } else {
-                // Legacy format - convert using fromLegacy
-                return Album.fromLegacy(albumData);
-              }
-            }
-          } catch (e) {
-            Logging.severe('Error parsing album JSON when getting by ID', e);
-            continue;
-          }
-        }
-      }
-      return null;
-    } catch (e, stack) {
-      Logging.severe('Error in getSavedAlbumById', e, stack);
-      return null;
-    }
-  }
-
-  static Future<List<int>> getSavedAlbumTrackIds(int collectionId) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String key = 'album_track_ids_$collectionId';
-      List<String>? trackIdsStr = prefs.getStringList(key);
-      return trackIdsStr?.map((id) => int.tryParse(id) ?? 0).toList() ?? [];
-    } catch (e) {
-      Logging.severe('Error getting saved album track IDs', e);
-      return [];
-    }
-  }
-
-  static Future<void> saveAlbumTrackIds(
-      int collectionId, List<int> trackIds) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String key = 'album_track_ids_$collectionId';
-      List<String> trackIdsStr = trackIds.map((id) => id.toString()).toList();
-      await prefs.setStringList(key, trackIdsStr);
-    } catch (e) {
-      Logging.severe('Error saving album track IDs', e);
-    }
-  }
-
-  /// Get ratings with better error handling and type conversion
-  static Future<Map<int, double>?> getRatings(dynamic albumId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = '$_ratingsPrefix${_normalizeId(albumId)}';
-      final List<String>? savedRatings = prefs.getStringList(key);
-
-      if (savedRatings == null || savedRatings.isEmpty) {
-        return null;
+      if (migrationCompleted) {
+        return false;
       }
 
-      Map<int, double> result = {};
-      for (String ratingJson in savedRatings) {
-        try {
-          Map<String, dynamic> rating = jsonDecode(ratingJson);
-
-          // Handle string or int trackId
-          int trackId;
-          if (rating['trackId'] is String) {
-            trackId = int.parse(rating['trackId']);
-          } else {
-            trackId = rating['trackId'];
-          }
-
-          double ratingValue = rating['rating'].toDouble();
-          result[trackId] = ratingValue;
-        } catch (e) {
-          Logging.severe('Error parsing rating: $e', e);
-        }
-      }
-
-      return result;
+      // Check if there's SharedPreferences data to migrate
+      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      return savedAlbums.isNotEmpty;
     } catch (e) {
-      Logging.severe('Error getting ratings', e);
-      return null;
-    }
-  }
-
-  static Future<void> clearAllData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-    } catch (e, stackTrace) {
-      Logging.severe('Error clearing all data', e, stackTrace);
-      rethrow;
-    }
-  }
-
-  static Future<void> exportData() async {
-    try {
-      final timestamp = DateTime.now().toString().replaceAll(':', '-');
-      final fileName = 'rateme_backup_$timestamp.json';
-
-      final String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save backup as',
-        fileName: fileName,
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-      );
-
-      if (outputFile == null) {
-        return; // User cancelled
-      }
-
-      final data = await _getAllData();
-      final jsonData = jsonEncode(data);
-
-      final file = File(outputFile);
-      await file.writeAsString(jsonData);
-
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('Data exported to: $outputFile'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      Logging.severe('Error exporting data', e);
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('Error exporting data: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  static Future<bool> importData() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        dialogTitle: 'Select backup file',
-      );
-
-      if (result == null || result.files.isEmpty) {
-        return false; // User cancelled
-      }
-
-      final file = File(result.files.first.path!);
-      final jsonData = await file.readAsString();
-      final data = jsonDecode(jsonData);
-
-      // Show conversion dialog
-      final shouldConvert = await showDialog<bool>(
-        context: navigatorKey.currentContext!,
-        builder: (context) => AlertDialog(
-          title: const Text('Convert Backup'),
-          content: const Text(
-            'Would you like to convert this backup to the new album format? '
-            'This is recommended for better compatibility.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Import As Is'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Convert'),
-            ),
-          ],
-        ),
-      );
-
-      if (shouldConvert == true) {
-        // Convert albums to new format
-        if (data['saved_albums'] != null) {
-          List<String> savedAlbums = List<String>.from(data['saved_albums']);
-          List<String> convertedAlbums = [];
-
-          for (String albumJson in savedAlbums) {
-            try {
-              Map<String, dynamic> albumData = jsonDecode(albumJson);
-              Album album = Album.fromLegacy(albumData);
-              convertedAlbums.add(jsonEncode(album.toJson()));
-            } catch (e) {
-              Logging.severe('Error converting album during import', e);
-              convertedAlbums.add(albumJson); // Keep original on error
-            }
-          }
-
-          data['saved_albums'] = convertedAlbums;
-        }
-      }
-
-      // Clear existing data and import
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-
-      for (String key in data.keys) {
-        dynamic value = data[key];
-        if (value is int) {
-          await prefs.setInt(key, value);
-        } else if (value is double) {
-          await prefs.setDouble(key, value);
-        } else if (value is bool) {
-          await prefs.setBool(key, value);
-        } else if (value is String) {
-          await prefs.setString(key, value);
-        } else if (value is List) {
-          if (value.every((item) => item is String)) {
-            await prefs.setStringList(key, List<String>.from(value));
-          }
-        }
-      }
-
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(shouldConvert == true
-              ? 'Data converted and imported successfully'
-              : 'Data imported successfully'),
-        ),
-      );
-
-      return true;
-    } catch (e) {
-      Logging.severe('Error importing data', e);
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('Error importing data: $e')),
-      );
+      Logging.severe('Error checking migration status', e);
       return false;
     }
   }
 
-  static Future<void> exportAlbum(Map<String, dynamic> album) async {
+  /// Export current data to backup file - improved for migration
+  static Future<String?> exportMigrationBackup() async {
     try {
-      final String artistName = album['artistName'] ?? 'Unknown';
-      final String albumName = album['collectionName'] ?? 'Unknown';
+      // First check if we have SharedPreferences data to migrate
+      final prefs = await SharedPreferences.getInstance();
+      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
 
-      String fileName = '${artistName}_$albumName.json';
-      // Clean filename
-      fileName = fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-
-      final String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save album as',
-        fileName: fileName,
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-      );
-
-      if (outputFile == null) {
-        return; // User cancelled
+      if (savedAlbums.isEmpty) {
+        Logging.severe('No SharedPreferences data to migrate');
+        return null;
       }
 
-      // Get album ratings
-      int albumId = album['collectionId'];
-      final ratings = await getSavedAlbumRatings(albumId);
+      // Create a temporary backup file automatically
+      final tempDir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final backupPath = '${tempDir.path}/rateme_migration_$timestamp.json';
 
-      // Create export data
-      final exportData = {
-        'album': album,
-        'ratings': ratings,
-        'exportDate': DateTime.now().toIso8601String(),
+      // Build the legacy format backup data
+      final backupData = <String, dynamic>{};
+
+      // Export all SharedPreferences keys
+      for (final key in prefs.getKeys()) {
+        final value = prefs.get(key);
+        if (value != null) {
+          // Handle different value types
+          if (value is List<String>) {
+            backupData[key] = value;
+          } else {
+            backupData[key] = value;
+          }
+        }
+      }
+
+      // Add metadata
+      backupData['_backup_meta'] = {
+        'version': 1,
+        'timestamp': timestamp,
+        'format': 'legacy'
       };
 
-      final jsonData = jsonEncode(exportData);
+      // Save to the temporary file
+      final file = File(backupPath);
+      await file.writeAsString(jsonEncode(backupData));
 
-      final file = File(outputFile);
-      await file.writeAsString(jsonData);
-
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('Album exported to: $outputFile'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      Logging.severe('Error exporting album', e);
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('Error exporting album: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      Logging.severe('Created migration backup at: $backupPath');
+      return backupPath;
+    } catch (e, stack) {
+      Logging.severe('Error creating migration backup', e, stack);
+      return null;
     }
   }
 
+  /// Migrate from SharedPreferences to SQLite using backup approach
+  static Future<bool> migrateToSQLite() async {
+    try {
+      // Create a backup first
+      final backupPath = await exportMigrationBackup();
+      if (backupPath == null) {
+        Logging.severe('Failed to create migration backup');
+        return false;
+      }
+
+      // Import the backup into SQLite
+      final backupFile = File(backupPath);
+      final jsonData = await backupFile.readAsString();
+      final backupData = jsonDecode(jsonData);
+
+      // Import using the normal import function
+      final success = await _importLegacyFormatBackup(
+        backupData,
+        (stage, progress) {
+          // We don't need to do anything with the progress in this context
+          // but we need to provide the callback to match the method signature
+        },
+      );
+
+      if (success) {
+        // Mark migration as completed
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('sqlite_migration_completed', true);
+
+        Logging.severe('Migration to SQLite completed successfully');
+        return true;
+      } else {
+        Logging.severe('Migration to SQLite failed');
+        return false;
+      }
+    } catch (e, stack) {
+      Logging.severe('Error during SQLite migration', e, stack);
+      return false;
+    }
+  }
+
+  // ALBUM METHODS
+
+  /// Save an album to the database
+  static Future<bool> addToSavedAlbums(Map<String, dynamic> albumData) async {
+    try {
+      await initializeDatabase();
+
+      // Convert to Album model
+      Album album;
+      try {
+        album = Album.fromJson(albumData);
+      } catch (e) {
+        album = Album.fromLegacy(albumData);
+      }
+
+      // Save to database
+      await DatabaseHelper.instance.insertAlbum(album);
+
+      Logging.severe('Album saved to database: ${album.name}');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error saving album to database', e, stack);
+      return false;
+    }
+  }
+
+  /// Get all saved albums
+  static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
+    try {
+      await initializeDatabase();
+
+      // Get albums from database with full data
+      final albums = await DatabaseHelper.instance.getAllAlbums();
+
+      // Debug the returned data structure
+      Logging.severe(
+          'getSavedAlbums: Retrieved ${albums.length} albums from database');
+
+      if (albums.isNotEmpty) {
+        // Log the first album for debugging purposes
+        final firstAlbum = albums.first;
+        Logging.severe(
+            'First album details: id=${firstAlbum['id']}, name=${firstAlbum['name']}, artist=${firstAlbum['artist']}');
+        Logging.severe(
+            'First album has artwork URL: ${firstAlbum['artworkUrl'] ?? firstAlbum['artworkUrl100'] ?? 'missing'}');
+      } else {
+        // Check if there's data in the database table despite the empty result
+        final db = await DatabaseHelper.instance.database;
+        final count = await db.rawQuery('SELECT COUNT(*) as count FROM albums');
+        final albumCount = Sqflite.firstIntValue(count) ?? 0;
+        Logging.severe(
+            'Database has $albumCount albums in the table, but query returned empty result');
+
+        // If there's a discrepancy, try a direct query to diagnose
+        if (albumCount > 0) {
+          final rawAlbums = await db.query('albums', limit: 3);
+          Logging.severe(
+              'Direct query sample (${rawAlbums.length} albums): ${rawAlbums.map((a) => a['name']).join(', ')}');
+        }
+      }
+
+      return albums;
+    } catch (e, stack) {
+      Logging.severe('Error getting saved albums', e, stack);
+      return [];
+    }
+  }
+
+  /// Delete an album from database
+  static Future<bool> deleteAlbum(Map<String, dynamic> album) async {
+    try {
+      await initializeDatabase();
+
+      final albumId = album['id'] ?? album['collectionId'];
+      if (albumId == null) {
+        Logging.severe('Cannot delete album: No ID found');
+        return false;
+      }
+
+      await DatabaseHelper.instance.deleteAlbum(albumId.toString());
+
+      Logging.severe('Album deleted: $albumId');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error deleting album', e, stack);
+      return false;
+    }
+  }
+
+  /// Check if album exists in database
+  static Future<bool> albumExists(String albumId) async {
+    try {
+      await initializeDatabase();
+
+      final album = await DatabaseHelper.instance.getAlbum(albumId);
+      return album != null;
+    } catch (e) {
+      Logging.severe('Error checking if album exists: $e');
+      return false;
+    }
+  }
+
+  /// Get album by any ID (handles both string and int IDs)
+  static Future<Album?> getAlbumByAnyId(String albumId) async {
+    try {
+      await initializeDatabase();
+
+      Logging.severe('Getting album by ID: $albumId (${albumId.runtimeType})');
+
+      final album = await DatabaseHelper.instance.getAlbum(albumId);
+
+      if (album != null) {
+        Logging.severe(
+            'Found album: ${album.name} with artwork URL: ${album.artworkUrl}');
+      } else {
+        Logging.severe('Album not found for ID: $albumId');
+      }
+
+      return album;
+    } catch (e, stack) {
+      Logging.severe('Error getting album by ID: $albumId', e, stack);
+      return null;
+    }
+  }
+
+  // RATINGS METHODS
+
+  /// Save a track rating
+  static Future<bool> saveRating(
+      dynamic albumId, dynamic trackId, double rating) async {
+    try {
+      await initializeDatabase();
+
+      // Ensure consistent string IDs
+      final albumIdStr = albumId.toString();
+      final trackIdStr = trackId.toString();
+
+      await DatabaseHelper.instance.saveRating(albumIdStr, trackIdStr, rating);
+
+      Logging.severe(
+          'Rating saved: Album $albumIdStr, Track $trackIdStr, Rating $rating');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error saving rating', e, stack);
+      return false;
+    }
+  }
+
+  /// Get all ratings for an album
+  static Future<List<Map<String, dynamic>>> getSavedAlbumRatings(
+      dynamic albumId) async {
+    try {
+      await initializeDatabase();
+
+      final albumIdStr = albumId.toString();
+      final ratings =
+          await DatabaseHelper.instance.getRatingsForAlbum(albumIdStr);
+
+      // Convert to compatible format for existing code
+      return ratings
+          .map((r) => {
+                'trackId': r['track_id'],
+                'rating': r['rating'],
+                'timestamp': r['timestamp'],
+              })
+          .toList();
+    } catch (e, stack) {
+      Logging.severe('Error getting album ratings', e, stack);
+      return [];
+    }
+  }
+
+  // ALBUM ORDER METHODS
+
+  /// Save album order
+  static Future<bool> saveAlbumOrder(List<String> albumIds) async {
+    try {
+      await initializeDatabase();
+
+      await DatabaseHelper.instance.saveAlbumOrder(albumIds);
+
+      Logging.severe('Album order saved: ${albumIds.length} albums');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error saving album order', e, stack);
+      return false;
+    }
+  }
+
+  /// Get album order
+  static Future<List<String>> getAlbumOrder() async {
+    try {
+      await initializeDatabase();
+
+      return await DatabaseHelper.instance.getAlbumOrder();
+    } catch (e, stack) {
+      Logging.severe('Error getting album order', e, stack);
+      return [];
+    }
+  }
+
+  // CUSTOM LISTS METHODS
+
+  /// Save a custom list
+  static Future<bool> saveCustomList(CustomList list) async {
+    try {
+      await initializeDatabase();
+
+      // Update timestamp
+      list.updatedAt = DateTime.now();
+
+      // Save list to database
+      await DatabaseHelper.instance.insertCustomList({
+        'id': list.id,
+        'name': list.name,
+        'description': list.description,
+        'createdAt': list.createdAt.toIso8601String(),
+        'updatedAt': list.updatedAt.toIso8601String(),
+      });
+
+      // Clear existing album relationships
+      final db = await DatabaseHelper.instance.database;
+      await db.delete(
+        'album_lists',
+        where: 'list_id = ?',
+        whereArgs: [list.id],
+      );
+
+      // Add album-list relationships
+      for (int i = 0; i < list.albumIds.length; i++) {
+        await DatabaseHelper.instance
+            .addAlbumToList(list.albumIds[i], list.id, i);
+      }
+
+      Logging.severe(
+          'Custom list saved: ${list.name} with ${list.albumIds.length} albums');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error saving custom list', e, stack);
+      return false;
+    }
+  }
+
+  /// Get all custom lists
+  static Future<List<CustomList>> getCustomLists() async {
+    try {
+      await initializeDatabase();
+
+      // Get lists from database
+      final lists = await DatabaseHelper.instance.getAllCustomLists();
+      final result = <CustomList>[];
+
+      for (final list in lists) {
+        try {
+          // Get album IDs for this list
+          final albumIds =
+              await DatabaseHelper.instance.getAlbumIdsForList(list['id']);
+
+          // Create CustomList object
+          result.add(CustomList(
+            id: list['id'],
+            name: list['name'],
+            description: list['description'] ?? '',
+            albumIds: albumIds,
+            createdAt: DateTime.parse(list['created_at']),
+            updatedAt: DateTime.parse(list['updated_at']),
+          ));
+        } catch (e) {
+          Logging.severe('Error loading custom list: $e');
+        }
+      }
+
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error getting custom lists', e, stack);
+      return [];
+    }
+  }
+
+  /// Delete a custom list
+  static Future<bool> deleteCustomList(String listId) async {
+    try {
+      await initializeDatabase();
+
+      await DatabaseHelper.instance.deleteCustomList(listId);
+
+      Logging.severe('Custom list deleted: $listId');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error deleting custom list', e, stack);
+      return false;
+    }
+  }
+
+  // SETTINGS METHODS
+
+  /// Save a setting
+  static Future<bool> saveSetting(String key, String value) async {
+    try {
+      await initializeDatabase();
+
+      await DatabaseHelper.instance.saveSetting(key, value);
+
+      Logging.severe('Setting saved: $key = $value');
+      return true;
+    } catch (e) {
+      Logging.severe('Error saving setting: $e');
+      return false;
+    }
+  }
+
+  /// Get a setting
+  static Future<String?> getSetting(String key) async {
+    try {
+      await initializeDatabase();
+
+      return await DatabaseHelper.instance.getSetting(key);
+    } catch (e) {
+      Logging.severe('Error getting setting: $e');
+      return null;
+    }
+  }
+
+  // Import/Export methods can remain largely the same but need adapting to the new database structure
+
+  /// Import album from JSON file
   static Future<Map<String, dynamic>?> importAlbum() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
-        dialogTitle: 'Select album file',
+        dialogTitle: 'Import Album',
       );
 
       if (result == null || result.files.isEmpty) {
-        return null; // User cancelled
+        return null;
       }
 
       final file = File(result.files.first.path!);
       final jsonData = await file.readAsString();
-      final data = jsonDecode(jsonData);
+      final albumData = jsonDecode(jsonData);
 
-      if (!data.containsKey('album')) {
-        throw Exception('Invalid album file format');
-      }
+      // Save to database
+      await addToSavedAlbums(albumData);
 
-      final album = data['album'];
-      final ratings = data['ratings'];
-
-      // Import album ratings if available
-      if (ratings != null && album.containsKey('collectionId')) {
-        int albumId = album['collectionId'];
-        for (var rating in data['ratings']) {
-          if (rating.containsKey('trackId') && rating.containsKey('rating')) {
-            await saveRating(
-              albumId,
-              rating['trackId'],
-              rating['rating'].toDouble(),
-            );
-          }
-        }
-      }
-
-      return album;
+      return albumData;
     } catch (e) {
-      Logging.severe('Error importing album', e);
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('Error importing album: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      Logging.severe('Error importing album: $e');
       return null;
     }
   }
 
-  static Future<List<CustomList>> getCustomLists() async {
+  /// Export album to JSON file
+  static Future<bool> exportAlbum(Map<String, dynamic> albumData) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> listsJson = prefs.getStringList(_customListsKey) ?? [];
+      final jsonData = jsonEncode(albumData);
+      final albumName =
+          albumData['name'] ?? albumData['collectionName'] ?? 'Unknown';
+      final safeAlbumName = albumName.replaceAll(RegExp(r'[^\w\s-]'), '_');
 
-      // Safe parsing of each list
-      List<CustomList> result = [];
-      for (String json in listsJson) {
-        try {
-          Map<String, dynamic> data = jsonDecode(json);
-          CustomList list = CustomList.fromJson(data);
-          result.add(list);
-        } catch (e) {
-          Logging.severe('Error parsing custom list', e);
-          // Skip invalid entries
-        }
-      }
-
-      return result;
-    } catch (e, stackTrace) {
-      Logging.severe('Error getting custom lists', e, stackTrace);
-      return [];
-    }
-  }
-
-  static Future<void> saveCustomList(CustomList list) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> listsJson = prefs.getStringList(_customListsKey) ?? [];
-
-      // Update or add the list
-      bool found = false;
-      for (int i = 0; i < listsJson.length; i++) {
-        try {
-          Map<String, dynamic> data = jsonDecode(listsJson[i]);
-          if (data['id'] == list.id) {
-            list.updatedAt = DateTime.now();
-            listsJson[i] = jsonEncode(list.toJson());
-            found = true;
-            break;
-          }
-        } catch (e) {
-          // Skip invalid entries
-        }
-      }
-
-      if (!found) {
-        listsJson.add(jsonEncode(list.toJson()));
-      }
-
-      await prefs.setStringList(_customListsKey, listsJson);
-    } catch (e, stackTrace) {
-      Logging.severe('Error saving custom list', e, stackTrace);
-      rethrow;
-    }
-  }
-
-  static Future<void> deleteCustomList(String listId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> listsJson = prefs.getStringList(_customListsKey) ?? [];
-
-      listsJson.removeWhere((json) {
-        try {
-          Map<String, dynamic> data = jsonDecode(json);
-          return data['id'] == listId;
-        } catch (e) {
-          return false;
-        }
-      });
-
-      await prefs.setStringList(_customListsKey, listsJson);
-    } catch (e, stackTrace) {
-      Logging.severe('Error deleting custom list', e, stackTrace);
-      rethrow;
-    }
-  }
-
-  static Future<String?> saveImage(String defaultFileName) async {
-    try {
-      final dir = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final fileName = defaultFileName.isEmpty
-          ? 'rateme_image_$timestamp.png'
-          : defaultFileName;
-
-      final filePath = '${dir.path}/$fileName';
-      return filePath;
-    } catch (e) {
-      Logging.severe('Error saving image', e);
-      return null;
-    }
-  }
-
-  static Future<void> migrateRatings(int albumId, List<dynamic> tracks) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final oldRatingsKey = '$_ratingsPrefix$albumId';
-      final oldRatings = prefs.getStringList(oldRatingsKey) ?? [];
-
-      if (oldRatings.isEmpty) return;
-
-      // Create new ratings with correct track IDs
-      List<Map<String, dynamic>> newRatings = [];
-      for (var trackObj in tracks) {
-        // Handle both Map<String, dynamic> and Track objects
-        int? trackId;
-        int? position;
-
-        if (trackObj is Map<String, dynamic>) {
-          position = trackObj['position'] ?? trackObj['trackNumber'] ?? 0;
-          trackId = trackObj['trackId'] ?? trackObj['id'];
-        } else if (trackObj is Track) {
-          position = trackObj.position;
-          trackId = trackObj.id;
-        }
-
-        if (trackId == null) continue;
-
-        // Find ratings by position
-        for (var ratingJson in oldRatings) {
-          try {
-            final rating = jsonDecode(ratingJson);
-            final ratingPosition =
-                rating['position'] ?? rating['trackNumber'] ?? 0;
-
-            if (ratingPosition == position) {
-              final newRating = {
-                'trackId': trackId,
-                'rating': rating['rating'],
-                'position': position,
-                'timestamp':
-                    rating['timestamp'] ?? DateTime.now().toIso8601String(),
-              };
-
-              newRatings.add(newRating);
-              break;
-            }
-          } catch (e) {
-            // Skip invalid ratings
-          }
-        }
-      }
-
-      // Save new ratings
-      await prefs.setStringList(
-        oldRatingsKey,
-        newRatings.map((r) => jsonEncode(r)).toList(),
+      final String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export Album',
+        fileName: '$safeAlbumName.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
       );
-    } catch (e) {
-      Logging.severe('Error migrating ratings', e);
-    }
-  }
 
-  static Future<Map<int, Map<String, dynamic>>> migrateAlbumRatings(
-      int albumId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final ratingsKey = 'saved_ratings_$albumId';
-      Map<int, Map<String, dynamic>> ratingsByPosition = {};
-
-      final oldRatingsJson = prefs.getStringList(ratingsKey) ?? [];
-      if (oldRatingsJson.isEmpty) return ratingsByPosition;
-
-      final oldRatings = oldRatingsJson
-          .map((r) => jsonDecode(r) as Map<String, dynamic>)
-          .toList();
-
-      for (var rating in oldRatings) {
-        final position = rating['position'] ?? rating['trackNumber'] ?? 0;
-        if (position > 0) {
-          ratingsByPosition[position] = rating;
-        }
-      }
-
-      return ratingsByPosition;
-    } catch (e) {
-      Logging.severe('Error migrating album ratings', e);
-      return {};
-    }
-  }
-
-  static Future<void> saveNewRating(
-    int albumId,
-    int trackId,
-    int position,
-    double rating,
-  ) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final ratingsKey = 'saved_ratings_$albumId';
-
-      final ratingData = {
-        'trackId': trackId,
-        'position': position,
-        'rating': rating,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
-
-      List<String> ratings = prefs.getStringList(ratingsKey) ?? [];
-
-      // Update or add new rating
-      int index = ratings.indexWhere((r) {
-        try {
-          final saved = jsonDecode(r);
-          return saved['trackId'] == trackId || saved['position'] == position;
-        } catch (e) {
-          return false;
-        }
-      });
-
-      if (index != -1) {
-        ratings[index] = jsonEncode(ratingData);
-      } else {
-        ratings.add(jsonEncode(ratingData));
-      }
-
-      await prefs.setStringList(ratingsKey, ratings);
-    } catch (e) {
-      Logging.severe('Error saving new rating', e);
-    }
-  }
-
-  static Future<void> migrateDataToNewModel() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      List<String> newSavedAlbums = [];
-
-      // Convert each album to the new model
-      for (String albumJson in savedAlbums) {
-        try {
-          Map<String, dynamic> albumData = jsonDecode(albumJson);
-
-          // Check if this is already the new model
-          if (albumData.containsKey('modelVersion')) {
-            newSavedAlbums.add(albumJson);
-            continue;
-          }
-
-          // Convert to the new model
-          Album album = Album.fromLegacy(albumData);
-          newSavedAlbums.add(jsonEncode(album.toJson()));
-        } catch (e) {
-          // Keep the original on error
-          newSavedAlbums.add(albumJson);
-          Logging.severe('Error migrating album to new model', e);
-        }
-      }
-
-      // Save the converted albums
-      await prefs.setStringList(_savedAlbumsKey, newSavedAlbums);
-
-      // Mark migration as done
-      await prefs.setInt('data_migration_version', 1);
-
-      Logging.severe('Legacy albums data format validated - safe to use');
-    } catch (e, stackTrace) {
-      Logging.severe('Error migrating data to new model', e, stackTrace);
-    }
-  }
-
-  static Future<Map<String, dynamic>> _getAllData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      Map<String, dynamic> data = {};
-
-      for (String key in prefs.getKeys()) {
-        if (prefs.containsKey(key)) {
-          if (key.endsWith('Int')) {
-            data[key] = prefs.getInt(key);
-          } else if (key.endsWith('Bool')) {
-            data[key] = prefs.getBool(key);
-          } else if (key.endsWith('Double')) {
-            data[key] = prefs.getDouble(key);
-          } else if (prefs.getString(key) != null) {
-            data[key] = prefs.getString(key);
-          } else if (prefs.getStringList(key) != null) {
-            data[key] = prefs.getStringList(key);
-          }
-        }
-      }
-
-      return data;
-    } catch (e) {
-      Logging.severe('Error getting all data', e);
-      return {};
-    }
-  }
-
-  static Future<Directory> getDownloadsDirectory() async {
-    try {
-      if (Platform.isAndroid) {
-        return Directory('/storage/emulated/0/Download');
-      } else if (Platform.isIOS) {
-        final directory = await getApplicationDocumentsDirectory();
-        return Directory('${directory.path}/Downloads');
-      } else if (Platform.isLinux || Platform.isMacOS) {
-        final home = Platform.environment['HOME'];
-        return Directory('$home/Downloads');
-      } else if (Platform.isWindows) {
-        final userProfile = Platform.environment['USERPROFILE'];
-        return Directory('$userProfile\\Downloads');
-      } else {
-        return await getApplicationDocumentsDirectory();
-      }
-    } catch (e) {
-      Logging.severe('Error getting downloads directory', e);
-      return await getTemporaryDirectory();
-    }
-  }
-
-  static Future<bool> repairSavedAlbums() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbumsJson = prefs.getStringList(_savedAlbumsKey) ?? [];
-
-      if (savedAlbumsJson.isEmpty) {
-        Logging.severe('No albums to repair');
+      if (outputPath == null) {
         return false;
       }
 
-      List<String> repairedAlbums = [];
-      bool repairsNeeded = false;
-
-      for (String albumJson in savedAlbumsJson) {
-        try {
-          Map<String, dynamic> albumData = jsonDecode(albumJson);
-          bool modified = false;
-
-          // Ensure an ID exists
-          if (!albumData.containsKey('id') &&
-              !albumData.containsKey('collectionId')) {
-            albumData['id'] = DateTime.now().millisecondsSinceEpoch.toString();
-            modified = true;
-          }
-
-          // Handle missing or empty artwork URL
-          if (!albumData.containsKey('artworkUrl100') ||
-              albumData['artworkUrl100'] == null) {
-            if (albumData.containsKey('artworkUrl') &&
-                albumData['artworkUrl'] != null) {
-              albumData['artworkUrl100'] = albumData['artworkUrl'];
-              modified = true;
-            }
-          }
-
-          // Handle missing artistName
-          if (!albumData.containsKey('artistName') ||
-              albumData['artistName'] == null) {
-            if (albumData.containsKey('artist') &&
-                albumData['artist'] != null) {
-              albumData['artistName'] = albumData['artist'];
-              modified = true;
-            } else {
-              albumData['artistName'] = 'Unknown Artist';
-              modified = true;
-            }
-          }
-
-          // Handle missing collectionName
-          if (!albumData.containsKey('collectionName') ||
-              albumData['collectionName'] == null) {
-            if (albumData.containsKey('name') && albumData['name'] != null) {
-              albumData['collectionName'] = albumData['name'];
-              modified = true;
-            } else {
-              albumData['collectionName'] = 'Unknown Album';
-              modified = true;
-            }
-          }
-
-          if (modified) {
-            repairsNeeded = true;
-            repairedAlbums.add(jsonEncode(albumData));
-          } else {
-            repairedAlbums.add(albumJson);
-          }
-        } catch (e) {
-          // If JSON is invalid, skip this album
-          Logging.severe('Error repairing album JSON', e);
-        }
-      }
-
-      if (repairsNeeded) {
-        await prefs.setStringList(_savedAlbumsKey, repairedAlbums);
-
-        // Also repair custom lists
-        await _repairCustomLists(prefs);
-
-        Logging.severe('Repaired ${repairedAlbums.length} albums');
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      Logging.severe('Error repairing saved albums', e);
-      return false;
-    }
-  }
-
-  // Helper to repair custom lists
-  static Future<void> _repairCustomLists(SharedPreferences prefs) async {
-    try {
-      List<String> listsJson = prefs.getStringList(_customListsKey) ?? [];
-      List<String> repairedLists = [];
-      bool repairsNeeded = false;
-
-      for (String listJson in listsJson) {
-        try {
-          Map<String, dynamic> data = jsonDecode(listJson);
-          CustomList list = CustomList.fromJson(data);
-
-          // Clean up album IDs
-          int originalCount = list.albumIds.length;
-          list.cleanupAlbumIds();
-
-          bool modified = list.albumIds.length != originalCount;
-
-          if (modified) {
-            repairsNeeded = true;
-            repairedLists.add(jsonEncode(list.toJson()));
-          } else {
-            repairedLists.add(listJson);
-          }
-        } catch (e) {
-          // Keep original if we can't parse it
-          repairedLists.add(listJson);
-        }
-      }
-
-      if (repairsNeeded) {
-        await prefs.setStringList(_customListsKey, repairedLists);
-        Logging.severe('Repaired ${repairedLists.length} custom lists');
-      }
-    } catch (e) {
-      Logging.severe('Error repairing custom lists', e);
-    }
-  }
-
-  // Add a method to convert all saved albums to unified format
-  static Future<int> convertAllAlbumsToUnifiedFormat() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbumsJson = prefs.getStringList(_savedAlbumsKey) ?? [];
-
-      if (savedAlbumsJson.isEmpty) {
-        Logging.severe('No albums to convert to unified format');
-        return 0;
-      }
-
-      // Make a backup
-      await prefs.setStringList('backup_saved_albums', savedAlbumsJson);
-
-      List<String> convertedAlbums = [];
-      int successCount = 0;
-
-      for (String albumJson in savedAlbumsJson) {
-        try {
-          Map<String, dynamic> albumData = jsonDecode(albumJson);
-
-          // Convert to unified model
-          Album album;
-          if (albumData.containsKey('modelVersion')) {
-            // Already in unified format
-            album = Album.fromJson(albumData);
-          } else {
-            // Legacy format
-            album = Album.fromLegacy(albumData);
-          }
-
-          // Add to converted list
-          convertedAlbums.add(jsonEncode(album.toJson()));
-          successCount++;
-
-          Logging.severe(
-              'Successfully converted album to unified format: ${album.name}');
-        } catch (e) {
-          Logging.severe('Error converting album to unified format: $e');
-          // Keep original on error
-          convertedAlbums.add(albumJson);
-        }
-      }
-
-      // Save converted albums
-      await prefs.setStringList(_savedAlbumsKey, convertedAlbums);
-
-      return successCount;
-    } catch (e) {
-      Logging.severe('Error converting all albums to unified format', e);
-      return 0;
-    }
-  }
-
-  /// Save album in unified format
-  static Future<bool> saveUnifiedAlbum(Album album) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Get existing albums
-      List<String> savedAlbums = prefs.getStringList('saved_albums') ?? [];
-      List<String> albumOrder = prefs.getStringList('saved_album_order') ?? [];
-
-      // Check if album already exists
-      int existingIndex = savedAlbums.indexWhere((json) {
-        try {
-          final data = jsonDecode(json);
-          return data['id']?.toString() == album.id.toString() ||
-              data['collectionId']?.toString() == album.id.toString();
-        } catch (e) {
-          return false;
-        }
-      });
-
-      // Convert to JSON and save
-      final albumJson = jsonEncode(album.toJson());
-      if (existingIndex >= 0) {
-        savedAlbums[existingIndex] = albumJson;
-      } else {
-        savedAlbums.add(albumJson);
-        albumOrder.add(album.id.toString());
-      }
-
-      // Save both lists
-      await prefs.setStringList('saved_albums', savedAlbums);
-      await prefs.setStringList('saved_album_order', albumOrder);
+      final file = File(outputPath);
+      await file.writeAsString(jsonData);
 
       return true;
     } catch (e) {
-      Logging.severe('Error saving unified album', e);
+      Logging.severe('Error exporting album: $e');
       return false;
     }
   }
 
-  /// Get album by ID, returns in unified format when possible
-  static Future<Album?> getUnifiedAlbum(dynamic albumId) async {
+  /// Export all data to backup file
+  static Future<bool> exportData() async {
     try {
+      await initializeDatabase();
+
+      // Create backup data structure
+      final backupData = <String, dynamic>{};
+
+      // 1. Export albums
+      final albums = await DatabaseHelper.instance.getAllAlbums();
+      backupData['albums'] = albums;
+
+      // 2. Export ratings
+      final db = await DatabaseHelper.instance.database;
+      final ratings = await db.query('ratings');
+      backupData['ratings'] = ratings;
+
+      // 3. Export custom lists
+      final lists = await db.query('custom_lists');
+      backupData['custom_lists'] = lists;
+
+      // 4. Export album-list relationships
+      final albumLists = await db.query('album_lists');
+      backupData['album_lists'] = albumLists;
+
+      // 5. Export album order
+      final albumOrder = await db.query('album_order', orderBy: 'position ASC');
+      backupData['album_order'] = albumOrder;
+
+      // 6. Export settings
+      final settings = await db.query('settings');
+      backupData['settings'] = settings;
+
+      // Add metadata
+      backupData['_backup_meta'] = {
+        'version': 2, // SQLite backup version
+        'timestamp': DateTime.now().toIso8601String(),
+        'format': 'sqlite'
+      };
+
+      // Save to file
+      final jsonData = jsonEncode(backupData);
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+
+      final String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export All Data',
+        fileName: 'rateme_backup_$timestamp.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (outputPath == null) {
+        return false;
+      }
+
+      final file = File(outputPath);
+      await file.writeAsString(jsonData);
+
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error exporting data', e, stack);
+      return false;
+    }
+  }
+
+  /// Import data from backup file
+  static Future<bool> importData(
+      {String? fromFile,
+      bool skipFilePicker = false,
+      Function(String stage, double progress)? progressCallback}) async {
+    try {
+      String jsonData;
+
+      if (skipFilePicker && fromFile != null) {
+        // Use the provided file path directly
+        final file = File(fromFile);
+        jsonData = await file.readAsString();
+        Logging.severe('Importing directly from file: $fromFile');
+      } else {
+        // Use file picker as usual
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          dialogTitle: 'Import Data',
+        );
+
+        if (result == null || result.files.isEmpty) {
+          return false;
+        }
+
+        final file = File(result.files.first.path!);
+        jsonData = await file.readAsString();
+        // Update progress
+        progressCallback?.call('Analyzing backup file...', 0.1);
+      }
+
+      final backupData = jsonDecode(jsonData);
+
+      // Record start time for performance metrics
+      final startTime = DateTime.now();
+
+      // Check backup format
+      final meta = backupData['_backup_meta'];
+      final format = meta?['format'] ?? 'legacy';
+
+      // Update progress
+      progressCallback?.call('Preparing database...', 0.2);
+
+      bool importSuccess = false;
+      if (format == 'sqlite') {
+        // SQLite format backup
+        progressCallback?.call('Importing SQLite format backup...', 0.3);
+        await _importSQLiteFormatBackup(backupData, (stage, progress) {
+          // Map the progress to the range 0.3-0.9
+          final scaledProgress = 0.3 + (progress * 0.6);
+          progressCallback?.call(stage, scaledProgress);
+        });
+        importSuccess = true;
+      } else {
+        // Legacy format backup - convert via migration
+        progressCallback?.call('Importing legacy format backup...', 0.3);
+        importSuccess =
+            await _importLegacyFormatBackup(backupData, (stage, progress) {
+          // Map the progress to the range 0.3-0.9
+          final scaledProgress = 0.3 + (progress * 0.6);
+          progressCallback?.call(stage, scaledProgress);
+        });
+      }
+
+      // Final progress update
+      progressCallback?.call('Finalizing import...', 0.95);
+
+      // Record performance metrics
+      final endTime = DateTime.now();
+      final duration = endTime.difference(startTime);
+      Logging.severe('Import completed in ${duration.inMilliseconds}ms');
+
+      // Complete progress
+      progressCallback?.call('Import complete!', 1.0);
+
+      return importSuccess;
+    } catch (e, stack) {
+      Logging.severe('Error importing data', e, stack);
+      return false;
+    }
+  }
+
+  /// Import backup in SQLite format
+  static Future<void> _importSQLiteFormatBackup(Map<String, dynamic> data,
+      Function(String stage, double progress)? progressCallback) async {
+    final db = await DatabaseHelper.instance.database;
+
+    // Track imported item counts
+    int albumCount = 0;
+    int ratingCount = 0;
+    int listCount = 0;
+    int albumListCount = 0;
+    int settingsCount = 0;
+
+    // Count total items for progress tracking
+    final totalItems = (data['albums']?.length ?? 0) +
+        (data['ratings']?.length ?? 0) +
+        (data['custom_lists']?.length ?? 0) +
+        (data['album_lists']?.length ?? 0) +
+        (data['album_order']?.length ?? 0) +
+        (data['settings']?.length ?? 0);
+
+    int processedItems = 0;
+
+    // Start transaction
+    await db.transaction((txn) async {
+      // Import albums
+      if (data['albums'] != null) {
+        progressCallback?.call(
+            'Importing albums...', processedItems / totalItems);
+        for (final album in data['albums']) {
+          await txn.insert('albums', album);
+          albumCount++;
+          processedItems++;
+          // Update progress every 5 items to avoid too many updates
+          if (albumCount % 5 == 0) {
+            progressCallback?.call(
+                'Importing albums...', processedItems / totalItems);
+          }
+        }
+      }
+
+      // Import ratings
+      if (data['ratings'] != null) {
+        progressCallback?.call(
+            'Importing ratings...', processedItems / totalItems);
+        for (final rating in data['ratings']) {
+          await txn.insert('ratings', rating);
+          ratingCount++;
+          processedItems++;
+          // Update progress every 20 items
+          if (ratingCount % 20 == 0) {
+            progressCallback?.call(
+                'Importing ratings...', processedItems / totalItems);
+          }
+        }
+      }
+
+      // Import custom lists
+      if (data['custom_lists'] != null) {
+        progressCallback?.call(
+            'Importing lists...', processedItems / totalItems);
+        for (final list in data['custom_lists']) {
+          await txn.insert('custom_lists', list);
+          listCount++;
+          processedItems++;
+        }
+      }
+
+      // Import album-list relationships
+      if (data['album_lists'] != null) {
+        progressCallback?.call('Importing album-list relationships...',
+            processedItems / totalItems);
+        for (final albumList in data['album_lists']) {
+          await txn.insert('album_lists', albumList);
+          albumListCount++;
+          processedItems++;
+          // Update progress every 10 items
+          if (albumListCount % 10 == 0) {
+            progressCallback?.call('Importing album-list relationships...',
+                processedItems / totalItems);
+          }
+        }
+      }
+
+      // Import album order
+      if (data['album_order'] != null) {
+        progressCallback?.call(
+            'Importing album order...', processedItems / totalItems);
+        for (final order in data['album_order']) {
+          await txn.insert('album_order', order);
+          processedItems++;
+        }
+      }
+
+      // Import settings
+      if (data['settings'] != null) {
+        progressCallback?.call(
+            'Importing settings...', processedItems / totalItems);
+        for (final setting in data['settings']) {
+          await txn.insert('settings', setting);
+          settingsCount++;
+          processedItems++;
+        }
+      }
+    });
+
+    progressCallback?.call('Verifying imported data...', 0.95);
+
+    Logging.severe('SQLite format backup imported successfully:');
+    Logging.severe('- Albums: $albumCount');
+    Logging.severe('- Ratings: $ratingCount');
+    Logging.severe('- Lists: $listCount');
+    Logging.severe('- Album-List relationships: $albumListCount');
+    Logging.severe('- Settings: $settingsCount');
+  }
+
+  /// Import backup in legacy format (SharedPreferences)
+  static Future<bool> _importLegacyFormatBackup(Map<String, dynamic> data,
+      Function(String stage, double progress)? progressCallback) async {
+    try {
+      // First import to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
+
+      progressCallback?.call('Clearing existing data...', 0.1);
+
+      // Clear existing SharedPreferences data
+      await prefs.clear();
+
+      progressCallback?.call('Importing data to SharedPreferences...', 0.2);
+
+      // Import all keys from backup
+      int processedCount = 0;
+      final totalKeys = data.keys.length;
+
+      for (final entry in data.entries) {
+        final key = entry.key;
+        final value = entry.value;
+
+        if (key == '_backup_meta') continue; // Skip metadata
+
+        if (value is String) {
+          await prefs.setString(key, value);
+        } else if (value is bool) {
+          await prefs.setBool(key, value);
+        } else if (value is int) {
+          await prefs.setInt(key, value);
+        } else if (value is double) {
+          await prefs.setDouble(key, value);
+        } else if (value is List) {
+          if (value.every((item) => item is String)) {
+            await prefs.setStringList(key, List<String>.from(value));
+          }
+        }
+
+        processedCount++;
+        // Update progress periodically
+        if (processedCount % 5 == 0 || processedCount == totalKeys) {
+          progressCallback?.call(
+              'Importing data...', 0.2 + (0.3 * processedCount / totalKeys));
+        }
+      }
+
+      // Verify SharedPreferences data was imported
       final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      Logging.severe(
+          'Imported ${savedAlbums.length} albums to SharedPreferences');
 
-      for (String albumJson in savedAlbums) {
-        try {
-          final data = jsonDecode(albumJson);
-          if (data['id']?.toString() == albumId.toString() ||
-              data['collectionId']?.toString() == albumId.toString()) {
-            // Try to convert to unified model
-            if (ModelMappingService.isLegacyFormat(data)) {
-              return ModelMappingService.mapItunesSearchResult(data);
-            } else {
-              return Album.fromJson(data);
-            }
-          }
-        } catch (e) {
-          Logging.severe('Error parsing album JSON', e);
-          continue;
-        }
-      }
+      progressCallback?.call('Preparing migration to SQLite...', 0.5);
 
-      return null;
-    } catch (e) {
-      Logging.severe('Error getting unified album', e);
-      return null;
-    }
-  }
+      // IMPORTANT: Make sure we reset migration status before running migration
+      await MigrationUtility.resetMigrationStatus();
 
-  static Future<int> cleanupOrphanedRatings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      int removedCount = 0;
+      progressCallback?.call('Migrating data to SQLite...', 0.6);
 
-      // Get all saved album IDs
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      Set<String> validAlbumIds = {};
-
-      // Extract all valid album IDs
-      for (String albumJson in savedAlbums) {
-        try {
-          Map<String, dynamic> album = jsonDecode(albumJson);
-          String id = (album['id'] ?? album['collectionId']).toString();
-          validAlbumIds.add(id);
-        } catch (e) {
-          Logging.severe('Error parsing album JSON', e);
-        }
-      }
-
-      // Find and remove orphaned ratings
-      for (String key in prefs.getKeys()) {
-        if (key.startsWith(_ratingsPrefix)) {
-          String albumId = key.replaceFirst(_ratingsPrefix, '');
-          if (!validAlbumIds.contains(albumId)) {
-            await prefs.remove(key);
-            removedCount++;
-            Logging.severe('Removed orphaned ratings for album ID: $albumId');
-          }
-        }
-      }
-
-      return removedCount;
-    } catch (e) {
-      Logging.severe('Error cleaning up orphaned ratings', e);
-      return 0;
-    }
-  }
-
-  /// Check if an album exists in saved albums - improved Bandcamp detection
-  static Future<bool> albumExists(String identifier) async {
-    try {
-      Logging.severe('Checking if album exists: $identifier');
-
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-
-      for (String albumJson in savedAlbums) {
-        try {
-          final album = jsonDecode(albumJson);
-
-          // Check all possible ID formats
-          final savedId =
-              album['id']?.toString() ?? album['collectionId']?.toString();
-          if (savedId == identifier) {
-            Logging.severe('Found album by ID match');
-            return true;
-          }
-
-          // Special handling for Bandcamp - check URL
-          final savedUrl = album['url']?.toString() ?? '';
-          final checkUrl = identifier.toString();
-
-          if (savedUrl.isNotEmpty && checkUrl.isNotEmpty) {
-            // Normalize URLs for comparison
-            final normalizedSaved = _normalizeBandcampUrl(savedUrl);
-            final normalizedCheck = _normalizeBandcampUrl(checkUrl);
-
-            if (normalizedSaved == normalizedCheck) {
-              Logging.severe('Found album by Bandcamp URL match');
-              return true;
-            }
-          }
-        } catch (e) {
-          continue;
-        }
-      }
-
-      Logging.severe('Album not found in saved albums');
-      return false;
-    } catch (e) {
-      Logging.severe('Error checking if album exists', e);
-      return false;
-    }
-  }
-
-  /// Helper to normalize Bandcamp URLs for comparison
-  static String _normalizeBandcampUrl(String url) {
-    // Remove protocol
-    url = url.replaceAll(RegExp(r'https?://'), '');
-    // Remove trailing slash
-    url = url.replaceAll(RegExp(r'/$'), '');
-    return url.toLowerCase();
-  }
-
-  static Future<Map<String, dynamic>?> getSavedAlbumByUrlOrId(
-      String identifier) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-
-      for (String albumJson in savedAlbums) {
-        try {
-          final album = jsonDecode(albumJson);
-
-          // Check by ID (support both legacy and new format)
-          if (album['id']?.toString() == identifier.toString() ||
-              album['collectionId']?.toString() == identifier.toString()) {
-            return album;
-          }
-
-          // Check by URL (for Bandcamp albums)
-          if (album['url'] == identifier) {
-            return album;
-          }
-        } catch (e) {
-          Logging.severe('Error parsing album JSON', e);
-          continue;
-        }
-      }
-      return null;
-    } catch (e) {
-      Logging.severe('Error getting saved album', e);
-      return null;
-    }
-  }
-
-  /// Convert any ID type to string for storage
-  static String _normalizeId(dynamic id) {
-    if (id == null) return '';
-    return id.toString();
-  }
-
-  /// Save rating with proper ID handling for both string and int IDs
-  static Future<void> saveRating(
-      dynamic albumId, dynamic trackId, double rating) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final albumKey = '$_ratingsPrefix${_normalizeId(albumId)}';
-      Logging.severe('Saving rating for album key: $albumKey, track: $trackId');
-
-      // Verify if album exists in saved albums
-      final albumExists = await _verifyAlbumExists(albumId);
-      if (!albumExists) {
-        Logging.severe(
-            'Warning: Attempting to save rating for album that may not exist: $albumId');
-      }
-
-      final List<String> ratings = prefs.getStringList(albumKey) ?? [];
-
-      // Ensure trackId is normalized
-      final normalizedTrackId = _normalizeId(trackId);
-
-      final ratingData = {
-        'trackId': normalizedTrackId,
-        'rating': rating,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
-
-      // Update or add rating
-      int existingIndex = ratings.indexWhere((ratingJson) {
-        try {
-          final existing = jsonDecode(ratingJson);
-          return _normalizeId(existing['trackId']) == normalizedTrackId;
-        } catch (e) {
-          return false;
-        }
+      // Then run migration to SQLite
+      final success = await MigrationUtility.migrateToSQLite(
+          progressCallback: (stage, progress) {
+        // Map the migration progress to 0.6-0.9 range
+        final scaledProgress = 0.6 + (progress * 0.3);
+        progressCallback?.call('Migrating: $stage', scaledProgress);
       });
 
-      if (existingIndex >= 0) {
-        Logging.severe('Updating existing rating at index $existingIndex');
-        ratings[existingIndex] = jsonEncode(ratingData);
+      if (success) {
+        progressCallback?.call('Migration completed successfully', 0.95);
+        Logging.severe('Legacy format backup imported and migrated to SQLite');
+        return true;
       } else {
-        Logging.severe('Adding new rating');
-        ratings.add(jsonEncode(ratingData));
+        progressCallback?.call('Migration failed', 0.9);
+        Logging.severe('Failed to migrate imported data to SQLite');
+        return false;
       }
-
-      await prefs.setStringList(albumKey, ratings);
-      Logging.severe(
-          'Saved rating successfully. Total ratings for this album: ${ratings.length}');
-
-      // Debug list keys to verify storage
-      _debugListStoredAlbumIds(prefs);
     } catch (e, stack) {
-      Logging.severe('Error saving rating', e, stack);
-      rethrow;
-    }
-  }
-
-  // Add this missing method
-  static Future<bool> _verifyAlbumExists(dynamic albumId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> savedAlbumsJson =
-          prefs.getStringList(_savedAlbumsKey) ?? [];
-
-      final normalizedId = _normalizeId(albumId);
-
-      for (var albumJson in savedAlbumsJson) {
-        try {
-          final album = jsonDecode(albumJson);
-          final savedId = _normalizeId(album['id'] ?? album['collectionId']);
-          if (savedId == normalizedId) {
-            return true;
-          }
-        } catch (e) {
-          continue;
-        }
-      }
+      Logging.severe('Error importing legacy format backup', e, stack);
       return false;
-    } catch (e) {
-      Logging.severe('Error verifying album exists: $e');
-      return false;
-    }
-  }
-
-  // Debug helper to list all stored album IDs
-  static Future<void> _debugListStoredAlbumIds(SharedPreferences prefs) async {
-    try {
-      final keys =
-          prefs.getKeys().where((k) => k.startsWith(_ratingsPrefix)).toList();
-      Logging.severe('Stored rating keys: ${keys.join(', ')}');
-
-      final savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-      final savedIds = <String>[];
-      for (var albumJson in savedAlbums) {
-        try {
-          final album = jsonDecode(albumJson);
-          savedIds.add(_normalizeId(album['id'] ?? album['collectionId']));
-        } catch (e) {
-          continue;
-        }
-      }
-      Logging.severe('Saved album IDs: ${savedIds.join(', ')}');
-    } catch (e) {
-      Logging.severe('Error listing stored album IDs', e);
-    }
-  }
-
-  /// Save rating with track position information (useful for Bandcamp)
-  static Future<void> saveRatingWithPosition(
-      dynamic albumId, dynamic trackId, int position, double rating) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final normalizedId = _normalizeId(albumId);
-      final albumKey = '$_ratingsPrefix$normalizedId';
-
-      // Verify the album exists
-      final albumExists = await _verifyAlbumExists(albumId);
-      if (!albumExists) {
-        Logging.severe('Cannot save rating - album does not exist: $albumId');
-        return;
-      }
-
-      // Get existing ratings for this album
-      final List<String> ratings = prefs.getStringList(albumKey) ?? [];
-
-      // Create the rating with position information
-      final ratingData = {
-        'trackId': _normalizeId(trackId),
-        'position': position,
-        'rating': rating,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
-
-      // Update or add the rating
-      int existingIndex = ratings.indexWhere((ratingJson) {
-        try {
-          final existing = jsonDecode(ratingJson);
-          return _normalizeId(existing['trackId']) == _normalizeId(trackId) ||
-              (existing['position'] == position);
-        } catch (e) {
-          return false;
-        }
-      });
-
-      if (existingIndex >= 0) {
-        ratings[existingIndex] = jsonEncode(ratingData);
-      } else {
-        ratings.add(jsonEncode(ratingData));
-      }
-
-      // Save the updated ratings
-      await prefs.setStringList(albumKey, ratings);
-      Logging.severe(
-          'Saved rating with position for album $albumId, track $trackId, position $position');
-    } catch (e, stack) {
-      Logging.severe('Error saving rating with position', e, stack);
-    }
-  }
-
-  /// Get album by ID from any source (string or int)
-  static Future<Album?> getAlbumByAnyId(dynamic albumId) async {
-    try {
-      final normalizedId = _normalizeId(albumId);
-      Logging.severe(
-          'Getting album by any ID format: $albumId (normalized: $normalizedId)');
-
-      // Try to get using unified method first
-      Album? album = await getUnifiedAlbum(normalizedId);
-      if (album != null) {
-        Logging.severe('Found album using unified method: ${album.name}');
-        return album;
-      }
-
-      // If that fails, try with int conversion for legacy method
-      if (int.tryParse(normalizedId) != null) {
-        album = await getSavedAlbumById(int.parse(normalizedId));
-        if (album != null) {
-          Logging.severe('Found album using legacy int method: ${album.name}');
-          return album;
-        }
-      }
-
-      // Try by string representation as last resort
-      final prefs = await SharedPreferences.getInstance();
-      final savedAlbums = prefs.getStringList(_savedAlbumsKey) ?? [];
-
-      for (String json in savedAlbums) {
-        try {
-          final data = jsonDecode(json);
-          final savedId = _normalizeId(data['id'] ?? data['collectionId']);
-
-          if (savedId == normalizedId) {
-            // Use fromLegacy if needed
-            if (data.containsKey('modelVersion')) {
-              album = Album.fromJson(data);
-            } else {
-              album = Album.fromLegacy(data);
-            }
-
-            Logging.severe('Found album using raw JSON scan: ${album.name}');
-            return album;
-          }
-        } catch (e) {
-          continue;
-        }
-      }
-
-      Logging.severe('No album found with ID: $albumId');
-      return null;
-    } catch (e, stack) {
-      Logging.severe('Error getting album by any ID', e, stack);
-      return null;
     }
   }
 }

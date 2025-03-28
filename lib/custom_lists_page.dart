@@ -73,17 +73,16 @@ class _CustomListsPageState extends State<CustomListsPage> {
 
   List<CustomList> lists = [];
   bool isLoading = true;
-  bool useDarkButtonText = false; // Add this field
+  bool useDarkButtonText = false;
 
   @override
   void initState() {
     super.initState();
     _loadLists();
-    _loadButtonPreference(); // Add this call
+    _loadButtonPreference();
   }
 
   Future<void> _loadButtonPreference() async {
-    // Add this method
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
@@ -273,6 +272,25 @@ class _CustomListsPageState extends State<CustomListsPage> {
     }
   }
 
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays < 1) {
+      return 'today';
+    } else if (difference.inDays < 2) {
+      return 'yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays < 30) {
+      return '${(difference.inDays / 7).floor()} weeks ago';
+    } else if (difference.inDays < 365) {
+      return '${(difference.inDays / 30).floor()} months ago';
+    } else {
+      return '${(difference.inDays / 365).floor()} years ago';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
@@ -320,12 +338,10 @@ class _CustomListsPageState extends State<CustomListsPage> {
                     : ReorderableListView.builder(
                         onReorder: (oldIndex, newIndex) async {
                           if (newIndex > oldIndex) newIndex--;
-
                           setState(() {
                             final item = lists.removeAt(oldIndex);
                             lists.insert(newIndex, item);
                           });
-
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setStringList(
                               'custom_lists',
@@ -336,44 +352,87 @@ class _CustomListsPageState extends State<CustomListsPage> {
                         itemCount: lists.length,
                         itemBuilder: (context, index) {
                           final list = lists[index];
-                          return ListTile(
-                            key: Key(list.id),
-                            leading: const Icon(Icons.playlist_play),
-                            title: Text(list.name),
-                            subtitle: Text(
-                              list.description.isEmpty
-                                  ? '${list.albumIds.length} albums'
-                                  : list.description,
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(list.albumIds.length.toString()),
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () => _editList(list),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  onPressed: () => _deleteList(list),
-                                ),
-                                const Icon(Icons.drag_handle),
-                              ],
-                            ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      CustomListDetailsPage(list: list),
-                                ),
-                              ).then((_) => _loadLists());
-                            },
-                          );
+                          return _buildCompactListCard(list, index);
                         },
                       ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCompactListCard(CustomList list, int index) {
+    return Card(
+      key: ValueKey(list.id),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Icon(
+          Icons.playlist_play,
+          size: 48, // This is the size of the playlist icon
+          color: Theme.of(context).colorScheme.secondary,
+        ),
+        title: Text(
+          list.name,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(
+          children: [
+            Text(
+              '${list.albumIds.length} albums',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+            ),
+            const Text(' | '),
+            Expanded(
+              child: Text(
+                list.description.isEmpty
+                    ? 'Created ${_formatDate(list.createdAt)}'
+                    : list.description,
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _editList(list),
+              tooltip: 'Edit List',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _deleteList(list),
+              tooltip: 'Delete List',
+            ),
+            const Icon(Icons.drag_handle),
+          ],
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CustomListDetailsPage(list: list),
+            ),
+          ).then((_) => _loadLists());
+        },
       ),
     );
   }
@@ -458,7 +517,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   }
 
   Future<void> _loadAlbums() async {
-    // Replace the old implementation with this:
     List<Map<String, dynamic>> loadedAlbums = [];
     List<String> idsToRemove = [];
     widget.list.cleanupAlbumIds();
@@ -474,7 +532,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         if (album != null) {
           Logging.severe('Found album: ${album.name}');
 
-          // Create a map with all fields normalized
+          // Create a map with all fields normalized - fix to include artwork URL
           final albumMap = {
             'id': album.id,
             'collectionId': album.id,
@@ -489,6 +547,9 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
             'tracks': album.tracks.map((t) => t.toJson()).toList(),
             'averageRating': await _calculateAlbumRating(album.id),
           };
+
+          // Log to verify artwork URL is included
+          Logging.severe('Album has artwork URL: ${album.artworkUrl}');
 
           loadedAlbums.add(albumMap);
         } else {
@@ -619,6 +680,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
             title: widget.list.name, // Add list name as title
             albums: albums, // Add full albums list for collection view
           );
+
           return AlertDialog(
             content: SingleChildScrollView(child: shareWidget),
             actions: [
@@ -653,7 +715,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
@@ -783,80 +844,119 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                         itemCount: albums.length,
                         itemBuilder: (context, index) {
                           final album = albums[index];
-                          // Add null safety check for album attributes
-                          final artistName = album['artistName'] ??
-                              album['artist'] ??
-                              'Unknown Artist';
-                          final albumName = album['collectionName'] ??
-                              album['name'] ??
-                              'Unknown Album';
-                          final artworkUrl = album['artworkUrl100'] ??
-                              album['artworkUrl'] ??
-                              '';
-                          final rating = album['averageRating'] ?? 0.0;
-
-                          return ListTile(
-                            key: ValueKey(album['collectionId'] ??
-                                album['id'] ??
-                                index.toString()),
-                            leading: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                        color: isDarkTheme
-                                            ? Colors.white
-                                            : Colors.black),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      rating == 10
-                                          ? '10.0'
-                                          : rating.toStringAsFixed(2),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDarkTheme
-                                            ? Colors.white
-                                            : Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Image.network(
-                                  artworkUrl,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(Icons.album),
-                                ),
-                              ],
-                            ),
-                            title: Text(albumName),
-                            subtitle: Text(artistName),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                  onPressed: () => _removeAlbum(index),
-                                ),
-                                const Icon(Icons.drag_handle),
-                              ],
-                            ),
-                            onTap: () => _openAlbumDetails(index),
-                          );
+                          return _buildCompactAlbumCard(album, index);
                         },
                       ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCompactAlbumCard(Map<String, dynamic> album, int index) {
+    // Add null safety check for album attributes
+    final artistName =
+        album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
+    final albumName =
+        album['collectionName'] ?? album['name'] ?? 'Unknown Album';
+    final artworkUrl = album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
+    final albumId = album['collectionId'] ?? album['id'] ?? '';
+    final rating = album['averageRating'] ?? 0.0;
+
+    return Card(
+      key: ValueKey(albumId.toString() + index.toString()),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Rating display in a prominent box
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(
+                    red: Theme.of(context).colorScheme.primary.r.toDouble(),
+                    green: Theme.of(context).colorScheme.primary.g.toDouble(),
+                    blue: Theme.of(context).colorScheme.primary.b.toDouble(),
+                    alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 1,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  rating > 0 ? rating.toStringAsFixed(1) : '-',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Album artwork
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: artworkUrl.isNotEmpty
+                  ? Image.network(
+                      artworkUrl,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.album, size: 24),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 48,
+                      height: 48,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.album, size: 24),
+                    ),
+            ),
+          ],
+        ),
+        title: Text(
+          albumName,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          artistName,
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+            fontSize: 13,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _removeAlbum(index),
+              tooltip: 'Remove from List',
+            ),
+            const Icon(Icons.drag_handle),
+          ],
+        ),
+        onTap: () => _openAlbumDetails(index),
       ),
     );
   }

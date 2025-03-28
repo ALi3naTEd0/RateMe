@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 - Added multi-select capability for list management
 - Added immediate visual feedback for list selection
 - Added proper handling for adding/removing albums from multiple lists
+- Fixed theme selection issues by adding proper support for System, Light, and Dark themes
+- Added platform-specific handling to avoid System theme on Linux where it doesn't work properly
+- Improved SQLite database integration and migration from SharedPreferences
+- Enhanced error handling and logging for database operations
+- Fixed album artwork display inconsistencies across the app
+- Standardized UI component sizes for custom list playlist icons and rating boxes to 48x48px
+- Improved track duration parsing for Bandcamp albums
+- Fixed track ID handling to ensure consistent string-based IDs for ratings
 
 ### Fixed
 - Fixed overflow errors in list management dialogs

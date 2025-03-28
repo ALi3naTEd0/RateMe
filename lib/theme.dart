@@ -6,20 +6,21 @@ class RateMeTheme {
   static ThemeData getTheme(Brightness brightness, Color primaryColor) {
     final isDark = brightness == Brightness.dark;
 
-    // Remove the useless constant and default value comment since it's hardcoded
     const buttonTextColor = Colors.white;
 
     // Define icon colors based on theme
     final iconColor = isDark ? Colors.white : Colors.grey.shade900;
 
     return ThemeData(
+      useMaterial3: true,
       brightness: brightness,
+      primaryColor: primaryColor,
       colorScheme:
           (isDark ? const ColorScheme.dark() : const ColorScheme.light())
               .copyWith(
         primary: primaryColor,
         secondary: primaryColor,
-        onPrimary: buttonTextColor, // Button text color based on preference
+        onPrimary: buttonTextColor,
         primaryContainer: primaryColor,
         secondaryContainer: primaryColor,
       ),
