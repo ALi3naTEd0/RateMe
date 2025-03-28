@@ -33,8 +33,7 @@ dependencies:
   flutter_colorpicker: ^1.1.0  # Downgrade to stable version
   flutter_svg: ^2.0.9  # Add this for SVG icons
   sqflite: ^2.3.0  # Add SQLite dependency
-  sqflite_common_ffi: ^2.3.2  # Add SQLite FFI dependency for desktop support
-
+  sqflite_common_ffi: ^2.3.0  # Make sure this is added
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8

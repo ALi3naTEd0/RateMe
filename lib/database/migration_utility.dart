@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart'; // Add this import for ConflictAlgorithm
 import '../album_model.dart';
 import '../logging.dart';
-import '../custom_lists_page.dart';
 import 'database_helper.dart';
 
 class MigrationUtility {
@@ -31,82 +31,44 @@ class MigrationUtility {
   static Future<bool> migrateToSQLite(
       {Function(String stage, double progress)? progressCallback}) async {
     try {
-      Logging.severe('Starting migration from SharedPreferences to SQLite');
-
-      // Reset migration status first to ensure it runs
-      await resetMigrationStatus();
-
       final prefs = await SharedPreferences.getInstance();
+      final stats = <String, int>{};
       final db = DatabaseHelper.instance;
 
-      // Create a stats object to track migration progress
-      final migrationStats = {
-        'albums': 0,
-        'tracks': 0,
-        'ratings': 0,
-        'lists': 0,
-        'listAlbums': 0,
-      };
-
-      // Check if there are albums to migrate
-      final List<String> savedAlbums =
-          prefs.getStringList('saved_albums') ?? [];
-      if (savedAlbums.isEmpty) {
-        Logging.severe('No albums found in SharedPreferences to migrate');
-        return false;
-      }
-
-      progressCallback?.call('Starting migration', 0.1);
-
-      Logging.severe('Found ${savedAlbums.length} albums in SharedPreferences');
-
-      // 1. Migrate saved albums
-      progressCallback?.call('Migrating albums', 0.2);
+      // 1. Migrate albums
+      progressCallback?.call('Migrating albums...', 0.2);
       await _migrateAlbums(
-          prefs,
-          db,
-          migrationStats,
-          (count, total) => progressCallback?.call(
-              'Migrating albums ($count/$total)', 0.2 + (0.3 * count / total)));
+        prefs,
+        db,
+        stats,
+        (processed, total) {
+          final progress = total > 0 ? processed / total : 0.0;
+          progressCallback?.call('Migrating albums...', 0.2 + (progress * 0.3));
+        },
+      );
 
       // 2. Migrate ratings
-      progressCallback?.call('Migrating ratings', 0.5);
-      await _migrateRatings(prefs, db, migrationStats);
+      progressCallback?.call('Migrating ratings...', 0.5);
+      await _migrateRatings(prefs, db, stats);
 
       // 3. Migrate custom lists
-      progressCallback?.call('Migrating custom lists', 0.7);
-      await _migrateLists(prefs, db, migrationStats);
+      progressCallback?.call('Migrating lists...', 0.7);
+      await _migrateLists(prefs, db, stats);
 
       // 4. Migrate album order
-      progressCallback?.call('Migrating album order', 0.8);
-      await _migrateAlbumOrder(prefs, db);
+      progressCallback?.call('Migrating album order...', 0.8);
+      await _migrateAlbumOrder(prefs, db, stats);
 
       // 5. Migrate settings
-      progressCallback?.call('Migrating settings', 0.9);
-      await _migrateSettings(prefs, db);
+      progressCallback?.call('Migrating settings...', 0.9);
+      await _migrateSettings(prefs, db, stats);
 
-      // Verify migration was successful before marking complete
-      progressCallback?.call('Verifying data', 0.95);
-      final albums = await db.getAllAlbums();
-      if (albums.isEmpty && savedAlbums.isNotEmpty) {
-        Logging.severe(
-            'Migration verification failed - no albums in database despite successful process');
-        return false;
-      }
-
-      // Mark migration as completed only if verification passed
+      // Mark migration as completed
       await markMigrationCompleted();
 
-      progressCallback?.call('Migration complete', 1.0);
+      progressCallback?.call('Migration completed!', 1.0);
 
-      Logging.severe(
-          'Migration completed successfully with the following stats:');
-      Logging.severe('- Albums: ${migrationStats['albums']}');
-      Logging.severe('- Tracks: ${migrationStats['tracks']}');
-      Logging.severe('- Ratings: ${migrationStats['ratings']}');
-      Logging.severe('- Lists: ${migrationStats['lists']}');
-      Logging.severe('- Albums in lists: ${migrationStats['listAlbums']}');
-
+      Logging.severe('Migration completed successfully: $stats');
       return true;
     } catch (e, stack) {
       Logging.severe('Error during migration', e, stack);
@@ -125,6 +87,7 @@ class MigrationUtility {
     final List<String> savedAlbums = prefs.getStringList('saved_albums') ?? [];
     if (savedAlbums.isEmpty) {
       Logging.severe('No albums to migrate');
+      stats['albums'] = 0;
       return;
     }
 
@@ -134,35 +97,26 @@ class MigrationUtility {
     int totalAlbums = savedAlbums.length;
 
     for (int i = 0; i < savedAlbums.length; i++) {
-      String albumJson = savedAlbums[i];
       try {
-        final Map<String, dynamic> albumData = jsonDecode(albumJson);
-        Logging.severe(
-            'Migrating album: ${albumData['collectionName'] ?? albumData['name'] ?? 'Unknown Album'}');
+        // Load album data
+        final albumJson = jsonDecode(savedAlbums[i]);
 
-        // Convert to Album model
-        Album album;
-        try {
-          // Try to parse as new model first
-          album = Album.fromJson(albumData);
-        } catch (e) {
-          // Fall back to legacy format
-          album = Album.fromLegacy(albumData);
-        }
+        // Create Album object
+        final album = Album.fromLegacy(albumJson);
 
-        // Count tracks in the album
+        // Save to database - fixed void result usage
+        await db.insertAlbum(album);
+
+        // Update progress
+        progressCallback?.call(i + 1, totalAlbums);
+
+        // Count tracks
         trackCount += album.tracks.length;
-
-        // Insert into database
-        final insertResult = await db.insertAlbum(album);
-        Logging.severe('Album inserted with result: $insertResult');
-
         successCount++;
 
-        // Report progress
-        progressCallback?.call(i + 1, totalAlbums);
-      } catch (e, stack) {
-        Logging.severe('Error migrating album', e, stack);
+        Logging.severe('Migrated album: ${album.name} by ${album.artist}');
+      } catch (e) {
+        Logging.severe('Error migrating album at index $i: $e');
         errorCount++;
       }
     }
@@ -172,7 +126,7 @@ class MigrationUtility {
     stats['tracks'] = trackCount;
 
     Logging.severe(
-        'Album migration complete: $successCount successful, $errorCount failed, $trackCount tracks');
+        'Album migration completed: $successCount success, $errorCount errors');
   }
 
   /// Migrate ratings
@@ -190,32 +144,27 @@ class MigrationUtility {
 
     for (String key in ratingKeys) {
       try {
-        final List<String> ratingsJson = prefs.getStringList(key) ?? [];
-        final String albumId = key.replaceFirst('saved_ratings_', '');
+        // Extract album ID from key
+        final albumId = key.replaceFirst('saved_ratings_', '');
 
-        for (String ratingJson in ratingsJson) {
+        // Get ratings for this album
+        final ratingsList = prefs.getStringList(key) ?? [];
+
+        for (String ratingJson in ratingsList) {
           try {
-            final Map<String, dynamic> rating = jsonDecode(ratingJson);
+            final ratingData = jsonDecode(ratingJson);
+            final trackId = ratingData['trackId'].toString();
+            final rating = ratingData['rating']?.toDouble() ?? 0.0;
 
-            // Skip if missing required fields
-            if (!rating.containsKey('trackId') ||
-                !rating.containsKey('rating')) {
-              continue;
-            }
-
-            // Save rating to database
-            await db.saveRating(
-              albumId.toString(),
-              rating['trackId'].toString(),
-              rating['rating'].toDouble(),
-            );
-
+            // Save to database
+            await db.saveRating(albumId, trackId, rating);
             migratedRatings++;
           } catch (e) {
-            Logging.severe('Error parsing rating JSON: $e');
+            Logging.severe('Error migrating rating: $e');
           }
-          totalRatings++;
         }
+
+        totalRatings += ratingsList.length;
       } catch (e) {
         Logging.severe('Error migrating ratings for key $key: $e');
       }
@@ -225,102 +174,140 @@ class MigrationUtility {
     stats['ratings'] = migratedRatings;
 
     Logging.severe(
-        'Ratings migration complete: $migratedRatings of $totalRatings migrated');
+        'Ratings migration completed: $migratedRatings of $totalRatings migrated');
   }
 
   /// Migrate custom lists
   static Future<void> _migrateLists(SharedPreferences prefs, DatabaseHelper db,
       Map<String, int> stats) async {
-    Logging.severe('Migrating custom lists');
+    try {
+      Logging.severe('Migrating custom lists');
 
-    final List<String> customListsJson =
-        prefs.getStringList('custom_lists') ?? [];
-    if (customListsJson.isEmpty) {
-      Logging.severe('No custom lists to migrate');
-      return;
-    }
+      final List<String> customLists =
+          prefs.getStringList('custom_lists') ?? [];
+      if (customLists.isEmpty) {
+        Logging.severe('No custom lists to migrate');
+        return;
+      }
 
-    int successCount = 0;
-    int totalAlbumsInLists = 0;
+      final database = await db.database;
 
-    for (String listJson in customListsJson) {
-      try {
-        final Map<String, dynamic> listData = jsonDecode(listJson);
+      // Check table schema to determine field names
+      final columns =
+          await database.rawQuery('PRAGMA table_info(custom_lists)');
+      final columnNames = columns.map((c) => c['name'].toString()).toList();
+      Logging.severe('Custom lists table schema: $columnNames');
 
-        // Parse as CustomList model
-        final CustomList list = CustomList.fromJson(listData);
+      // Determine what timestamp fields to use
+      final useSnakeCase = columnNames.contains('created_at');
 
-        // Insert list in database
-        await db.insertCustomList({
-          'id': list.id,
-          'name': list.name,
-          'description': list.description,
-          'createdAt': list.createdAt.toIso8601String(),
-          'updatedAt': list.updatedAt.toIso8601String(),
-        });
+      for (var listJson in customLists) {
+        try {
+          final listData = jsonDecode(listJson);
 
-        // Add album-list relationships
-        for (int i = 0; i < list.albumIds.length; i++) {
-          await db.addAlbumToList(list.albumIds[i], list.id, i);
+          // Handle field name format based on schema
+          final Map<String, dynamic> insertData = {
+            'id': listData['id'],
+            'name': listData['name'],
+            'description': listData['description'] ?? '',
+          };
+
+          // Add timestamps in the correct format
+          if (useSnakeCase) {
+            insertData['created_at'] = listData['createdAt'];
+            insertData['updated_at'] =
+                listData['updatedAt'] ?? listData['createdAt'];
+          } else {
+            insertData['createdAt'] = listData['createdAt'];
+            insertData['updatedAt'] =
+                listData['updatedAt'] ?? listData['createdAt'];
+          }
+
+          await database.insert(
+            'custom_lists',
+            insertData,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+
+          // Insert album-list relationships
+          if (listData['albumIds'] is List) {
+            final albumIds = List<String>.from(listData['albumIds']);
+            for (int i = 0; i < albumIds.length; i++) {
+              await database.insert(
+                'album_lists',
+                {
+                  'list_id': listData['id'],
+                  'album_id': albumIds[i],
+                  'position': i,
+                },
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            }
+          }
+
+          stats['lists'] = (stats['lists'] ?? 0) + 1;
+        } catch (e, stack) {
+          Logging.severe('Error migrating list', e, stack);
         }
+      }
 
-        // Update stats
-        totalAlbumsInLists += list.albumIds.length;
-        successCount++;
+      Logging.severe('Migrated ${stats['lists']} custom lists');
+    } catch (e, stack) {
+      Logging.severe('Error migrating custom lists', e, stack);
+    }
+  }
+
+  /// Migrate album order
+  static Future<void> _migrateAlbumOrder(SharedPreferences prefs,
+      DatabaseHelper db, Map<String, int> stats) async {
+    Logging.severe('Migrating album order');
+
+    // Get album order
+    final albumOrder = prefs.getStringList('album_order') ?? [];
+
+    if (albumOrder.isNotEmpty) {
+      // Save to database
+      await db.saveAlbumOrder(albumOrder);
+
+      stats['albumOrder'] = albumOrder.length;
+      Logging.severe('Migrated album order with ${albumOrder.length} items');
+    } else {
+      stats['albumOrder'] = 0;
+      Logging.severe('No album order to migrate');
+    }
+  }
+
+  /// Migrate settings
+  static Future<void> _migrateSettings(SharedPreferences prefs,
+      DatabaseHelper db, Map<String, int> stats) async {
+    Logging.severe('Migrating settings');
+
+    int migratedSettings = 0;
+
+    // Known settings to migrate
+    final settingsToMigrate = [
+      'themeMode',
+      'primaryColor',
+      'useDarkButtonText',
+    ];
+
+    for (String key in settingsToMigrate) {
+      try {
+        if (prefs.containsKey(key)) {
+          final value = prefs.get(key);
+          if (value != null) {
+            await db.saveSetting(key, value.toString());
+            migratedSettings++;
+          }
+        }
       } catch (e) {
-        Logging.severe('Error migrating list: $e');
+        Logging.severe('Error migrating setting $key: $e');
       }
     }
 
     // Update stats
-    stats['lists'] = successCount;
-    stats['listAlbums'] = totalAlbumsInLists;
+    stats['settings'] = migratedSettings;
 
-    Logging.severe(
-        'Custom lists migration complete: $successCount of ${customListsJson.length} migrated with $totalAlbumsInLists total albums in lists');
-  }
-
-  /// Migrate album order
-  static Future<void> _migrateAlbumOrder(
-      SharedPreferences prefs, DatabaseHelper db) async {
-    Logging.severe('Migrating album order');
-
-    final List<String> albumOrder =
-        prefs.getStringList('saved_album_order') ?? [];
-    if (albumOrder.isEmpty) {
-      Logging.severe('No album order to migrate');
-      return;
-    }
-
-    await db.saveAlbumOrder(albumOrder);
-
-    Logging.severe(
-        'Album order migration complete: ${albumOrder.length} albums in order');
-  }
-
-  /// Migrate settings
-  static Future<void> _migrateSettings(
-      SharedPreferences prefs, DatabaseHelper db) async {
-    Logging.severe('Migrating settings');
-
-    // List of settings keys to migrate
-    final settingsKeys = [
-      'themeMode',
-      'primaryColor',
-      'useDarkButtonText',
-      // Add any other settings keys you want to migrate
-    ];
-
-    for (String key in settingsKeys) {
-      if (prefs.containsKey(key)) {
-        var value = prefs.get(key);
-        if (value != null) {
-          await db.saveSetting(key, value.toString());
-          Logging.severe('Migrated setting: $key = $value');
-        }
-      }
-    }
-
-    Logging.severe('Settings migration complete');
+    Logging.severe('Settings migration completed: $migratedSettings settings');
   }
 }

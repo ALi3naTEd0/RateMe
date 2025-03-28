@@ -35,6 +35,12 @@ class UserData {
     }
   }
 
+  /// Get database instance for direct operations
+  static Future<Database> getDatabaseInstance() async {
+    await initializeDatabase();
+    return DatabaseHelper.instance.database;
+  }
+
   /// Check if migration is needed
   static Future<bool> isMigrationNeeded() async {
     try {
@@ -312,7 +318,8 @@ class UserData {
           .map((r) => {
                 'trackId': r['track_id'],
                 'rating': r['rating'],
-                'timestamp': r['timestamp'],
+                // The timestamp field is missing from the output but might be needed
+                'timestamp': r['timestamp'] ?? DateTime.now().toIso8601String(),
               })
           .toList();
     } catch (e, stack) {
@@ -386,8 +393,8 @@ class UserData {
       Logging.severe(
           'Custom list saved: ${list.name} with ${list.albumIds.length} albums');
       return true;
-    } catch (e, stack) {
-      Logging.severe('Error saving custom list', e, stack);
+    } catch (e) {
+      Logging.severe('Error saving custom list', e);
       return false;
     }
   }
@@ -467,7 +474,7 @@ class UserData {
 
       return await DatabaseHelper.instance.getSetting(key);
     } catch (e) {
-      Logging.severe('Error getting setting: $e');
+      Logging.severe('Error getting setting', e);
       return null;
     }
   }
@@ -869,6 +876,39 @@ class UserData {
       }
     } catch (e, stack) {
       Logging.severe('Error importing legacy format backup', e, stack);
+      return false;
+    }
+  }
+
+  /// Vacuum the database to optimize storage and performance
+  static Future<bool> vacuumDatabase() async {
+    try {
+      await initializeDatabase();
+      return await DatabaseHelper.instance.vacuumDatabase();
+    } catch (e, stack) {
+      Logging.severe('Error vacuuming database', e, stack);
+      return false;
+    }
+  }
+
+  /// Get the database size in bytes
+  static Future<int> getDatabaseSize() async {
+    try {
+      await initializeDatabase();
+      return await DatabaseHelper.instance.getDatabaseSize();
+    } catch (e) {
+      Logging.severe('Error getting database size', e);
+      return 0;
+    }
+  }
+
+  /// Check database integrity
+  static Future<bool> checkDatabaseIntegrity() async {
+    try {
+      await initializeDatabase();
+      return await DatabaseHelper.instance.checkDatabaseIntegrity();
+    } catch (e) {
+      Logging.severe('Error checking database integrity', e);
       return false;
     }
   }

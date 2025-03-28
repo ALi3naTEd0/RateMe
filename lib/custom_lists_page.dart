@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart'; // Add import for ConflictAlgorithm
 import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
@@ -959,5 +960,78 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         onTap: () => _openAlbumDetails(index),
       ),
     );
+  }
+}
+
+/// Save a custom list to the database
+Future<bool> saveCustomList(CustomList list) async {
+  try {
+    await UserData.initializeDatabase();
+
+    // Update timestamp
+    list.updatedAt = DateTime.now();
+
+    // Check database schema to determine available columns
+    final db = await UserData.getDatabaseInstance();
+    final tableInfo = await db.rawQuery("PRAGMA table_info(custom_lists)");
+
+    // Log table schema for debugging
+    Logging.severe(
+        'Custom lists table schema: ${tableInfo.map((row) => row['name']).toList()}');
+
+    // Check if createdAt and updatedAt columns exist
+    final hasCreatedAt = tableInfo.any((col) => col['name'] == 'createdAt');
+    final hasUpdatedAt = tableInfo.any((col) => col['name'] == 'updatedAt');
+
+    // Build insert data based on available columns
+    final Map<String, dynamic> insertData = {
+      'id': list.id,
+      'name': list.name,
+      'description': list.description,
+    };
+
+    // Only add timestamp fields if they exist in the schema
+    if (hasCreatedAt) {
+      insertData['createdAt'] = list.createdAt.toIso8601String();
+    }
+
+    if (hasUpdatedAt) {
+      insertData['updatedAt'] = list.updatedAt.toIso8601String();
+    }
+
+    // Log the data we're about to insert
+    Logging.severe('Inserting custom list with data: $insertData');
+
+    // Save list to database using modified data
+    await UserData.saveCustomList(list);
+
+    // Clear existing album relationships
+    await db.delete(
+      'album_lists',
+      where: 'list_id = ?',
+      whereArgs: [list.id],
+    );
+
+    // Add album-list relationships
+    for (int i = 0; i < list.albumIds.length; i++) {
+      String albumId = list.albumIds[i];
+      Logging.severe('Adding album $albumId to list ${list.id}');
+      await db.insert(
+        'album_lists',
+        {
+          'list_id': list.id,
+          'album_id': albumId,
+          'position': i,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    Logging.severe(
+        'Custom list saved: ${list.name} with ${list.albumIds.length} albums');
+    return true;
+  } catch (e, stack) {
+    Logging.severe('Error saving custom list', e, stack);
+    return false;
   }
 }

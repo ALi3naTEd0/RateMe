@@ -1,454 +1,546 @@
 import 'dart:async';
-import 'dart:convert'; // Add this import
-import 'dart:math'; // Add this import for the min function
+import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Add this import
-import '../album_model.dart';
+import 'package:path_provider/path_provider.dart';
 import '../logging.dart';
+import '../album_model.dart';
 
 class DatabaseHelper {
-  static final DatabaseHelper _instance = DatabaseHelper._internal();
-  static DatabaseHelper get instance => _instance;
+  static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
+  static Database? _database;
 
-  static Database? _db;
+  // Private constructor
+  DatabaseHelper._privateConstructor();
 
-  // Database version - increment this when schema changes
-  static const int _version = 1;
-  static const String _databaseName = 'rateme.db';
+  // Database initialization flag
+  static bool _initialized = false;
 
-  // Table names
-  static const String tableAlbums = 'albums';
-  static const String tableRatings = 'ratings';
-  static const String tableCustomLists = 'custom_lists';
-  static const String tableAlbumLists = 'album_lists';
-  static const String tableSettings = 'settings';
-  static const String tableAlbumOrder = 'album_order';
-
-  DatabaseHelper._internal();
-
-  // Initialize the database factory
+  // Initialize the database helper
   static Future<void> initialize() async {
-    // Initialize FFI for desktop platforms
-    sqfliteFfiInit();
-    // Set the database factory to use FFI
-    databaseFactory = databaseFactoryFfi;
-    Logging.severe('SQLite database factory initialized');
+    if (_initialized) return;
+
+    try {
+      // Initialize FFI for desktop platforms
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // Initialize FFI
+        sqfliteFfiInit();
+        // Set the database factory to use FFI
+        databaseFactory = databaseFactoryFfi;
+        Logging.severe('Initialized database with FFI for desktop platform');
+      } else {
+        Logging.severe('Using standard SQLite for mobile platform');
+      }
+
+      await instance.database;
+      _initialized = true;
+      Logging.severe('Database initialized successfully');
+    } catch (e, stack) {
+      Logging.severe('Error initializing database helper', e, stack);
+    }
   }
 
+  // Get the database instance
   Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _initDatabase();
-    return _db!;
+    if (_database != null) return _database!;
+    _database = await _initDb();
+    return _database!;
   }
 
-  Future<Database> _initDatabase() async {
-    Logging.severe('Initializing database');
-    final String path = join(await getDatabasesPath(), _databaseName);
-    return await openDatabase(
-      path,
-      version: _version,
-      onCreate: _createDatabase,
-      onUpgrade: _upgradeDatabase,
-    );
+  // Initialize the database
+  Future<Database> _initDb() async {
+    try {
+      Logging.severe('Initializing database at ${await getDatabasePath()}');
+      Database db = await openDatabase(
+        await getDatabasePath(),
+        version: 1,
+        onCreate: (db, version) async {
+          await _createDb(db, version);
+        },
+        onOpen: (db) async {
+          // Check if indices exist and create them if not
+          await _ensureIndices(db);
+        },
+      );
+
+      return db;
+    } catch (e, stack) {
+      Logging.severe('Error initializing database', e, stack);
+      rethrow;
+    }
   }
 
-  Future<void> _createDatabase(Database db, int version) async {
-    Logging.severe('Creating database tables');
-
-    // Albums table
+  // Function to create database tables
+  Future<void> _createDb(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE $tableAlbums(
+      CREATE TABLE albums (
         id TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        platform TEXT NOT NULL,
         name TEXT NOT NULL,
         artist TEXT NOT NULL,
-        artwork_url TEXT NOT NULL,
-        release_date TEXT NOT NULL,
-        url TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        artworkUrl TEXT,
+        url TEXT,
+        platform TEXT,
+        releaseDate TEXT,
+        data TEXT
       )
     ''');
 
-    // Ratings table
     await db.execute('''
-      CREATE TABLE $tableRatings(
+      CREATE TABLE ratings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         album_id TEXT NOT NULL,
         track_id TEXT NOT NULL,
         rating REAL NOT NULL,
         timestamp TEXT NOT NULL,
-        FOREIGN KEY (album_id) REFERENCES $tableAlbums (id) ON DELETE CASCADE,
-        UNIQUE(album_id, track_id)
+        FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
       )
     ''');
 
-    // Custom lists table
     await db.execute('''
-      CREATE TABLE $tableCustomLists(
+      CREATE TABLE IF NOT EXISTS custom_lists (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        created_at TEXT,  
+        updated_at TEXT
       )
     ''');
 
-    // Album-List junction table (many-to-many)
     await db.execute('''
-      CREATE TABLE $tableAlbumLists(
+      CREATE TABLE album_lists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         album_id TEXT NOT NULL,
         list_id TEXT NOT NULL,
         position INTEGER NOT NULL,
-        PRIMARY KEY (album_id, list_id),
-        FOREIGN KEY (album_id) REFERENCES $tableAlbums (id) ON DELETE CASCADE,
-        FOREIGN KEY (list_id) REFERENCES $tableCustomLists (id) ON DELETE CASCADE
+        FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE,
+        FOREIGN KEY (list_id) REFERENCES custom_lists(id) ON DELETE CASCADE
       )
     ''');
 
-    // Settings table
     await db.execute('''
-      CREATE TABLE $tableSettings(
+      CREATE TABLE album_order (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        album_id TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       )
     ''');
 
-    // Album order table
-    await db.execute('''
-      CREATE TABLE $tableAlbumOrder(
-        position INTEGER PRIMARY KEY,
-        album_id TEXT NOT NULL,
-        FOREIGN KEY (album_id) REFERENCES $tableAlbums (id) ON DELETE CASCADE
-      )
-    ''');
+    // Add indices for common lookups
+    await _createIndices(db);
   }
 
-  Future<void> _upgradeDatabase(
-      Database db, int oldVersion, int newVersion) async {
-    Logging.severe(
-        'Upgrading database from version $oldVersion to $newVersion');
-
-    // Handle future schema migrations here
-    if (oldVersion < 2) {
-      // Migrations for version 2
+  // Get the database path
+  Future<String> getDatabasePath() async {
+    try {
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // For desktop apps, use app documents directory
+        final appDir = await getApplicationDocumentsDirectory();
+        return join(appDir.path, 'rateme.db');
+      } else {
+        // For mobile, use the default database location
+        final dbPath = await getDatabasesPath();
+        return join(dbPath, 'rateme.db');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error getting database path', e, stack);
+      rethrow;
     }
   }
 
-  // ALBUM METHODS
+  // Create indices for better performance
+  Future<void> _createIndices(Database db) async {
+    try {
+      Logging.severe('Creating database indices');
 
-  Future<int> insertAlbum(Album album) async {
+      // Index for ratings lookups by album_id
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_ratings_album_id ON ratings(album_id)');
+
+      // Index for ratings lookups by track_id
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_ratings_track_id ON ratings(track_id)');
+
+      // Index for album platform (useful for filtering by source)
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_albums_platform ON albums(platform)');
+
+      // Compound index for album_lists to speed up list retrieval
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_album_lists_list_id ON album_lists(list_id, position)');
+
+      // Index for album_order to speed up ordered album retrieval
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_album_order_position ON album_order(position)');
+
+      Logging.severe('Database indices created successfully');
+    } catch (e, stack) {
+      Logging.severe('Error creating database indices', e, stack);
+    }
+  }
+
+  // Ensure indices exist (for database upgrades/migrations)
+  Future<void> _ensureIndices(Database db) async {
+    try {
+      // Check if the ratings album_id index exists
+      var result = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_ratings_album_id'");
+
+      if (result.isEmpty) {
+        // Indices don't exist, create them
+        await _createIndices(db);
+      }
+    } catch (e, stack) {
+      Logging.severe('Error checking indices', e, stack);
+    }
+  }
+
+  // Add a vacuum method to optimize the database
+  Future<bool> vacuumDatabase() async {
+    try {
+      Logging.severe('Starting database vacuum');
+      final db = await database;
+
+      // Run VACUUM to rebuild the database file, reclaiming unused space
+      await db.execute('VACUUM');
+
+      // Run ANALYZE to update statistics used by the query optimizer
+      await db.execute('ANALYZE');
+
+      Logging.severe('Database vacuum completed successfully');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error vacuuming database', e, stack);
+      return false;
+    }
+  }
+
+  // Add a method to get database size
+  Future<int> getDatabaseSize() async {
+    try {
+      final dbPath = await getDatabasePath();
+      final dbFile = File(dbPath);
+      if (await dbFile.exists()) {
+        final size = await dbFile.length();
+        Logging.severe(
+            'Database size: ${(size / 1024 / 1024).toStringAsFixed(2)} MB');
+        return size;
+      }
+      return 0;
+    } catch (e, stack) {
+      Logging.severe('Error getting database size', e, stack);
+      return 0;
+    }
+  }
+
+  // Add a method to run integrity check
+  Future<bool> checkDatabaseIntegrity() async {
+    try {
+      Logging.severe('Running database integrity check');
+      final db = await database;
+
+      final results = await db.rawQuery('PRAGMA integrity_check');
+
+      final isOk = results.isNotEmpty &&
+          results.first.containsKey('integrity_check') &&
+          results.first['integrity_check'] == 'ok';
+
+      if (isOk) {
+        Logging.severe('Database integrity check passed');
+      } else {
+        Logging.severe('Database integrity check failed: $results');
+      }
+
+      return isOk;
+    } catch (e, stack) {
+      Logging.severe('Error checking database integrity', e, stack);
+      return false;
+    }
+  }
+
+  // Album methods
+  Future<void> insertAlbum(Album album) async {
     final db = await database;
-
-    // Convert album to Map
-    final Map<String, dynamic> row = {
-      'id': album.id.toString(),
-      'data': album.toJson().toString(),
-      'platform': album.platform,
-      'name': album.name,
-      'artist': album.artist,
-      'artwork_url': album.artworkUrl,
-      'release_date': album.releaseDate.toIso8601String(),
-      'url': album.url,
-      'created_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
-    };
-
-    // Use INSERT OR REPLACE to handle duplicates
-    return await db.insert(
-      tableAlbums,
-      row,
+    await db.insert(
+      'albums',
+      {
+        'id': album.id.toString(),
+        'name': album.name,
+        'artist': album.artist,
+        'artworkUrl': album.artworkUrl,
+        'url': album.url,
+        'platform': album.platform,
+        'releaseDate': album.releaseDate.toIso8601String(),
+        'data': album.metadata.toString(),
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   Future<Album?> getAlbum(String id) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      tableAlbums,
+    final maps = await db.query(
+      'albums',
       where: 'id = ?',
       whereArgs: [id],
     );
 
-    if (maps.isEmpty) {
-      return null;
-    }
+    if (maps.isEmpty) return null;
 
     try {
-      final albumData = maps.first['data'];
-      // Handle string data properly
-      if (albumData is String) {
-        try {
-          // Try to parse the data as JSON
-          final parsedData = jsonDecode(albumData);
-          return Album.fromJson(parsedData);
-        } catch (e) {
-          Logging.severe('Error parsing album data JSON: $e');
-          // Try to use the raw row data as fallback
-          return Album(
-            id: maps.first['id'],
-            name: maps.first['name'],
-            artist: maps.first['artist'],
-            artworkUrl: maps.first['artwork_url'],
-            url: maps.first['url'],
-            platform: maps.first['platform'],
-            releaseDate: DateTime.parse(maps.first['release_date']),
-          );
-        }
-      } else if (albumData is Map<String, dynamic>) {
-        return Album.fromJson(albumData);
-      } else {
-        throw Exception('Unexpected data type: ${albumData.runtimeType}');
-      }
-    } catch (e) {
-      Logging.severe('Error parsing album data: $e');
+      return Album.fromJson(maps.first);
+    } catch (e, stack) {
+      Logging.severe('Error parsing album from database', e, stack);
       return null;
     }
   }
 
   Future<List<Map<String, dynamic>>> getAllAlbums() async {
     final db = await database;
-    // Change to fetch the complete record data from the albums table
-    final results = await db.query(tableAlbums);
-    Logging.severe('getAllAlbums: Raw query returned ${results.length} albums');
-
-    // Parse the data field to extract full album information
-    List<Map<String, dynamic>> albums = [];
-    for (var row in results) {
-      try {
-        // Add direct access to artwork URL
-        Map<String, dynamic> completeAlbum = {
-          'id': row['id'],
-          'name': row['name'],
-          'artist': row['artist'],
-          'artworkUrl': row['artwork_url'],
-          'artworkUrl100': row['artwork_url'], // Add alias for compatibility
-          'platform': row['platform'],
-          'url': row['url'],
-          'releaseDate': row['release_date'],
-        };
-
-        // Also parse the JSON data for full details
-        if (row['data'] is String) {
-          try {
-            final albumData = jsonDecode(row['data'] as String);
-            // Log the parsed data for the first album
-            if (albums.isEmpty) {
-              Logging.severe(
-                  'First album JSON data parsed: ${albumData.keys.join(', ')}');
-            }
-            completeAlbum.addAll(albumData);
-          } catch (e) {
-            Logging.severe(
-                'Error parsing JSON data for album ${row['id']}: $e');
-            // Try to log the problematic data - Fix the nullable value issue and min function
-            final dataString = row['data'] as String?;
-            if (dataString != null) {
-              Logging.severe(
-                  'Problematic data: ${dataString.substring(0, min(50, dataString.length))}...');
-            } else {
-              Logging.severe('Problematic data is null');
-            }
-          }
-        } else {
-          Logging.severe(
-              'Album ${row['id']} has data of type: ${row['data']?.runtimeType ?? 'null'}');
-        }
-
-        // Ensure essential fields are included
-        if (!completeAlbum.containsKey('artworkUrl') &&
-            completeAlbum.containsKey('artworkUrl100')) {
-          completeAlbum['artworkUrl'] = completeAlbum['artworkUrl100'];
-        } else if (!completeAlbum.containsKey('artworkUrl100') &&
-            completeAlbum.containsKey('artworkUrl')) {
-          completeAlbum['artworkUrl100'] = completeAlbum['artworkUrl'];
-        }
-
-        albums.add(completeAlbum);
-      } catch (e, stack) {
-        Logging.severe('Error parsing album ${row['id']}', e, stack);
-      }
-    }
-
-    Logging.severe('getAllAlbums: Returning ${albums.length} processed albums');
-    return albums;
+    return await db.query('albums');
   }
 
-  Future<int> deleteAlbum(String id) async {
+  Future<void> deleteAlbum(String id) async {
     final db = await database;
-    return await db.delete(
-      tableAlbums,
+    await db.delete(
+      'albums',
       where: 'id = ?',
       whereArgs: [id],
     );
   }
 
-  // RATINGS METHODS
-
+  // Rating methods
   Future<void> saveRating(String albumId, String trackId, double rating) async {
     final db = await database;
 
-    final Map<String, dynamic> row = {
-      'album_id': albumId,
-      'track_id': trackId,
-      'rating': rating,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    await db.insert(
-      tableRatings,
-      row,
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    // Check if rating exists
+    final existingRating = await db.query(
+      'ratings',
+      where: 'album_id = ? AND track_id = ?',
+      whereArgs: [albumId, trackId],
     );
+
+    if (existingRating.isEmpty) {
+      // Insert new rating
+      await db.insert(
+        'ratings',
+        {
+          'album_id': albumId,
+          'track_id': trackId,
+          'rating': rating,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    } else {
+      // Update existing rating
+      await db.update(
+        'ratings',
+        {
+          'rating': rating,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        where: 'album_id = ? AND track_id = ?',
+        whereArgs: [albumId, trackId],
+      );
+    }
   }
 
   Future<List<Map<String, dynamic>>> getRatingsForAlbum(String albumId) async {
     final db = await database;
     return await db.query(
-      tableRatings,
+      'ratings',
       where: 'album_id = ?',
       whereArgs: [albumId],
     );
   }
 
-  // CUSTOM LISTS METHODS
-
-  Future<int> insertCustomList(Map<String, dynamic> list) async {
+  // Album order methods
+  Future<void> saveAlbumOrder(List<String> albumIds) async {
     final db = await database;
 
-    final now = DateTime.now().toIso8601String();
-    final Map<String, dynamic> row = {
-      'id': list['id'],
-      'name': list['name'],
-      'description': list['description'] ?? '',
-      'created_at': list['createdAt'] ?? now,
-      'updated_at': now,
-    };
+    // Clear existing order
+    await db.delete('album_order');
 
-    return await db.insert(
-      tableCustomLists,
-      row,
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    // Insert new order
+    for (int i = 0; i < albumIds.length; i++) {
+      await db.insert(
+        'album_order',
+        {
+          'album_id': albumIds[i],
+          'position': i,
+        },
+      );
+    }
+  }
+
+  Future<List<String>> getAlbumOrder() async {
+    final db = await database;
+    final result = await db.query(
+      'album_order',
+      orderBy: 'position ASC',
     );
+
+    return result.map((map) => map['album_id'].toString()).toList();
+  }
+
+  // Custom list methods
+  Future<void> insertCustomList(Map<String, dynamic> list) async {
+    try {
+      final db = await database;
+
+      // Check table schema
+      final columns = await db.rawQuery('PRAGMA table_info(custom_lists)');
+      final columnNames = columns.map((c) => c['name'].toString()).toList();
+
+      // Adapt field names to match database schema
+      final Map<String, dynamic> data = {};
+
+      // Handle required fields
+      data['id'] = list['id'];
+      data['name'] = list['name'];
+      data['description'] = list['description'] ?? '';
+
+      // Handle timestamps based on actual table schema
+      if (columnNames.contains('created_at') && list.containsKey('createdAt')) {
+        data['created_at'] = list['createdAt'];
+      }
+
+      if (columnNames.contains('updated_at') && list.containsKey('updatedAt')) {
+        data['updated_at'] = list['updatedAt'];
+      }
+
+      // For legacy schema that uses camelCase directly
+      if (columnNames.contains('createdAt') && list.containsKey('createdAt')) {
+        data['createdAt'] = list['createdAt'];
+      }
+
+      if (columnNames.contains('updatedAt') && list.containsKey('updatedAt')) {
+        data['updatedAt'] = list['updatedAt'];
+      }
+
+      Logging.severe('Saving custom list with adapted data: $data');
+
+      await db.insert(
+        'custom_lists',
+        data,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e, stack) {
+      Logging.severe('Error inserting custom list', e, stack);
+      rethrow;
+    }
   }
 
   Future<List<Map<String, dynamic>>> getAllCustomLists() async {
-    final db = await database;
-    return await db.query(tableCustomLists);
+    try {
+      final db = await database;
+      final lists = await db.query('custom_lists');
+
+      // Map field names to expected format
+      return lists.map((list) {
+        final Map<String, dynamic> result = Map.from(list);
+
+        // Handle both snake_case and camelCase field formats
+        if (list.containsKey('created_at')) {
+          result['createdAt'] = list['created_at'];
+        }
+
+        if (list.containsKey('updated_at')) {
+          result['updatedAt'] = list['updated_at'];
+        }
+
+        return result;
+      }).toList();
+    } catch (e, stack) {
+      Logging.severe('Error getting all custom lists', e, stack);
+      return [];
+    }
   }
 
-  Future<int> deleteCustomList(String id) async {
+  Future<void> deleteCustomList(String listId) async {
     final db = await database;
-    return await db.delete(
-      tableCustomLists,
+    await db.delete(
+      'custom_lists',
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: [listId],
+    );
+
+    // Also delete all album-list relationships
+    await db.delete(
+      'album_lists',
+      where: 'list_id = ?',
+      whereArgs: [listId],
     );
   }
-
-  // ALBUM-LIST RELATIONSHIP METHODS
 
   Future<void> addAlbumToList(
       String albumId, String listId, int position) async {
     final db = await database;
-
-    final Map<String, dynamic> row = {
-      'album_id': albumId,
-      'list_id': listId,
-      'position': position,
-    };
-
     await db.insert(
-      tableAlbumLists,
-      row,
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      'album_lists',
+      {
+        'album_id': albumId,
+        'list_id': listId,
+        'position': position,
+      },
     );
   }
 
+  Future<List<Map<String, dynamic>>> getAlbumsInList(String listId) async {
+    try {
+      final db = await database;
+
+      // Join album_lists with albums to get album data
+      final results = await db.rawQuery('''
+        SELECT a.*, al.position
+        FROM albums a
+        JOIN album_lists al ON a.id = al.album_id
+        WHERE al.list_id = ?
+        ORDER BY al.position
+      ''', [listId]);
+
+      return results;
+    } catch (e, stack) {
+      Logging.severe('Error getting albums in list', e, stack);
+      return [];
+    }
+  }
+
+  // alias method for backward compatibility
   Future<List<String>> getAlbumIdsForList(String listId) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      tableAlbumLists,
-      columns: ['album_id'],
-      where: 'list_id = ?',
-      whereArgs: [listId],
-      orderBy: 'position ASC',
-    );
-
-    return List<String>.from(maps.map((m) => m['album_id']));
+    return getAlbumsInList(listId)
+        .then((results) => results.map((map) => map['id'].toString()).toList());
   }
 
-  Future<int> removeAlbumFromList(String albumId, String listId) async {
-    final db = await database;
-    return await db.delete(
-      tableAlbumLists,
-      where: 'album_id = ? AND list_id = ?',
-      whereArgs: [albumId, listId],
-    );
-  }
-
-  // SETTINGS METHODS
-
+  // Settings methods
   Future<void> saveSetting(String key, String value) async {
     final db = await database;
-
-    final Map<String, dynamic> row = {
-      'key': key,
-      'value': value,
-    };
-
     await db.insert(
-      tableSettings,
-      row,
+      'settings',
+      {
+        'key': key,
+        'value': value,
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   Future<String?> getSetting(String key) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      tableSettings,
-      columns: ['value'],
+    final result = await db.query(
+      'settings',
       where: 'key = ?',
       whereArgs: [key],
     );
 
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    return maps.first['value'];
-  }
-
-  // ALBUM ORDER METHODS
-
-  Future<void> saveAlbumOrder(List<String> albumIds) async {
-    final db = await database;
-
-    // First delete existing order
-    await db.delete(tableAlbumOrder);
-
-    // Then insert new order
-    Batch batch = db.batch();
-    for (int i = 0; i < albumIds.length; i++) {
-      batch.insert(tableAlbumOrder, {
-        'position': i,
-        'album_id': albumIds[i],
-      });
-    }
-
-    await batch.commit(noResult: true);
-  }
-
-  Future<List<String>> getAlbumOrder() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      tableAlbumOrder,
-      columns: ['album_id'],
-      orderBy: 'position ASC',
-    );
-
-    return List<String>.from(maps.map((m) => m['album_id']));
+    if (result.isEmpty) return null;
+    return result.first['value'].toString();
   }
 }

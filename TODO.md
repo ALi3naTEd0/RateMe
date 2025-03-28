@@ -1,16 +1,59 @@
-# Core Functionality
+# RateMe Development Roadmap
 
-## Database & Storage
-- [x] Implement SQLite database with drift/moor
+## Core Tasks (Immediate Focus)
+
+### Database & Storage - Core
+- [x] Implement SQLite database
 - [x] Create base models for albums, tracks, ratings, lists
-- [x] Setup proper database migration system
+- [x] Setup database migration system from SharedPreferences
 - [x] Add backup/restore functionality
-- [ ] Add indices for common lookups (albumId, platform)
-- [ ] Implement data consistency checks
-- [ ] Add database vacuum mechanism
-- [ ] Setup data validation and cleanup
+- [x] Implement data consistency checks
+- [x] Add database vacuum mechanism
+- [x] Setup data validation and cleanup
+- [x] Handle schema migrations and backward compatibility
+- [x] Implement transaction support for batch operations
+- [x] Add integrity checks and repair functionality
 
-## Caching System
+### UI/UX - Core
+- [x] Fix MaterialApp nesting issues
+- [x] Use ListView.builder consistently for performance
+- [x] Fix theme selection system (System, Light, Dark)
+- [x] Standardize component sizes (48x48px icons and rating boxes)
+- [x] Add proper loading states
+- [x] Create desktop-optimized layout
+- [ ] Add pagination for lists
+- [ ] Implement loading placeholders
+- [ ] Add pull-to-refresh for content updates
+
+### Data Handling - Core
+- [x] Unify album model across different platforms
+- [x] Fix track ID handling to ensure consistent string-based IDs
+- [x] Improve track duration parsing for Bandcamp albums
+- [x] Fix album artwork display inconsistencies
+- [x] Add bulk import/export functionality
+- [x] Implement proper cascade delete for albums and related entities
+- [x] Add custom list to album many-to-many relationships
+- [ ] Implement search filter/sort options
+
+### Platform Integration - Core
+- [x] Basic Bandcamp parsing and integration
+- [x] iTunes API integration
+- [ ] Apple Music authentication and API integration
+- [ ] Spotify OAuth2 implementation
+
+## Advanced Tasks (Future Development)
+
+### Database & Storage - Advanced
+- [ ] Implement advanced query optimization for large datasets (10,000+ albums)
+  - [ ] Add prepared statements for frequent queries
+  - [ ] Create query execution plans and analyze performance
+  - [ ] Implement proper pagination for very large result sets
+- [ ] Add telemetry and metrics for database performance
+  - [ ] Query timing analytics
+  - [ ] Storage growth monitoring
+  - [ ] Usage pattern tracking
+
+### Caching System
 - [ ] Setup disk cache for images and API responses
   - [ ] Add configurable size limits
   - [ ] Implement LRU cache eviction
@@ -20,11 +63,7 @@
 - [ ] Setup cache warming strategy
 - [ ] Add cache invalidation rules
 
-## Platform Integration
-- [x] Basic Bandcamp parsing and integration
-- [x] iTunes API integration
-- [ ] Apple Music authentication and API integration
-- [ ] Spotify OAuth2 implementation
+### Platform Integration - Advanced
 - [ ] Last.fm API integration with scrobbling
 - [ ] Deezer API connection
 - [ ] Token management system
@@ -37,37 +76,29 @@
   - [ ] Album art handling
   - [ ] Background indexing
 
-## Performance
-- [x] Image loading optimization for album artwork
-- [ ] Progressive loading
-- [ ] Proper caching
-- [ ] Size optimization
+### Performance Optimization
+- [ ] Progressive loading for large datasets
+- [x] Proper caching for database queries
+- [x] Size optimization
 - [ ] Network request handling
   - [ ] Timeouts
   - [ ] Retry logic
   - [ ] Rate limiting
-- [ ] Batch operations for database
+- [x] Batch operations for database
 - [ ] Memory management
   - [ ] Resource disposal
   - [ ] Cache clearing
   - [ ] Memory monitoring
 
-## UI/UX
-- [x] Fix MaterialApp nesting
-- [x] Add pagination for lists
-- [x] Use ListView.builder consistently
-- [x] Improve error states with better logging
-- [x] Fix theme selection system (System, Light, Dark)
-- [x] Standardize component sizes (48x48px icons and rating boxes)
-- [x] Add platform-specific theme handling for Linux
+### UI/UX - Advanced
+- [ ] Add platform-specific theme handling for Linux
 - [ ] Optimize widget rebuilds
-- [ ] Implement loading placeholders
-- [ ] Add pull-to-refresh
-- [ ] Add proper loading states
 - [ ] Improve accessibility features
-- [ ] Create desktop-optimized layout
+  - [ ] Screen reader support
+  - [ ] High contrast mode
+  - [ ] Keyboard navigation
 
-## Background Tasks
+### Background Tasks
 - [ ] Setup WorkManager for Android
 - [ ] Implement periodic tasks
   - [ ] Cache cleanup
@@ -77,7 +108,7 @@
 - [ ] Handle background playback
 - [ ] Implement battery optimizations
 
-## Testing & Quality
+### Testing & Quality
 - [x] Add extensive logging for debugging
 - [ ] Add unit tests for core functionality
 - [ ] Implement integration tests
@@ -86,23 +117,15 @@
 - [ ] Add error reporting
 - [ ] Implement crash analytics
 
-## Data Handling Improvements
-- [x] Unify album model across different platforms
-- [x] Fix track ID handling to ensure consistent string-based IDs
-- [x] Improve track duration parsing for Bandcamp albums
-- [x] Fix album artwork display inconsistencies
-- [ ] Add bulk import/export functionality
-- [ ] Implement search filter/sort options
-- [ ] Add statistics view for ratings
-- [ ] Create album recommendation feature
-
-## Cloud & Sync
+### Cloud & Sync
 - [ ] Implement cloud backup option
 - [ ] Add multi-device sync capability
 - [ ] Implement sharing functionality across devices
 - [ ] Add collaborative list feature
 
-## Enhanced Features
+### Enhanced Features
+- [ ] Add statistics view for ratings
+- [ ] Create album recommendation feature
 - [ ] Dynamic theming based on album artwork
 - [ ] Rating history and trends
 - [ ] Listening statistics

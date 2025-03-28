@@ -38,16 +38,22 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         order = savedAlbums.map((album) => album['id'].toString()).toList();
       }
 
+      // Create a new list of albums with added ratings - mutable copy of query results
+      final List<Map<String, dynamic>> albumsWithRatings = [];
+
       // Calculate ratings for display
       for (var album in savedAlbums) {
         try {
+          // Create a mutable copy of the album
+          final mutableAlbum = Map<String, dynamic>.from(album);
+
           // Ensure we have a valid ID
-          final albumId = album['id'] ?? album['collectionId'];
+          final albumId = mutableAlbum['id'] ?? mutableAlbum['collectionId'];
           if (albumId == null) continue;
 
           Logging.severe('Processing album: ${jsonEncode({
                 'id': albumId,
-                'name': album['name'] ?? album['collectionName']
+                'name': mutableAlbum['name'] ?? mutableAlbum['collectionName']
               })}');
 
           // Calculate average rating
@@ -66,10 +72,23 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             if (nonZeroRatings.isNotEmpty) {
               double sum = 0;
               for (var rating in nonZeroRatings) {
-                sum += rating['rating'];
+                // Handle different rating types safely
+                var ratingValue = rating['rating'];
+                if (ratingValue is int) {
+                  sum += ratingValue.toDouble();
+                } else if (ratingValue is double) {
+                  sum += ratingValue;
+                } else if (ratingValue != null) {
+                  // Last resort - try parsing as double
+                  sum += double.tryParse(ratingValue.toString()) ?? 0.0;
+                }
               }
+
               final averageRating = sum / nonZeroRatings.length;
-              album['averageRating'] = averageRating;
+
+              // Set the rating in our mutable copy
+              mutableAlbum['averageRating'] = averageRating;
+
               Logging.severe(
                   'Album $albumId average rating: $averageRating from ${nonZeroRatings.length} tracks');
             }
@@ -79,11 +98,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
           // Ensure artwork URL is preserved and logged
           Logging.severe(
-              'Album artwork URL: ${album['artworkUrl'] ?? album['artworkUrl100'] ?? 'missing'}');
+              'Album artwork URL: ${mutableAlbum['artworkUrl'] ?? mutableAlbum['artworkUrl100'] ?? 'missing'}');
 
           // Add to display list
           Logging.severe(
-              'Added album to display list: ${album['name'] ?? album['collectionName']}');
+              'Added album to display list: ${mutableAlbum['name'] ?? mutableAlbum['collectionName']}');
+
+          // Add the mutable album to our new list
+          albumsWithRatings.add(mutableAlbum);
         } catch (e, stack) {
           Logging.severe('Error processing album', e, stack);
         }
@@ -91,7 +113,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
       // Sort albums according to the order
       final Map<String, Map<String, dynamic>> albumMap = {};
-      for (var album in savedAlbums) {
+      for (var album in albumsWithRatings) {
         final id = album['id']?.toString() ?? album['collectionId']?.toString();
         if (id != null) {
           albumMap[id] = album;
@@ -107,7 +129,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       }
 
       // Add any albums not in the order at the end
-      for (var album in savedAlbums) {
+      for (var album in albumsWithRatings) {
         final id = album['id']?.toString() ?? album['collectionId']?.toString();
         if (id != null && !order.contains(id)) {
           orderedAlbums.add(album);
@@ -211,6 +233,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         album['artist'] ?? album['artistName'] ?? 'Unknown Artist';
     final artworkUrl = album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
     final albumId = album['id'] ?? album['collectionId'] ?? '';
+
+    // Use a simpler approach for getting the rating
     final averageRating = album['averageRating'] ?? 0.0;
 
     // Check if this is a Bandcamp album

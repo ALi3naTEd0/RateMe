@@ -681,6 +681,110 @@ class _SettingsPageState extends State<SettingsPage> {
     return value;
   }
 
+  Future<void> _performDatabaseMaintenance() async {
+    _showProgressDialog('Database Maintenance', 'Checking database size...');
+
+    try {
+      // Get database size before vacuum
+      final sizeBefore = await UserData.getDatabaseSize();
+
+      // Check database integrity
+      final isIntegrityOk = await UserData.checkDatabaseIntegrity();
+      if (!isIntegrityOk) {
+        navigatorKey.currentState?.pop();
+        _showSnackBar(
+            'Database integrity check failed. Consider restoring from backup.');
+        return;
+      }
+
+      navigatorKey.currentState?.pop();
+      _showProgressDialog('Database Maintenance', 'Optimizing database...');
+
+      // Perform vacuum
+      final vacuumSuccess = await UserData.vacuumDatabase();
+
+      if (!vacuumSuccess) {
+        navigatorKey.currentState?.pop();
+        _showSnackBar('Database optimization failed');
+        return;
+      }
+
+      // Get database size after vacuum
+      final sizeAfter = await UserData.getDatabaseSize();
+
+      navigatorKey.currentState?.pop();
+
+      // Show results
+      final savedSpace = sizeBefore - sizeAfter;
+      final percent = sizeBefore > 0 ? (savedSpace / sizeBefore * 100.0) : 0.0;
+
+      _showMaintenanceResultDialog(
+        sizeBefore: sizeBefore,
+        sizeAfter: sizeAfter,
+        savedSpace: savedSpace,
+        percent: percent,
+      );
+    } catch (e, stack) {
+      Logging.severe('Error during database maintenance', e, stack);
+      navigatorKey.currentState?.pop();
+      _showSnackBar('Error during database maintenance: $e');
+    }
+  }
+
+  void _showMaintenanceResultDialog({
+    required int sizeBefore,
+    required int sizeAfter,
+    required int savedSpace,
+    required double percent,
+  }) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    // Format sizes for display
+    final beforeMB = (sizeBefore / 1024 / 1024).toStringAsFixed(2);
+    final afterMB = (sizeAfter / 1024 / 1024).toStringAsFixed(2);
+    final savedKB = (savedSpace / 1024).toStringAsFixed(2);
+
+    navigator.push(
+      PageRouteBuilder(
+        barrierColor: Colors.black54,
+        opaque: false,
+        pageBuilder: (_, __, ___) => AlertDialog(
+          title: const Text('Database Optimization Complete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Previous size: $beforeMB MB'),
+              Text('New size: $afterMB MB'),
+              const SizedBox(height: 8),
+              Text(
+                savedSpace > 0
+                    ? 'Space saved: $savedKB KB (${percent.toStringAsFixed(1)}%)'
+                    : 'No space was saved. Your database is already optimized.',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: savedSpace > 0 ? Colors.green : null,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'The database has been optimized for better performance.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
@@ -965,6 +1069,53 @@ class _SettingsPageState extends State<SettingsPage> {
                         subtitle: const Text(
                             'Convert legacy data to new database format for better performance'),
                         onTap: () => _performForceMigration(),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Database Management Section - NEW
+                Card(
+                  margin: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'Database Maintenance',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.cleaning_services),
+                        title: const Text('Optimize Database'),
+                        subtitle: const Text(
+                            'Clean and optimize the database for better performance'),
+                        onTap: _performDatabaseMaintenance,
+                      ),
+                      FutureBuilder<int>(
+                        future: UserData.getDatabaseSize(),
+                        builder: (context, snapshot) {
+                          final size = snapshot.data ?? 0;
+                          final sizeText = size > 0
+                              ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
+                              : 'Unknown';
+
+                          return Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              'Current database size: $sizeText',
+                              style: const TextStyle(
+                                fontStyle: FontStyle.italic,
+                                fontSize: 14,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
