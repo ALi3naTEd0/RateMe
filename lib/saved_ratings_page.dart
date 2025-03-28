@@ -30,6 +30,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   List<Map<String, dynamic>> displayedAlbums = []; // For pagination
   List<String> albumOrder = [];
   bool isLoading = true;
+  // Add a key for the RefreshIndicator
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   // Pagination variables
   int itemsPerPage = 20;
@@ -496,74 +499,103 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                 )
               : albums.isEmpty
                   ? const Text('No saved albums')
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: ReorderableListView.builder(
-                            itemCount: displayedAlbums.length,
-                            onReorder: (oldIndex, newIndex) async {
-                              // Convert display indices to global indices
-                              final globalOldIndex =
-                                  currentPage * itemsPerPage + oldIndex;
-                              final globalNewIndex =
-                                  currentPage * itemsPerPage +
-                                      (newIndex > oldIndex
-                                          ? newIndex - 1
-                                          : newIndex);
+                  : RefreshIndicator(
+                      key: _refreshIndicatorKey,
+                      onRefresh: _refreshData,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: ReorderableListView.builder(
+                              itemCount: displayedAlbums.length,
+                              onReorder: (oldIndex, newIndex) async {
+                                // Convert display indices to global indices
+                                final globalOldIndex =
+                                    currentPage * itemsPerPage + oldIndex;
+                                final globalNewIndex =
+                                    currentPage * itemsPerPage +
+                                        (newIndex > oldIndex
+                                            ? newIndex - 1
+                                            : newIndex);
 
-                              setState(() {
-                                final album = albums.removeAt(globalOldIndex);
-                                albums.insert(globalNewIndex, album);
+                                setState(() {
+                                  final album = albums.removeAt(globalOldIndex);
+                                  albums.insert(globalNewIndex, album);
 
-                                // Update album order
-                                albumOrder = albums
-                                    .map((a) =>
-                                        a['id']?.toString() ??
-                                        a['collectionId']?.toString() ??
-                                        '')
-                                    .where((id) => id.isNotEmpty)
-                                    .toList();
+                                  // Update album order
+                                  albumOrder = albums
+                                      .map((a) =>
+                                          a['id']?.toString() ??
+                                          a['collectionId']?.toString() ??
+                                          '')
+                                      .where((id) => id.isNotEmpty)
+                                      .toList();
 
-                                _updateDisplayedAlbums();
-                              });
+                                  _updateDisplayedAlbums();
+                                });
 
-                              await UserData.saveAlbumOrder(albumOrder);
-                            },
-                            itemBuilder: (context, index) {
-                              final album = displayedAlbums[index];
-                              return _buildCompactAlbumCard(album, index);
-                            },
-                          ),
-                        ),
-                        // Pagination controls
-                        if (totalPages > 1)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.arrow_back),
-                                  onPressed:
-                                      currentPage > 0 ? _previousPage : null,
-                                  tooltip: 'Previous page',
-                                ),
-                                Text('${currentPage + 1} / $totalPages'),
-                                IconButton(
-                                  icon: const Icon(Icons.arrow_forward),
-                                  onPressed: currentPage < totalPages - 1
-                                      ? _nextPage
-                                      : null,
-                                  tooltip: 'Next page',
-                                ),
-                              ],
+                                await UserData.saveAlbumOrder(albumOrder);
+                              },
+                              itemBuilder: (context, index) {
+                                final album = displayedAlbums[index];
+                                return _buildCompactAlbumCard(album, index);
+                              },
                             ),
                           ),
-                      ],
+                          // Pagination controls
+                          if (totalPages > 1)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back),
+                                    onPressed:
+                                        currentPage > 0 ? _previousPage : null,
+                                    tooltip: 'Previous page',
+                                  ),
+                                  Text('${currentPage + 1} / $totalPages'),
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_forward),
+                                    onPressed: currentPage < totalPages - 1
+                                        ? _nextPage
+                                        : null,
+                                    tooltip: 'Next page',
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
         ),
       ),
     );
+  }
+
+  // Add this method to handle refresh
+  Future<void> _refreshData() async {
+    Logging.severe('Refreshing saved albums');
+
+    // Clear cached data
+    setState(() {
+      albums = [];
+      displayedAlbums = [];
+      isLoading = true;
+    });
+
+    // Reload everything
+    await _loadSortPreference();
+    await _loadAlbums();
+
+    Logging.severe('Refresh complete, loaded ${albums.length} albums');
+
+    // Show a success message
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Albums refreshed')));
+    }
   }
 
   String _getSortOrderLabel() {

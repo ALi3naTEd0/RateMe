@@ -43,6 +43,10 @@ class _SettingsPageState extends State<SettingsPage> {
   bool useDarkText = false;
   bool isLoading = true;
 
+  // Add refresh indicator key
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
+
   @override
   void initState() {
     super.initState();
@@ -797,6 +801,25 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // Add refresh method
+  Future<void> _refreshData() async {
+    Logging.severe('Refreshing settings page');
+
+    // Set loading state
+    setState(() {
+      isLoading = true;
+    });
+
+    // Reload settings
+    await _loadSettings();
+    await _checkDatabaseSize();
+
+    // Show feedback to user
+    _showSnackBar('Settings refreshed');
+
+    Logging.severe('Settings refresh complete');
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
@@ -837,351 +860,358 @@ class _SettingsPageState extends State<SettingsPage> {
             width: pageWidth,
             child: isLoading
                 ? _buildSkeletonSettings()
-                : ListView(
-                    children: [
-                      // Theme Section
-                      Card(
-                        margin: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Theme',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            RadioListTile<ThemeMode>(
-                              title: const Text('System'),
-                              value: ThemeMode.system,
-                              groupValue: widget.currentTheme,
-                              onChanged: (ThemeMode? mode) {
-                                if (mode != null) {
-                                  widget.onThemeChanged(mode);
-                                  setState(() {});
-                                }
-                              },
-                            ),
-                            RadioListTile<ThemeMode>(
-                              title: const Text('Light'),
-                              value: ThemeMode.light,
-                              groupValue: widget.currentTheme,
-                              onChanged: (ThemeMode? mode) {
-                                if (mode != null) {
-                                  widget.onThemeChanged(mode);
-                                  setState(() {});
-                                }
-                              },
-                            ),
-                            RadioListTile<ThemeMode>(
-                              title: const Text('Dark'),
-                              value: ThemeMode.dark,
-                              groupValue: widget.currentTheme,
-                              onChanged: (ThemeMode? mode) {
-                                if (mode != null) {
-                                  widget.onThemeChanged(mode);
-                                  setState(() {});
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Color Section
-                      Card(
-                        margin: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'App Colors',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                : RefreshIndicator(
+                    key: _refreshIndicatorKey,
+                    onRefresh: _refreshData,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        // Theme Section
+                        Card(
+                          margin: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Theme',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.restore),
-                                    tooltip: 'Restore default colors',
-                                    onPressed: () {
-                                      setState(() {
-                                        pickerColor = defaultColor;
-                                        textColor = defaultTextColor;
-                                      });
-                                      widget
-                                          .onPrimaryColorChanged(defaultColor);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ListTile(
-                              title: const Text('Primary Color'),
-                              subtitle: Text(
-                                colorToHex(pickerColor)
-                                    .toString()
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.color,
-                                  fontFamily: 'monospace',
                                 ),
                               ),
-                              trailing: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: pickerColor,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.grey),
-                                ),
-                              ),
-                              onTap: () => _showAdvancedColorPicker(),
-                            ),
-                            ListTile(
-                              title: const Text('Button Text Color'),
-                              trailing: Switch(
-                                value: useDarkText,
-                                thumbIcon:
-                                    WidgetStateProperty.resolveWith<Icon?>(
-                                        (states) {
-                                  return Icon(
-                                    useDarkText
-                                        ? Icons.format_color_text
-                                        : Icons.format_color_reset,
-                                    size: 16,
-                                    color: useDarkText
-                                        ? Colors.black
-                                        : Colors.white,
-                                  );
-                                }),
-                                inactiveTrackColor: HSLColor.fromColor(
-                                        Theme.of(context).colorScheme.primary)
-                                    .withAlpha(0.5)
-                                    .toColor(),
-                                activeTrackColor:
-                                    Theme.of(context).colorScheme.primary,
-                                activeColor:
-                                    Colors.black, // When active, always black
-                                inactiveThumbColor:
-                                    Colors.white, // When inactive, always white
-                                onChanged: (bool value) async {
-                                  final prefs =
-                                      await SharedPreferences.getInstance();
-                                  await prefs.setBool(
-                                      'useDarkButtonText', value);
-                                  setState(() {
-                                    useDarkText = value;
-                                  });
+                              RadioListTile<ThemeMode>(
+                                title: const Text('System'),
+                                value: ThemeMode.system,
+                                groupValue: widget.currentTheme,
+                                onChanged: (ThemeMode? mode) {
+                                  if (mode != null) {
+                                    widget.onThemeChanged(mode);
+                                    setState(() {});
+                                  }
                                 },
                               ),
-                              subtitle: Text(
-                                  useDarkText ? 'Dark text' : 'Light text'),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Preview:'),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .scaffoldBackgroundColor,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: Theme.of(context).dividerColor,
+                              RadioListTile<ThemeMode>(
+                                title: const Text('Light'),
+                                value: ThemeMode.light,
+                                groupValue: widget.currentTheme,
+                                onChanged: (ThemeMode? mode) {
+                                  if (mode != null) {
+                                    widget.onThemeChanged(mode);
+                                    setState(() {});
+                                  }
+                                },
+                              ),
+                              RadioListTile<ThemeMode>(
+                                title: const Text('Dark'),
+                                value: ThemeMode.dark,
+                                groupValue: widget.currentTheme,
+                                onChanged: (ThemeMode? mode) {
+                                  if (mode != null) {
+                                    widget.onThemeChanged(mode);
+                                    setState(() {});
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Color Section
+                        Card(
+                          margin: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'App Colors',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.palette, color: pickerColor),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Sample Text',
-                                          style: TextStyle(
-                                            color: Theme.of(context)
-                                                .textTheme
-                                                .bodyLarge
-                                                ?.color,
-                                          ),
+                                    IconButton(
+                                      icon: const Icon(Icons.restore),
+                                      tooltip: 'Restore default colors',
+                                      onPressed: () {
+                                        setState(() {
+                                          pickerColor = defaultColor;
+                                          textColor = defaultTextColor;
+                                        });
+                                        widget.onPrimaryColorChanged(
+                                            defaultColor);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ListTile(
+                                title: const Text('Primary Color'),
+                                subtitle: Text(
+                                  colorToHex(pickerColor)
+                                      .toString()
+                                      .toUpperCase(),
+                                  style: TextStyle(
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.color,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                trailing: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: pickerColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.grey),
+                                  ),
+                                ),
+                                onTap: () => _showAdvancedColorPicker(),
+                              ),
+                              ListTile(
+                                title: const Text('Button Text Color'),
+                                trailing: Switch(
+                                  value: useDarkText,
+                                  thumbIcon:
+                                      WidgetStateProperty.resolveWith<Icon?>(
+                                          (states) {
+                                    return Icon(
+                                      useDarkText
+                                          ? Icons.format_color_text
+                                          : Icons.format_color_reset,
+                                      size: 16,
+                                      color: useDarkText
+                                          ? Colors.black
+                                          : Colors.white,
+                                    );
+                                  }),
+                                  inactiveTrackColor: HSLColor.fromColor(
+                                          Theme.of(context).colorScheme.primary)
+                                      .withAlpha(0.5)
+                                      .toColor(),
+                                  activeTrackColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  activeColor:
+                                      Colors.black, // When active, always black
+                                  inactiveThumbColor: Colors
+                                      .white, // When inactive, always white
+                                  onChanged: (bool value) async {
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
+                                    await prefs.setBool(
+                                        'useDarkButtonText', value);
+                                    setState(() {
+                                      useDarkText = value;
+                                    });
+                                  },
+                                ),
+                                subtitle: Text(
+                                    useDarkText ? 'Dark text' : 'Light text'),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Preview:'),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .scaffoldBackgroundColor,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Theme.of(context).dividerColor,
                                         ),
-                                        const Spacer(),
-                                        FilledButton(
-                                          onPressed: () {},
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: pickerColor,
-                                            foregroundColor: useDarkText
-                                                ? Colors.black
-                                                : Colors.white,
-                                            textStyle: const TextStyle(
-                                              fontWeight: FontWeight.bold,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.palette,
+                                              color: pickerColor),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Sample Text',
+                                            style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyLarge
+                                                  ?.color,
                                             ),
                                           ),
-                                          child: const Text('Button'),
-                                        ),
-                                      ],
+                                          const Spacer(),
+                                          FilledButton(
+                                            onPressed: () {},
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: pickerColor,
+                                              foregroundColor: useDarkText
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                              textStyle: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            child: const Text('Button'),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Data Management Section
+                        Card(
+                          margin: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Data Management',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Data Management Section
-                      Card(
-                        margin: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Data Management',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.file_download),
-                              title: const Text('Import Backup'),
-                              subtitle:
-                                  const Text('Restore data from a backup file'),
-                              onTap: _importBackupWithProgress,
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.file_upload),
-                              title: const Text('Export Backup'),
-                              subtitle: const Text(
-                                  'Save all your data as a backup file'),
-                              onTap: () async {
-                                final success = await UserData.exportData();
-                                if (success) {
-                                  _showSnackBar('Backup created successfully');
-                                } else {
-                                  _showSnackBar('Failed to create backup');
-                                }
-                              },
-                            ),
-                            const Divider(),
-                            ListTile(
-                              leading: const Icon(Icons.storage),
-                              title: const Text('Migrate to SQLite Database'),
-                              subtitle: const Text(
-                                  'Convert legacy data to new database format for better performance'),
-                              onTap: () => _performForceMigration(),
-                            ),
-                          ],
+                              ListTile(
+                                leading: const Icon(Icons.file_download),
+                                title: const Text('Import Backup'),
+                                subtitle: const Text(
+                                    'Restore data from a backup file'),
+                                onTap: _importBackupWithProgress,
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.file_upload),
+                                title: const Text('Export Backup'),
+                                subtitle: const Text(
+                                    'Save all your data as a backup file'),
+                                onTap: () async {
+                                  final success = await UserData.exportData();
+                                  if (success) {
+                                    _showSnackBar(
+                                        'Backup created successfully');
+                                  } else {
+                                    _showSnackBar('Failed to create backup');
+                                  }
+                                },
+                              ),
+                              const Divider(),
+                              ListTile(
+                                leading: const Icon(Icons.storage),
+                                title: const Text('Migrate to SQLite Database'),
+                                subtitle: const Text(
+                                    'Convert legacy data to new database format for better performance'),
+                                onTap: () => _performForceMigration(),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
-                      // Database Management Section
-                      Card(
-                        margin: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Database Maintenance',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                        // Database Management Section
+                        Card(
+                          margin: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Database Maintenance',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.cleaning_services),
-                              title: const Text('Optimize Database'),
-                              subtitle: const Text(
-                                  'Clean and optimize the database for better performance'),
-                              onTap: _performDatabaseMaintenance,
-                            ),
-                            FutureBuilder<int>(
-                              future: UserData.getDatabaseSize(),
-                              builder: (context, snapshot) {
-                                final size = snapshot.data ?? 0;
-                                final sizeText = size > 0
-                                    ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
-                                    : 'Unknown';
+                              ListTile(
+                                leading: const Icon(Icons.cleaning_services),
+                                title: const Text('Optimize Database'),
+                                subtitle: const Text(
+                                    'Clean and optimize the database for better performance'),
+                                onTap: _performDatabaseMaintenance,
+                              ),
+                              FutureBuilder<int>(
+                                future: UserData.getDatabaseSize(),
+                                builder: (context, snapshot) {
+                                  final size = snapshot.data ?? 0;
+                                  final sizeText = size > 0
+                                      ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
+                                      : 'Unknown';
 
-                                return Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Text(
-                                    'Current database size: $sizeText',
-                                    style: const TextStyle(
-                                      fontStyle: FontStyle.italic,
-                                      fontSize: 14,
+                                  return Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      'Current database size: $sizeText',
+                                      style: const TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        fontSize: 14,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
-                      // Debug & Development Section
-                      Card(
-                        margin: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Debug & Development',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                        // Debug & Development Section
+                        Card(
+                          margin: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Debug & Development',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.bug_report),
-                              title: const Text('Show Debug Info'),
-                              subtitle:
-                                  const Text('View technical information'),
-                              onTap: () => DebugUtil.showDebugReport(context),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.healing),
-                              title: const Text('Repair Album Data'),
-                              subtitle:
-                                  const Text('Fix problems with album display'),
-                              onTap: () => _showRepairDialog(),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.delete_forever),
-                              title: const Text('Clear Database'),
-                              subtitle: const Text(
-                                  'Delete all saved data (cannot be undone)'),
-                              onTap: () => _showClearDatabaseDialog(),
-                            ),
-                          ],
+                              ListTile(
+                                leading: const Icon(Icons.bug_report),
+                                title: const Text('Show Debug Info'),
+                                subtitle:
+                                    const Text('View technical information'),
+                                onTap: () => DebugUtil.showDebugReport(context),
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.healing),
+                                title: const Text('Repair Album Data'),
+                                subtitle: const Text(
+                                    'Fix problems with album display'),
+                                onTap: () => _showRepairDialog(),
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.delete_forever),
+                                title: const Text('Clear Database'),
+                                subtitle: const Text(
+                                    'Delete all saved data (cannot be undone)'),
+                                onTap: () => _showClearDatabaseDialog(),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
           ),
         ),

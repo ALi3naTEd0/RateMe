@@ -46,6 +46,10 @@ class _DetailsPageState extends State<DetailsPage> {
   bool isLoading = true;
   bool useDarkButtonText = false;
 
+  // Add a key for the RefreshIndicator
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
+
   @override
   void initState() {
     super.initState();
@@ -466,166 +470,177 @@ class _DetailsPageState extends State<DetailsPage> {
               ? _buildSkeletonAlbumDetails()
               : SizedBox(
                   width: pageWidth, // Apply consistent width constraint
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 16),
-                        // Album artwork
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Image.network(
-                            unifiedAlbum?.artworkUrl100
-                                    .replaceAll('100x100', '600x600') ??
-                                '',
-                            width: 300,
-                            height: 300,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.album, size: 300),
+                  child: RefreshIndicator(
+                    key: _refreshIndicatorKey,
+                    onRefresh: _refreshData,
+                    child: SingleChildScrollView(
+                      // To enable pull-to-refresh, we need to ensure there's enough content or that it's scrollable
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 16),
+                          // Album artwork
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Image.network(
+                              unifiedAlbum?.artworkUrl100
+                                      .replaceAll('100x100', '600x600') ??
+                                  '',
+                              width: 300,
+                              height: 300,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.album, size: 300),
+                            ),
                           ),
-                        ),
-                        // Album info section
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            children: [
-                              _buildInfoRow("Artist",
-                                  unifiedAlbum?.artistName ?? 'Unknown Artist'),
-                              _buildInfoRow(
-                                  "Album",
-                                  unifiedAlbum?.collectionName ??
-                                      'Unknown Album'),
-                              _buildInfoRow(
-                                  "Release Date", _formatReleaseDate()),
-                              _buildInfoRow("Duration",
-                                  formatDuration(albumDurationMillis)),
-                              const SizedBox(height: 8),
-                              _buildInfoRow(
-                                  "Rating", averageRating.toStringAsFixed(2),
-                                  fontSize: 20),
-                              const SizedBox(height: 16),
-                              // Buttons row
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  FilledButton(
-                                    onPressed: () async {
-                                      // Remove the auto-save here
-                                      _showAddToListDialog(); // Just show the dialog directly
-                                    },
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor:
-                                          Theme.of(context).colorScheme.primary,
-                                      foregroundColor: useDarkButtonText
-                                          ? Colors.black
-                                          : Colors.white,
-                                      minimumSize: const Size(150, 45),
-                                    ),
-                                    child: const Text('Save Album'),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  FilledButton.icon(
-                                    // Changed from ElevatedButton.icon
-                                    icon: Icon(Icons.settings,
-                                        color: useDarkButtonText
+                          // Album info section
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                _buildInfoRow(
+                                    "Artist",
+                                    unifiedAlbum?.artistName ??
+                                        'Unknown Artist'),
+                                _buildInfoRow(
+                                    "Album",
+                                    unifiedAlbum?.collectionName ??
+                                        'Unknown Album'),
+                                _buildInfoRow(
+                                    "Release Date", _formatReleaseDate()),
+                                _buildInfoRow("Duration",
+                                    formatDuration(albumDurationMillis)),
+                                const SizedBox(height: 8),
+                                _buildInfoRow(
+                                    "Rating", averageRating.toStringAsFixed(2),
+                                    fontSize: 20),
+                                const SizedBox(height: 16),
+                                // Buttons row
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FilledButton(
+                                      onPressed: () async {
+                                        // Remove the auto-save here
+                                        _showAddToListDialog(); // Just show the dialog directly
+                                      },
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        foregroundColor: useDarkButtonText
                                             ? Colors.black
-                                            : Colors.white),
-                                    label: Text(
-                                      'Options',
-                                      style: TextStyle(
+                                            : Colors.white,
+                                        minimumSize: const Size(150, 45),
+                                      ),
+                                      child: const Text('Save Album'),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    FilledButton.icon(
+                                      // Changed from ElevatedButton.icon
+                                      icon: Icon(Icons.settings,
                                           color: useDarkButtonText
                                               ? Colors.black
                                               : Colors.white),
+                                      label: Text(
+                                        'Options',
+                                        style: TextStyle(
+                                            color: useDarkButtonText
+                                                ? Colors.black
+                                                : Colors.white),
+                                      ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        foregroundColor: useDarkButtonText
+                                            ? Colors.black
+                                            : Colors.white,
+                                        minimumSize: const Size(150, 45),
+                                      ),
+                                      onPressed: () => _showOptionsDialog(),
                                     ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor:
-                                          Theme.of(context).colorScheme.primary,
-                                      foregroundColor: useDarkButtonText
-                                          ? Colors.black
-                                          : Colors.white,
-                                      minimumSize: const Size(150, 45),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
+                          ),
+                          const Divider(),
+                          // DataTable for tracks - make sure it fits within the width constraint
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: dataTableWidth,
+                            ),
+                            child: DataTable(
+                              columnSpacing: 12,
+                              columns: [
+                                const DataColumn(
+                                  label: SizedBox(
+                                    width: 35,
+                                    child: Center(child: Text('#')),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                              _calculateTitleWidth(),
                                     ),
-                                    onPressed: () => _showOptionsDialog(),
+                                    child: const Text('Title'),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                        ),
-                        const Divider(),
-                        // DataTable for tracks - make sure it fits within the width constraint
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: dataTableWidth,
-                          ),
-                          child: DataTable(
-                            columnSpacing: 12,
-                            columns: [
-                              const DataColumn(
-                                label: SizedBox(
-                                  width: 35,
-                                  child: Center(child: Text('#')),
                                 ),
-                              ),
-                              DataColumn(
-                                label: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width *
-                                            _calculateTitleWidth(),
+                                const DataColumn(
+                                  label: SizedBox(
+                                    width: 65,
+                                    child: Center(child: Text('Length')),
                                   ),
-                                  child: const Text('Title'),
                                 ),
-                              ),
-                              const DataColumn(
-                                label: SizedBox(
-                                  width: 65,
-                                  child: Center(child: Text('Length')),
+                                const DataColumn(
+                                  label: SizedBox(
+                                    width: 160,
+                                    child: Center(child: Text('Rating')),
+                                  ),
                                 ),
-                              ),
-                              const DataColumn(
-                                label: SizedBox(
-                                  width: 160,
-                                  child: Center(child: Text('Rating')),
-                                ),
-                              ),
-                            ],
-                            rows: tracks.map((track) {
-                              final trackId = track.id;
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text(track.position.toString())),
-                                  DataCell(_buildTrackTitle(
-                                    track.name,
-                                    MediaQuery.of(context).size.width *
-                                        _calculateTitleWidth(),
-                                  )),
-                                  DataCell(
-                                      Text(formatDuration(track.durationMs))),
-                                  DataCell(_buildTrackSlider(trackId)),
-                                ],
-                              );
-                            }).toList(),
+                              ],
+                              rows: tracks.map((track) {
+                                final trackId = track.id;
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text(track.position.toString())),
+                                    DataCell(_buildTrackTitle(
+                                      track.name,
+                                      MediaQuery.of(context).size.width *
+                                          _calculateTitleWidth(),
+                                    )),
+                                    DataCell(
+                                        Text(formatDuration(track.durationMs))),
+                                    DataCell(_buildTrackSlider(trackId)),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        FilledButton(
-                          // Changed from ElevatedButton
-                          onPressed: _launchRateYourMusic,
-                          style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            foregroundColor:
-                                useDarkButtonText ? Colors.black : Colors.white,
-                            minimumSize: const Size(150, 45),
+                          const SizedBox(height: 20),
+                          FilledButton(
+                            // Changed from ElevatedButton
+                            onPressed: _launchRateYourMusic,
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor: useDarkButtonText
+                                  ? Colors.black
+                                  : Colors.white,
+                              minimumSize: const Size(150, 45),
+                            ),
+                            child: const Text('Rate on RateYourMusic'),
                           ),
-                          child: const Text('Rate on RateYourMusic'),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
+                          const SizedBox(height: 40),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1387,5 +1402,27 @@ class _DetailsPageState extends State<DetailsPage> {
         useDarkButtonText = prefs.getBool('useDarkButtonText') ?? false;
       });
     }
+  }
+
+  // Add this method to handle refresh
+  Future<void> _refreshData() async {
+    Logging.severe('Refreshing album details');
+
+    // Reset loading state
+    setState(() {
+      ratings = {};
+      tracks = [];
+      isLoading = true;
+    });
+
+    // Reload all data
+    await _initialize();
+
+    Logging.severe('Refresh complete, loaded ${tracks.length} tracks');
+
+    // Show a success message
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      const SnackBar(content: Text('Album refreshed')),
+    );
   }
 }

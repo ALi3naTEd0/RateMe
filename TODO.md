@@ -23,7 +23,7 @@
 - [x] Create desktop-optimized layout
 - [x] Add pagination for lists
 - [x] Implement loading placeholders with skeleton UI
-- [ ] Add pull-to-refresh for content updates (allows users to swipe down to refresh data)
+- [x] Add pull-to-refresh for content updates (allows users to swipe down to refresh data)
 
 ### Data Handling - Core
 - [x] Unify album model across different platforms

@@ -83,6 +83,10 @@ class _CustomListsPageState extends State<CustomListsPage> {
   int currentPage = 0;
   int totalPages = 0;
 
+  // Add a key for the RefreshIndicator
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
+
   @override
   void initState() {
     super.initState();
@@ -333,6 +337,25 @@ class _CustomListsPageState extends State<CustomListsPage> {
     }
   }
 
+  Future<void> _refreshData() async {
+    Logging.severe('Refreshing custom lists');
+
+    // Reset the loading state
+    setState(() {
+      lists = [];
+      displayedLists = [];
+      isLoading = true;
+    });
+
+    // Reload lists
+    await _loadLists();
+
+    Logging.severe('Refresh complete, loaded ${lists.length} custom lists');
+
+    // Show a success message
+    _showSnackBar('Lists refreshed');
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
@@ -387,68 +410,73 @@ class _CustomListsPageState extends State<CustomListsPage> {
                   )
                 : lists.isEmpty
                     ? const Center(child: Text('No custom lists yet'))
-                    : Column(
-                        children: [
-                          Expanded(
-                            child: ReorderableListView.builder(
-                              onReorder: (oldIndex, newIndex) async {
-                                // Convert display indices to global indices
-                                final globalOldIndex =
-                                    currentPage * itemsPerPage + oldIndex;
-                                final globalNewIndex =
-                                    currentPage * itemsPerPage +
-                                        (newIndex > oldIndex
-                                            ? newIndex - 1
-                                            : newIndex);
+                    : RefreshIndicator(
+                        key: _refreshIndicatorKey,
+                        onRefresh: _refreshData,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: ReorderableListView.builder(
+                                onReorder: (oldIndex, newIndex) async {
+                                  // Convert display indices to global indices
+                                  final globalOldIndex =
+                                      currentPage * itemsPerPage + oldIndex;
+                                  final globalNewIndex =
+                                      currentPage * itemsPerPage +
+                                          (newIndex > oldIndex
+                                              ? newIndex - 1
+                                              : newIndex);
 
-                                setState(() {
-                                  final item = lists.removeAt(globalOldIndex);
-                                  lists.insert(globalNewIndex, item);
+                                  setState(() {
+                                    final item = lists.removeAt(globalOldIndex);
+                                    lists.insert(globalNewIndex, item);
 
-                                  _updateDisplayedLists();
-                                });
+                                    _updateDisplayedLists();
+                                  });
 
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                await prefs.setStringList(
-                                    'custom_lists',
-                                    lists
-                                        .map((l) => jsonEncode(l.toJson()))
-                                        .toList());
-                              },
-                              itemCount: displayedLists.length,
-                              itemBuilder: (context, index) {
-                                final list = displayedLists[index];
-                                return _buildCompactListCard(list, index);
-                              },
-                            ),
-                          ),
-                          // Pagination controls
-                          if (totalPages > 1)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.arrow_back),
-                                    onPressed:
-                                        currentPage > 0 ? _previousPage : null,
-                                    tooltip: 'Previous page',
-                                  ),
-                                  Text('${currentPage + 1} / $totalPages'),
-                                  IconButton(
-                                    icon: const Icon(Icons.arrow_forward),
-                                    onPressed: currentPage < totalPages - 1
-                                        ? _nextPage
-                                        : null,
-                                    tooltip: 'Next page',
-                                  ),
-                                ],
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  await prefs.setStringList(
+                                      'custom_lists',
+                                      lists
+                                          .map((l) => jsonEncode(l.toJson()))
+                                          .toList());
+                                },
+                                itemCount: displayedLists.length,
+                                itemBuilder: (context, index) {
+                                  final list = displayedLists[index];
+                                  return _buildCompactListCard(list, index);
+                                },
                               ),
                             ),
-                        ],
+                            // Pagination controls
+                            if (totalPages > 1)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_back),
+                                      onPressed: currentPage > 0
+                                          ? _previousPage
+                                          : null,
+                                      tooltip: 'Previous page',
+                                    ),
+                                    Text('${currentPage + 1} / $totalPages'),
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_forward),
+                                      onPressed: currentPage < totalPages - 1
+                                          ? _nextPage
+                                          : null,
+                                      tooltip: 'Next page',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
           ),
         ),
