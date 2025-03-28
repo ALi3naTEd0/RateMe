@@ -2,9 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### Added
+- Full Deezer integration with API support for album search and track retrieval
+- Deezer album URL detection in clipboard
+- Multi-platform consistency for album ratings (iTunes, Bandcamp, Spotify, Deezer)
 - Implemented SQLite database with migration from SharedPreferences
 - Created unified data models for albums, tracks, ratings, lists
 - Added database maintenance tools (vacuum, integrity check)
@@ -15,15 +21,24 @@ All notable changes to this project will be documented in this file.
 - Support for Spotify URLs in clipboard detection
 - Platform icons for better visual identification of music sources
 - Standardized UI component sizes for rating boxes and list icons to 48x48px
+- New skeleton loading screens for improved UX during content loading
 
 ### Fixed
+- Fixed Deezer track handling, ratings persistence and album artwork display
+- Fixed database timestamp constraints for ratings across all platforms
+- Fixed track ID handling with multiple fallback mechanisms for consistent string IDs
 - Fixed album deletion cascading to custom lists
 - Fixed custom list content synchronization on album deletion
-- Fixed track ID handling to maintain consistency between database and UI
 - Fixed ratings not being calculated correctly in some cases
 - Fixed album artwork display inconsistencies across the app
 - Fixed database schema migration and backward compatibility issues
 - Fixed data integrity issues when accessing album artwork
+- Fixed non-null constraint error on ratings timestamp
+- Fixed album ratings persistence and display for all supported platforms (iTunes, Bandcamp, Spotify, Deezer)
+- Improved track loading reliability across different music platforms
+- Fixed issues with Spotify album tracks not displaying properly
+- Fixed issues with Deezer track ratings not being saved correctly
+- Fixed inconsistent handling of track IDs across different music platforms
 
 ### Changed
 - Reorganized Settings page with grouped options for database management
@@ -34,6 +49,8 @@ All notable changes to this project will be documented in this file.
 - Improved responsive design for various screen sizes
 - Improved dialog layout and sizing consistency across the app
 - Added checkbox-based list selection for better list management UX
+- Enhanced database schema validation
+- Improved rating error handling with multiple fallback mechanisms
 
 ### Technical
 - Reduced context-dependent code for better maintainability
@@ -86,15 +103,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Various bugs and stability issues
 
-## [1.0.0] - 2024-12-01
-
-### Added
-- Initial release
-- Apple Music album search
-- Track-by-track rating system
-- Album average calculation
-- Basic data export/import
-
 ## [1.0.4-4] - 2025-07-22
 
 ### Changed
@@ -105,6 +113,9 @@ All notable changes to this project will be documented in this file.
 - Improved desktop integration for Linux packages
 - Fixed icon issues in Arch Linux package
 - Consistent icon naming across all Linux packages
+- Improved album search results relevance
+- Reduced album load time by optimizing database queries
+- Updated footer with version links
 
 ### Added 
 - Flatpak package support for Linux
@@ -112,6 +123,9 @@ All notable changes to this project will be documented in this file.
 - Support for multiple languages with initial internationalization
 - Spanish translations
 - Improvements to the theme system
+- Bandcamp album support
+- User-adjustable primary color option in settings
+- Full album export and import
 
 ### Fixed
 - Fixed Android app not launching on some devices
@@ -125,6 +139,9 @@ All notable changes to this project will be documented in this file.
 - Issues with file picker on Linux
 - Proper display of albums with special characters
 - Better error handling in album searches
+- Fixed album order persistence when manually reordering
+- Fixed inconsistent dark mode text colors on buttons
+- Fixed clipboard detection for URLs with query parameters
 
 ## [1.0.4-3] - 2025-07-15
 
@@ -156,6 +173,21 @@ All notable changes to this project will be documented in this file.
 - Ensured consistent track filtering across all album views
 - Fixed track data persistence when saving albums
 
+## [1.0.3] - 2025-03-15
+
+### Added
+- SQLite database migration for better performance
+- Album import from JSON files
+- Custom list management
+
+### Fixed
+- Fixed duplicate albums in search results
+- Fixed rating slider inconsistencies
+
+### Changed
+- Improved album detail page layout
+- Enhanced error handling and logging
+
 ## [1.0.3-1] - 2025-02-28
 
 ### Added
@@ -177,6 +209,16 @@ All notable changes to this project will be documented in this file.
 - Improved options dialog consistency by removing redundant settings option
 - Enhanced visual consistency in options menus throughout the app
 
+## [1.0.2] - 2025-03-08
+
+### Added
+- Dark mode support
+- Album rating sharing via image export
+- Pull-to-refresh in album lists
+
+### Fixed
+- Fixed memory leak in album list view
+
 ## [1.0.2-1] - 2024-05-01
 
 ### Added
@@ -190,6 +232,14 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Updated dependencies to latest versions
 - Improved UI responsiveness
+
+## [1.0.1] - 2025-03-01
+
+### Added
+- Initial release with basic functionality
+- iTunes and Spotify album support
+- Track-by-track rating system
+- Saved albums management
 
 ## [1.0.1-1] - 2024-04-27
 
@@ -205,6 +255,15 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Improved search functionality
 - Enhanced UI for smaller screens
+
+## [1.0.0] - 2024-12-01
+
+### Added
+- Initial release
+- Apple Music album search
+- Track-by-track rating system
+- Album average calculation
+- Basic data export/import
 
 ## [1.0.0-1] - 2024-04-15
 

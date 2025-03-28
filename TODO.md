@@ -33,13 +33,17 @@
 - [x] Add bulk import/export functionality
 - [x] Implement proper cascade delete for albums and related entities
 - [x] Add custom list to album many-to-many relationships
+- [x] Fix rating persistence and display across all platforms (iTunes, Bandcamp, Spotify, Deezer)
 - [ ] Implement search filter/sort options
 
 ### Platform Integration - Core
 - [x] Basic Bandcamp parsing and integration
 - [x] iTunes API integration
-- [ ] Apple Music authentication and API integration
-- [ ] Spotify OAuth2 implementation
+- [x] Spotify API integration
+- [x] Deezer API integration
+- [ ] Apple Music authentication (allows access to user libraries and extended features)
+- [ ] Spotify OAuth2 implementation (allows access to user libraries and playlists)
+- [ ] Deezer authentication (allows access to user libraries and personalized content)
 
 ## Advanced Tasks (Future Development)
 
@@ -65,11 +69,6 @@
 
 ### Platform Integration - Advanced
 - [ ] Last.fm API integration with scrobbling
-- [ ] Deezer API connection
-- [ ] Token management system
-  - [ ] Secure storage
-  - [ ] Auto refresh
-  - [ ] Status tracking
 - [ ] Local files support
   - [ ] Folder scanning
   - [ ] Metadata extraction (ID3, FLAC, M4A)

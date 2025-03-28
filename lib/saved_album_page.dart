@@ -7,11 +7,12 @@ import 'package:html/parser.dart' show parse;
 import 'user_data.dart';
 import 'logging.dart';
 import 'custom_lists_page.dart';
-import 'album_model.dart'; // Add this import
+import 'album_model.dart';
 import 'share_widget.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/skeleton_loading.dart';
+import 'platform_service.dart'; // Add this import to fix the undefined identifier
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -89,6 +90,10 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           widget.album['url']?.toString().contains('bandcamp.com') == true) {
         detectedPlatform = 'bandcamp';
         Logging.severe('Detected Bandcamp album based on URL');
+      } else if (widget.album['url']?.toString().contains('deezer.com') ==
+          true) {
+        detectedPlatform = 'deezer';
+        Logging.severe('Detected Deezer album based on URL');
       } else if (albumId is int ||
           (albumId is String && int.tryParse(albumId) != null)) {
         detectedPlatform = 'itunes';
@@ -116,6 +121,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         await _fetchBandcampTracks();
       } else if (detectedPlatform == 'spotify') {
         await _fetchSpotifyTracks();
+      } else if (detectedPlatform == 'deezer') {
+        await _fetchDeezerTracks();
       } else {
         await _fetchItunesTracks();
       }
@@ -412,7 +419,55 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         return;
       }
 
-      // If we still don't have tracks, fetch them (this would require implementing Spotify API calls)
+      // As a last resort, fetch tracks from the Spotify API
+      final albumId = unifiedAlbum?.id;
+      if (albumId != null) {
+        Logging.severe('Fetching tracks from Spotify API for album: $albumId');
+
+        // Use PlatformService to fetch the full album data with tracks
+        final spotifyAlbum =
+            await PlatformService.fetchSpotifyAlbum(albumId.toString());
+
+        if (spotifyAlbum != null && spotifyAlbum['tracks'] != null) {
+          List<Track> spotifyTracks = [];
+
+          for (var trackData in spotifyAlbum['tracks']) {
+            try {
+              spotifyTracks.add(Track(
+                id: trackData['trackId'] ?? trackData['id'] ?? 0,
+                name: trackData['trackName'] ??
+                    trackData['name'] ??
+                    'Unknown Track',
+                position:
+                    trackData['position'] ?? trackData['trackNumber'] ?? 0,
+                durationMs: trackData['trackTimeMillis'] ??
+                    trackData['durationMs'] ??
+                    0,
+                metadata: trackData,
+              ));
+            } catch (e) {
+              Logging.severe('Error parsing Spotify API track: $e');
+            }
+          }
+
+          if (spotifyTracks.isNotEmpty) {
+            Logging.severe(
+                'Retrieved ${spotifyTracks.length} tracks from Spotify API');
+            if (mounted) {
+              setState(() {
+                tracks = spotifyTracks;
+                calculateAlbumDuration();
+              });
+            }
+            return;
+          }
+        } else {
+          Logging.severe(
+              'Failed to fetch Spotify album data or tracks from API');
+        }
+      }
+
+      // If we still don't have tracks, display empty list
       Logging.severe('No tracks available for this Spotify album');
       if (mounted) {
         setState(() {
@@ -422,6 +477,154 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       }
     } catch (e, stack) {
       Logging.severe('Error fetching Spotify tracks', e, stack);
+      if (mounted) {
+        setState(() {
+          tracks = [];
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchDeezerTracks() async {
+    try {
+      Logging.severe(
+          'Fetching Deezer tracks for album ID: ${unifiedAlbum?.id}');
+
+      // First try to get tracks from the album's data field
+      if (widget.album['data'] != null) {
+        try {
+          // Parse the stored data that might contain tracks
+          Map<String, dynamic> fullData = jsonDecode(widget.album['data']);
+          if (fullData['tracks'] != null && fullData['tracks'] is List) {
+            List<Track> deezerTracks = [];
+            for (var trackData in fullData['tracks']) {
+              try {
+                deezerTracks.add(Track(
+                  id: trackData['trackId'] ?? trackData['id'] ?? 0,
+                  name: trackData['trackName'] ??
+                      trackData['name'] ??
+                      'Unknown Track',
+                  position:
+                      trackData['trackNumber'] ?? trackData['position'] ?? 0,
+                  durationMs: trackData['trackTimeMillis'] ??
+                      trackData['durationMs'] ??
+                      0,
+                  metadata: trackData,
+                ));
+              } catch (e) {
+                Logging.severe('Error parsing stored Deezer track: $e');
+              }
+            }
+
+            if (deezerTracks.isNotEmpty) {
+              Logging.severe(
+                  'Using ${deezerTracks.length} tracks from saved album data');
+              if (mounted) {
+                setState(() {
+                  tracks = deezerTracks;
+                  calculateAlbumDuration();
+                });
+              }
+              return;
+            }
+          }
+        } catch (e) {
+          Logging.severe('Error parsing saved album data: $e');
+        }
+      }
+
+      // If the album already has tracks, use them
+      if (widget.album['tracks'] != null &&
+          widget.album['tracks'] is List &&
+          (widget.album['tracks'] as List).isNotEmpty) {
+        Logging.severe(
+            'Using existing tracks from album data (${widget.album['tracks'].length} tracks)');
+
+        List<Track> deezerTracks = [];
+        for (var trackData in widget.album['tracks']) {
+          try {
+            deezerTracks.add(Track(
+              id: trackData['id'] ?? trackData['trackId'] ?? 0,
+              name: trackData['name'] ??
+                  trackData['trackName'] ??
+                  'Unknown Track',
+              position: trackData['position'] ?? trackData['trackNumber'] ?? 0,
+              durationMs:
+                  trackData['durationMs'] ?? trackData['trackTimeMillis'] ?? 0,
+              metadata: trackData,
+            ));
+          } catch (e) {
+            Logging.severe('Error parsing Deezer track: $e');
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            tracks = deezerTracks;
+            calculateAlbumDuration();
+          });
+        }
+        return;
+      }
+
+      // If we don't have tracks, try to use the ones from the unified model
+      if (unifiedAlbum != null && unifiedAlbum!.tracks.isNotEmpty) {
+        Logging.severe(
+            'Using tracks from unified album model (${unifiedAlbum!.tracks.length} tracks)');
+
+        if (mounted) {
+          setState(() {
+            tracks = unifiedAlbum!.tracks;
+            calculateAlbumDuration();
+          });
+        }
+        return;
+      }
+
+      // As a last resort, try to fetch them from the Deezer API
+      final albumId = unifiedAlbum?.id;
+      if (albumId != null) {
+        final deezerAlbum =
+            await PlatformService.fetchDeezerAlbum(albumId.toString());
+        if (deezerAlbum != null && deezerAlbum['tracks'] is List) {
+          List<Track> fetchedTracks = [];
+          for (var trackData in deezerAlbum['tracks']) {
+            fetchedTracks.add(Track(
+              id: trackData['trackId'] ?? trackData['id'] ?? 0,
+              name: trackData['trackName'] ??
+                  trackData['name'] ??
+                  'Unknown Track',
+              position: trackData['trackNumber'] ?? trackData['position'] ?? 0,
+              durationMs: trackData['trackTimeMillis'] ?? 0,
+              metadata: trackData,
+            ));
+          }
+
+          if (fetchedTracks.isNotEmpty) {
+            Logging.severe(
+                'Retrieved ${fetchedTracks.length} tracks from Deezer API');
+            if (mounted) {
+              setState(() {
+                tracks = fetchedTracks;
+                calculateAlbumDuration();
+              });
+            }
+            return;
+          }
+        }
+      }
+
+      // If we still don't have tracks, show empty list
+      Logging.severe('No tracks available for this Deezer album');
+      if (mounted) {
+        setState(() {
+          tracks = [];
+          isLoading = false;
+        });
+      }
+    } catch (e, stack) {
+      Logging.severe('Error fetching Deezer tracks', e, stack);
       if (mounted) {
         setState(() {
           tracks = [];

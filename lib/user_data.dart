@@ -328,6 +328,103 @@ class UserData {
     }
   }
 
+  /// Save an album to the database (add or update)
+  static Future<bool> saveAlbum(Map<String, dynamic> album) async {
+    try {
+      final albumName =
+          album['name'] ?? album['collectionName'] ?? 'Unknown Album';
+      Logging.severe('Preparing album for saving: $albumName');
+
+      await initializeDatabase();
+      final db = await getDatabaseInstance();
+
+      // Check database schema to determine available columns
+      final tableInfo = await db.rawQuery("PRAGMA table_info(albums)");
+      Logging.severe(
+          'Album table columns: ${tableInfo.map((row) => row['name']).toList()}');
+
+      // Build insert data using only columns that exist in the schema
+      Map<String, dynamic> insertData = {};
+
+      // Required ID field (ensure it's a string)
+      insertData['id'] = (album['id'] ?? album['collectionId']).toString();
+
+      // Determine compatible fields based on schema
+      final columnNames =
+          tableInfo.map((col) => col['name'].toString()).toSet();
+      Logging.severe(
+          'Saving album with compatible fields: ${columnNames.join(', ')}');
+
+      // Add fields that are present in both the album and the schema
+      if (columnNames.contains('name')) {
+        insertData['name'] =
+            album['name'] ?? album['collectionName'] ?? 'Unknown Album';
+      }
+      if (columnNames.contains('artist')) {
+        insertData['artist'] =
+            album['artist'] ?? album['artistName'] ?? 'Unknown Artist';
+      }
+      if (columnNames.contains('artworkUrl')) {
+        insertData['artworkUrl'] =
+            album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
+      }
+      if (columnNames.contains('platform')) {
+        insertData['platform'] = album['platform'] ?? 'unknown';
+      }
+      if (columnNames.contains('url')) {
+        insertData['url'] = album['url'] ?? album['collectionViewUrl'] ?? '';
+      }
+      if (columnNames.contains('releaseDate')) {
+        if (album['releaseDate'] is String) {
+          insertData['releaseDate'] = album['releaseDate'];
+        } else if (album['releaseDate'] is DateTime) {
+          insertData['releaseDate'] = album['releaseDate'].toIso8601String();
+        }
+      }
+      if (columnNames.contains('data')) {
+        // Convert entire album data to JSON string including tracks
+        // Make sure we include tracks data for Deezer albums
+        Map<String, dynamic> albumData = Map<String, dynamic>.from(album);
+
+        // Ensure tracks are included in the saved data
+        if (albumData['tracks'] != null) {
+          // Keep tracks data as is
+          Logging.severe(
+              'Saving album with ${albumData['tracks'].length} tracks');
+        }
+
+        insertData['data'] = jsonEncode(albumData);
+      }
+
+      // Check if album already exists
+      final List<Map<String, dynamic>> existingAlbums = await db.query(
+        'albums',
+        where: 'id = ?',
+        whereArgs: [insertData['id']],
+      );
+
+      if (existingAlbums.isEmpty) {
+        // Insert new album
+        await db.insert('albums', insertData);
+        Logging.severe('Inserted new album: ${insertData['id']}');
+      } else {
+        // Update existing album
+        await db.update(
+          'albums',
+          insertData,
+          where: 'id = ?',
+          whereArgs: [insertData['id']],
+        );
+        Logging.severe('Updated existing album: ${insertData['id']}');
+      }
+
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error saving album', e, stack);
+      return false;
+    }
+  }
+
   /// Get all saved albums
   static Future<List<Map<String, dynamic>>> getSavedAlbums() async {
     try {
@@ -467,45 +564,113 @@ class UserData {
   static Future<bool> saveRating(
       dynamic albumId, dynamic trackId, double rating) async {
     try {
+      Logging.severe(
+          'Saving rating for album: $albumId, track: $trackId, rating: $rating');
+
+      await initializeDatabase();
       final db = await getDatabaseInstance();
 
-      // Always convert IDs to strings for consistency
-      final albumIdStr = albumId.toString();
-      final trackIdStr = trackId.toString();
+      // Check the schema of the ratings table
+      final tableInfo = await db.rawQuery("PRAGMA table_info(ratings)");
+      final columnNames =
+          tableInfo.map((col) => col['name'].toString()).toSet();
 
-      Logging.severe(
-          'Saving rating for album: $albumIdStr, track: $trackIdStr, rating: $rating');
+      Logging.severe('Ratings table columns: $columnNames');
 
-      // First check if this rating already exists
-      final List<Map<String, dynamic>> existingRatings = await db.query(
-        'ratings',
-        where: 'album_id = ? AND track_id = ?',
-        whereArgs: [albumIdStr, trackIdStr],
-      );
+      // Check which columns exist
+      final hasUpdatedAt = columnNames.contains('updated_at');
+      final hasTimestamp = columnNames.contains('timestamp');
 
-      final ratingData = {
-        'album_id': albumIdStr,
-        'track_id': trackIdStr,
+      // Create a base rating data map with required fields
+      Map<String, Object?> ratingData = {
+        'album_id': albumId.toString(),
+        'track_id': trackId.toString(),
         'rating': rating,
-        'updated_at': DateTime.now().millisecondsSinceEpoch
       };
 
-      if (existingRatings.isEmpty) {
-        // Insert new rating
-        await db.insert('ratings', ratingData);
-        Logging.severe('Inserted new rating');
-      } else {
-        // Update existing rating
-        await db.update(
-          'ratings',
-          ratingData,
-          where: 'album_id = ? AND track_id = ?',
-          whereArgs: [albumIdStr, trackIdStr],
-        );
-        Logging.severe('Updated existing rating');
+      // Add required timestamp fields based on schema
+      if (hasUpdatedAt) {
+        ratingData['updated_at'] = DateTime.now().millisecondsSinceEpoch;
       }
 
-      return true;
+      if (hasTimestamp) {
+        // Add timestamp in ISO 8601 format as it might be expected in this format
+        ratingData['timestamp'] = DateTime.now().toIso8601String();
+      }
+
+      Logging.severe(
+          'Saving rating with fields: ${ratingData.keys.join(', ')}');
+
+      // Check if rating already exists
+      final existing = await db.query(
+        'ratings',
+        where: 'album_id = ? AND track_id = ?',
+        whereArgs: [albumId.toString(), trackId.toString()],
+      );
+
+      try {
+        if (existing.isEmpty) {
+          // Insert new rating
+          await db.insert('ratings', ratingData);
+          Logging.severe('Inserted new rating successfully');
+        } else {
+          // Update existing rating
+          await db.update(
+            'ratings',
+            ratingData,
+            where: 'album_id = ? AND track_id = ?',
+            whereArgs: [albumId.toString(), trackId.toString()],
+          );
+          Logging.severe('Updated existing rating successfully');
+        }
+
+        return true;
+      } catch (e, stack) {
+        Logging.severe(
+            'Error with main rating operation, trying fallback', e, stack);
+
+        // If the operation failed, try a more robust approach with explicit timestamp
+        try {
+          // Add timestamp if it doesn't exist already (likely the cause of the error)
+          if (!ratingData.containsKey('timestamp')) {
+            ratingData['timestamp'] = DateTime.now().toIso8601String();
+          }
+
+          if (existing.isEmpty) {
+            await db.insert('ratings', ratingData);
+          } else {
+            await db.update(
+              'ratings',
+              ratingData,
+              where: 'album_id = ? AND track_id = ?',
+              whereArgs: [albumId.toString(), trackId.toString()],
+            );
+          }
+          Logging.severe('Fallback rating operation succeeded');
+          return true;
+        } catch (e2, stack2) {
+          // If even the fallback fails, try direct SQL as last resort
+          Logging.severe('Fallback failed, trying direct SQL', e2, stack2);
+
+          try {
+            final timestamp = DateTime.now().toIso8601String();
+            if (existing.isEmpty) {
+              await db.rawInsert(
+                  'INSERT INTO ratings (album_id, track_id, rating, timestamp) VALUES (?, ?, ?, ?)',
+                  [albumId.toString(), trackId.toString(), rating, timestamp]);
+            } else {
+              await db.rawUpdate(
+                  'UPDATE ratings SET rating = ?, timestamp = ? WHERE album_id = ? AND track_id = ?',
+                  [rating, timestamp, albumId.toString(), trackId.toString()]);
+            }
+            Logging.severe('Direct SQL rating operation succeeded');
+            return true;
+          } catch (e3, stack3) {
+            Logging.severe('All rating operations failed', e3, stack3);
+            return false;
+          }
+        }
+      }
     } catch (e, stack) {
       Logging.severe('Error saving rating', e, stack);
       return false;
@@ -517,7 +682,6 @@ class UserData {
       dynamic albumId) async {
     try {
       await initializeDatabase();
-
       final albumIdStr = albumId.toString();
       final ratings =
           await DatabaseHelper.instance.getRatingsForAlbum(albumIdStr);
@@ -543,9 +707,7 @@ class UserData {
   static Future<bool> saveAlbumOrder(List<String> albumIds) async {
     try {
       await initializeDatabase();
-
       await DatabaseHelper.instance.saveAlbumOrder(albumIds);
-
       Logging.severe('Album order saved: ${albumIds.length} albums');
       return true;
     } catch (e, stack) {
@@ -558,7 +720,6 @@ class UserData {
   static Future<List<String>> getAlbumOrder() async {
     try {
       await initializeDatabase();
-
       return await DatabaseHelper.instance.getAlbumOrder();
     } catch (e, stack) {
       Logging.severe('Error getting album order', e, stack);
@@ -593,7 +754,6 @@ class UserData {
         // Check if list exists
         final existing = await txn
             .query('custom_lists', where: 'id = ?', whereArgs: [list.id]);
-
         if (existing.isEmpty) {
           await txn.insert('custom_lists', listData);
           Logging.severe('Created new list: ${list.name}');
@@ -617,10 +777,8 @@ class UserData {
         // Add new album associations
         for (int i = 0; i < list.albumIds.length; i++) {
           final albumId = list.albumIds[i];
-
           // Skip empty IDs
           if (albumId.isEmpty) continue;
-
           Logging.severe('Adding album ID: $albumId to list ${list.name}');
 
           await txn.insert(
@@ -634,7 +792,6 @@ class UserData {
           );
         }
       });
-
       return true;
     } catch (e, stack) {
       Logging.severe('Error saving custom list', e, stack);
@@ -646,7 +803,6 @@ class UserData {
   static Future<List<CustomList>> getCustomLists() async {
     try {
       await initializeDatabase();
-
       // Get lists from database
       final lists = await DatabaseHelper.instance.getAllCustomLists();
       final result = <CustomList>[];
@@ -684,7 +840,6 @@ class UserData {
       await initializeDatabase();
 
       await DatabaseHelper.instance.deleteCustomList(listId);
-
       Logging.severe('Custom list deleted: $listId');
       return true;
     } catch (e, stack) {
@@ -717,7 +872,7 @@ class UserData {
 
       return await DatabaseHelper.instance.getSetting(key);
     } catch (e) {
-      Logging.severe('Error getting setting', e);
+      Logging.severe('Error getting setting: $e');
       return null;
     }
   }
@@ -740,7 +895,6 @@ class UserData {
       final file = File(result.files.first.path!);
       final jsonData = await file.readAsString();
       final albumData = jsonDecode(jsonData);
-
       // Save to database
       await addToSavedAlbums(albumData);
 
@@ -1083,8 +1237,8 @@ class UserData {
         processedCount++;
         // Update progress periodically
         if (processedCount % 5 == 0 || processedCount == totalKeys) {
-          progressCallback?.call(
-              'Importing data...', 0.2 + (0.3 * processedCount / totalKeys));
+          progressCallback?.call('Importing data to SharedPreferences...',
+              0.2 + (0.3 * processedCount / totalKeys));
         }
       }
 

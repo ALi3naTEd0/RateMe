@@ -182,11 +182,14 @@ class _MyAppState extends State<MyApp> {
           final bool isSpotify = lowerText.contains('spotify.com') ||
               lowerText.contains('open.spotify');
 
-          if (isAppleMusic || isBandcamp || isSpotify) {
+          final bool isDeezer = lowerText.contains('deezer.com');
+
+          if (isAppleMusic || isBandcamp || isSpotify || isDeezer) {
             String platform = 'unknown';
             if (isAppleMusic) platform = 'Apple Music';
             if (isBandcamp) platform = 'Bandcamp';
             if (isSpotify) platform = 'Spotify';
+            if (isDeezer) platform = 'Deezer';
 
             Logging.severe('$platform URL detected in clipboard');
 
@@ -367,14 +370,12 @@ class _MyAppState extends State<MyApp> {
                       labelText: 'Search Albums or Paste URL',
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.search),
-                        onPressed: () =>
-                            _performSearch(searchController.text),
+                        onPressed: () => _performSearch(searchController.text),
                       ),
                     ),
                     onChanged: (query) {
                       if (_debounce?.isActive ?? false) _debounce!.cancel();
-                      _debounce =
-                          Timer(const Duration(milliseconds: 500), () {
+                      _debounce = Timer(const Duration(milliseconds: 500), () {
                         _performSearch(query);
                       });
                     },
@@ -478,11 +479,14 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           final bool isSpotify = lowerText.contains('spotify.com') ||
               lowerText.contains('open.spotify');
 
-          if (isAppleMusic || isBandcamp || isSpotify) {
+          final bool isDeezer = lowerText.contains('deezer.com');
+
+          if (isAppleMusic || isBandcamp || isSpotify || isDeezer) {
             String platform = 'unknown';
             if (isAppleMusic) platform = 'Apple Music';
             if (isBandcamp) platform = 'Bandcamp';
             if (isSpotify) platform = 'Spotify';
+            if (isDeezer) platform = 'Deezer';
 
             Logging.severe('$platform URL detected in clipboard');
 

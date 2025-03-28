@@ -25,6 +25,10 @@ class PlatformService {
   static const String _spotifyTokenKey = 'spotify_access_token';
   static const String _spotifyTokenExpiryKey = 'spotify_token_expiry';
 
+  // Add Deezer API endpoints
+  static const String _deezerSearchEndpoint = 'https://api.deezer.com/search';
+  static const String _deezerAlbumEndpoint = 'https://api.deezer.com/album';
+
   /// Detect platform from URL or search term
   static String detectPlatform(String input) {
     if (input.contains('music.apple.com') ||
@@ -118,6 +122,23 @@ class PlatformService {
       return [];
     }
 
+    // Handle Deezer URLs
+    if (query.contains('deezer.com')) {
+      try {
+        final albumId = _extractDeezerAlbumId(query);
+        if (albumId != null) {
+          Logging.severe('Deezer album ID extracted: $albumId');
+          final album = await fetchDeezerAlbum(albumId);
+          return album != null ? [normalizeResult(album, 'deezer')] : [];
+        } else {
+          Logging.severe('Could not extract Deezer album ID from URL: $query');
+        }
+      } catch (e) {
+        Logging.severe('Error processing Deezer URL', e);
+      }
+      return [];
+    }
+
     // Handle platform-specific searches
     final platform = detectPlatform(query);
     try {
@@ -133,8 +154,10 @@ class PlatformService {
               ? [normalizeResult(album.toJson(), 'bandcamp')]
               : [];
         case 'deezer':
-          // TODO: Implement Deezer search
-          return [];
+          final results = await searchDeezerAlbums(query);
+          return results
+              .map((album) => normalizeResult(album, 'deezer'))
+              .toList();
         case 'itunes':
         default:
           final results = await searchiTunesAlbums(query);
@@ -169,6 +192,32 @@ class PlatformService {
       return null;
     } catch (e) {
       Logging.severe('Error extracting Spotify album ID', e);
+      return null;
+    }
+  }
+
+  /// Extract Deezer album ID from URL
+  static String? _extractDeezerAlbumId(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+
+      // Handle standard Deezer URLs: https://www.deezer.com/album/12345
+      if (pathSegments.contains('album') &&
+          pathSegments.length > pathSegments.indexOf('album') + 1) {
+        return pathSegments[pathSegments.indexOf('album') + 1];
+      }
+
+      // Handle alternative formats: https://www.deezer.com/en/album/12345
+      for (int i = 0; i < pathSegments.length - 1; i++) {
+        if (pathSegments[i] == 'album' && pathSegments.length > i + 1) {
+          return pathSegments[i + 1];
+        }
+      }
+
+      return null;
+    } catch (e) {
+      Logging.severe('Error extracting Deezer album ID', e);
       return null;
     }
   }
@@ -287,6 +336,64 @@ class PlatformService {
       return result;
     } catch (e) {
       Logging.severe('Error searching Spotify albums', e);
+      return [];
+    }
+  }
+
+  /// Search Deezer for albums
+  static Future<List<dynamic>> searchDeezerAlbums(String query) async {
+    try {
+      Logging.severe('Searching Deezer for: $query');
+
+      final url = Uri.parse(
+          '$_deezerSearchEndpoint/album?q=${Uri.encodeComponent(query)}&limit=50');
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        Logging.severe(
+            'Deezer search failed: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+
+      final data = jsonDecode(response.body);
+      final albums = data['data'] as List;
+      Logging.severe('Found ${albums.length} Deezer albums');
+
+      // For performance reasons, only get full details for top 5 albums
+      final List<dynamic> result = [];
+      for (var i = 0; i < albums.length && i < 5; i++) {
+        final fullAlbum = await fetchDeezerAlbum(albums[i]['id'].toString());
+        if (fullAlbum != null) {
+          result.add(fullAlbum);
+        }
+      }
+
+      // For remaining albums, add basic info without tracks
+      if (albums.length > 5) {
+        for (var i = 5; i < albums.length; i++) {
+          var album = albums[i];
+          result.add({
+            'id': album['id'],
+            'collectionId': album['id'],
+            'name': album['title'],
+            'collectionName': album['title'],
+            'artist': album['artist']['name'],
+            'artistName': album['artist']['name'],
+            'artworkUrl':
+                album['cover_xl'] ?? album['cover_big'] ?? album['cover'],
+            'artworkUrl100': album['cover'],
+            'url': album['link'],
+            'platform': 'deezer',
+            'releaseDate': album['release_date'],
+            'trackCount': album['nb_tracks'],
+            'metadata': album,
+          });
+        }
+      }
+
+      return result;
+    } catch (e) {
+      Logging.severe('Error searching Deezer albums', e);
       return [];
     }
   }
@@ -423,6 +530,132 @@ class PlatformService {
       return result;
     } catch (e, stack) {
       Logging.severe('Error fetching Spotify album', e, stack);
+      return null;
+    }
+  }
+
+  /// Fetch a Deezer album by ID
+  static Future<Map<String, dynamic>?> fetchDeezerAlbum(String albumId) async {
+    try {
+      Logging.severe('Fetching Deezer album: $albumId');
+
+      final url = Uri.parse('$_deezerAlbumEndpoint/$albumId');
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        Logging.severe('Failed to fetch Deezer album: ${response.statusCode}');
+        return null;
+      }
+
+      final deezerAlbum = jsonDecode(response.body);
+
+      // Log entire album response for debugging
+      Logging.severe('Deezer album raw data: ${jsonEncode({
+            'id': deezerAlbum['id'],
+            'title': deezerAlbum['title'],
+            'artist': deezerAlbum['artist']['name'],
+            'cover': deezerAlbum['cover'],
+            'link': deezerAlbum['link'],
+            'release_date': deezerAlbum['release_date'],
+            'nb_tracks': deezerAlbum['nb_tracks'],
+          })}');
+
+      // Fetch tracks
+      List<dynamic> allTracks = [];
+      if (deezerAlbum['tracks'] != null &&
+          deezerAlbum['tracks']['data'] != null) {
+        allTracks = deezerAlbum['tracks']['data'];
+      }
+
+      // Log track count
+      Logging.severe(
+          'Found ${allTracks.length} tracks for Deezer album $albumId');
+
+      // For debugging, log the first track's raw data
+      if (allTracks.isNotEmpty) {
+        Logging.severe('First track raw data: ${jsonEncode(allTracks[0])}');
+      }
+
+      // Convert to standardized format
+      final result = {
+        'id': deezerAlbum['id'],
+        'collectionId': deezerAlbum['id'],
+        'name': deezerAlbum['title'],
+        'collectionName': deezerAlbum['title'],
+        'artist': deezerAlbum['artist']['name'],
+        'artistName': deezerAlbum['artist']['name'],
+        'artworkUrl': deezerAlbum['cover_xl'] ??
+            deezerAlbum['cover_big'] ??
+            deezerAlbum['cover'],
+        'artworkUrl100': deezerAlbum['cover'],
+        'url': deezerAlbum['link'],
+        'platform': 'deezer',
+        'releaseDate': deezerAlbum['release_date'],
+        'trackCount': deezerAlbum['nb_tracks'],
+        'wrapperType': 'collection',
+        'collectionType': 'Album',
+        'tracks': allTracks.map((track) {
+          // Extract track duration in a safe way
+          int trackDuration = 0;
+          if (track['duration'] != null) {
+            trackDuration = (track['duration'] as int) *
+                1000; // Convert seconds to milliseconds
+          }
+
+          // Handle track position properly - gets track_position or track_number
+          int trackPosition = 0;
+          if (track['track_position'] != null) {
+            trackPosition = track['track_position'];
+          } else if (track['track_number'] != null) {
+            trackPosition = track['track_number'];
+          } else {
+            // Try to determine position from disk and track numbers if available
+            if (track['disk_number'] != null && track['track_number'] != null) {
+              // Some APIs use disk_number/track_number combo
+              final diskNumber = track['disk_number'] as int;
+              final trackOnDisk = track['track_number'] as int;
+              trackPosition = ((diskNumber - 1) * 100) + trackOnDisk;
+            }
+          }
+
+          // If no position found, use index in the array + 1
+          if (trackPosition == 0) {
+            trackPosition = allTracks.indexOf(track) + 1;
+          }
+
+          return {
+            'trackId': track['id'],
+            'trackName': track['title'],
+            'trackNumber': trackPosition,
+            'position': trackPosition, // Add both fields for compatibility
+            'trackTimeMillis': trackDuration,
+            'kind': 'song',
+            'wrapperType': 'track',
+            'artistName':
+                track['artist']?['name'] ?? deezerAlbum['artist']['name'],
+            'collectionName': deezerAlbum['title'],
+            'url': track['link'],
+            'preview': track['preview'],
+            'platform': 'deezer',
+          };
+        }).toList(),
+        'metadata': deezerAlbum,
+      };
+
+      // Final debugging before returning
+      Logging.severe('Converted Deezer album to app format: ${jsonEncode({
+            'id': result['id'],
+            'name': result['name'],
+            'artist': result['artist'],
+            'tracks': 'Array with ${result['tracks'].length} tracks',
+            'trackKeys': result['tracks'].isNotEmpty
+                ? result['tracks'][0].keys.toList()
+                : [],
+          })}');
+
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error fetching Deezer album', e, stack);
       return null;
     }
   }
