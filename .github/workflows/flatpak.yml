@@ -52,6 +52,18 @@ jobs:
           flutter-version: '3.19.3'
           channel: 'stable'
 
+      - name: Generate API Keys File
+        run: |
+          mkdir -p lib
+          cat > lib/api_keys.dart << EOF
+          /// API Keys for external services
+          class ApiKeys {
+            /// Spotify API Credentials
+            static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
+            static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
+          }
+          EOF
+
       - name: Build Flutter App
         run: |
           flutter config --enable-linux-desktop

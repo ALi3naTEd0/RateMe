@@ -41,6 +41,18 @@ jobs:
           # Download app icon
           mkdir -p assets
           curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
+
+      - name: Generate API Keys File
+        run: |
+          mkdir -p lib
+          cat > lib/api_keys.dart << EOF
+          /// API Keys for external services
+          class ApiKeys {
+            /// Spotify API Credentials
+            static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
+            static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
+          }
+          EOF
           
           # Generate app icons using magick instead of convert
           cd macos/Runner/Assets.xcassets/AppIcon.appiconset
