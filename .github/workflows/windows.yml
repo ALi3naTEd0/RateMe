@@ -80,25 +80,26 @@ jobs:
       - name: Generate API Keys File
         shell: pwsh
         run: |
-          # Create directory if it doesn't exist
+          # Create directory first
           New-Item -Path "lib" -ItemType Directory -Force | Out-Null
           
-          # Create API keys file using PowerShell's Out-File or Set-Content
-          $apiContent = @'
+          # Create content as a PowerShell variable
+          $content = @"
 // API Keys for external services
 class ApiKeys {
   // Spotify API Credentials
   static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
   static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
 }
-'@
+"@
           
-          Set-Content -Path "lib\api_keys.dart" -Value $apiContent
+          # Write to file using PowerShell method
+          [System.IO.File]::WriteAllText("$PWD\lib\api_keys.dart", $content)
           
-          # Verify file creation
+          # Verify file was created
+          Get-Content -Path "lib\api_keys.dart" -ErrorAction SilentlyContinue
           if (Test-Path "lib\api_keys.dart") {
             Write-Host "API keys file created successfully"
-            Get-Content "lib\api_keys.dart" | Select-Object -First 3
           } else {
             Write-Error "Failed to create API keys file"
             exit 1
