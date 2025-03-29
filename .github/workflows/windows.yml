@@ -2,15 +2,18 @@ name: Windows Build
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number'
+        required: true
+        type: string
+        default: '1.0.0-1'
   workflow_call:
     inputs:
       version:
-        description: "Version to build"
         required: true
         type: string
-      upload_url:
-        required: false
-        type: string
+        description: 'Version number'
 
 jobs:
   build:
@@ -22,7 +25,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          flutter-version: '3.22.0'  # Updated to latest Flutter 3.22 version
           channel: 'stable'
         env:
           LANG: en_US.UTF-8

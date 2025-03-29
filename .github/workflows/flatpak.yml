@@ -2,11 +2,18 @@ name: Flatpak Build
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number'
+        required: true
+        type: string
+        default: '1.0.0-1'
   workflow_call:
     inputs:
       version:
         required: true
         type: string
+        description: 'Version number'
 
 env:
   FLATPAK_ID: com.ali3nated0.rateme
@@ -17,8 +24,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
 
       # Install all build dependencies first
       - name: Install Dependencies
@@ -49,7 +54,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.3'
+          flutter-version: '3.22.0'  # Updated to latest Flutter 3.22 version
           channel: 'stable'
 
       - name: Generate API Keys File

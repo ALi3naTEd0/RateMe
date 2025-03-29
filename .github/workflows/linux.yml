@@ -13,13 +13,14 @@ on:
       version:
         required: true
         type: string
+        description: 'Version number'
 
 env:
-  FLUTTER_VERSION: '3.19.3'
+  FLUTTER_VERSION: '3.22.0'
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 

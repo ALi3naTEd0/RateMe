@@ -16,22 +16,20 @@ on:
         description: 'Version number'
 
 env:
-  FLUTTER_VERSION: '3.19.3'
+  FLUTTER_VERSION: '3.22.0'
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
 
       - name: Setup Build
         run: |

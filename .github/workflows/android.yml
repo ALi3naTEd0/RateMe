@@ -49,7 +49,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.3'  # Use the same version you develop with locally
+          flutter-version: '3.22.0'  # Updated to latest Flutter 3.22 version
           channel: 'stable'
 
       - name: Generate API Keys File
