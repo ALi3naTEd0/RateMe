@@ -16,7 +16,7 @@ on:
         description: 'Version number'
 
 env:
-  FLUTTER_VERSION: '3.29.1'
+  FLUTTER_VERSION: '3.29.1' # Updated to latest Flutter 3.29.1 version
 
 jobs:
   build:

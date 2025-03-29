@@ -25,7 +25,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.1'  # Updated to latest Flutter 3.22 version
+          flutter-version: '3.29.1'  # Updated to latest Flutter 3.29.1 version
           channel: 'stable'
         env:
           LANG: en_US.UTF-8
@@ -78,16 +78,31 @@ jobs:
           flutter config
 
       - name: Generate API Keys File
+        shell: pwsh
         run: |
-          mkdir -p lib
-          cat > lib/api_keys.dart << 'EOF'
-          /// API Keys for external services
-          class ApiKeys {
-            /// Spotify API Credentials
-            static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
-            static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
+          # Create directory if it doesn't exist
+          New-Item -Path "lib" -ItemType Directory -Force | Out-Null
+          
+          # Create API keys file using PowerShell's Out-File or Set-Content
+          $apiContent = @'
+// API Keys for external services
+class ApiKeys {
+  // Spotify API Credentials
+  static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
+  static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
+}
+'@
+          
+          Set-Content -Path "lib\api_keys.dart" -Value $apiContent
+          
+          # Verify file creation
+          if (Test-Path "lib\api_keys.dart") {
+            Write-Host "API keys file created successfully"
+            Get-Content "lib\api_keys.dart" | Select-Object -First 3
+          } else {
+            Write-Error "Failed to create API keys file"
+            exit 1
           }
-          EOF
 
       - name: Build Windows
         run: flutter build windows --release --verbose
