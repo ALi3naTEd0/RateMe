@@ -25,7 +25,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'  # Updated to latest Flutter 3.22 version
+          flutter-version: '3.29.1'  # Updated to latest Flutter 3.22 version
           channel: 'stable'
         env:
           LANG: en_US.UTF-8
