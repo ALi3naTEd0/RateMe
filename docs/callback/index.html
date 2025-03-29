@@ -54,9 +54,16 @@
         <div class="spinner"></div>
         <p>Authentication in progress...</p>
         <p id="status">Redirecting back to the app...</p>
+        <p id="debug"></p>
     </div>
 
     <script>
+        // Function to log debug info
+        function logDebug(message) {
+            console.log(message);
+            document.getElementById('debug').innerHTML += message + '<br>';
+        }
+
         // Function to get URL parameters
         function getUrlParams() {
             const params = {};
@@ -71,24 +78,52 @@
             try {
                 const params = getUrlParams();
                 const code = params.code;
+                const error = params.error;
+                
+                logDebug('URL parameters: ' + JSON.stringify(params));
                 
                 if (code) {
-                    // For Android/iOS
-                    window.location.href = `com.ali3nated0.rateme://callback?code=${code}`;
+                    // Try several URI formats to ensure compatibility
+                    const redirectUris = [
+                        `com.ali3nated0.rateme://callback?code=${code}`,
+                        `rateme://callback?code=${code}`,
+                        `ratemecallback?code=${code}`
+                    ];
                     
-                    // Add fallback for mobile browsers that don't support custom URL schemes
-                    setTimeout(function() {
-                        document.getElementById('status').innerHTML = 
-                            'Please switch back to the RateMe app manually.<br>' +
-                            'If the app doesn\'t open, please copy this code and paste it in the app:<br>' +
-                            `<strong>${code}</strong>`;
-                    }, 1500);
+                    // Try the first redirect URI format
+                    logDebug('Attempting redirect to: ' + redirectUris[0]);
+                    window.location.href = redirectUris[0];
+                    
+                    // If redirect doesn't work, try other formats sequentially
+                    let redirectAttempt = 1;
+                    const tryNextRedirect = () => {
+                        if (redirectAttempt < redirectUris.length) {
+                            logDebug('Attempting redirect to: ' + redirectUris[redirectAttempt]);
+                            window.location.href = redirectUris[redirectAttempt];
+                            redirectAttempt++;
+                            setTimeout(tryNextRedirect, 500);
+                        } else {
+                            // All attempts failed, show manual instructions
+                            document.getElementById('status').innerHTML = 
+                                'Please switch back to the RateMe app manually.<br>' +
+                                'If the app doesn\'t open, please copy this code and paste it in the app:<br>' +
+                                `<strong>${code}</strong>`;
+                        }
+                    };
+                    
+                    // Wait a bit before trying alternative URIs
+                    setTimeout(tryNextRedirect, 500);
+                } else if (error) {
+                    logDebug('Error from Spotify: ' + error);
+                    document.getElementById('status').innerHTML = 
+                        'Authentication error: ' + error + '<br>Please try again.';
                 } else {
+                    logDebug('No code or error parameter found');
                     document.getElementById('status').innerHTML = 
                         'Authentication failed. Please try again.';
                 }
             } catch (e) {
-                console.error('Error during redirect:', e);
+                logDebug('Error during redirect: ' + e.toString());
                 document.getElementById('status').innerHTML = 
                     'Error during authentication. Please try again.';
             }
