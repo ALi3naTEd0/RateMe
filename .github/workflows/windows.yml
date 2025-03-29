@@ -25,7 +25,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.1'  # Updated to latest Flutter 3.29.1 version
+          flutter-version: '3.29.1' # Updated to latest Flutter 3.29.1 version
           channel: 'stable'
         env:
           LANG: en_US.UTF-8
@@ -45,114 +45,57 @@ jobs:
               New-Item -ItemType Directory -Path "assets" -Force
           }
           
-          # Use main branch instead of rateme
+          # Download icon
           $iconUrl = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.ico"
-          # If ico file doesn't exist on main, try png
           $iconUrlFallback = "https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png"
           $outputPath = "assets/rateme.ico"
           
-          Write-Host "Downloading icon from: $iconUrl"
           try {
               Invoke-WebRequest -Uri $iconUrl -OutFile $outputPath -ErrorAction Stop
           } catch {
-              Write-Host "Icon not found at $iconUrl, trying fallback..."
               Invoke-WebRequest -Uri $iconUrlFallback -OutFile "assets/rateme.png" -ErrorAction Stop
-              # Use the png file directly since we don't have ico
               Copy-Item "assets/rateme.png" -Destination $outputPath -Force
           }
           
           if (Test-Path $outputPath) {
               Write-Host "Icon downloaded successfully to: $outputPath"
-              Get-ChildItem -Path "assets" -Recurse
-          } else {
-              Write-Error "Failed to download icon"
-              exit 1
           }
 
       - name: Setup Windows build
-        run: |
-          flutter config --enable-windows-desktop
-          echo "Current directory:"
-          pwd
-          echo "Flutter config:"
-          flutter config
+        run: flutter config --enable-windows-desktop
 
       - name: Generate API Keys File
         shell: pwsh
         run: |
-          # Create directory first
-          New-Item -Path "lib" -ItemType Directory -Force | Out-Null
-          
-          # Create content as a PowerShell variable
-          $content = @"
-// API Keys for external services
-class ApiKeys {
-  // Spotify API Credentials
-  static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
-  static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
-}
-"@
-          
-          # Write to file using PowerShell method
-          [System.IO.File]::WriteAllText("$PWD\lib\api_keys.dart", $content)
+          # Execute the PowerShell script with parameters
+          .\installers\create_api_keys.ps1 -SpotifyClientId '${{ secrets.SPOTIFY_CLIENT_ID }}' -SpotifyClientSecret '${{ secrets.SPOTIFY_CLIENT_SECRET }}'
           
           # Verify file was created
-          Get-Content -Path "lib\api_keys.dart" -ErrorAction SilentlyContinue
-          if (Test-Path "lib\api_keys.dart") {
-            Write-Host "API keys file created successfully"
-          } else {
-            Write-Error "Failed to create API keys file"
+          if (-not (Test-Path "lib\api_keys.dart")) {
+            Write-Error "API keys file was not created by script"
             exit 1
           }
 
       - name: Build Windows
-        run: flutter build windows --release --verbose
+        run: flutter build windows --release
 
-      # Create properly named portable ZIP with data directory
       - name: Create Portable ZIP
         shell: pwsh
         run: |
-          # Get version
           $version = "${{ inputs.version || github.event.inputs.version }}"
           
-          # Debug - List build output directory to verify contents
-          Write-Host "Windows build output contents:"
-          Get-ChildItem -Path "build\windows\x64\runner\Release\" -Recurse | Select-Object FullName
-          
-          # Create a properly named directory structure for the portable version
           $portableDirName = "RateMe_${version}_portable"
           
-          # Create the portable directory and copy all build output
           New-Item -ItemType Directory -Path $portableDirName -Force
           Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination $portableDirName -Recurse -Force
           
-          # Make sure data directory exists (it might already be created by the build)
           if (!(Test-Path "$portableDirName\data")) {
               New-Item -ItemType Directory -Path "$portableDirName\data" -Force
-              # Create empty settings file
               Set-Content -Path "$portableDirName\data\settings.json" -Value "{}"
           }
           
-          # Copy assets if needed
-          if (Test-Path "assets\rateme.png") {
-              Copy-Item "assets\rateme.png" -Destination "$portableDirName\data\rateme.png" -Force
-          }
-          
-          # Debug - List files in portable directory before zipping
-          Write-Host "Portable directory contents:"
-          Get-ChildItem -Path $portableDirName -Recurse | Select-Object FullName
-          
-          # Create ZIP archive with the portable app
           $zipFileName = "RateMe_${version}_portable.zip"
           Compress-Archive -Path "$portableDirName\*" -DestinationPath $zipFileName -Force
-          
-          # Verify ZIP was created
-          if (Test-Path $zipFileName) {
-              Write-Host "Created portable ZIP: $(Get-Item $zipFileName | Select-Object FullName, Length)"
-          } else {
-              Write-Error "Failed to create portable ZIP"
-              exit 1
-          }
 
       - name: Upload Portable ZIP
         uses: actions/upload-artifact@v4
@@ -160,27 +103,8 @@ class ApiKeys {
           name: RateMe-portable
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_portable.zip
 
-      # Create and upload installer version
       - name: Install Inno Setup
-        run: |
-          choco install innosetup -y
-
-      # Debug step to verify Inno Setup script
-      - name: Show Inno Setup Script
-        shell: pwsh
-        run: |
-          if (Test-Path "installers\inno_setup_script.iss") {
-              Write-Host "Inno Setup Script contents:"
-              Get-Content "installers\inno_setup_script.iss"
-          } else {
-              Write-Host "Warning: Inno Setup Script not found at expected location"
-              # List installers directory contents if it exists
-              if (Test-Path "installers") {
-                  Get-ChildItem -Path "installers" -Recurse
-              } else {
-                  Write-Host "Installers directory not found"
-              }
-          }
+        run: choco install innosetup -y
 
       - name: Create Installer
         shell: pwsh
@@ -195,14 +119,3 @@ class ApiKeys {
         with:
           name: RateMe-Setup
           path: installers/Output/RateMe_${{ inputs.version || github.event.inputs.version }}.exe
-
-      - name: Upload Setup Release Asset
-        if: inputs.upload_url != ''
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ inputs.upload_url }}
-          asset_path: installers/Output/RateMe_${{ inputs.version || github.event.inputs.version }}.exe
-          asset_name: RateMe_${{ inputs.version || github.event.inputs.version }}.exe
-          asset_content_type: application/x-msdownload
