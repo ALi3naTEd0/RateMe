@@ -152,7 +152,6 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
           files: dist/**/*
-          # Fix issue with release type by using github.event.inputs directly
           draft: ${{ github.event.inputs.release_type == 'draft' }}
           prerelease: false
           fail_on_unmatched_files: false
@@ -180,7 +179,6 @@ jobs:
   update-docs:
     name: Update Documentation
     needs: create-release
-    # Fixed condition to properly check the release type
     if: |
       github.event_name == 'workflow_dispatch' && 
       github.event.inputs.release_type == 'release'
@@ -193,7 +191,6 @@ jobs:
           echo "Release type: ${{ github.event.inputs.release_type }}"
           echo "This step should ONLY run for 'release' type, not 'draft'"
 
-      # Add debug info
       - name: Debug Release Type
         run: |
           echo "Release type: ${{ github.event.inputs.release_type }}"
@@ -205,7 +202,6 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Add git configuration
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
