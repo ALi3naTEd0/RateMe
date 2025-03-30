@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-1] - 2025-03-30
+
 ### Added
 - Deezer album URL detection in clipboard
 - Multi-platform consistency for album ratings (iTunes, Bandcamp, Spotify, Deezer)
