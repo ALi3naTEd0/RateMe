@@ -6,7 +6,7 @@ import 'dart:convert';
 import '../album_model.dart';
 import '../logging.dart';
 import '../api_keys.dart';
-import '../widgets/skeleton_loading.dart'; // Add this import for skeleton loading
+import '../widgets/skeleton_loading.dart';
 
 /// Widget that displays buttons to open an album in various streaming platforms
 class PlatformMatchWidget extends StatefulWidget {
@@ -200,14 +200,15 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   Future<bool> _verifySpotifyAlbumExists(String artist, String album) async {
     try {
       // Get the Spotify API token
-      String? accessToken;
+      String accessToken;
       try {
-        accessToken = await ApiKeys.getSpotifyToken();
+        accessToken = ApiKeys.getSpotifyToken();
       } catch (e) {
         return false;
       }
 
-      if (accessToken == null) return false;
+      // Replace null check with empty check since accessToken can't be null
+      if (accessToken.isEmpty) return false;
 
       // Try a focused query format that's more likely to find exact matches
       final query = Uri.encodeComponent('album:"$album" artist:"$artist"');
@@ -414,17 +415,20 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       // Create a direct search fallback URL only as last resort
       final fallbackUrl = 'https://open.spotify.com/search/$query';
 
-      String? accessToken;
+      String accessToken;
       try {
         // Get app's client credentials token specifically for APIs
-        accessToken = await ApiKeys.getSpotifyToken();
-        Logging.severe('Spotify API token available: ${accessToken != null}');
+        // Remove the 'await' since getSpotifyToken() returns a String, not a Future
+        accessToken = ApiKeys.getSpotifyToken();
+        Logging.severe(
+            'Spotify API token available: ${accessToken.isNotEmpty}');
       } catch (e) {
         Logging.severe('Error getting Spotify app token: $e, using fallback');
         return fallbackUrl;
       }
 
-      if (accessToken == null) {
+      // Fix the null check since accessToken is now declared as non-nullable String
+      if (accessToken.isEmpty) {
         Logging.severe(
             'No Spotify app token available, falling back to search URL');
         return fallbackUrl;

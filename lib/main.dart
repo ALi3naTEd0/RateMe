@@ -271,7 +271,8 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
           centerTitle: true,
-          leadingWidth: sideOffset + 120 - iconAdjustment,
+          leadingWidth:
+              sideOffset + 80 - iconAdjustment, // Reduced from 120 to 80
           leading: Padding(
             padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
             child: Row(
@@ -281,6 +282,8 @@ class _MyAppState extends State<MyApp> {
                 Expanded(
                   child: IconButton(
                     padding: EdgeInsets.zero,
+                    visualDensity:
+                        VisualDensity.compact, // Add this for tighter spacing
                     icon: const Icon(Icons.library_music_outlined),
                     tooltip: 'All Saved Albums',
                     onPressed: () {
@@ -295,6 +298,8 @@ class _MyAppState extends State<MyApp> {
                 Expanded(
                   child: IconButton(
                     padding: EdgeInsets.zero,
+                    visualDensity:
+                        VisualDensity.compact, // Add this for tighter spacing
                     icon: const Icon(Icons.format_list_bulleted),
                     tooltip: 'Custom Lists',
                     onPressed: () {
@@ -306,39 +311,37 @@ class _MyAppState extends State<MyApp> {
                     },
                   ),
                 ),
-                Expanded(
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.file_download),
-                    tooltip: 'Import Album',
-                    onPressed: () async {
-                      final result = await UserData.importAlbum();
-                      if (result != null && mounted) {
-                        final isBandcamp = result['url']
-                                ?.toString()
-                                .contains('bandcamp.com') ??
-                            false;
-
-                        navigatorKey.currentState?.push(
-                          MaterialPageRoute(
-                            builder: (context) => DetailsPage(
-                              album: result,
-                              isBandcamp: isBandcamp,
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
               ],
             ),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.file_download),
+              visualDensity: VisualDensity.compact, // Match the left side
+              tooltip: 'Import Album',
+              onPressed: () async {
+                final result = await UserData.importAlbum();
+                if (result != null && mounted) {
+                  final isBandcamp =
+                      result['url']?.toString().contains('bandcamp.com') ??
+                          false;
+
+                  navigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (context) => DetailsPage(
+                        album: result,
+                        isBandcamp: isBandcamp,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
             Padding(
               padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
               child: IconButton(
                 icon: const Icon(Icons.settings),
+                visualDensity: VisualDensity.compact, // Match the left side
                 tooltip: 'Settings',
                 onPressed: () {
                   navigatorKey.currentState?.push(
@@ -641,7 +644,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
           ),
         ),
         centerTitle: true,
-        leadingWidth: sideOffset + 120 - iconAdjustment,
+        leadingWidth:
+            sideOffset + 80 - iconAdjustment, // Reduced from 120 to 80
         leading: Padding(
           padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
           child: Row(
@@ -651,6 +655,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               Expanded(
                 child: IconButton(
                   padding: EdgeInsets.zero,
+                  visualDensity:
+                      VisualDensity.compact, // Add this for tighter spacing
                   icon: const Icon(Icons.library_music_outlined),
                   tooltip: 'All Saved Albums',
                   onPressed: () {
@@ -666,6 +672,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
               Expanded(
                 child: IconButton(
                   padding: EdgeInsets.zero,
+                  visualDensity:
+                      VisualDensity.compact, // Add this for tighter spacing
                   icon: const Icon(Icons.format_list_bulleted),
                   tooltip: 'Custom Lists',
                   onPressed: () => Navigator.push(
@@ -675,42 +683,40 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                   ),
                 ),
               ),
-              Expanded(
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.file_download),
-                  tooltip: 'Import Album',
-                  onPressed: () async {
-                    final result = await UserData.importAlbum();
-
-                    if (result != null && mounted) {
-                      final isBandcamp =
-                          result['url']?.toString().contains('bandcamp.com') ??
-                              false;
-
-                      final navigator = navigatorKey.currentState;
-                      if (navigator == null) return;
-
-                      navigator.push(
-                        MaterialPageRoute(
-                          builder: (context) => DetailsPage(
-                            album: result,
-                            isBandcamp: isBandcamp,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
             ],
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download),
+            visualDensity: VisualDensity.compact, // Match the left side
+            tooltip: 'Import Album',
+            onPressed: () async {
+              final result = await UserData.importAlbum();
+
+              if (result != null && mounted) {
+                final isBandcamp =
+                    result['url']?.toString().contains('bandcamp.com') ?? false;
+
+                final navigator = navigatorKey.currentState;
+                if (navigator == null) return;
+
+                navigator.push(
+                  MaterialPageRoute(
+                    builder: (context) => DetailsPage(
+                      album: result,
+                      isBandcamp: isBandcamp,
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
           Padding(
             padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
             child: IconButton(
               icon: const Icon(Icons.settings),
+              visualDensity: VisualDensity.compact, // Match the left side
               tooltip: 'Settings',
               onPressed: () => Navigator.push(
                 context,

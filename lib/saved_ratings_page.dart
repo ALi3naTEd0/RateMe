@@ -498,7 +498,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                   ],
                 )
               : albums.isEmpty
-                  ? const Text('No saved albums')
+                  ? const Center(child: Text('No saved albums'))
                   : RefreshIndicator(
                       key: _refreshIndicatorKey,
                       onRefresh: _refreshData,
