@@ -8,7 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Full Deezer integration with API support for album search and track retrieval
 - Deezer album URL detection in clipboard
 - Multi-platform consistency for album ratings (iTunes, Bandcamp, Spotify, Deezer)
 - Implemented SQLite database with migration from SharedPreferences
