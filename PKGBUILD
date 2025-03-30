@@ -1,7 +1,7 @@
 # Maintainer: ALi3naTEd0 <eduardo.fortuny@outlook.com>
 pkgname=rateme
 pkgver=1.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Rate Me! - A music album rating application"  # Note the exclamation mark here
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
@@ -26,6 +26,8 @@ makedepends=(
     'ninja'
     'patchelf'
 )
+# Add options to prevent including api_keys.dart in the package source
+options=('!strip' '!debug' '!lto' 'staticlibs')
 source=("git+$url.git#branch=main")
 sha256sums=('SKIP')
 
@@ -34,6 +36,45 @@ prepare() {
     # Make sure we are using the latest flutter version
     flutter upgrade
     flutter clean
+    
+    # Create api_keys.dart with the real API keys
+    mkdir -p lib
+    cat > lib/api_keys.dart << EOF
+class ApiKeys {
+  // Real API keys for application usage
+  static const String spotifyClientId = '1ddf2021ee384fa88b92f0ed97de6802';
+  static const String spotifyClientSecret = 'f28c7fed579449789d27ce38abc12c39';
+  
+  // API request timeout durations (in seconds)
+  static const int defaultRequestTimeout = 30;
+  static const int longRequestTimeout = 60;
+  
+  // Fallback API servers/endpoints
+  static const List<String> spotifyApiServers = [
+    'https://api.spotify.com/v1/',
+    'https://api-partner.spotify.com/v1/',
+  ];
+  
+  // Rate limiting configuration
+  static const int maxRequestsPerMinute = 120;
+  static const int cooldownPeriodSeconds = 60;
+  
+  // Retry configuration
+  static const int maxRetries = 3;
+  static const int retryDelaySeconds = 2;
+  
+  // Cache configuration
+  static const bool enableResponseCaching = true;
+  static const int defaultCacheExpiryMinutes = 60;
+}
+
+class ApiEndpoints {
+  // Spotify endpoints
+  static const String spotifyAlbumSearch = 'search';
+  static const String spotifyAlbumDetails = 'albums';
+  static const String spotifyArtistDetails = 'artists';
+}
+EOF
 }
 
 build() {

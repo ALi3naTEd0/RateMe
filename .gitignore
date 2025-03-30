@@ -96,7 +96,7 @@ result-*
 .ios/
 
 # API Keys
-# lib/api_keys.dart
+lib/api_keys.dart
 
 # Temporary and backup files
 *.tmp
