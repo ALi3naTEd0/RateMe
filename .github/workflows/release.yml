@@ -97,6 +97,10 @@ jobs:
       version: ${{ steps.get_version.outputs.VERSION }}
       release_url: ${{ steps.set_release_url.outputs.url }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
       - name: Get Version
         id: get_version
         run: |
@@ -106,6 +110,30 @@ jobs:
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           fi
           echo "Using version: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}"
+          
+      - name: Extract release notes
+        id: extract_release_notes
+        run: |
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract content between ## [Unreleased] and the next ##
+            RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{flag=1;next}/^## /{if(flag==1)exit}flag' CHANGELOG.md | sed '/^$/d')
+            
+            # If no content was found or it's empty, use a default message
+            if [ -z "$RELEASE_NOTES" ]; then
+              RELEASE_NOTES="Release version ${{ steps.get_version.outputs.VERSION }}"
+            fi
+            
+            # Preserve line breaks in GitHub Actions output by using a delimiter
+            RELEASE_NOTES="${RELEASE_NOTES//'%'/'%25'}"
+            RELEASE_NOTES="${RELEASE_NOTES//$'\n'/'%0A'}"
+            RELEASE_NOTES="${RELEASE_NOTES//$'\r'/'%0D'}"
+            
+            echo "RELEASE_NOTES<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$RELEASE_NOTES" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "RELEASE_NOTES=Release version ${{ steps.get_version.outputs.VERSION }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Dist Directory
         run: mkdir -p dist
@@ -151,6 +179,7 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.extract_release_notes.outputs.RELEASE_NOTES }}
           files: dist/**/*
           draft: ${{ github.event.inputs.release_type == 'draft' }}
           prerelease: false
@@ -174,6 +203,8 @@ jobs:
           echo "Release created successfully:"
           echo "Version: ${{ steps.get_version.outputs.VERSION }}"
           echo "URL: ${{ steps.set_release_url.outputs.url }}"
+          echo "Release notes:"
+          echo "${{ steps.extract_release_notes.outputs.RELEASE_NOTES }}"
 
   # STEP 3: UPDATE DOCUMENTATION - Update docs with new version links
   update-docs:
