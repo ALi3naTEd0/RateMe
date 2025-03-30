@@ -1,7 +1,7 @@
 # Maintainer: ALi3naTEd0 <eduardo.fortuny@outlook.com>
 pkgname=rateme
-pkgver=1.0.4
-pkgrel=4
+pkgver=1.1.0
+pkgrel=1
 pkgdesc="Rate Me! - A music album rating application"  # Note the exclamation mark here
 arch=('x86_64')
 url="https://github.com/ALi3naTEd0/RateMe"
