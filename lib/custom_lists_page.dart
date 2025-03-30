@@ -487,12 +487,15 @@ class _CustomListsPageState extends State<CustomListsPage> {
   Widget _buildCompactListCard(CustomList list, int index) {
     return Card(
       key: ValueKey(list.id),
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      margin: const EdgeInsets.symmetric(
+          vertical: 2, horizontal: 0), // Reduced from 4 to 2
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12, vertical: 2), // Reduced from 4 to 2
+        dense: true, // Added dense property to make it more compact
         leading: Icon(
           Icons.playlist_play,
-          size: 48, // This is the size of the playlist icon
+          size: 42, // Reduced from 48 to 42
           color: Theme.of(context).colorScheme.secondary,
         ),
         title: Text(

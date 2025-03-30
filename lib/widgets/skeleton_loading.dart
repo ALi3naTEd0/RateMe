@@ -144,12 +144,15 @@ class ListCardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      margin: const EdgeInsets.symmetric(
+          vertical: 2, horizontal: 0), // Reduced from 4 to 2
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        dense: true, // Added to make it more compact
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12, vertical: 2), // Reduced from 4 to 2
         leading: Container(
-          width: 48,
-          height: 48,
+          width: 42, // Reduced from 48 to 42
+          height: 42, // Reduced from 48 to 42
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.secondary.withValues(
                 alpha: (Theme.of(context).colorScheme.secondary.a * 0.1)
@@ -158,21 +161,22 @@ class ListCardSkeleton extends StatelessWidget {
           ),
           child: Icon(
             Icons.playlist_play,
-            size: 36,
+            size: 32, // Reduced from 36 to 32
             color: Theme.of(context).colorScheme.secondary.withValues(
                 alpha: (Theme.of(context).colorScheme.secondary.a * 0.3)
                     .toDouble()),
           ),
         ),
         title: const Padding(
-          padding: EdgeInsets.only(top: 8),
+          padding: EdgeInsets.only(top: 4), // Reduced from 8 to 4
           child: SkeletonLoading(
             width: double.infinity,
             height: 16,
           ),
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          padding:
+              const EdgeInsets.only(top: 4, bottom: 4), // Reduced from 8 to 4
           child: Row(
             children: [
               SkeletonLoading(
