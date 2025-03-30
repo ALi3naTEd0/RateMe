@@ -26,7 +26,7 @@ makedepends=(
     'ninja'
     'patchelf'
 )
-source=("git+$url.git#branch=rateme")
+source=("git+$url.git#branch=main")
 sha256sums=('SKIP')
 
 prepare() {
