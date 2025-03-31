@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (accessToken) {
                     logDebug('Found access token: ' + accessToken.substring(0, 10) + '...');
                     
-                    // Save to local storage for demo purposes
+                    // Save to local storage for debug purposes
                     localStorage.setItem('spotify_access_token', accessToken);
                     
                     // Calculate expiry time
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return {
                         responseType: 'token',
                         accessToken: accessToken,
-                        expiresIn: expiresIn,
+                        expiresIn: expiresIn || '3600', // Default to 1 hour if not provided
                         state: state,
                         expiryTime: expiryTime.toISOString()
                     };
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 redirectParams += `&state=${encodeURIComponent(authResponse.state)}`;
             }
         } else if (authResponse.responseType === 'token') {
-            // Implicit flow (backward compatibility)
+            // Implicit flow (token directly in URL)
             redirectUriBase = 'rateme://spotify-callback';
             redirectParams = `?access_token=${encodeURIComponent(authResponse.accessToken)}&expires_in=${authResponse.expiresIn}`;
             if (authResponse.state) {
@@ -131,6 +131,9 @@ document.addEventListener('DOMContentLoaded', function() {
             `com.ali3nated0.rateme://spotify-callback${redirectParams}`,
             `com.rateme.app://spotify-callback${redirectParams}`
         ];
+        
+        // Log all redirect attempts for debugging
+        logDebug('Attempting redirects with schemes: ' + JSON.stringify(redirectSchemes));
         
         let currentSchemeIndex = 0;
         
