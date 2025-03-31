@@ -115,6 +115,30 @@
             text-decoration: underline;
         }
     </style>
+    <script>
+        // Add this script to log the redirect error directly on page load
+        window.onload = function() {
+            // Check for error parameters in the URL query string
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const errorDescription = urlParams.get('error_description');
+            
+            if (error) {
+                document.getElementById('status').textContent = `Authentication failed: ${error}`;
+                document.getElementById('debug').style.display = 'block';
+                document.getElementById('debug').innerHTML += `Error: ${error}<br>`;
+                if (errorDescription) {
+                    document.getElementById('debug').innerHTML += `Description: ${errorDescription}<br>`;
+                }
+                document.querySelector('.spinner').style.display = 'none';
+            }
+            
+            // Log full URL for debugging
+            const fullUrl = window.location.href;
+            console.log("Full callback URL:", fullUrl);
+            document.getElementById('debug').innerHTML += `Full URL: ${fullUrl}<br>`;
+        };
+    </script>
 </head>
 <body>
     <div id="container">
