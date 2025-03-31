@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(message);
         if (debugEl) {
             debugEl.innerHTML += message + '<br>';
+            debugEl.style.display = 'block'; // Make debug info visible
         }
     }
     
@@ -18,8 +19,43 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Function to extract access token from URL hash
-    function getTokenFromHash() {
+    // Function to handle the auth code flow response
+    function handleAuthCodeResponse() {
+        try {
+            // Check for authorization code in URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const authCode = urlParams.get('code');
+            const state = urlParams.get('state');
+            
+            if (authCode) {
+                logDebug('Found authorization code: ' + authCode.substring(0, 10) + '...');
+                
+                return {
+                    responseType: 'code',
+                    code: authCode,
+                    state: state
+                };
+            }
+            
+            // Check for error in URL parameters
+            const error = urlParams.get('error');
+            if (error) {
+                logDebug('Error from authorization server: ' + error);
+                return {
+                    responseType: 'error',
+                    error: error
+                };
+            }
+            
+            return null;
+        } catch (e) {
+            logDebug('Error handling auth code response: ' + e.toString());
+            return null;
+        }
+    }
+    
+    // Function to extract access token from URL hash (for backward compatibility)
+    function handleImplicitFlowResponse() {
         try {
             logDebug('Checking URL hash: ' + window.location.hash);
             
@@ -36,7 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     logDebug('Found access token: ' + accessToken.substring(0, 10) + '...');
                     
                     // Save to local storage for demo purposes
-                    // In a real app, this would be communicated back to the app
                     localStorage.setItem('spotify_access_token', accessToken);
                     
                     // Calculate expiry time
@@ -46,30 +81,55 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Return token
                     return {
+                        responseType: 'token',
                         accessToken: accessToken,
                         expiresIn: expiresIn,
                         state: state,
                         expiryTime: expiryTime.toISOString()
                     };
-                } else {
-                    logDebug('No access token found in URL hash');
-                    return null;
                 }
-            } else {
-                logDebug('No URL hash present');
-                return null;
             }
+            
+            return null;
         } catch (e) {
-            logDebug('Error extracting token: ' + e.toString());
+            logDebug('Error handling implicit flow response: ' + e.toString());
             return null;
         }
     }
     
-    // Function to try various redirect methods
-    function redirectToApp(token) {
+    // Function to redirect back to app with either code or token
+    function redirectToApp(authResponse) {
+        logDebug('Redirecting to app with auth response type: ' + authResponse.responseType);
+        
+        // Build the right redirect URI based on response type
+        let redirectUriBase;
+        let redirectParams;
+        
+        if (authResponse.responseType === 'code') {
+            // Auth code flow
+            redirectUriBase = 'rateme://spotify-callback';
+            redirectParams = `?code=${encodeURIComponent(authResponse.code)}`;
+            if (authResponse.state) {
+                redirectParams += `&state=${encodeURIComponent(authResponse.state)}`;
+            }
+        } else if (authResponse.responseType === 'token') {
+            // Implicit flow (backward compatibility)
+            redirectUriBase = 'rateme://spotify-callback';
+            redirectParams = `?access_token=${encodeURIComponent(authResponse.accessToken)}&expires_in=${authResponse.expiresIn}`;
+            if (authResponse.state) {
+                redirectParams += `&state=${encodeURIComponent(authResponse.state)}`;
+            }
+        } else {
+            // Error case
+            redirectUriBase = 'rateme://spotify-callback';
+            redirectParams = `?error=${encodeURIComponent(authResponse.error || 'unknown_error')}`;
+        }
+        
+        // List of schemes to try for redirect back to app
         const redirectSchemes = [
-            `rateme://callback?access_token=${token.accessToken}&expires_in=${token.expiresIn}&expiry_time=${encodeURIComponent(token.expiryTime)}`,
-            `com.ali3nated0.rateme://callback?access_token=${token.accessToken}&expires_in=${token.expiresIn}&expiry_time=${encodeURIComponent(token.expiryTime)}`
+            `${redirectUriBase}${redirectParams}`,
+            `com.ali3nated0.rateme://spotify-callback${redirectParams}`,
+            `com.rateme.app://spotify-callback${redirectParams}`
         ];
         
         let currentSchemeIndex = 0;
@@ -79,15 +139,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const scheme = redirectSchemes[currentSchemeIndex];
                 logDebug(`Attempting redirect with scheme ${currentSchemeIndex + 1}/${redirectSchemes.length}: ${scheme}`);
                 
-                // Try to launch the app with the current scheme
-                window.location.href = scheme;
+                // Create an iframe for the redirect to avoid losing this page
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = scheme;
+                document.body.appendChild(iframe);
                 
                 // Wait and try the next scheme if this one didn't work
                 currentSchemeIndex++;
-                setTimeout(tryNextScheme, 300);
+                setTimeout(tryNextScheme, 600); // Increased delay for better reliability
             } else {
                 // We've tried all schemes, show manual instructions
-                showManualInstructions(token);
+                logDebug("All automatic redirect attempts failed. Showing manual instructions.");
+                showManualInstructions(authResponse);
             }
         }
         
@@ -96,14 +160,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Function to show manual instructions if auto-redirect fails
-    function showManualInstructions(token) {
-        updateStatus('Automatic redirect failed');
+    function showManualInstructions(authResponse) {
+        updateStatus('Please copy this code to the app');
+        document.querySelector('.spinner').style.display = 'none';
         
         // Create manual instructions
         const container = document.getElementById('container');
         if (container) {
-            // Clear existing content
+            // Keep existing heading but clear other content
+            const heading = container.querySelector('h1');
             container.innerHTML = '';
+            if (heading) container.appendChild(heading);
             
             // Create new content
             const header = document.createElement('h2');
@@ -111,63 +178,154 @@ document.addEventListener('DOMContentLoaded', function() {
             container.appendChild(header);
             
             const instructions = document.createElement('p');
-            instructions.textContent = 'Please return to RateMe app and enter this token manually:';
-            container.appendChild(instructions);
             
-            const tokenDisplay = document.createElement('div');
-            tokenDisplay.classList.add('token-display');
-            tokenDisplay.textContent = token.accessToken;
-            container.appendChild(tokenDisplay);
+            // Different instructions based on auth type
+            if (authResponse.responseType === 'code') {
+                instructions.textContent = 'Please return to RateMe app and enter this authorization code manually:';
+                container.appendChild(instructions);
+                
+                const codeDisplay = document.createElement('div');
+                codeDisplay.classList.add('token-display');
+                codeDisplay.textContent = authResponse.code;
+                container.appendChild(codeDisplay);
+                
+                const copyButton = document.createElement('button');
+                copyButton.textContent = 'Copy Code';
+                copyButton.classList.add('copy-button');
+                copyButton.addEventListener('click', function() {
+                    copyToClipboard(authResponse.code, copyButton);
+                });
+                container.appendChild(copyButton);
+                
+                const note = document.createElement('p');
+                note.classList.add('expiry-info');
+                note.textContent = 'Note: This code will expire in 10 minutes. Complete authentication in the app promptly.';
+                container.appendChild(note);
+            } else if (authResponse.responseType === 'token') {
+                // For backward compatibility with token flow
+                instructions.textContent = 'Please return to RateMe app and enter this access token manually:';
+                container.appendChild(instructions);
+                
+                const tokenDisplay = document.createElement('div');
+                tokenDisplay.classList.add('token-display');
+                tokenDisplay.textContent = authResponse.accessToken;
+                container.appendChild(tokenDisplay);
+                
+                const copyButton = document.createElement('button');
+                copyButton.textContent = 'Copy Token';
+                copyButton.classList.add('copy-button');
+                copyButton.addEventListener('click', function() {
+                    copyToClipboard(authResponse.accessToken, copyButton);
+                });
+                container.appendChild(copyButton);
+                
+                const expiryInfo = document.createElement('p');
+                expiryInfo.classList.add('expiry-info');
+                const expiryDate = new Date(authResponse.expiryTime);
+                const expiryHours = Math.round(authResponse.expiresIn / 3600);
+                expiryInfo.textContent = `Token expires in approximately ${expiryHours} hours (${expiryDate.toLocaleString()})`;
+                container.appendChild(expiryInfo);
+            } else {
+                // Error case
+                instructions.textContent = 'Authentication error. Please try again in the app.';
+                instructions.style.color = 'red';
+                container.appendChild(instructions);
+                
+                const errorDisplay = document.createElement('div');
+                errorDisplay.classList.add('error-display');
+                errorDisplay.textContent = authResponse.error || 'Unknown error';
+                container.appendChild(errorDisplay);
+            }
             
-            const copyButton = document.createElement('button');
-            copyButton.textContent = 'Copy Token';
-            copyButton.classList.add('copy-button');
-            copyButton.addEventListener('click', function() {
-                navigator.clipboard.writeText(token.accessToken)
-                    .then(() => {
-                        copyButton.textContent = 'Copied!';
-                        setTimeout(() => {
-                            copyButton.textContent = 'Copy Token';
-                        }, 2000);
-                    })
-                    .catch(err => {
-                        console.error('Failed to copy: ', err);
-                    });
-            });
-            container.appendChild(copyButton);
+            // Add app return buttons for different platforms
+            const returnButtonsContainer = document.createElement('div');
+            returnButtonsContainer.classList.add('return-buttons');
             
-            const expiryInfo = document.createElement('p');
-            expiryInfo.classList.add('expiry-info');
-            expiryInfo.textContent = `Token expires: ${new Date(token.expiryTime).toLocaleString()}`;
-            container.appendChild(expiryInfo);
-            
-            const returnButton = document.createElement('a');
-            returnButton.href = 'rateme://callback';
+            const returnButton = document.createElement('button');
             returnButton.textContent = 'Return to RateMe App';
             returnButton.classList.add('return-button');
-            container.appendChild(returnButton);
+            returnButton.addEventListener('click', function() {
+                window.location.href = 'rateme://spotify-callback';
+            });
+            returnButtonsContainer.appendChild(returnButton);
+            
+            container.appendChild(returnButtonsContainer);
+            
+            // Show debug toggle
+            const debugToggle = document.createElement('div');
+            debugToggle.classList.add('debug-toggle');
+            debugToggle.textContent = 'Show debug info';
+            debugToggle.addEventListener('click', function() {
+                debugEl.style.display = debugEl.style.display === 'none' ? 'block' : 'none';
+            });
+            container.appendChild(debugToggle);
+            
+            // Add the debug element back
+            container.appendChild(debugEl);
         }
+    }
+    
+    function copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = button.textContent.includes('Code') ? 'Copy Code' : 'Copy Token';
+                }, 2000);
+            })
+            .catch(err => {
+                logDebug('Failed to copy: ' + err);
+                // Fallback for browsers that don't support clipboard API
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    button.textContent = 'Copied!';
+                    setTimeout(() => {
+                        button.textContent = button.textContent.includes('Code') ? 'Copy Code' : 'Copy Token';
+                    }, 2000);
+                } catch (e) {
+                    logDebug('Fallback copy method failed: ' + e);
+                }
+                document.body.removeChild(textArea);
+            });
     }
     
     // Main function - process the authentication result
     function processAuthResult() {
-        const token = getTokenFromHash();
-        
-        if (token) {
+        // First try auth code flow (preferred)
+        const authCodeResponse = handleAuthCodeResponse();
+        if (authCodeResponse) {
             updateStatus('Authentication successful! Redirecting back to app...');
-            redirectToApp(token);
+            redirectToApp(authCodeResponse);
+            return;
+        }
+        
+        // Then try implicit flow (backward compatibility)
+        const implicitFlowResponse = handleImplicitFlowResponse();
+        if (implicitFlowResponse) {
+            updateStatus('Authentication successful! Redirecting back to app...');
+            redirectToApp(implicitFlowResponse);
+            return;
+        }
+        
+        // Check if error parameter exists
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        
+        if (error) {
+            updateStatus(`Authentication error: ${error}. Please try again.`);
+            logDebug(`Error from authentication: ${error}`);
+            redirectToApp({responseType: 'error', error: error});
+            document.querySelector('.spinner').style.display = 'none';
         } else {
-            // Check if error parameter exists
-            const urlParams = new URLSearchParams(window.location.search);
-            const error = urlParams.get('error');
-            
-            if (error) {
-                updateStatus(`Authentication error: ${error}. Please try again.`);
-                logDebug(`Error from authentication: ${error}`);
-            } else {
-                updateStatus('No authentication data found. Please try again.');
-                logDebug('No token or error found in URL');
-            }
+            updateStatus('No authentication data found. Please try again.');
+            logDebug('No token or error found in URL');
+            document.querySelector('.spinner').style.display = 'none';
         }
     }
     
