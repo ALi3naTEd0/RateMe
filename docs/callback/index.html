@@ -146,6 +146,15 @@
         <div class="spinner"></div>
         <p>Authentication in progress...</p>
         <p id="status">Redirecting back to the app...</p>
+        
+        <!-- Add this button for Hyprland and other window managers -->
+        <div id="linux-help" style="margin-top: 20px; display: none;">
+            <button onclick="openHelperPage()" style="padding: 8px 16px; background-color: #864AF9; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Open with App Opener
+            </button>
+            <p style="font-size: 12px; margin-top: 8px;">Use this on Linux with Hyprland or other window managers</p>
+        </div>
+        
         <div class="debug-toggle" onclick="document.getElementById('debug').style.display = document.getElementById('debug').style.display === 'none' ? 'block' : 'none'">
             Show debug info
         </div>
@@ -153,5 +162,36 @@
     </div>
     
     <script src="script.js"></script>
+    <script>
+        // Detect Linux platform (through user agent)
+        function isLinuxPlatform() {
+            return navigator.userAgent.toLowerCase().indexOf('linux') > -1;
+        }
+        
+        // Show Linux help if on Linux
+        if (isLinuxPlatform()) {
+            document.getElementById('linux-help').style.display = 'block';
+        }
+        
+        // Function to open helper page
+        function openHelperPage() {
+            // Get current URL parameters and hash
+            const url = new URL('/RateMe/openapp/', window.location.origin);
+            
+            // Copy query parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.forEach((value, key) => {
+                url.searchParams.append(key, value);
+            });
+            
+            // Add hash if present (for access token)
+            if (window.location.hash) {
+                url.hash = window.location.hash;
+            }
+            
+            // Open the helper page
+            window.location.href = url.toString();
+        }
+    </script>
 </body>
 </html>

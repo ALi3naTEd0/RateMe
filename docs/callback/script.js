@@ -137,6 +137,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let currentSchemeIndex = 0;
         
+        // Add support for XDG on Linux with xdg-open
+        const xdgRedirectUrl = `xdg-open:${redirectUriBase}${redirectParams}`;
+        
         function tryNextScheme() {
             if (currentSchemeIndex < redirectSchemes.length) {
                 const scheme = redirectSchemes[currentSchemeIndex];
@@ -148,13 +151,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 iframe.src = scheme;
                 document.body.appendChild(iframe);
                 
+                // Also try direct location change on the first attempt
+                if (currentSchemeIndex === 0) {
+                    try {
+                        // Attempt direct location change (works in some browsers)
+                        setTimeout(() => {
+                            // Use a timeout to allow both methods to attempt
+                            if (document.visibilityState !== 'hidden') {
+                                window.location.href = scheme;
+                            }
+                        }, 200);
+                    } catch (e) {
+                        logDebug('Error with direct location change: ' + e);
+                    }
+                }
+                
                 // Wait and try the next scheme if this one didn't work
                 currentSchemeIndex++;
-                setTimeout(tryNextScheme, 600); // Increased delay for better reliability
+                setTimeout(tryNextScheme, 800); // Increased delay for better reliability
             } else {
-                // We've tried all schemes, show manual instructions
-                logDebug("All automatic redirect attempts failed. Showing manual instructions.");
-                showManualInstructions(authResponse);
+                // Try XDG-open for Linux specifically
+                logDebug('Trying XDG-open method for Linux: ' + xdgRedirectUrl);
+                try {
+                    window.location.href = xdgRedirectUrl;
+                    // Give the XDG-open a chance to work
+                    setTimeout(() => {
+                        if (document.visibilityState !== 'hidden') {
+                            // We've tried all schemes, show manual instructions
+                            logDebug("All automatic redirect attempts failed. Showing manual instructions.");
+                            showManualInstructions(authResponse);
+                        }
+                    }, 1000);
+                } catch (e) {
+                    logDebug("Error with XDG redirect: " + e);
+                    showManualInstructions(authResponse);
+                }
             }
         }
         

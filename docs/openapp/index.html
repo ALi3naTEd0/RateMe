@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RateMe - Opening App</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            text-align: center;
+            color: #333;
+        }
+        
+        #container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #864AF9;
+            margin-bottom: 20px;
+        }
+        
+        p {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        
+        button {
+            background-color: #864AF9;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        
+        button:hover {
+            background-color: #7440e0;
+        }
+        
+        #debug {
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: left;
+            color: #999;
+            overflow-wrap: break-word;
+            display: none;
+        }
+        
+        .code-container {
+            background-color: #f0f0f0;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 16px 0;
+            text-align: left;
+        }
+        
+        code {
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>Opening RateMe App</h1>
+        <p id="statusText">Attempting to launch RateMe...</p>
+        
+        <div class="option-buttons">
+            <button id="openWithXdg">Open with XDG</button>
+            <button id="tryAppScheme">Try App Scheme</button>
+            <button id="manualAuth">Manual Authentication</button>
+        </div>
+        
+        <div id="manualAuthSection" style="display: none;">
+            <h2>Manual Authentication</h2>
+            <p>Your app should show a field where you can paste these details:</p>
+            <div class="code-container">
+                <code id="tokenText">Loading token data...</code>
+            </div>
+            <button id="copyToken">Copy to Clipboard</button>
+        </div>
+        
+        <div id="debug"></div>
+    </div>
+    
+    <script>
+        // Debug log function
+        function logDebug(message) {
+            console.log(message);
+            const debugEl = document.getElementById('debug');
+            debugEl.innerHTML += message + '<br>';
+            
+            // Uncomment to show debug log
+            // debugEl.style.display = 'block';
+        }
+        
+        // Function to get URL parameters including hash fragments
+        function getUrlParams() {
+            let params = {};
+            
+            // Get query parameters
+            new URLSearchParams(window.location.search).forEach((value, key) => {
+                params[key] = value;
+            });
+            
+            // Get hash fragment parameters
+            if (window.location.hash) {
+                new URLSearchParams(window.location.hash.substring(1)).forEach((value, key) => {
+                    params[key] = value;
+                });
+            }
+            
+            return params;
+        }
+        
+        // Function to format parameters for display
+        function formatParamsForDisplay(params) {
+            let result = '';
+            for (const [key, value] of Object.entries(params)) {
+                result += `${key}: ${value}\n`;
+            }
+            return result;
+        }
+        
+        // Try different methods to open the app
+        function tryOpenApp() {
+            const params = getUrlParams();
+            const tokenText = document.getElementById('tokenText');
+            tokenText.textContent = formatParamsForDisplay(params);
+            
+            logDebug("Parameters found: " + JSON.stringify(params));
+            
+            // Build the callback URL
+            let callbackUrl = 'rateme://spotify-callback';
+            const searchParams = new URLSearchParams();
+            
+            // Add all parameters to the callback
+            for (const [key, value] of Object.entries(params)) {
+                searchParams.append(key, value);
+            }
+            
+            // If we have an access_token in the hash, use it
+            if (window.location.hash && window.location.hash.includes('access_token')) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                hashParams.forEach((value, key) => {
+                    searchParams.set(key, value);
+                });
+            }
+            
+            callbackUrl += '?' + searchParams.toString();
+            logDebug("Callback URL: " + callbackUrl);
+            
+            // Attempt to open the app
+            const openAppFrame = document.createElement('iframe');
+            openAppFrame.style.display = 'none';
+            openAppFrame.src = callbackUrl;
+            document.body.appendChild(openAppFrame);
+            
+            // Also try direct location change
+            setTimeout(() => {
+                window.location.href = callbackUrl;
+            }, 500);
+            
+            // Update status after a delay
+            setTimeout(() => {
+                const statusText = document.getElementById('statusText');
+                statusText.textContent = "If the app didn't open automatically, use one of the options below:";
+            }, 2000);
+        }
+        
+        // Setup button handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = getUrlParams();
+            const tokenText = document.getElementById('tokenText');
+            tokenText.textContent = formatParamsForDisplay(params);
+            
+            // Try app scheme button
+            document.getElementById('tryAppScheme').addEventListener('click', function() {
+                const callbackUrl = 'rateme://spotify-callback' + window.location.search + window.location.hash;
+                window.location.href = callbackUrl;
+            });
+            
+            // Open with XDG button (for Linux)
+            document.getElementById('openWithXdg').addEventListener('click', function() {
+                const callbackUrl = 'xdg-open:rateme://spotify-callback' + window.location.search + window.location.hash;
+                window.location.href = callbackUrl;
+            });
+            
+            // Manual auth button
+            document.getElementById('manualAuth').addEventListener('click', function() {
+                document.getElementById('manualAuthSection').style.display = 'block';
+            });
+            
+            // Copy token button
+            document.getElementById('copyToken').addEventListener('click', function() {
+                navigator.clipboard.writeText(tokenText.textContent)
+                    .then(() => {
+                        document.getElementById('copyToken').textContent = 'Copied!';
+                        setTimeout(() => {
+                            document.getElementById('copyToken').textContent = 'Copy to Clipboard';
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        logDebug('Error copying to clipboard: ' + err);
+                    });
+            });
+            
+            // Try to open app automatically
+            tryOpenApp();
+        });
+    </script>
+</body>
+</html>
