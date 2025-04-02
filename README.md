@@ -67,28 +67,28 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 | Platform | Format | Download |
 |:--------:|:------:|:--------:|
-| Windows | Installer | [**RateMe_1.1.0-3.exe**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3.exe) |
-| Windows | Portable | [**RateMe_1.1.0-3_portable.zip**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3_portable.zip) |
-| macOS | Universal | [**RateMe_1.1.0-3.dmg**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3.dmg) |
+| Windows | Installer | [**RateMe_1.1.0-4.exe**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4.exe) |
+| Windows | Portable | [**RateMe_1.1.0-4_portable.zip**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_portable.zip) |
+| macOS | Universal | [**RateMe_1.1.0-4.dmg**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4.dmg) |
 
 ### Linux Packages
 
 | Format | Architecture | Download |
 |:------:|:-----------:|:--------:|
-| AppImage | x86_64 | [**RateMe_1.1.0-3.AppImage**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3.AppImage) |
-| DEB | amd64 | [**RateMe_1.1.0-3_amd64.deb**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3_amd64.deb) |
-| RPM | x86_64 | [**RateMe_1.1.0-3_x86_64.rpm**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3_x86_64.rpm) |
-| Flatpak | Universal | [**RateMe_1.1.0-3.flatpak**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3.flatpak) |
+| AppImage | x86_64 | [**RateMe_1.1.0-4.AppImage**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4.AppImage) |
+| DEB | amd64 | [**RateMe_1.1.0-4_amd64.deb**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_amd64.deb) |
+| RPM | x86_64 | [**RateMe_1.1.0-4_x86_64.rpm**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_x86_64.rpm) |
+| Flatpak | Universal | [**RateMe_1.1.0-4.flatpak**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4.flatpak) |
 | Arch Linux | - | [**AUR Instructions**](#arch-linux) |
 
 ### Mobile Applications
 
 | Platform | Version | Download |
 |:--------:|:-------:|:--------:|
-| Android | Universal | [**RateMe_1.1.0-3.apk**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3.apk) |
-| Android | arm64-v8a | [**RateMe_1.1.0-3_arm64-v8a.apk**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3_arm64-v8a.apk) |
-| Android | armeabi-v7a | [**RateMe_1.1.0-3_armeabi-v7a.apk**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3_armeabi-v7a.apk) |
-| Android | x86_64 | [**RateMe_1.1.0-3_x86_64.apk**](../../releases/download/v1.1.0-3/RateMe_1.1.0-3_x86_64.apk) |
+| Android | Universal | [**RateMe_1.1.0-4.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4.apk) |
+| Android | arm64-v8a | [**RateMe_1.1.0-4_arm64-v8a.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_arm64-v8a.apk) |
+| Android | armeabi-v7a | [**RateMe_1.1.0-4_armeabi-v7a.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_armeabi-v7a.apk) |
+| Android | x86_64 | [**RateMe_1.1.0-4_x86_64.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_x86_64.apk) |
 | iOS | - | Coming soon |
 
 </div>
@@ -96,9 +96,9 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 ## Installation
 
 ### Windows
-1. Installer: Run `RateMe_1.1.0-3.exe` and follow the installation wizard
+1. Installer: Run `RateMe_1.1.0-4.exe` and follow the installation wizard
    - Or -
-2. Portable: Extract `RateMe_1.1.0-3_portable.zip` and run `RateMe.exe`
+2. Portable: Extract `RateMe_1.1.0-4_portable.zip` and run `RateMe.exe`
 
 ### Android
 1. Choose the correct version:
@@ -118,7 +118,7 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 Note: If you're not sure which version to use, install APK-Universal
 
 ### macOS
-1. Download `RateMe_1.1.0-3.dmg`
+1. Download `RateMe_1.1.0-4.dmg`
 2. Open the DMG file
 3. Drag RateMe to your Applications folder
 4. First time running:
@@ -137,30 +137,30 @@ Then try opening the app again. This removes macOS security quarantine.
 ### Linux Installation
 
 #### AppImage
-1. Download `RateMe_1.1.0-3.AppImage`
+1. Download `RateMe_1.1.0-4.AppImage`
 2. Make it executable:
 ```bash
-chmod +x RateMe_1.1.0-3.AppImage
+chmod +x RateMe_1.1.0-4.AppImage
 ```
 3. Run it:
 ```bash
-./RateMe_1.1.0-3.AppImage
+./RateMe_1.1.0-4.AppImage
 ```
 No installation needed - the AppImage is portable and works on most Linux distributions.
 
 #### DEB Package (Ubuntu/Debian)
 ```bash
-sudo apt install ./RateMe_1.1.0-3_amd64.deb
+sudo apt install ./RateMe_1.1.0-4_amd64.deb
 ```
 
 #### RPM Package (Fedora/RHEL)
 ```bash
-sudo dnf install ./RateMe_1.1.0-3_x86_64.rpm
+sudo dnf install ./RateMe_1.1.0-4_x86_64.rpm
 ```
 
 #### Flatpak Installation
 
-1. Download the Flatpak package from [releases](../../releases/download/v1.1.0-3/RateMe_1.1.0-3.flatpak)
+1. Download the Flatpak package from [releases](../../releases/download/v1.1.0-4/RateMe_1.1.0-4.flatpak)
 
 2. Install required runtime (if not already installed):
 ```bash
@@ -169,7 +169,7 @@ flatpak install flathub org.freedesktop.Platform//21.08
 
 3. Install RateMe:
 ```bash
-flatpak install ./RateMe_1.1.0-3.flatpak
+flatpak install ./RateMe_1.1.0-4.flatpak
 ```
 
 4. Run RateMe:
