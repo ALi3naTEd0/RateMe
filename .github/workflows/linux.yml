@@ -69,9 +69,20 @@ jobs:
 
       - name: Enable Linux
         run: flutter config --enable-linux-desktop
-
+        
+      # Create the missing native_assets directory to prevent build failure
+      - name: Prepare build directories
+        run: |
+          mkdir -p build/native_assets/linux
+          
       - name: Build
-        run: flutter build linux --release --no-pub # Add --no-pub flag for better performance
+        run: |
+          # First attempt with regular build
+          flutter build linux --release --no-pub || (
+            # If it fails, create the missing directory and try again with a workaround
+            mkdir -p build/native_assets/linux
+            flutter build linux --release --no-pub --dart-define=flutter.inspector.structuredErrors=true
+          )
 
       # AppImage build
       - name: Create AppImage Structure

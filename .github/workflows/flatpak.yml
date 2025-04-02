@@ -90,8 +90,14 @@ jobs:
           flutter config --enable-linux-desktop
           flutter doctor -v
           
+          # Create the missing native_assets directory to prevent build failure
+          mkdir -p build/native_assets/linux
+          
           # Build Flutter app with --no-pub since we already ran pub get
-          flutter build linux --release --no-pub # Add --no-pub flag for better performance
+          flutter build linux --release --no-pub || (
+            # If it fails, try again with a workaround
+            flutter build linux --release --no-pub --dart-define=flutter.inspector.structuredErrors=true
+          )
           
           # Prepare icons - resize to 512x512 if needed
           mkdir -p icons
