@@ -92,8 +92,29 @@ jobs:
             exit 1
           }
 
+      # Create the necessary native_assets directory for Windows
+      - name: Prepare build directories
+        shell: pwsh
+        run: |
+          # Create the missing native_assets directory to prevent build failures
+          New-Item -ItemType Directory -Path "build\native_assets\windows" -Force
+          Write-Host "Created native_assets directory for Windows"
+
       - name: Build Windows
-        run: flutter build windows --release --no-pub # Add --no-pub flag for better performance
+        shell: pwsh
+        run: |
+          # First try the standard build
+          try {
+            flutter build windows --release --no-pub
+          } catch {
+            Write-Host "First build attempt failed, trying with fallback options..."
+            
+            # Ensure the directory exists again just to be safe
+            New-Item -ItemType Directory -Path "build\native_assets\windows" -Force
+            
+            # Try again with additional parameters
+            flutter build windows --release --no-pub --dart-define=flutter.inspector.structuredErrors=true
+          }
 
       - name: Create Portable ZIP
         shell: pwsh
