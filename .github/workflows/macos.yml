@@ -16,7 +16,7 @@ on:
         description: 'Version number'
 
 env:
-  FLUTTER_VERSION: '3.29.1' # Updated to latest Flutter 3.29.1 version
+  FLUTTER_VERSION: '3.29.1'
 
 jobs:
   build:
@@ -30,6 +30,18 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
+          cache: true # Add caching for better performance
+
+      # Add cache for pub dependencies
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.PUB_CACHE }}
+            .dart_tool/
+          key: pub-dependencies-macos-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-dependencies-macos-${{ runner.os }}-
 
       - name: Setup Build
         run: |
@@ -64,8 +76,13 @@ jobs:
           magick ../../../../assets/app-icon.png -resize 1024x1024 app_icon_1024.png
           cd ../../../../
 
+      # Install dependencies first to improve build performance
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Configure macOS
+        run: |
           flutter config --enable-macos-desktop
-          flutter pub get
           
           # Fix bundle identifier and add required keys
           sed -i '' 's/com.example.rateme/com.alienated.rateme/g' macos/Runner.xcodeproj/project.pbxproj
@@ -76,14 +93,11 @@ jobs:
 
       - name: Build macOS App
         run: |
-          flutter config --enable-macos-desktop
-          flutter pub get
-          
           # Disable Metal for better VM compatibility
           defaults write com.alienated.rateme GSSupportsMetal -bool NO
           defaults write com.alienated.rateme GSUseOpenGL -bool YES
           
-          flutter build macos --release
+          flutter build macos --release --no-pub # Add --no-pub flag for better performance
 
       - name: Create DMG
         run: |

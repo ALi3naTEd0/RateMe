@@ -138,15 +138,7 @@ jobs:
       - name: Create Dist Directory
         run: mkdir -p dist
 
-      # Add debug steps to see what artefacts are available
-      - name: List Available Artifacts
-        run: |
-          echo "Available artifacts:"
-          gh api /repos/${{ github.repository }}/actions/artifacts \
-            --jq '.artifacts[] | {name: .name, size: .size_in_bytes, created: .created_at}'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # Optimize artifact download with merging
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -154,22 +146,11 @@ jobs:
           merge-multiple: true
           pattern: '*'
 
-      - name: Debug Directory Contents
-        run: |
-          echo "Root directory:"
-          ls -la
-          echo "Dist directory content:"
-          ls -la dist/ || echo "Dist directory is empty or doesn't exist"
-
       - name: Organize Artifacts
         run: |
-          echo "Initial dist content:"
-          ls -la dist/
-          
-          # Move nested files to root of dist/
-          find dist -mindepth 2 -type f -exec mv -t dist/ {} +
-          find dist -type d -empty -delete
-          
+          # Move nested files to root of dist/ if needed
+          find dist -mindepth 2 -type f -exec mv -t dist/ {} + 2>/dev/null || echo "No files to move"
+          find dist -type d -empty -delete 2>/dev/null || echo "No empty dirs to remove"
           echo "Final dist content:"
           ls -lh dist/
 
@@ -197,14 +178,6 @@ jobs:
           RELEASE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/tag/${TAG_NAME}"
           echo "Setting release URL to: $RELEASE_URL"
           echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
-          
-      - name: Debug Release Info
-        run: |
-          echo "Release created successfully:"
-          echo "Version: ${{ steps.get_version.outputs.VERSION }}"
-          echo "URL: ${{ steps.set_release_url.outputs.url }}"
-          echo "Release notes:"
-          echo "${{ steps.extract_release_notes.outputs.RELEASE_NOTES }}"
 
   # STEP 3: UPDATE DOCUMENTATION - Update docs with new version links
   update-docs:

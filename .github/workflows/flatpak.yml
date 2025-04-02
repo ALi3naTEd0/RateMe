@@ -56,6 +56,18 @@ jobs:
         with:
           flutter-version: '3.29.1'  # Updated to latest Flutter 3.29.1 version
           channel: 'stable'
+          cache: true # Add caching for better performance
+
+      # Add cache for pub dependencies
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.PUB_CACHE }}
+            .dart_tool/
+          key: pub-dependencies-flatpak-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-dependencies-flatpak-${{ runner.os }}-
 
       - name: Generate API Keys File
         run: |
@@ -69,14 +81,17 @@ jobs:
           }
           EOF
 
+      # Install dependencies first to improve build performance
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
       - name: Build Flutter App
         run: |
           flutter config --enable-linux-desktop
           flutter doctor -v
-          flutter pub get
           
-          # Build Flutter app
-          flutter build linux --release
+          # Build Flutter app with --no-pub since we already ran pub get
+          flutter build linux --release --no-pub # Add --no-pub flag for better performance
           
           # Prepare icons - resize to 512x512 if needed
           mkdir -p icons
@@ -144,10 +159,10 @@ jobs:
           echo "Building Flatpak..."
           flatpak-builder --force-clean --repo=repo build-flatpak com.ali3nated0.rateme.yml
           echo "Creating bundle..."
-          flatpak build-bundle repo RateMe_${{ inputs.version }}.flatpak $FLATPAK_ID
+          flatpak build-bundle repo RateMe_${{ inputs.version || github.event.inputs.version }}.flatpak $FLATPAK_ID
 
       - name: Upload Flatpak Package
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-Flatpak
-          path: RateMe_${{ inputs.version }}.flatpak
+          path: RateMe_${{ inputs.version || github.event.inputs.version }}.flatpak

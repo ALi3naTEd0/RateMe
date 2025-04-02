@@ -35,7 +35,9 @@ jobs:
           echo "Current gradle.properties:"
           cat $HOME/.gradle/gradle.properties
 
-      - uses: actions/cache@v4
+      # Improved cache strategy with correct dependency paths
+      - name: Cache Gradle and Android dependencies
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
@@ -49,8 +51,20 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.1'  # Updated to latest Flutter 3.29.1 version
+          flutter-version: '3.29.1'
           channel: 'stable'
+          cache: true # Enable Flutter caching
+
+      # Cache pub dependencies separately (more efficient than general cache)
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.PUB_CACHE }}
+            .dart_tool/
+          key: pub-dependencies-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-dependencies-${{ runner.os }}-
 
       - name: Generate API Keys File
         run: |
@@ -70,6 +84,10 @@ jobs:
           curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
           curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
 
+      # Get dependencies before building
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
       - name: Decode Keystore
         run: |
           echo "${{ secrets.UPLOAD_KEYSTORE }}" > upload-keystore.jks.base64
@@ -82,17 +100,16 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
-      # First build universal APK
+      # Optimize build by using --no-pub option since we already ran pub get
       - name: Build Universal APK
         run: |
-          flutter pub get
-          flutter build apk --release
+          flutter build apk --release --no-pub
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-universal  # Change from 'rateme-universal' to 'RateMe-universal'
+          name: RateMe-universal
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
           
       - name: Install Dependencies
@@ -102,10 +119,10 @@ jobs:
             aapt \
             android-sdk-build-tools
 
-      # Then build ABI-specific APKs
+      # Use split per ABI without repeating pub get
       - name: Build Split APKs
         run: |
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --no-pub
           
           # Find aapt location and use full path
           AAPT_PATH=$(which aapt)
@@ -124,17 +141,17 @@ jobs:
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-arm64-v8a  # Fixed name
+          name: RateMe-arm64-v8a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
 
       - name: Upload armeabi-v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-armeabi-v7a  # Fixed name
+          name: RateMe-armeabi-v7a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
 
       - name: Upload x86_64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: RateMe-x86_64  # Fixed name
+          name: RateMe-x86_64
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk

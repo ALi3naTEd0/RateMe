@@ -38,6 +38,18 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
+          cache: true # Add caching for better performance
+
+      # Add cache for pub dependencies
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.PUB_CACHE }}
+            .dart_tool/
+          key: pub-dependencies-linux-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-dependencies-linux-${{ runner.os }}-
 
       - name: Generate API Keys File
         run: |
@@ -51,11 +63,15 @@ jobs:
           }
           EOF
 
+      # Install dependencies first to improve build performance
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
       - name: Enable Linux
         run: flutter config --enable-linux-desktop
 
       - name: Build
-        run: flutter build linux --release
+        run: flutter build linux --release --no-pub # Add --no-pub flag for better performance
 
       # AppImage build
       - name: Create AppImage Structure
