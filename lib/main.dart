@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// Remove unused imports:
+// import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
+// Remove unused import:
+// import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
+// Remove unused import:
+// import 'dart:io';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
@@ -17,6 +21,10 @@ import 'footer.dart';
 import 'settings_page.dart';
 import 'platform_service.dart';
 import 'platform_ui.dart';
+import 'search_service.dart'; // Add import for SearchPlatform enum
+import 'database/database_helper.dart'; // Add this import for DatabaseHelper
+import 'package:flutter_svg/flutter_svg.dart'; // Add this import for SVG rendering
+import 'global_notifications.dart'; // Add import for global notifications
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,8 +52,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode =
-      ThemeMode.system; // Change the default theme mode to system
+  ThemeMode _themeMode = ThemeMode.system;
   Color _primaryColor = const Color(0xFF864AF9);
 
   final TextEditingController searchController = TextEditingController();
@@ -53,6 +60,8 @@ class _MyAppState extends State<MyApp> {
   bool _isLoading = false;
   Timer? _debounce;
   Timer? _clipboardTimer;
+  SearchPlatform _selectedSearchPlatform =
+      SearchPlatform.itunes; // Add platform state
 
   final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
@@ -65,6 +74,10 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _loadSettings();
     _startClipboardListener();
+    _loadSearchPlatform(); // Add function to load saved search platform
+
+    // Add listener for default platform changes
+    _setupGlobalListeners();
 
     // Check if migration prompt should be shown
     if (widget.showMigrationPrompt) {
@@ -75,58 +88,139 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      // Force to a valid value if the stored value is missing or invalid
-      final themeIndex = prefs.getInt('themeMode');
+  // Set up listeners for global notifications
+  void _setupGlobalListeners() {
+    // Listen for search platform changes from settings
+    GlobalNotifications.onSearchPlatformChanged.listen((platform) {
+      // Only update if the current platform is different
+      if (_selectedSearchPlatform != platform) {
+        Logging.severe(
+            'Default search platform changed to: ${platform.displayName}');
+        setState(() {
+          _selectedSearchPlatform = platform;
+        });
 
-      // Handle null or missing values
-      if (themeIndex == null) {
-        _themeMode = ThemeMode.system; // Default to system for everyone
-        // Initialize it right away
-        prefs.setInt('themeMode', ThemeMode.system.index);
-      } else {
-        // Map the indices explicitly to avoid potential issues
-        switch (themeIndex) {
-          case 0:
-            _themeMode = ThemeMode.system;
-            break;
-          case 1:
-            _themeMode = ThemeMode.light;
-            break;
-          case 2:
-            _themeMode = ThemeMode.dark;
-            break;
-          default:
-            _themeMode = ThemeMode.system;
-            // Fix invalid value
-            prefs.setInt('themeMode', ThemeMode.system.index);
+        // Check if there's a current search
+        final currentQuery = searchController.text.trim();
+        if (currentQuery.isNotEmpty) {
+          // Wait for state to update before searching
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _performSearch(currentQuery);
+          });
         }
       }
-
-      Logging.severe(
-          'Theme mode loaded: $_themeMode (index: ${_themeMode.index}), isLinux: ${Platform.isLinux}');
-      _primaryColor = Color(prefs.getInt('primaryColor') ?? 0xFF864AF9);
     });
   }
 
+  Future<void> _loadSettings() async {
+    try {
+      // Get settings from database
+      final db = DatabaseHelper.instance;
+
+      // Load theme mode
+      final themeModeStr = await db.getSetting('themeMode');
+      ThemeMode mode = ThemeMode.system;
+      if (themeModeStr != null) {
+        final modeIndex = int.tryParse(themeModeStr);
+        if (modeIndex != null && modeIndex < ThemeMode.values.length) {
+          mode = ThemeMode.values[modeIndex];
+        }
+      }
+
+      // Load primary color
+      final colorStr = await db.getSetting('primaryColor');
+      Color primaryColor = const Color(0xFF864AF9);
+      if (colorStr != null) {
+        final colorValue = int.tryParse(colorStr);
+        if (colorValue != null) {
+          primaryColor = Color(colorValue);
+        }
+      }
+
+      // Load default search platform
+      await _loadSearchPlatform();
+
+      setState(() {
+        _themeMode = mode;
+        _primaryColor = primaryColor;
+      });
+    } catch (e) {
+      Logging.severe('Error loading settings', e);
+    }
+  }
+
   void _updateTheme(ThemeMode mode) async {
-    // Simply update the theme without platform-specific warnings
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('themeMode', mode.index);
+    try {
+      // Save theme mode to database
+      final db = DatabaseHelper.instance;
+      await db.saveSetting('themeMode', mode.index.toString());
 
-    // Log when theme changes
-    Logging.severe('Theme changed to: $mode (index: ${mode.index})');
+      // Log when theme changes
+      Logging.severe('Theme changed to: $mode (index: ${mode.index})');
 
-    setState(() => _themeMode = mode);
+      setState(() => _themeMode = mode);
+    } catch (e) {
+      Logging.severe('Error saving theme mode', e);
+    }
   }
 
   void _updatePrimaryColor(Color color) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('primaryColor', color.toARGB32());
+    try {
+      final db = DatabaseHelper.instance;
+      // Fix deprecated color.value usage with color.toARGB32()
+      await db.saveSetting('primaryColor', color.toARGB32().toString());
 
-    setState(() => _primaryColor = color);
+      setState(() => _primaryColor = color);
+    } catch (e) {
+      Logging.severe('Error saving primary color', e);
+    }
+  }
+
+  // Update _loadSearchPlatform to use SQLite
+  Future<void> _loadSearchPlatform() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final platformStr = await db.getSetting('default_search_platform');
+
+      if (platformStr != null) {
+        final platformIndex = int.tryParse(platformStr);
+        if (platformIndex != null &&
+            platformIndex < SearchPlatform.values.length) {
+          if (mounted) {
+            setState(() {
+              _selectedSearchPlatform = SearchPlatform.values[platformIndex];
+            });
+            Logging.severe(
+                'Loaded default search platform: ${_selectedSearchPlatform.displayName}');
+          }
+        }
+      }
+    } catch (e) {
+      Logging.severe('Error loading search platform', e);
+    }
+  }
+
+  // Add method to update search platform
+  void _updateSearchPlatform(SearchPlatform platform) async {
+    try {
+      // This method is called when the user manually changes the platform
+      // We should only update the persistent default if specifically requested
+      // For now, just update the current UI state
+      setState(() {
+        _selectedSearchPlatform = platform;
+      });
+
+      // If there's a current search, perform it with the new platform
+      final currentQuery = searchController.text.trim();
+      if (currentQuery.isNotEmpty) {
+        // Wait for state to update before searching
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _performSearch(currentQuery);
+        });
+      }
+    } catch (e) {
+      Logging.severe('Error updating search platform', e);
+    }
   }
 
   Future<void> _performSearch(String query) async {
@@ -138,7 +232,9 @@ class _MyAppState extends State<MyApp> {
     setState(() => _isLoading = true);
 
     try {
-      final results = await PlatformService.searchAlbums(query);
+      // Update to use the selected platform
+      final results =
+          await SearchService.searchAlbums(query, _selectedSearchPlatform);
 
       if (mounted) {
         setState(() {
@@ -243,6 +339,8 @@ class _MyAppState extends State<MyApp> {
     _clipboardTimer?.cancel();
     searchController.dispose();
     _debounce?.cancel();
+    // Also close global notification streams
+    GlobalNotifications.dispose();
     super.dispose();
   }
 
@@ -251,6 +349,7 @@ class _MyAppState extends State<MyApp> {
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
     final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
 
+    // Define iconAdjustment constant here
     const iconAdjustment = 8.0;
 
     return MaterialApp(
@@ -261,165 +360,271 @@ class _MyAppState extends State<MyApp> {
       theme: RateMeTheme.getTheme(Brightness.light, _primaryColor),
       darkTheme: RateMeTheme.getTheme(Brightness.dark, _primaryColor),
       themeMode: _themeMode,
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'Rate Me!',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
-            ),
-          ),
-          centerTitle: true,
-          leadingWidth:
-              sideOffset + 80 - iconAdjustment, // Reduced from 120 to 80
-          leading: Padding(
-            padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    visualDensity:
-                        VisualDensity.compact, // Add this for tighter spacing
-                    icon: const Icon(Icons.library_music_outlined),
-                    tooltip: 'All Saved Albums',
-                    onPressed: () {
-                      navigatorKey.currentState?.push(
-                        MaterialPageRoute(
-                          builder: (context) => const SavedRatingsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    visualDensity:
-                        VisualDensity.compact, // Add this for tighter spacing
-                    icon: const Icon(Icons.format_list_bulleted),
-                    tooltip: 'Custom Lists',
-                    onPressed: () {
-                      navigatorKey.currentState?.push(
-                        MaterialPageRoute(
-                          builder: (context) => const CustomListsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.file_download),
-              visualDensity: VisualDensity.compact, // Match the left side
-              tooltip: 'Import Album',
-              onPressed: () async {
-                final result = await UserData.importAlbum();
-                if (result != null && mounted) {
-                  final isBandcamp =
-                      result['url']?.toString().contains('bandcamp.com') ??
-                          false;
+      home: Builder(builder: (context) {
+        // Get theme-aware icon color after theme is applied
+        final iconColor = Theme.of(context).iconTheme.color;
 
-                  navigatorKey.currentState?.push(
-                    MaterialPageRoute(
-                      builder: (context) => DetailsPage(
-                        album: result,
-                        isBandcamp: isBandcamp,
-                      ),
-                    ),
-                  );
-                }
-              },
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Rate Me!',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
             ),
-            Padding(
-              padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
-              child: IconButton(
-                icon: const Icon(Icons.settings),
-                visualDensity: VisualDensity.compact, // Match the left side
-                tooltip: 'Settings',
-                onPressed: () {
-                  navigatorKey.currentState?.push(
-                    MaterialPageRoute(
-                      builder: (context) => SettingsPage(
-                        currentTheme: _themeMode,
-                        onThemeChanged: _updateTheme,
-                        currentPrimaryColor: _primaryColor,
-                        onPrimaryColorChanged: _updatePrimaryColor,
-                      ),
+            centerTitle: true,
+            leadingWidth:
+                sideOffset + 80 - iconAdjustment, // Reduced from 120 to 80
+            leading: Padding(
+              padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      visualDensity:
+                          VisualDensity.compact, // Add this for tighter spacing
+                      icon: const Icon(Icons.library_music_outlined),
+                      tooltip: 'All Saved Albums',
+                      onPressed: () {
+                        navigatorKey.currentState?.push(
+                          MaterialPageRoute(
+                            builder: (context) => const SavedRatingsPage(),
+                          ),
+                        );
+                      },
                     ),
-                  );
+                  ),
+                  Expanded(
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      visualDensity:
+                          VisualDensity.compact, // Add this for tighter spacing
+                      icon: const Icon(Icons.format_list_bulleted),
+                      tooltip: 'Custom Lists',
+                      onPressed: () {
+                        navigatorKey.currentState?.push(
+                          MaterialPageRoute(
+                            builder: (context) => const CustomListsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.file_download),
+                visualDensity: VisualDensity.compact, // Match the left side
+                tooltip: 'Import Album',
+                onPressed: () async {
+                  final result = await UserData.importAlbum();
+                  if (result != null && mounted) {
+                    final isBandcamp =
+                        result['url']?.toString().contains('bandcamp.com') ??
+                            false;
+
+                    navigatorKey.currentState?.push(
+                      MaterialPageRoute(
+                        builder: (context) => DetailsPage(
+                          album: result,
+                          isBandcamp: isBandcamp,
+                        ),
+                      ),
+                    );
+                  }
                 },
               ),
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Center(
-                child: SizedBox(
-                  width: searchWidth,
-                  child: TextField(
-                    controller: searchController,
-                    decoration: InputDecoration(
-                      labelText: 'Search Albums or Paste URL',
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: () => _performSearch(searchController.text),
+              Padding(
+                padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
+                child: IconButton(
+                  icon: const Icon(Icons.settings),
+                  visualDensity: VisualDensity.compact, // Match the left side
+                  tooltip: 'Settings',
+                  onPressed: () {
+                    navigatorKey.currentState?.push(
+                      MaterialPageRoute(
+                        builder: (context) => SettingsPage(
+                          currentTheme: _themeMode,
+                          onThemeChanged: _updateTheme,
+                          currentPrimaryColor: _primaryColor,
+                          onPrimaryColorChanged: _updatePrimaryColor,
+                        ),
                       ),
-                    ),
-                    onChanged: (query) {
-                      if (_debounce?.isActive ?? false) _debounce!.cancel();
-                      _debounce = Timer(const Duration(milliseconds: 500), () {
-                        _performSearch(query);
-                      });
-                    },
-                    maxLength: 255,
-                  ),
+                    );
+                  },
                 ),
               ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : searchResults.isEmpty
-                      ? Center(child: Container())
-                      : Center(
-                          child: SizedBox(
-                            width: searchWidth,
-                            child: ListView.builder(
-                              itemCount: searchResults.length,
-                              itemBuilder: (context, index) {
-                                final album = searchResults[index];
-                                return PlatformUI.buildAlbumCard(
-                                  album: album,
-                                  onTap: () {
-                                    navigatorKey.currentState?.push(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            DetailsPage(album: album),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
+            ],
+          ),
+          body: Column(
+            children: [
+              const SizedBox(height: 32),
+
+              // Search bar with platform selector
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(width: sideOffset),
+
+                    // Platform dropdown with fixed colors
+                    Theme(
+                      // Remove highlighting effects
+                      data: Theme.of(context).copyWith(
+                        highlightColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                      ),
+                      child: DropdownButton<SearchPlatform>(
+                        value: _selectedSearchPlatform,
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          size: 18,
+                          color: iconColor, // Use explicit color based on theme
+                        ),
+                        underline: Container(), // Remove underline
+                        onChanged: (SearchPlatform? platform) {
+                          if (platform != null) {
+                            _updateSearchPlatform(platform);
+                          }
+                        },
+                        items: SearchPlatform.values
+                            .map((SearchPlatform platform) {
+                          return DropdownMenuItem<SearchPlatform>(
+                            value: platform,
+                            child: SvgPicture.asset(
+                              _getPlatformIconPath(platform),
+                              width: 26,
+                              height: 26,
+                              // Apply color filter to ALL icons, whether selected or not
+                              colorFilter:
+                                  ColorFilter.mode(iconColor!, BlendMode.srcIn),
                             ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Original search field style
+                    SizedBox(
+                      width: searchWidth - 60,
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Search Albums or Paste URL',
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.search, color: iconColor),
+                            onPressed: () =>
+                                _performSearch(searchController.text),
                           ),
                         ),
-            ),
-            const AppVersionFooter(),
-          ],
-        ),
-      ),
+                        onChanged: (query) {
+                          if (_debounce?.isActive ?? false) _debounce!.cancel();
+                          _debounce =
+                              Timer(const Duration(milliseconds: 500), () {
+                            _performSearch(query);
+                          });
+                        },
+                        maxLength: 255,
+                      ),
+                    ),
+
+                    SizedBox(width: sideOffset),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : searchResults.isEmpty
+                        ? Center(child: Container())
+                        : Center(
+                            child: SizedBox(
+                              width: searchWidth,
+                              child: ListView.builder(
+                                itemCount: searchResults.length,
+                                itemBuilder: (context, index) {
+                                  final album = searchResults[index];
+                                  return PlatformUI.buildAlbumCard(
+                                    album: album,
+                                    onTap: () {
+                                      navigatorKey.currentState?.push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              DetailsPage(album: album),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+              ),
+              const AppVersionFooter(),
+            ],
+          ),
+        );
+      }),
     );
+  }
+
+  // Helper method to get platform icon path
+  String _getPlatformIconPath(SearchPlatform platform) {
+    if (platform == SearchPlatform.itunes) {
+      return 'lib/icons/apple_music.svg';
+    }
+    if (platform == SearchPlatform.spotify) {
+      return 'lib/icons/spotify.svg';
+    }
+    if (platform == SearchPlatform.deezer) {
+      return 'lib/icons/deezer.svg';
+    }
+    return 'lib/icons/spotify.svg';
+  }
+
+  // Fix: Adding the missing _getPlatformColor method
+  Color _getPlatformColor(SearchPlatform platform) {
+    if (platform == SearchPlatform.itunes) {
+      return const Color(0xFFFC3C44); // Apple Music red
+    }
+    if (platform == SearchPlatform.spotify) {
+      return const Color(0xFF1DB954); // Spotify green
+    }
+    if (platform == SearchPlatform.deezer) {
+      return const Color(0xFF00C7F2); // Deezer blue
+    }
+    return Colors.grey;
+  }
+
+  // Add the missing method that's being called in the build method
+  Color getPlatformColorForPlatform(SearchPlatform platform) {
+    return _getPlatformColor(platform);
+  }
+
+  // Helper method to get platform icon - completely rewritten
+  IconData getPlatformIconForPlatform(SearchPlatform platform) {
+    // This should be completely replaced by using the SVG icons
+    // Only kept for backward compatibility
+    if (platform == SearchPlatform.itunes) {
+      return Icons.music_note;
+    }
+    if (platform == SearchPlatform.spotify) {
+      return Icons.music_note;
+    }
+    if (platform == SearchPlatform.deezer) {
+      return Icons.music_note;
+    }
+    return Icons.search;
   }
 }
 
@@ -514,6 +719,8 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   @override
   void dispose() {
     _clipboardTimer?.cancel();
+    searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 

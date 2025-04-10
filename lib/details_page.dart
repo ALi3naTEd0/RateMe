@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Add this import
 import 'dart:io';
 import 'dart:convert'; // Add this import for jsonEncode
-import 'package:http/http.dart' as http; // Add this import for HTTP requests
+// Remove the unused HTTP import
 import 'user_data.dart';
 import 'logging.dart';
 import 'custom_lists_page.dart';
@@ -14,6 +14,7 @@ import 'package:share_plus/share_plus.dart';
 import 'album_model.dart'; // Add this import
 import 'saved_album_page.dart'; // Add this import
 import 'widgets/skeleton_loading.dart'; // Add this import
+import 'search_service.dart'; // Add this import to fix undefined SearchService
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -116,13 +117,18 @@ class _DetailsPageState extends State<DetailsPage> {
 
         Logging.severe(
             'Successfully converted Spotify album to unified model with ${unifiedAlbum?.tracks.length ?? 0} tracks');
-      } else if (widget.isBandcamp) {
+      } else if (widget.isBandcamp || widget.album['platform'] == 'bandcamp') {
         // Handle Bandcamp album
         unifiedAlbum = Album(
           id: widget.album['collectionId'] ?? widget.album['id'] ?? 0,
-          name: widget.album['collectionName'] ?? 'Unknown Album',
-          artist: widget.album['artistName'] ?? 'Unknown Artist',
-          artworkUrl: widget.album['artworkUrl100'] ?? '',
+          name: widget.album['collectionName'] ??
+              widget.album['name'] ??
+              'Unknown Album',
+          artist: widget.album['artistName'] ??
+              widget.album['artist'] ??
+              'Unknown Artist',
+          artworkUrl:
+              widget.album['artworkUrl100'] ?? widget.album['artworkUrl'] ?? '',
           url: widget.album['url'] ?? '',
           platform: 'bandcamp',
           releaseDate: widget.album['releaseDate'] != null
@@ -132,14 +138,40 @@ class _DetailsPageState extends State<DetailsPage> {
           tracks: widget.album['tracks'] != null
               ? (widget.album['tracks'] as List)
                   .map<Track>((track) => Track(
-                        id: track['trackId'] ?? 0,
-                        name: track['trackName'] ?? 'Unknown Track',
-                        position: track['trackNumber'] ?? 0,
-                        durationMs: track['trackTimeMillis'] ?? 0,
+                        id: track['trackId'] ?? track['id'] ?? 0,
+                        name: track['trackName'] ??
+                            track['title'] ??
+                            'Unknown Track',
+                        position:
+                            track['trackNumber'] ?? track['position'] ?? 0,
+                        durationMs: track['trackTimeMillis'] ??
+                            track['duration_ms'] ??
+                            track['durationMs'] ??
+                            0,
                         metadata: track,
                       ))
                   .toList()
               : [],
+        );
+      } else if (widget.album['platform'] == 'deezer') {
+        // Handle Deezer album
+        unifiedAlbum = Album(
+          id: widget.album['collectionId'] ?? widget.album['id'] ?? 0,
+          name: widget.album['collectionName'] ??
+              widget.album['name'] ??
+              'Unknown Album',
+          artist: widget.album['artistName'] ??
+              widget.album['artist'] ??
+              'Unknown Artist',
+          artworkUrl:
+              widget.album['artworkUrl100'] ?? widget.album['artworkUrl'] ?? '',
+          url: widget.album['url'] ?? '',
+          platform: 'deezer',
+          releaseDate: widget.album['releaseDate'] != null
+              ? DateTime.parse(widget.album['releaseDate'])
+              : DateTime.now(),
+          metadata: widget.album,
+          tracks: _extractTracksFromAlbum(widget.album),
         );
       } else {
         // iTunes album
@@ -176,6 +208,7 @@ class _DetailsPageState extends State<DetailsPage> {
                     trackData['trackNumber'] ?? trackData['position'] ?? 0,
                 durationMs: trackData['trackTimeMillis'] ??
                     trackData['durationMs'] ??
+                    trackData['duration_ms'] ??
                     0,
                 metadata: trackData,
               ));
@@ -213,98 +246,18 @@ class _DetailsPageState extends State<DetailsPage> {
   // Add this new method to fetch tracks for albums that are missing them
   Future<void> _fetchTracksIfMissing() async {
     try {
-      final albumId = widget.album['collectionId'] ?? widget.album['id'];
-      if (albumId == null) return;
+      // Use the search service to fetch tracks for any platform
+      final albumWithTracks =
+          await SearchService.fetchAlbumTracks(widget.album);
 
-      Logging.severe('Fetching missing tracks for album ID: $albumId');
-
-      // Try the regular iTunes lookup first
-      final url =
-          Uri.parse('https://itunes.apple.com/lookup?id=$albumId&entity=song');
-      final response = await http.get(url);
-      final data = jsonDecode(response.body);
-
-      // Check if we got tracks
-      if (data['results'] != null && data['results'].length > 1) {
-        final tracks = data['results']
-            .skip(1) // Skip the album info (first result)
-            .where((item) =>
-                item['wrapperType'] == 'track' && item['kind'] == 'song')
-            .toList();
-
-        if (tracks.isNotEmpty) {
-          Logging.severe('Found ${tracks.length} tracks via direct API call');
-          widget.album['tracks'] = tracks;
-          return;
-        }
-      }
-
-      // If no tracks found, try alternate albums
-      Logging.severe('No tracks found, searching for alternate album version');
-      final artistName = widget.album['artistName'] ?? '';
-      final albumName = widget.album['collectionName'] ?? '';
-
-      if (artistName.isNotEmpty && albumName.isNotEmpty) {
-        final searchUrl = Uri.parse(
-            'https://itunes.apple.com/search?term=${Uri.encodeComponent("$artistName $albumName")}'
-            '&entity=album&limit=5');
-
-        final searchResponse = await http.get(searchUrl);
-        final searchData = jsonDecode(searchResponse.body);
-
-        if (searchData['results'] != null && searchData['results'].isNotEmpty) {
-          // Find similar albums
-          for (var album in searchData['results']) {
-            if (album['collectionId'] != albumId &&
-                album['artistName'] == artistName &&
-                album['collectionName']
-                    .toString()
-                    .contains(albumName.split('(')[0].trim())) {
-              // Try this album instead
-              final altUrl = Uri.parse(
-                  'https://itunes.apple.com/lookup?id=${album['collectionId']}&entity=song');
-              final altResponse = await http.get(altUrl);
-              final altData = jsonDecode(altResponse.body);
-
-              if (altData['results'] != null && altData['results'].length > 1) {
-                final altTracks = altData['results']
-                    .skip(1)
-                    .where((item) =>
-                        item['wrapperType'] == 'track' &&
-                        item['kind'] == 'song')
-                    .toList();
-
-                if (altTracks.isNotEmpty) {
-                  Logging.severe(
-                      'Found ${altTracks.length} tracks from alternate album: ${album['collectionName']}');
-                  widget.album['tracks'] = altTracks;
-                  return;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // If all else fails, create dummy tracks based on trackCount
-      if (widget.album['trackCount'] != null &&
-          widget.album['trackCount'] > 0) {
+      if (albumWithTracks != null &&
+          albumWithTracks['tracks'] is List &&
+          albumWithTracks['tracks'].isNotEmpty) {
+        widget.album['tracks'] = albumWithTracks['tracks'];
         Logging.severe(
-            'Creating dummy tracks based on trackCount: ${widget.album['trackCount']}');
-        final List<dynamic> dummyTracks = [];
-
-        for (int i = 1; i <= widget.album['trackCount']; i++) {
-          dummyTracks.add({
-            'trackId': albumId * 1000 + i,
-            'trackName': 'Track $i',
-            'trackNumber': i,
-            'trackTimeMillis': 0,
-            'kind': 'song',
-            'wrapperType': 'track',
-          });
-        }
-
-        widget.album['tracks'] = dummyTracks;
+            'Fetched ${albumWithTracks['tracks'].length} tracks from API');
+      } else {
+        Logging.severe('Failed to fetch tracks from API');
       }
     } catch (e, stack) {
       Logging.severe('Error fetching missing tracks', e, stack);

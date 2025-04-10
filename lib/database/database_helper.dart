@@ -133,6 +133,16 @@ class DatabaseHelper {
       )
     ''');
 
+    // Add search history table
+    await db.execute('''
+      CREATE TABLE search_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+      )
+    ''');
+
     // Add indices for common lookups
     await _createIndices(db);
   }

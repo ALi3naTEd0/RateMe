@@ -1,119 +1,77 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:html/parser.dart' show parse;
 import 'logging.dart';
-import 'platform_service.dart'; // Add this import
+import 'platform_service.dart';
+import 'api_keys.dart';
+import 'database/database_helper.dart';
+import 'package:sqflite/sqflite.dart';
+
+// Define an enum for the different search platforms
+enum SearchPlatform {
+  itunes,
+  spotify,
+  deezer;
+
+  String get displayName {
+    switch (this) {
+      case SearchPlatform.itunes:
+        return 'Apple Music';
+      case SearchPlatform.spotify:
+        return 'Spotify';
+      case SearchPlatform.deezer:
+        return 'Deezer';
+    }
+  }
+}
 
 class SearchService {
-  /// Detect platform from URL or search term
-  static String detectPlatform(String input) {
-    if (input.contains('music.apple.com') ||
-        input.contains('itunes.apple.com')) {
-      return 'itunes';
-    } else if (input.contains('bandcamp.com')) {
-      return 'bandcamp';
-    } else {
-      // Default to iTunes for search terms
-      return 'itunes';
-    }
-  }
-
-  /// Search albums based on query or URL
-  static Future<List<dynamic>> searchAlbums(String query) async {
-    if (query.isEmpty) return [];
-
-    // Handle iTunes/Apple Music URLs with improved URL parsing
-    if (query.contains('music.apple.com') ||
-        query.contains('itunes.apple.com') ||
-        query.contains('store.apple.com')) {
-      try {
-        final uri = Uri.parse(query);
-        final pathSegments = uri.pathSegments;
-
-        // Debug logging
-        Logging.severe('Processing iTunes URL:', {
-          'url': query,
-          'segments': pathSegments,
-          'query': uri.queryParameters,
-        });
-
-        // Find collection/album ID
-        String? collectionId;
-
-        // Handle different URL formats
-        if (pathSegments.contains('album')) {
-          // Format: .../album/{albumName}/{id}
-          final albumIdIndex = pathSegments.indexOf('album') + 2;
-          if (albumIdIndex < pathSegments.length) {
-            collectionId = pathSegments[albumIdIndex].split('?').first;
-          }
-        } else {
-          // Try query parameters for other formats
-          collectionId = uri.queryParameters['i'] ?? // store.apple.com format
-              uri.queryParameters['id']; // alternative format
-        }
-
-        Logging.severe('Extracted collection ID:', collectionId);
-
-        if (collectionId != null) {
-          // First get the album info
-          final url = Uri.parse(
-              'https://itunes.apple.com/lookup?id=$collectionId&entity=song');
-          final response = await http.get(url);
-          final data = jsonDecode(response.body);
-
-          Logging.severe('iTunes API response:', data);
-
-          if (data['results'] != null && data['results'].isNotEmpty) {
-            // Filter to get album and its tracks
-            final albumData = data['results']
-                .where((item) =>
-                    item['wrapperType'] == 'collection' ||
-                    (item['wrapperType'] == 'track' && item['kind'] == 'song'))
-                .toList();
-
-            if (albumData.isNotEmpty) {
-              // Add platform identifier
-              final album = albumData[0];
-              album['platform'] = 'itunes';
-              return [album];
-            }
-          }
-        }
-      } catch (e) {
-        Logging.severe('Error processing iTunes/Apple Music URL', e);
-      }
-      return [];
-    }
-
-    // Handle Bandcamp URLs
-    if (query.contains('bandcamp.com')) {
-      try {
-        final album =
-            await _searchBandcamp(query); // This uses the private method
-        return album;
-      } catch (e) {
-        Logging.severe('Error processing Bandcamp URL', e);
-      }
-      return [];
-    }
-
-    // Handle platform-specific searches
-    final platform = PlatformService.detectPlatform(query);
-    final results = await PlatformService.searchiTunesAlbums(query);
-    return results.map((album) => {'platform': platform, ...album}).toList();
-  }
-
-  /// Enhanced iTunes search with better handling of clean versions
-  static Future<List<dynamic>> searchiTunesAlbums(String query) async {
+  // Search albums across multiple platforms
+  static Future<List<dynamic>> searchAlbums(String query,
+      [SearchPlatform platform = SearchPlatform.itunes]) async {
     try {
-      // 1. First search by general term
+      Logging.severe('Searching for "$query" on ${platform.displayName}');
+
+      // Check if the query is a URL
+      bool isUrl = query.contains('http');
+
+      // If it's a URL, use the existing platform service to handle it
+      if (isUrl) {
+        return PlatformService.searchAlbums(query);
+      }
+
+      // Otherwise, use platform-specific search
+      switch (platform) {
+        case SearchPlatform.itunes:
+          return await _searchItunes(query);
+        case SearchPlatform.spotify:
+          return await _searchSpotify(query);
+        case SearchPlatform.deezer:
+          return await _searchDeezer(query);
+      }
+    } catch (e, stack) {
+      Logging.severe('Error searching albums', e, stack);
+      return [];
+    }
+  }
+
+  // Search on iTunes - using the more sophisticated approach from the original code
+  static Future<List<dynamic>> _searchItunes(String query) async {
+    try {
+      Logging.severe('Performing enhanced iTunes search for: $query');
+
+      // 1. First search by general term (with limit=50)
       final searchUrl = Uri.parse(
           'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}'
           '&entity=album&limit=50&sort=recent');
 
       final searchResponse = await http.get(searchUrl);
+      if (searchResponse.statusCode != 200) {
+        throw 'iTunes API error: ${searchResponse.statusCode}';
+      }
+
       final searchData = jsonDecode(searchResponse.body);
+      Logging.severe(
+          'iTunes general search returned ${searchData['resultCount']} results');
 
       // 2. Search specifically by artist name to improve relevance
       final artistSearchUrl = Uri.parse(
@@ -121,7 +79,13 @@ class SearchService {
           '&attribute=artistTerm&entity=album&limit=100');
 
       final artistSearchResponse = await http.get(artistSearchUrl);
+      if (artistSearchResponse.statusCode != 200) {
+        throw 'iTunes artist search API error: ${artistSearchResponse.statusCode}';
+      }
+
       final artistSearchData = jsonDecode(artistSearchResponse.body);
+      Logging.severe(
+          'iTunes artist-specific search returned ${artistSearchData['resultCount']} results');
 
       // Combine results, filter and handle duplicates
       final Map<String, dynamic> uniqueAlbums = {};
@@ -135,6 +99,8 @@ class SearchService {
       // Filter and sort results
       final validAlbums =
           _filterAndSortAlbums(uniqueAlbums.values.toList(), query);
+      Logging.severe(
+          'iTunes search: ${validAlbums.length} unique albums after deduplication and filtering');
 
       // 4. If there's a specific artist match, get their full discography
       if (validAlbums
@@ -142,45 +108,19 @@ class SearchService {
               a['artistName'].toString().toLowerCase() == query.toLowerCase())
           .isNotEmpty) {
         await _appendArtistDiscography(validAlbums, query);
+        Logging.severe(
+            'iTunes search: appended artist discography, final count: ${validAlbums.length}');
+      }
+
+      // Make sure all albums have platform set to 'itunes'
+      for (var album in validAlbums) {
+        album['platform'] = 'itunes';
       }
 
       return validAlbums;
-    } catch (e) {
-      Logging.severe('Error searching iTunes albums', e);
+    } catch (e, stack) {
+      Logging.severe('Error searching iTunes', e, stack);
       return [];
-    }
-  }
-
-  /// Fetch album information from Bandcamp
-  static Future<Map<String, dynamic>?> fetchBandcampAlbumInfo(
-      String url) async {
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final document = parse(response.body);
-        var ldJsonScript =
-            document.querySelector('script[type="application/ld+json"]');
-
-        if (ldJsonScript != null) {
-          final ldJson = jsonDecode(ldJsonScript.text);
-
-          // Extract metadata from JSON-LD
-          return {
-            'id': ldJson['@id'] ?? url.hashCode,
-            'name': ldJson['name'] ?? 'Unknown Album',
-            'artist': ldJson['byArtist']?['name'] ?? 'Unknown Artist',
-            'artworkUrl': ldJson['image'] ?? '',
-            'url': url,
-            'platform': 'bandcamp',
-            'releaseDate': ldJson['datePublished'],
-            'metadata': ldJson,
-          };
-        }
-      }
-      throw Exception('Failed to load Bandcamp album');
-    } catch (e) {
-      Logging.severe('Failed to fetch Bandcamp album info', e);
-      return null;
     }
   }
 
@@ -281,242 +221,421 @@ class SearchService {
   /// Append artist's full discography to results
   static Future<void> _appendArtistDiscography(
       List<dynamic> results, String query) async {
-    final artistId = results.first['artistId'];
-    final artistUrl = Uri.parse('https://itunes.apple.com/lookup?id=$artistId'
-        '&entity=album&limit=200');
-
-    final artistResponse = await http.get(artistUrl);
-    final artistData = jsonDecode(artistResponse.body);
-
-    for (var item in artistData['results']) {
-      if (item['wrapperType'] == 'collection' &&
-          item['collectionType'] == 'Album') {
-        bool alreadyAdded = results.any((existing) {
-          return existing['collectionId'] == item['collectionId'];
-        });
-
-        if (!alreadyAdded) {
-          if (item['collectionExplicitness'] == 'cleaned' &&
-              !item['collectionName'].toString().contains('(Clean)')) {
-            item = Map<String, dynamic>.from(item);
-            item['collectionName'] = "${item['collectionName']} (Clean)";
-          }
-
-          if (item['artistName'].toString().toLowerCase() ==
-              query.toLowerCase()) {
-            results.insert(
-                results
-                    .where((a) =>
-                        a['artistName'].toString().toLowerCase() ==
-                        query.toLowerCase())
-                    .length,
-                item);
-          } else {
-            results.add(item);
-          }
-        }
-      }
-    }
-  }
-
-  static int _parseBandcampDuration(String duration) {
     try {
-      final regex = RegExp(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?');
-      final match = regex.firstMatch(duration);
+      if (results.isEmpty) return;
 
-      if (match != null) {
-        final hours = int.tryParse(match.group(1) ?? '0') ?? 0;
-        final minutes = int.tryParse(match.group(2) ?? '0') ?? 0;
-        final seconds = int.tryParse(match.group(3) ?? '0') ?? 0;
-        return (hours * 3600 + minutes * 60 + seconds) * 1000;
-      }
-    } catch (e) {
-      Logging.severe('Error parsing duration', e);
-    }
-    return 0;
-  }
+      final artistId = results.first['artistId'];
+      final artistUrl = Uri.parse('https://itunes.apple.com/lookup?id=$artistId'
+          '&entity=album&limit=200');
 
-  /// Search Bandcamp URL - specific handler for Bandcamp URLs
-  static Future<List<dynamic>> _searchBandcamp(String url) async {
-    try {
-      Logging.severe('BANDCAMP SEARCH START: $url');
+      final artistResponse = await http.get(artistUrl);
+      final artistData = jsonDecode(artistResponse.body);
 
-      // Safety check
-      if (url.trim().isEmpty) {
-        Logging.severe('BANDCAMP URL EMPTY');
-        return [];
-      }
+      Logging.severe(
+          'Artist discography lookup returned ${artistData['resultCount']} items');
 
-      Logging.severe('Processing Bandcamp URL: $url');
+      for (var item in artistData['results']) {
+        if (item['wrapperType'] == 'collection' &&
+            item['collectionType'] == 'Album') {
+          bool alreadyAdded = results.any((existing) {
+            return existing['collectionId'] == item['collectionId'];
+          });
 
-      final response = await http.get(Uri.parse(url));
-
-      Logging.severe('BANDCAMP HTTP STATUS: ${response.statusCode}');
-
-      if (response.statusCode != 200) {
-        Logging.severe('BANDCAMP HTTP ERROR: ${response.statusCode}');
-        return [];
-      }
-
-      final document = parse(response.body);
-
-      // Try to get JSON-LD data first (most reliable)
-      var ldJsonScript =
-          document.querySelector('script[type="application/ld+json"]');
-
-      Logging.severe('BANDCAMP JSON-LD SCRIPT FOUND: ${ldJsonScript != null}');
-
-      if (ldJsonScript != null && ldJsonScript.text.isNotEmpty) {
-        try {
-          Logging.severe('PARSING BANDCAMP JSON-LD DATA');
-          final ldJson = jsonDecode(ldJsonScript.text);
-          Logging.severe('BANDCAMP JSON-LD PARSED SUCCESSFULLY');
-
-          // Log important LD+JSON fields
-          Logging.severe('BANDCAMP JSON-LD FIELDS:');
-          Logging.severe('- @type: ${ldJson['@type']}');
-          Logging.severe('- name: ${ldJson['name']}');
-          Logging.severe('- byArtist: ${ldJson['byArtist']?['name']}');
-          Logging.severe('- image: ${ldJson['image']}');
-
-          // Create unique ID for Bandcamp
-          final uniqueId = url.hashCode;
-          Logging.severe('BANDCAMP GENERATED ID: $uniqueId');
-
-          final albumData = {
-            'collectionId': uniqueId,
-            'id': uniqueId,
-            'collectionName': ldJson['name'] ?? 'Unknown Album',
-            'artistName': ldJson['byArtist']?['name'] ??
-                ldJson['author']?['name'] ??
-                'Unknown Artist',
-            'artworkUrl100': ldJson['image'] ?? '',
-            'url': url,
-            'platform': 'bandcamp',
-            'releaseDate':
-                ldJson['datePublished'] ?? DateTime.now().toIso8601String(),
-          };
-
-          Logging.severe(
-              'BANDCAMP ALBUM DATA CREATED: ${jsonEncode(albumData)}');
-
-          // Process tracks if available
-          if (ldJson['track'] != null &&
-              ldJson['track']['itemListElement'] != null) {
-            Logging.severe('BANDCAMP TRACKS FOUND');
-            final tracks = [];
-            final trackItems = ldJson['track']['itemListElement'] as List;
-            Logging.severe('BANDCAMP TRACK COUNT: ${trackItems.length}');
-
-            for (var item in trackItems) {
-              final track = item['item'];
-              final position = item['position'] ?? tracks.length + 1;
-
-              var trackId = DateTime.now().millisecondsSinceEpoch;
-              try {
-                final props = track['additionalProperty'] as List;
-                final trackIdProp = props.firstWhere(
-                    (p) => p['name'] == 'track_id',
-                    orElse: () => {'value': trackId});
-                trackId = trackIdProp['value'] ?? trackId;
-              } catch (e) {
-                Logging.severe('Error extracting track ID: $e');
-              }
-
-              tracks.add({
-                'trackId': trackId,
-                'trackNumber': position,
-                'trackName': track['name'] ?? 'Track $position',
-                'trackTimeMillis':
-                    _parseBandcampDuration(track['duration'] ?? ''),
-              });
+          if (!alreadyAdded) {
+            if (item['collectionExplicitness'] == 'cleaned' &&
+                !item['collectionName'].toString().contains('(Clean)')) {
+              item = Map<String, dynamic>.from(item);
+              item['collectionName'] = "${item['collectionName']} (Clean)";
             }
 
-            albumData['tracks'] = tracks;
-            Logging.severe('BANDCAMP TRACKS PROCESSED: ${tracks.length}');
-          } else {
-            Logging.severe('NO BANDCAMP TRACKS FOUND IN JSON-LD');
+            if (item['artistName'].toString().toLowerCase() ==
+                query.toLowerCase()) {
+              results.insert(
+                  results
+                      .where((a) =>
+                          a['artistName'].toString().toLowerCase() ==
+                          query.toLowerCase())
+                      .length,
+                  item);
+            } else {
+              results.add(item);
+            }
           }
+        }
+      }
+    } catch (e, stack) {
+      Logging.severe('Error appending artist discography', e, stack);
+    }
+  }
 
-          Logging.severe('RETURNING BANDCAMP ALBUM DATA');
-          return [albumData];
-        } catch (e, stack) {
-          Logging.severe('ERROR PARSING BANDCAMP JSON-LD DATA: $e', e, stack);
-          // Continue to fallback methods
+  // Search on Spotify
+  static Future<List<dynamic>> _searchSpotify(String query) async {
+    try {
+      final encodedQuery = Uri.encodeComponent(query);
+
+      // Get access token - fix the authentication method
+      String accessToken;
+      try {
+        // We need to get a proper access token using the client credentials flow
+        // Current approach in ApiKeys.getSpotifyToken() just gives a Basic Auth token, not an access token
+        accessToken = await _getSpotifyAccessToken();
+        Logging.severe(
+            'Got Spotify access token: ${accessToken.substring(0, 10)}...');
+      } catch (e, stack) {
+        Logging.severe('Error getting Spotify token', e, stack);
+        throw 'Error getting Spotify token: $e';
+      }
+
+      final url = Uri.parse(
+          'https://api.spotify.com/v1/search?q=$encodedQuery&type=album&limit=50');
+
+      final response = await http
+          .get(url, headers: {'Authorization': 'Bearer $accessToken'});
+
+      if (response.statusCode != 200) {
+        throw 'Spotify API error: ${response.statusCode}';
+      }
+
+      final data = jsonDecode(response.body);
+      if (!data.containsKey('albums') || !data['albums'].containsKey('items')) {
+        return [];
+      }
+
+      // Format results to match the expected structure
+      return data['albums']['items'].map((album) {
+        return {
+          'id': album['id'],
+          'collectionId': album['id'],
+          'name': album['name'],
+          'collectionName': album['name'],
+          'artist': album['artists'][0]['name'],
+          'artistName': album['artists'][0]['name'],
+          'artworkUrl': album['images'][0]['url'],
+          'artworkUrl100': album['images'][0]['url'],
+          'url': album['external_urls']['spotify'],
+          'platform': 'spotify',
+          'releaseDate': album['release_date'],
+        };
+      }).toList();
+    } catch (e, stack) {
+      Logging.severe('Error searching Spotify', e, stack);
+      return [];
+    }
+  }
+
+  // Add a new method to get Spotify access token using client credentials flow
+  static Future<String> _getSpotifyAccessToken() async {
+    try {
+      // Use constants directly since ApiKeys values are already constants
+      const clientId = ApiKeys.spotifyClientId;
+      const clientSecret = ApiKeys.spotifyClientSecret;
+
+      // Encode credentials and create authorization header
+      const credentials = "$clientId:$clientSecret";
+      final bytes = utf8.encode(credentials);
+      final base64Credentials = base64.encode(bytes);
+
+      // Make token request
+      final tokenUrl = Uri.parse('https://accounts.spotify.com/api/token');
+      final response = await http.post(
+        tokenUrl,
+        headers: {
+          'Authorization': 'Basic $base64Credentials',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {'grant_type': 'client_credentials'},
+      );
+
+      if (response.statusCode != 200) {
+        Logging.severe(
+            'Spotify token error: ${response.statusCode} ${response.body}');
+        throw 'Failed to get Spotify token: ${response.statusCode}';
+      }
+
+      final data = jsonDecode(response.body);
+      if (!data.containsKey('access_token')) {
+        throw 'No access token in Spotify response';
+      }
+
+      return data['access_token'];
+    } catch (e, stack) {
+      Logging.severe('Error in _getSpotifyAccessToken', e, stack);
+      rethrow;
+    }
+  }
+
+  // Search on Deezer
+  static Future<List<dynamic>> _searchDeezer(String query) async {
+    try {
+      final encodedQuery = Uri.encodeComponent(query);
+      // Increase limit from 25 to 50 to get more results
+      final url = Uri.parse(
+          'https://api.deezer.com/search/album?q=$encodedQuery&limit=50');
+
+      Logging.severe('Deezer search URL: $url');
+
+      final response = await http.get(url);
+      if (response.statusCode != 200) {
+        throw 'Deezer API error: ${response.statusCode}';
+      }
+
+      final data = jsonDecode(response.body);
+      if (!data.containsKey('data')) {
+        return [];
+      }
+
+      // Log the number of results we're getting
+      Logging.severe(
+          'Deezer search returned ${data['data'].length} results for query: $query');
+
+      // Format results to match the expected structure
+      return data['data'].map<Map<String, dynamic>>((album) {
+        return {
+          'id': album['id'],
+          'collectionId': album['id'],
+          'name': album['title'],
+          'collectionName': album['title'],
+          'artist': album['artist']['name'],
+          'artistName': album['artist']['name'],
+          'artworkUrl': album['cover_big'] ??
+              album['cover_medium'] ??
+              album['cover_small'],
+          'artworkUrl100': album['cover_medium'] ?? album['cover_small'],
+          'url': album['link'],
+          'platform': 'deezer',
+          'releaseDate':
+              album['release_date'] ?? DateTime.now().toIso8601String(),
+        };
+      }).toList();
+    } catch (e, stack) {
+      Logging.severe('Error searching Deezer', e, stack);
+      return [];
+    }
+  }
+
+  // Fetch album tracks for a specific album
+  static Future<Map<String, dynamic>?> fetchAlbumTracks(
+      Map<String, dynamic> album) async {
+    try {
+      // Determine platform from album data
+      String platform = album['platform'] ?? 'unknown';
+
+      if (platform == 'unknown') {
+        // Try to infer platform from URL
+        final url = album['url'] ?? '';
+        if (url.contains('spotify.com')) {
+          platform = 'spotify';
+        } else if (url.contains('apple.com') || url.contains('itunes.com')) {
+          platform = 'itunes';
+        } else if (url.contains('deezer.com')) {
+          platform = 'deezer';
+        } else if (url.contains('bandcamp.com')) {
+          platform = 'bandcamp';
         }
       }
 
-      // Fallback to meta tags
-      Logging.severe('BANDCAMP FALLBACK TO META TAGS');
-      final title = document
-          .querySelector('meta[property="og:title"]')
-          ?.attributes['content'];
-      final artist = document
-          .querySelector('meta[property="og:site_name"]')
-          ?.attributes['content'];
-      final artwork = document
-          .querySelector('meta[property="og:image"]')
-          ?.attributes['content'];
+      Logging.severe('Fetching tracks for album on platform: $platform');
 
-      Logging.severe('BANDCAMP META TAGS:');
-      Logging.severe('- title: $title');
-      Logging.severe('- artist: $artist');
-      Logging.severe('- artwork: $artwork');
+      // Use appropriate fetching method based on platform
+      switch (platform.toLowerCase()) {
+        case 'spotify':
+          return await fetchSpotifyAlbumDetails(album);
+        case 'deezer':
+          return await fetchDeezerAlbumDetails(album);
+        case 'bandcamp':
+          return await fetchBandcampAlbumDetails(album);
+        case 'itunes':
+        default:
+          return await fetchITunesAlbumDetails(album);
+      }
+    } catch (e, stack) {
+      Logging.severe('Error fetching album tracks', e, stack);
+      return null;
+    }
+  }
 
-      if (title != null) {
-        final albumName =
-            title.contains(', by') ? title.split(', by').first.trim() : title;
-        final artistName = artist ??
-            (title.contains(', by')
-                ? title.split(', by').last.trim()
-                : 'Unknown Artist');
+  // Fetch details for Spotify albums
+  static Future<Map<String, dynamic>?> fetchSpotifyAlbumDetails(
+      Map<String, dynamic> album) async {
+    try {
+      final albumId = album['id'] ?? album['collectionId'];
+      if (albumId == null) return null;
 
-        final albumData = {
-          'collectionId': url.hashCode,
-          'id': url.hashCode,
-          'collectionName': albumName,
-          'artistName': artistName,
-          'artworkUrl100': artwork ?? '',
-          'url': url,
-          'platform': 'bandcamp',
-          'releaseDate': DateTime.now().toIso8601String(),
-        };
+      // Get access token with the correct method
+      final accessToken = await _getSpotifyAccessToken();
 
-        Logging.severe(
-            'Created Bandcamp data from meta tags: $albumName by $artistName');
-        return [albumData];
+      // Get album details
+      final url = Uri.parse('https://api.spotify.com/v1/albums/$albumId');
+      final response = await http
+          .get(url, headers: {'Authorization': 'Bearer $accessToken'});
+
+      if (response.statusCode != 200) {
+        throw 'Spotify API error: ${response.statusCode}';
       }
 
-      // Last resort - return minimal data
-      Logging.severe(
-          'Could not extract proper metadata from Bandcamp URL, using fallback');
-      final fallbackData = {
-        'collectionId': url.hashCode,
-        'id': url.hashCode,
-        'collectionName': 'Unknown Album',
-        'artistName': 'Unknown Artist',
-        'artworkUrl100': '',
-        'url': url,
-        'platform': 'bandcamp',
-        'releaseDate': DateTime.now().toIso8601String(),
-      };
-      Logging.severe('RETURNING BANDCAMP MINIMAL FALLBACK DATA');
-      return [fallbackData];
-    } catch (e, stack) {
-      Logging.severe('ERROR PROCESSING BANDCAMP URL: $e', e, stack);
+      final data = jsonDecode(response.body);
 
-      final errorFallbackData = {
-        'collectionId': url.hashCode,
-        'id': url.hashCode,
-        'collectionName': 'Unknown Album (Error)',
-        'artistName': 'Unknown Artist',
-        'artworkUrl100': '',
-        'url': url,
-        'platform': 'bandcamp',
-        'releaseDate': DateTime.now().toIso8601String(),
-      };
-      Logging.severe('RETURNING BANDCAMP ERROR FALLBACK DATA');
-      return [errorFallbackData];
+      // Parse tracks
+      final tracks = data['tracks']['items'].map<Map<String, dynamic>>((track) {
+        return {
+          'trackId': track['id'],
+          'trackName': track['name'],
+          'trackNumber': track['track_number'],
+          'trackTimeMillis': track['duration_ms'],
+          'artistName': track['artists'][0]['name'],
+        };
+      }).toList();
+
+      // Return album with tracks
+      final result = Map<String, dynamic>.from(album);
+      result['tracks'] = tracks;
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error fetching Spotify album details', e, stack);
+      return null;
+    }
+  }
+
+  // Fetch details for Deezer albums
+  static Future<Map<String, dynamic>?> fetchDeezerAlbumDetails(
+      Map<String, dynamic> album) async {
+    try {
+      final albumId = album['id'] ?? album['collectionId'];
+      if (albumId == null) return null;
+
+      // Get album tracks
+      final url = Uri.parse('https://api.deezer.com/album/$albumId/tracks');
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        throw 'Deezer API error: ${response.statusCode}';
+      }
+
+      final data = jsonDecode(response.body);
+
+      // Parse tracks
+      final tracks = data['data'].map<Map<String, dynamic>>((track) {
+        return {
+          'trackId': track['id'],
+          'trackName': track['title'],
+          'trackNumber': track['track_position'],
+          'trackTimeMillis':
+              track['duration'] * 1000, // Convert seconds to milliseconds
+          'artistName': track['artist']['name'],
+        };
+      }).toList();
+
+      // Return album with tracks
+      final result = Map<String, dynamic>.from(album);
+      result['tracks'] = tracks;
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error fetching Deezer album details', e, stack);
+      return null;
+    }
+  }
+
+  // Fetch details for Bandcamp albums
+  static Future<Map<String, dynamic>?> fetchBandcampAlbumDetails(
+      Map<String, dynamic> album) async {
+    try {
+      // For Bandcamp, we typically already have the tracks in the album data
+      // since it's scraped from the page. If not, we return the album as is.
+      if (album.containsKey('tracks') &&
+          album['tracks'] is List &&
+          (album['tracks'] as List).isNotEmpty) {
+        return album;
+      }
+
+      // If tracks are missing, we can try to use the platform service
+      final albumUrl = album['url'];
+      if (albumUrl != null && albumUrl.isNotEmpty) {
+        final results = await PlatformService.searchAlbums(albumUrl);
+        if (results.isNotEmpty && results[0].containsKey('tracks')) {
+          album['tracks'] = results[0]['tracks'];
+          return album;
+        }
+      }
+
+      // For now, return the album as is
+      return album;
+    } catch (e, stack) {
+      Logging.severe('Error fetching Bandcamp album details', e, stack);
+      return null;
+    }
+  }
+
+  // Fetch details for iTunes/Apple Music albums
+  static Future<Map<String, dynamic>?> fetchITunesAlbumDetails(
+      Map<String, dynamic> album) async {
+    try {
+      final collectionId = album['collectionId'] ?? album['id'];
+      if (collectionId == null) return null;
+
+      // Look up album and tracks
+      final url = Uri.parse(
+          'https://itunes.apple.com/lookup?id=$collectionId&entity=song');
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        throw 'iTunes API error: ${response.statusCode}';
+      }
+
+      final data = jsonDecode(response.body);
+
+      // Filter to get just the tracks
+      final tracks = data['results']
+          .where((item) =>
+              item['wrapperType'] == 'track' && item['kind'] == 'song')
+          .toList();
+
+      // Return album with tracks
+      final result = Map<String, dynamic>.from(album);
+      result['tracks'] = tracks;
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error fetching iTunes album details', e, stack);
+      return null;
+    }
+  }
+
+  // Save search history to database
+  static Future<void> saveSearchHistory(
+      String query, SearchPlatform platform) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      // Save search query to database
+      await db.insert(
+        'search_history',
+        {
+          'query': query,
+          'platform': platform.name,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      // Don't throw error for search history issues
+      Logging.severe('Error saving search history', e);
+    }
+  }
+
+  // Get recent searches from database
+  static Future<List<Map<String, dynamic>>> getRecentSearches(
+      {int limit = 10}) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      // Get recent searches from database
+      return await db.query(
+        'search_history',
+        orderBy: 'timestamp DESC',
+        limit: limit,
+      );
+    } catch (e) {
+      Logging.severe('Error getting recent searches', e);
+      return [];
     }
   }
 }

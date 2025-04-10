@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
+import 'package:rateme/search_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart'; // Add this import for Sqflite
@@ -874,6 +875,23 @@ class UserData {
     } catch (e) {
       Logging.severe('Error getting setting: $e');
       return null;
+    }
+  }
+
+  /// Get default search platform from preferences
+  static Future<SearchPlatform> getDefaultSearchPlatform() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final platformIndex = prefs.getInt('defaultSearchPlatform') ?? 0;
+
+      if (platformIndex < SearchPlatform.values.length) {
+        return SearchPlatform.values[platformIndex];
+      }
+
+      return SearchPlatform.itunes; // Default
+    } catch (e) {
+      Logging.severe('Error getting default search platform', e);
+      return SearchPlatform.itunes; // Default on error
     }
   }
 

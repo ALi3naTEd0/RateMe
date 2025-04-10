@@ -28,6 +28,75 @@ class PlatformUI {
     return 'lib/icons/bandcamp.svg';
   }
 
+  // Helper method to get the appropriate platform icon
+  static IconData getPlatformIcon(Map<String, dynamic> album) {
+    final String platform = _getPlatformType(album).toLowerCase();
+
+    switch (platform) {
+      case 'spotify':
+        return Icons.music_note;
+      case 'itunes':
+      case 'apple_music':
+        return Icons.apple;
+      case 'deezer':
+        return Icons.library_music;
+      case 'bandcamp':
+        return Icons.album;
+      default:
+        // Instead of defaulting to bandcamp icon, let's use a generic music icon
+        return Icons.music_note;
+    }
+  }
+
+  // Helper method to get the platform type from an album
+  static String _getPlatformType(Map<String, dynamic> album) {
+    // First check explicit platform field
+    if (album.containsKey('platform') && album['platform'] != null) {
+      return album['platform'].toString();
+    }
+
+    // Then try to determine from URL
+    final url = album['url']?.toString() ?? '';
+
+    if (url.contains('itunes.apple.com') || url.contains('music.apple.com')) {
+      return 'itunes';
+    } else if (url.contains('spotify.com')) {
+      return 'spotify';
+    } else if (url.contains('deezer.com')) {
+      return 'deezer';
+    } else if (url.contains('bandcamp.com')) {
+      return 'bandcamp';
+    }
+
+    // For iTunes API results, check for the collectionId/collectionName pattern
+    if (album.containsKey('collectionId') &&
+        album.containsKey('collectionName') &&
+        !album.containsKey('platform')) {
+      return 'itunes';
+    }
+
+    return 'unknown';
+  }
+
+  // Helper method to get platform color
+  static Color getPlatformColor(Map<String, dynamic> album) {
+    final String platform = _getPlatformType(album).toLowerCase();
+
+    switch (platform) {
+      case 'spotify':
+        return const Color(0xFF1DB954);
+      case 'itunes':
+      case 'apple_music':
+        return const Color(0xFFFC3C44);
+      case 'deezer':
+        return const Color(0xFF00C7F2);
+      case 'bandcamp':
+        return const Color(0xFF1DA0C3);
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
   /// Widget that displays an icon for the given platform
   static Widget buildPlatformIcon({
     required String platform,

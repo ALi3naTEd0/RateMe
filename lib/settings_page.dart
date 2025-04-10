@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:rateme/global_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
@@ -11,6 +13,7 @@ import 'debug_util.dart';
 import 'database/database_helper.dart';
 import 'database/migration_utility.dart'; // Add this import for MigrationUtility
 import 'widgets/skeleton_loading.dart'; // Add this import at the top with other imports
+import 'search_service.dart'; // Add this import for SearchPlatform enum
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -42,10 +45,18 @@ class _SettingsPageState extends State<SettingsPage> {
   final defaultTextColor = Colors.white;
   bool useDarkText = false;
   bool isLoading = true;
+  SearchPlatform defaultSearchPlatform = SearchPlatform.itunes;
 
   // Add refresh indicator key
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
+
+  // Add default search platform selection
+  SearchPlatform _defaultSearchPlatform = SearchPlatform.itunes;
+
+  // Add these GlobalKeys at the top of your _SettingsPageState class
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -54,6 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
     textColor = defaultTextColor;
     _loadSettings();
     _checkDatabaseSize();
+    _loadPreferences();
   }
 
   Future<void> _loadSettings() async {
@@ -62,7 +74,45 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         useDarkText = prefs.getBool('useDarkButtonText') ?? false;
         isLoading = false;
+
+        // Load default search platform preference
+        final platformIndex = prefs.getInt('defaultSearchPlatform') ?? 0;
+        if (platformIndex < SearchPlatform.values.length) {
+          defaultSearchPlatform = SearchPlatform.values[platformIndex];
+        }
       });
+    }
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      // Get database instance
+      final db = DatabaseHelper.instance;
+
+      // Load dark button text preference
+      final darkButtonTextSetting = await db.getSetting('useDarkButtonText');
+      // Fix: Change from final to var since we're reassigning it
+      var useDarkText = darkButtonTextSetting == 'true';
+
+      // Load default search platform
+      final platformIndexSetting =
+          await db.getSetting('default_search_platform');
+      int platformIndex = 0;
+      if (platformIndexSetting != null) {
+        platformIndex = int.tryParse(platformIndexSetting) ?? 0;
+      }
+
+      if (platformIndex < SearchPlatform.values.length) {
+        _defaultSearchPlatform = SearchPlatform.values[platformIndex];
+      }
+
+      if (mounted) {
+        setState(() {
+          useDarkText = useDarkText;
+        });
+      }
+    } catch (e) {
+      Logging.severe('Error loading settings preferences', e);
     }
   }
 
@@ -813,11 +863,44 @@ class _SettingsPageState extends State<SettingsPage> {
     // Reload settings
     await _loadSettings();
     await _checkDatabaseSize();
+    await _loadPreferences();
 
     // Show feedback to user
     _showSnackBar('Settings refreshed');
 
     Logging.severe('Settings refresh complete');
+  }
+
+  // Save default search platform using the database
+  Future<void> _saveDefaultSearchPlatform(SearchPlatform platform) async {
+    try {
+      final db = DatabaseHelper.instance;
+      await db.saveSetting(
+          'default_search_platform', platform.index.toString());
+
+      Logging.severe(
+          'Default search platform updated to ${platform.displayName} (index: ${platform.index})');
+
+      setState(() {
+        _defaultSearchPlatform = platform;
+      });
+
+      // Notify the app about the default platform change
+      GlobalNotifications.defaultSearchPlatformChanged(platform);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Default search platform updated to ${platform.displayName}')),
+        );
+      }
+    } catch (e) {
+      Logging.severe('Error saving default search platform', e);
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Error setting default platform: $e')),
+      );
+    }
   }
 
   @override
@@ -832,7 +915,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return MaterialApp(
       navigatorKey: navigatorKey,
-      scaffoldMessengerKey: scaffoldMessengerKey,
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: Theme.of(context),
       home: Scaffold(
@@ -1073,6 +1156,70 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
 
+                        // Search Preferences Section
+                        Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Search Preferences',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Default search platform dropdown
+                                Row(
+                                  children: [
+                                    const Text('Default Search Platform:'),
+                                    const Spacer(),
+                                    DropdownButton<SearchPlatform>(
+                                      value: _defaultSearchPlatform,
+                                      underline: Container(),
+                                      onChanged: (SearchPlatform? platform) {
+                                        if (platform != null) {
+                                          _saveDefaultSearchPlatform(platform);
+                                        }
+                                      },
+                                      items:
+                                          SearchPlatform.values.map((platform) {
+                                        return DropdownMenuItem<SearchPlatform>(
+                                          value: platform,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              SvgPicture.asset(
+                                                _getPlatformIconPath(platform),
+                                                width: 20,
+                                                height: 20,
+                                                // Fix icon colors for both themes
+                                                colorFilter: ColorFilter.mode(
+                                                    Theme.of(context)
+                                                                .brightness ==
+                                                            Brightness.dark
+                                                        ? Colors.white
+                                                        : Colors.black,
+                                                    BlendMode.srcIn),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(platform.displayName),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
                         // Data Management Section
                         Card(
                           margin: const EdgeInsets.all(8),
@@ -1219,6 +1366,18 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Helper method to get platform icon path
+  String _getPlatformIconPath(SearchPlatform platform) {
+    switch (platform) {
+      case SearchPlatform.itunes:
+        return 'lib/icons/apple_music.svg';
+      case SearchPlatform.spotify:
+        return 'lib/icons/spotify.svg';
+      case SearchPlatform.deezer:
+        return 'lib/icons/deezer.svg';
+    }
+  }
+
   Widget _buildSkeletonSettings() {
     return ListView(
       children: [
@@ -1274,6 +1433,50 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
 
         // Data Management section skeleton
+        Card(
+          margin: const EdgeInsets.all(8),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SkeletonLoading(width: 150, height: 24),
+                const SizedBox(height: 16),
+                ...List.generate(
+                  3,
+                  (index) => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12.0),
+                    child: SkeletonLoading(height: 48),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Database Management section skeleton
+        Card(
+          margin: const EdgeInsets.all(8),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SkeletonLoading(width: 150, height: 24),
+                const SizedBox(height: 16),
+                ...List.generate(
+                  2,
+                  (index) => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12.0),
+                    child: SkeletonLoading(height: 48),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Debug & Development section skeleton
         Card(
           margin: const EdgeInsets.all(8),
           child: Padding(

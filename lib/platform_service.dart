@@ -56,6 +56,7 @@ class PlatformService {
 
   /// Search for albums across all platforms
   static Future<List<dynamic>> searchAlbums(String query) async {
+    Logging.severe('PlatformService.searchAlbums called with query: $query');
     if (query.isEmpty) return [];
 
     // Handle iTunes/Apple Music URLs

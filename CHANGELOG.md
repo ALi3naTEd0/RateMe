@@ -7,13 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0-4] - 2025-04-02
+### Added
+- Default search platform selection in settings
+- Default search platform persistence across app restarts
+- Multi-platform search capability (iTunes, Spotify, Deezer)
+- Integrated SQLite database for improved data persistence and performance
+- Cross-platform album matching between different music services
+- Platform icons in search results for better visual identification
+- Platform-specific search capabilities for more accurate results
+- Enhanced clipboard detection for URLs from all supported platforms
+- Database migration utility with progress tracking
+- Database integrity checking and vacuum optimization
+- Global notifications system for real-time app state updates
+- SVG-based platform icons with proper theme support
 
-## [1.1.0-3] - 2025-03-30
+### Fixed
+- Fixed issues with Deezer track handling, ratings persistence and album artwork display
+- Fixed platform icons in light theme showing incorrectly
+- Fixed automatic search when changing platforms in the main search bar
+- Fixed database timestamp constraints for ratings across all platforms
+- Fixed inconsistent handling of track IDs across different music platforms
+- Fixed album ratings consistency across different platforms
+- Improved error handling for missing track information
+- Fixed crashes when loading albums with inconsistent track data
+- Better handling of non-standard API responses from music platforms
 
-## [1.1.0-2] - 2025-03-30
+### Changed
+- Reorganized Settings page with grouped options for search preferences
+- Enhanced default platform selection with visual platform indicators
+- Implemented automatic platform updates when default is changed in settings
+- Enhanced data model with more consistent field naming
+- Improved album detail page loading performance
+- Enhanced platform detection from URLs
+- Reorganized search service to better handle multiple platforms
+- Improved search result ranking algorithm
 
-## [1.1.0-1] - 2025-03-30
+### Technical
+- Improved BuildContext management with GlobalKey approach
+- Added StreamController-based global notification system
+- Enhanced error logging for platform-specific issues
+- Added database helper methods for SQLite operations
+- Added migration utility for data transition to SQLite
+- Implemented transaction support for batch database operations
+- Better album matching algorithms for cross-platform compatibility
+- Optimized search queries with improved platform handling
+
+## [1.1.0-4] - 2023-10-31
 
 ### Added
 - Deezer album URL detection in clipboard
@@ -31,8 +70,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New skeleton loading screens for improved UX during content loading
 
 ### Fixed
-- Fixed Deezer track handling, ratings persistence and album artwork display
-- Fixed database timestamp constraints for ratings across all platforms
 - Fixed track ID handling with multiple fallback mechanisms for consistent string IDs
 - Fixed album deletion cascading to custom lists
 - Fixed custom list content synchronization on album deletion
@@ -41,14 +78,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed database schema migration and backward compatibility issues
 - Fixed data integrity issues when accessing album artwork
 - Fixed non-null constraint error on ratings timestamp
-- Fixed album ratings persistence and display for all supported platforms (iTunes, Bandcamp, Spotify, Deezer)
+- Fixed album ratings persistence and display for all supported platforms
 - Improved track loading reliability across different music platforms
 - Fixed issues with Spotify album tracks not displaying properly
-- Fixed issues with Deezer track ratings not being saved correctly
-- Fixed inconsistent handling of track IDs across different music platforms
 
 ### Changed
-- Reorganized Settings page with grouped options for database management
 - Enhanced custom lists management with SQLite backend
 - UI/UX Improvement: Applied consistent 85% width layout to all screens
 - Refactored entire app from BuildContext-based navigation to GlobalKey approach
@@ -70,47 +104,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created migration utilities for safe data transition
 - Optimized database queries with prepared statements
 
-## [2.0.0] - 2025-03-20
+## [1.1.0-3] - 2023-10-25
 
 ### Added
-- Improved color picker with live preview in settings
-- Better theme persistence across app restarts
-- Option to choose between light/dark button text
-- Improved album search with better handling of clean/explicit versions
-- URL detection from clipboard for quick album import
-
-### Changed
-- Unified button text style for better consistency
-- Slider colors now properly follow theme's primary color
-- Color picker preview now shows actual button style
-- Enhanced search results organization and deduplication
-- Improved Bandcamp album handling
+- Comprehensive SQLite database implementation for all app data
+- Migration utility to transition from SharedPreferences to SQLite
+- Migration progress UI with detailed statistics
+- Database helper class with extensive error handling
+- Support for backup/restore in new database format
+- Track ID consistency layer for cross-platform compatibility
 
 ### Fixed
-- Theme color not persisting after app restart
-- Inconsistent button text colors across the app
-- Sliders not updating color when changing theme
-- Duplicate album entries in search results
-- Missing track information from some sources
+- Fixed inconsistent behavior when retrieving album artwork
+- Improved error handling for missing track information
+- Fixed crashes when loading albums with inconsistent track data
+- Better handling of non-standard API responses from music platforms
 
-## [1.5.0] - 2025-01-15
+### Changed
+- Enhanced data model with more consistent field naming
+- Improved album detail page loading performance
+- Better album rating consistency across platforms
+
+## [1.1.0-2] - 2023-10-20
 
 ### Added
-- Support for Bandcamp albums
-- Custom lists feature to organize albums
-- Share albums as beautiful images
-- Dark mode support
-- Custom color themes
-
-### Changed
-- Improved UI for rating albums
-- Better handling of album metadata
-- Enhanced search functionality
+- Enhanced search capabilities for Spotify albums
+- Added dedicated Spotify authentication flow
+- Improved album match detection between platforms
 
 ### Fixed
-- Various bugs and stability issues
+- Fixed platform icon display issues in settings
+- Better error handling for API failures
+- Corrected track filtering to exclude videos and other non-music content
 
-## [1.0.4-4] - 2025-07-22
+### Changed
+- Improved clipboard detection for URLs from different music platforms
+- Enhanced search result ranking algorithm
+
+## [1.1.0-1] - 2023-10-19
+
+### Added
+- Initial support for Deezer platform integration
+- Cross-platform album matching capability
+- Platform icons in search results
+- Expanded platform selection in search interface
+
+### Fixed
+- Fixed shared preferences persistence issues
+- Better error handling for network failures
+- Improved album artwork resolution selection
+
+### Changed
+- Reorganized search service to better handle multiple platforms
+- Enhanced platform detection from URLs
+
+## [1.0.4-4] - 2023-10-15
 
 ### Changed
 - Changed project license from GPL-3.0 to MIT
