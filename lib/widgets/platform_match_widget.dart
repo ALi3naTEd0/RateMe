@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math'; // Add this import for the min() function
 import '../album_model.dart';
 import '../logging.dart';
 import '../api_keys.dart';
@@ -126,6 +127,19 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     // Track which platforms to remove due to failed verification
     final List<String> platformsToRemove = [];
 
+    // Check if the current platform is iTunes, and if so, make sure apple_music is also marked as current
+    final String currentPlatform = widget.album.platform.toLowerCase();
+    final bool isITunesOrAppleMusic =
+        currentPlatform == 'itunes' || currentPlatform == 'apple_music';
+
+    Logging.severe(
+        'Current platform: $currentPlatform, Is iTunes/Apple Music: $isITunesOrAppleMusic');
+
+    // Remove automatic addition of search URL fallbacks
+
+    // ...existing verification code for each platform...
+
+    // ...existing code...
     for (final platform in platformsToVerify) {
       if (_platformUrls.containsKey(platform)) {
         final url = _platformUrls[platform];
@@ -135,8 +149,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           continue;
         }
 
-        // Skip verification for the source platform
-        if (platform == widget.album.platform.toLowerCase()) {
+        // Skip verification for source platform - make sure both itunes and apple_music are
+        // treated as the same platform for verification purposes
+        if ((isITunesOrAppleMusic && platform == 'apple_music') ||
+            (platform == currentPlatform)) {
+          Logging.severe(
+              'Skipping verification for $platform (source platform)');
           continue;
         }
 
@@ -174,7 +192,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     }
 
     Logging.severe(
-        'After verification, have ${_platformUrls.length} valid platform matches');
+        'After verification, have ${_platformUrls.length} valid platform matches: ${_platformUrls.keys.join(', ')}');
   }
 
   /// More thorough validation for search URLs
@@ -185,6 +203,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       if (platform == 'spotify') {
         return await _verifySpotifyAlbumExists(artistName, albumName);
       } else if (platform == 'apple_music') {
+        // For Apple Music, we'll no longer use search URL fallbacks
         return await _verifyAppleMusicAlbumExists(artistName, albumName);
       } else if (platform == 'deezer') {
         return await _verifyDeezerAlbumExists(artistName, albumName);
@@ -298,24 +317,26 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       Logging.severe(
           'Using simplified terms: "$simplifiedAlbum" by "$simplifiedArtist"');
 
-      // Try artist-only search with manual filtering for album matches
-      final artistQuery = Uri.encodeComponent(simplifiedArtist);
-      final artistUrl = Uri.parse(
-          'https://itunes.apple.com/search?term=$artistQuery&entity=album&limit=50');
+      // Try iTunes API direct search with better encoding
+      final combinedQuery =
+          Uri.encodeComponent("$simplifiedArtist $simplifiedAlbum");
+      final url = Uri.parse(
+          'https://itunes.apple.com/search?term=$combinedQuery&entity=album&limit=50');
 
-      Logging.severe('Apple Music verification: searching by artist only');
-      final artistResponse = await http.get(artistUrl);
+      Logging.severe('Apple Music verification query: $url');
+      final response = await http.get(url);
 
-      if (artistResponse.statusCode == 200) {
-        final data = jsonDecode(artistResponse.body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        Logging.severe(
+            'iTunes API response: ${response.body.substring(0, min(200, response.body.length))}...');
 
         if (data['results'] != null && data['results'].isNotEmpty) {
           final results = data['results'] as List;
           Logging.severe(
-              'Found ${results.length} albums by artist on Apple Music');
+              'Found ${results.length} potential Apple Music matches');
 
           // Special handling for exact matches to catch cases where the API returns results
-          // but simple string matching fails
           for (var result in results) {
             final resultAlbum = _simplifyText(
                 result['collectionName'].toString().toLowerCase());
@@ -324,7 +345,17 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
 
             Logging.severe('Comparing with: "$resultAlbum" by "$resultArtist"');
 
-            // Check for exact word matches in album title
+            // First check for very close matches
+            if ((resultArtist.contains(simplifiedArtist) ||
+                    simplifiedArtist.contains(resultArtist)) &&
+                (resultAlbum.contains(simplifiedAlbum) ||
+                    simplifiedAlbum.contains(resultAlbum))) {
+              Logging.severe(
+                  'Found direct Apple Music match: ${result['collectionName']}');
+              return true;
+            }
+
+            // Check for exact word matches in album title - more lenient approach
             final albumWords =
                 simplifiedAlbum.split(' ').where((w) => w.length > 2).toList();
             int wordMatches = 0;
@@ -341,117 +372,77 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
             Logging.severe(
                 'Album word match ratio: $albumWordMatchRatio (matches: $wordMatches/${albumWords.length})');
 
-            // For albums like "All Bitches Die", we need very lenient matching since
-            // the album may be listed with a slightly different title
-            if ((albumWordMatchRatio > 0.5 && albumWords.length >= 2) ||
-                resultAlbum.contains(simplifiedAlbum) ||
-                simplifiedAlbum.contains(resultAlbum)) {
+            // Very lenient matching since iTunes API can be challenging
+            if (resultArtist.contains(simplifiedArtist) &&
+                albumWordMatchRatio > 0.3) {
               Logging.severe(
-                  'Found valid Apple Music match with word matching: ${result['collectionName']}');
+                  'Found valid Apple Music match based on word matching: ${result['collectionName']}');
               return true;
             }
 
             // Try different similarity methods
+            final artistSimilarity =
+                _stringSimilarity(resultArtist, simplifiedArtist);
             final albumSimilarity =
-                _stringSimilarity(resultAlbum, normalizedAlbum);
-            final containsWords =
-                _containsKeywords(resultAlbum, normalizedAlbum);
+                _stringSimilarity(resultAlbum, simplifiedAlbum);
 
-            // Accept if either similarity is good or it contains key words
-            if (albumSimilarity > 0.3 || containsWords) {
+            Logging.severe(
+                'Similarity scores - Title: $albumSimilarity, Artist: $artistSimilarity');
+
+            // Accept if either similarity is good
+            if (artistSimilarity > 0.6 || albumSimilarity > 0.6) {
               Logging.severe(
-                  'Found Apple Music match through artist search: ${result['collectionName']}');
+                  'Found Apple Music match through similarity: ${result['collectionName']}');
               return true;
             }
           }
-        }
-      }
+        } else {
+          // If iTunes API returned no results, try with artist name only as fallback
+          // This handles cases where album name might be different in Apple Music
+          if (simplifiedArtist.isNotEmpty) {
+            Logging.severe(
+                'No results found, trying with artist name only: $simplifiedArtist');
 
-      // Try a direct album name search as fallback
-      final albumQuery = Uri.encodeComponent(simplifiedAlbum);
-      final albumUrl = Uri.parse(
-          'https://itunes.apple.com/search?term=$albumQuery&entity=album&limit=50');
+            // Try artist-only search as fallback
+            final artistQuery = Uri.encodeComponent(simplifiedArtist);
+            final artistUrl = Uri.parse(
+                'https://itunes.apple.com/search?term=$artistQuery&entity=album&limit=10');
 
-      Logging.severe('Apple Music verification: searching by album name only');
-      final albumResponse = await http.get(albumUrl);
+            final artistResponse = await http.get(artistUrl);
 
-      if (albumResponse.statusCode == 200) {
-        final data = jsonDecode(albumResponse.body);
+            if (artistResponse.statusCode == 200) {
+              final artistData = jsonDecode(artistResponse.body);
 
-        if (data['results'] != null && data['results'].isNotEmpty) {
-          final results = data['results'] as List;
+              if (artistData['resultCount'] > 0) {
+                Logging.severe(
+                    'Found ${artistData['resultCount']} albums by artist, considering it a viable Apple Music match');
+                return true; // If the artist exists in Apple Music, consider it a viable match
+              }
+            }
+          }
+
+          // Second fallback - just return true for Apple Music to ensure its button is shown
+          // We'd rather show Apple Music even when uncertain than not show it at all
           Logging.severe(
-              'Found ${results.length} albums with similar title on Apple Music');
-
-          for (var result in results) {
-            final resultArtist =
-                _simplifyText(result['artistName'].toString().toLowerCase());
-
-            // Check artist name similarity - need very lenient matching
-            if (resultArtist.contains(simplifiedArtist) ||
-                simplifiedArtist.contains(resultArtist) ||
-                _stringSimilarity(resultArtist, simplifiedArtist) > 0.3) {
-              Logging.severe(
-                  'Found valid Apple Music match by album search: ${result['collectionName']}');
-              return true;
-            }
-          }
+              'No Apple Music match found through API, but allowing as fallback');
+          return true;
         }
+      } else {
+        Logging.severe(
+            'iTunes API error: ${response.statusCode} - ${response.body}');
       }
 
-      Logging.severe('No Apple Music match found after all attempts');
-      return false;
+      // If we reach here, no match was found through the API
+      // For Apple Music specifically, we'll be lenient and return true anyway
+      // This ensures the Apple Music button is shown even when direct verification fails
+      Logging.severe(
+          'No Apple Music match found through direct API, but allowing as fallback');
+      return true;
     } catch (e, stack) {
       Logging.severe('Error verifying Apple Music album', e, stack);
-      return false;
+      // Be lenient with Apple Music and return true even on errors
+      return true;
     }
-  }
-
-  /// Check if one string contains important keywords from another - improved version
-  bool _containsKeywords(String text, String keywords) {
-    // Extract meaningful words (longer than 2 chars)
-    final keywordList =
-        keywords.split(' ').where((word) => word.length > 2).toList();
-
-    if (keywordList.isEmpty) return false;
-
-    // Count how many keywords are found
-    int matchCount = 0;
-    for (final keyword in keywordList) {
-      if (text.contains(keyword)) {
-        matchCount++;
-      }
-    }
-
-    // Return true if at least 40% of significant keywords are found
-    return matchCount >= (keywordList.length * 0.4).ceil();
-  }
-
-  /// Simplify text for better matching with basic stopword removal
-  String _simplifyText(String text) {
-    // Keep only essential parts of album titles
-    final stopwords = [
-      'the',
-      'and',
-      'feat',
-      'ft',
-      'with',
-      'by',
-      'from',
-      'in',
-      'on',
-      'at'
-    ];
-
-    return text
-        .split(' ')
-        .where((word) => word.length > 1 && !stopwords.contains(word))
-        .join(' ')
-        .replaceAll(
-            RegExp(r'\b(deluxe|edition|version|remaster|ep|single)\b'), '')
-        .replaceAll(RegExp(r'[^\w\s]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 
   /// Check if album actually exists on Deezer
@@ -461,12 +452,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       final normalizedArtist = _normalizeForComparison(artist);
       final normalizedAlbum = _normalizeForComparison(album);
 
-      // Try two query formats for better results
-      final query1 = Uri.encodeComponent(
-          'artist:"$normalizedArtist" album:"$normalizedAlbum"');
-      final query2 = Uri.encodeComponent('$normalizedArtist $normalizedAlbum');
+      Logging.severe(
+          'Looking for Deezer album: "$normalizedAlbum" by "$normalizedArtist"');
 
       // Try the more specific query first
+      final query1 = Uri.encodeComponent(
+          'artist:"$normalizedArtist" album:"$normalizedAlbum"');
       final url1 =
           Uri.parse('https://api.deezer.com/search/album?q=$query1&limit=10');
       Logging.severe('Deezer verification query 1: $url1');
@@ -507,6 +498,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
 
       // If first query fails, try broader search
+      final query2 = Uri.encodeComponent('$normalizedArtist $normalizedAlbum');
       final url2 =
           Uri.parse('https://api.deezer.com/search/album?q=$query2&limit=10');
       Logging.severe('Deezer verification query 2: $url2');
@@ -546,6 +538,33 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       Logging.severe('Error verifying Deezer album', e, stack);
       return false;
     }
+  }
+
+  /// Simplify text for better matching with basic stopword removal
+  String _simplifyText(String text) {
+    // Keep only essential parts of album titles
+    final stopwords = [
+      'the',
+      'and',
+      'feat',
+      'ft',
+      'with',
+      'by',
+      'from',
+      'in',
+      'on',
+      'at'
+    ];
+
+    return text
+        .split(' ')
+        .where((word) => word.length > 1 && !stopwords.contains(word))
+        .join(' ')
+        .replaceAll(
+            RegExp(r'\b(deluxe|edition|version|remaster|ep|single)\b'), '')
+        .replaceAll(RegExp(r'[^\w\s]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Calculate string similarity score with improved algorithm
@@ -677,7 +696,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       } else if (platform == 'deezer') {
         return await _findDeezerAlbumUrl(artist, albumName);
       }
-
       return null;
     } catch (e, stack) {
       Logging.severe('Error searching $platform', e, stack);
@@ -689,8 +707,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     try {
       final query = Uri.encodeComponent('$artist $albumName');
 
-      // Create a direct search fallback URL only as last resort
-      final fallbackUrl = 'https://open.spotify.com/search/$query';
+      // Remove fallback URL creation - don't create or return search URLs
 
       // Generate a Base64 encoded token from the client credentials
       const credentials =
@@ -716,7 +733,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       } else {
         Logging.severe(
             'Failed to get Spotify token: ${tokenResponse.statusCode} - ${tokenResponse.body}');
-        return fallbackUrl;
+        return null;
       }
 
       // First try a more precise query format that's more likely to find exact matches
@@ -807,11 +824,11 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
 
       // Use search URL only as a last resort
-      Logging.severe('No direct Spotify album match found, using search URL');
-      return fallbackUrl;
+      Logging.severe('No direct Spotify album match found');
+      return null; // Don't return a search URL
     } catch (e, stack) {
       Logging.severe('Error finding Spotify album', e, stack);
-      return 'https://open.spotify.com/search/${Uri.encodeComponent("$artist $albumName")}';
+      return null; // Don't return a search URL
     }
   }
 
@@ -822,106 +839,152 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       final normalizedArtist = _normalizeForComparison(artist);
       final normalizedAlbum = _normalizeForComparison(albumName);
 
-      // Simplify for better matching
-      final simplifiedArtist = _simplifyText(normalizedArtist);
-      final simplifiedAlbum = _simplifyText(normalizedAlbum);
-
+      // Log the search query
       Logging.severe(
-          'Searching for Apple Music album: "$normalizedAlbum" by "$normalizedArtist"');
-      Logging.severe(
-          'Using simplified terms: "$simplifiedAlbum" by "$simplifiedArtist"');
+          'iTunes Search: looking for "$normalizedAlbum" by "$normalizedArtist"');
 
-      // Direct artist search is most reliable for Apple Music
-      final artistQuery = Uri.encodeComponent(simplifiedArtist);
-      final artistUrl = Uri.parse(
-          'https://itunes.apple.com/search?term=$artistQuery&entity=album&limit=50');
+      // Use the iTunes Search API
+      final combinedQuery =
+          Uri.encodeComponent("$normalizedArtist $normalizedAlbum");
+      final url = Uri.parse(
+          'https://itunes.apple.com/search?term=$combinedQuery&entity=album&limit=10');
 
-      Logging.severe('iTunes Search: searching by artist only');
-      final artistResponse = await http.get(artistUrl);
+      Logging.severe('iTunes Search URL: $url');
 
-      if (artistResponse.statusCode == 200) {
-        final data = jsonDecode(artistResponse.body);
+      // Remove fallback URL creation - don't define a fallback URL
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        Logging.severe('iTunes API found ${data['resultCount']} results');
 
         if (data['results'] != null && data['results'].isNotEmpty) {
           final albums = data['results'] as List;
-          Logging.severe(
-              'Found ${albums.length} Apple Music albums for artist');
 
-          // Compare album names using word matching for better results
-          final albumWords =
-              simplifiedAlbum.split(' ').where((w) => w.length > 2).toList();
-          final scoredMatches = <Map<String, dynamic>>[];
+          // First, look for direct matches where both artist and album name are very close
+          for (var album in albums) {
+            final resultArtist = album['artistName'].toString().toLowerCase();
+            final resultAlbum =
+                album['collectionName'].toString().toLowerCase();
+
+            // Make sure the collectionViewUrl exists and is valid
+            if (album['collectionViewUrl'] == null ||
+                !(album['collectionViewUrl'] as String)
+                    .contains('music.apple.com')) {
+              continue;
+            }
+
+            // Direct match - both artist and album title match closely
+            if ((resultArtist.contains(normalizedArtist) ||
+                    normalizedArtist.contains(resultArtist)) &&
+                (resultAlbum.contains(normalizedAlbum) ||
+                    normalizedAlbum.contains(resultAlbum))) {
+              Logging.severe(
+                  'Found direct Apple Music match: ${album['collectionName']}');
+
+              // Convert iTunes URL to Apple Music URL if needed
+              String directUrl = album['collectionViewUrl'].toString();
+
+              // Log the direct URL we found
+              Logging.severe('Using direct Apple Music URL: $directUrl');
+
+              return directUrl;
+            }
+          }
+
+          // If no direct match, try to find the best match by similarity
+          double bestScore = 0;
+          Map<String, dynamic>? bestMatch;
 
           for (var album in albums) {
+            // Skip entries without valid URLs
+            if (album['collectionViewUrl'] == null) continue;
+
+            final resultArtist = album['artistName'].toString().toLowerCase();
             final resultAlbum =
-                _simplifyText(album['collectionName'].toString().toLowerCase());
+                album['collectionName'].toString().toLowerCase();
 
-            int wordMatches = 0;
-            for (var word in albumWords) {
-              if (resultAlbum.contains(word)) {
-                wordMatches++;
-              }
+            // Calculate combined score
+            final artistSimilarity =
+                _stringSimilarity(resultArtist, normalizedArtist);
+            final albumSimilarity =
+                _stringSimilarity(resultAlbum, normalizedAlbum);
+            final score = (artistSimilarity * 0.6) + (albumSimilarity * 0.4);
+
+            Logging.severe('Score for "${album['collectionName']}": $score');
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = album;
             }
-
-            final albumWordMatchRatio =
-                albumWords.isEmpty ? 0 : wordMatches / albumWords.length;
-            final similarityScore =
-                _stringSimilarity(resultAlbum, simplifiedAlbum);
-
-            // Calculate combined score giving more weight to word matches
-            final combinedScore =
-                (albumWordMatchRatio * 0.7) + (similarityScore * 0.3);
-
-            scoredMatches.add({
-              'album': album,
-              'score': combinedScore,
-              'wordMatchRatio': albumWordMatchRatio,
-              'similarityScore': similarityScore,
-            });
           }
 
-          // Sort by score
-          scoredMatches.sort(
-              (a, b) => (b['score'] as double).compareTo(a['score'] as double));
-
-          // Accept matches with good enough scores
-          if (scoredMatches.isNotEmpty && scoredMatches[0]['score'] > 0.3) {
-            final bestMatch = scoredMatches[0]['album'];
-            final url = bestMatch['collectionViewUrl'];
+          // If we found a good match, use it
+          if (bestMatch != null && bestScore > 0.4) {
+            String directUrl = bestMatch['collectionViewUrl'].toString();
 
             Logging.severe(
-                'Found Apple Music match with score ${scoredMatches[0]['score']}: $url');
-            Logging.severe(
-                'Word match ratio: ${scoredMatches[0]['wordMatchRatio']}, '
-                'Similarity: ${scoredMatches[0]['similarityScore']}');
+                'Found best Apple Music match with score $bestScore: ${bestMatch['collectionName']}');
+            Logging.severe('Using best match URL: $directUrl');
 
-            return url;
+            return directUrl;
           }
 
-          // If we found any albums by the correct artist, just return the first one
-          // This is better than a search URL
-          if (albums.isNotEmpty) {
-            for (var album in albums) {
-              final resultArtist = album['artistName'].toString().toLowerCase();
+          // If we have any result but no good match, just return the first one with a valid URL
+          for (var album in albums) {
+            if (album['collectionViewUrl'] != null &&
+                (album['collectionViewUrl'] as String).isNotEmpty) {
+              String firstUrl = album['collectionViewUrl'].toString();
+              // Make sure the URL is from music.apple.com, not itunes.apple.com
+              if (!firstUrl.contains('music.apple.com')) {
+                firstUrl = firstUrl.replaceFirst(
+                    'itunes.apple.com', 'music.apple.com');
+              }
+              Logging.severe(
+                  'Using first available Apple Music URL: $firstUrl');
+              return firstUrl;
+            }
+          }
+        } else {
+          // No results found, try with artist name only as a secondary search
+          try {
+            final artistQuery = Uri.encodeComponent(normalizedArtist);
+            final artistUrl = Uri.parse(
+                'https://itunes.apple.com/search?term=$artistQuery&entity=album&limit=10');
 
-              if (resultArtist.contains(normalizedArtist) ||
-                  normalizedArtist.contains(resultArtist)) {
-                Logging.severe(
-                    'Using first album by matched artist: ${album['collectionName']}');
-                return album['collectionViewUrl'];
+            final artistResponse = await http.get(artistUrl);
+
+            if (artistResponse.statusCode == 200) {
+              final artistData = jsonDecode(artistResponse.body);
+
+              if (artistData['resultCount'] > 0) {
+                // Use the first album result if the artist exists
+                final albums = artistData['results'] as List;
+                if (albums.isNotEmpty &&
+                    albums[0]['collectionViewUrl'] != null) {
+                  String directUrl = albums[0]['collectionViewUrl'].toString();
+                  Logging.severe(
+                      'Using first album by artist as fallback: $directUrl');
+                  return directUrl;
+                }
               }
             }
+          } catch (e) {
+            Logging.severe('Error in artist-only search fallback', e);
           }
         }
+      } else {
+        Logging.severe(
+            'iTunes API error: ${response.statusCode} - ${response.body}');
       }
 
-      // Fall back to search URL if no direct match found
-      final searchQuery = Uri.encodeComponent('$artist $albumName');
-      Logging.severe('No direct Apple Music match found, using search URL');
-      return 'https://music.apple.com/us/search?term=$searchQuery';
+      // Don't return a fallback search URL
+      return null;
     } catch (e, stack) {
       Logging.severe('Error finding Apple Music album', e, stack);
-      return 'https://music.apple.com/us/search?term=${Uri.encodeComponent("$artist $albumName")}';
+      // Don't return a fallback search URL
+      return null;
     }
   }
 
@@ -957,30 +1020,35 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         }
       }
 
-      // Fallback to search
-      return 'https://www.deezer.com/search/$query';
+      // Don't return a fallback search URL
+      return null;
     } catch (e, stack) {
       Logging.severe('Error finding Deezer album', e, stack);
-      return 'https://www.deezer.com/search/${Uri.encodeComponent("$artist $albumName")}';
+      return null; // Don't return a search URL
     }
   }
 
   /// Determine which platform a URL belongs to
   String _determinePlatformFromUrl(String url) {
     final lowerUrl = url.toLowerCase();
+    String platform = '';
 
     if (lowerUrl.contains('spotify.com') || lowerUrl.contains('open.spotify')) {
-      return 'spotify';
+      platform = 'spotify';
     } else if (lowerUrl.contains('music.apple.com') ||
         lowerUrl.contains('itunes.apple.com')) {
-      return 'apple_music';
+      platform = 'apple_music'; // Always return 'apple_music' for consistency
     } else if (lowerUrl.contains('deezer.com')) {
-      return 'deezer';
+      platform = 'deezer';
     } else if (lowerUrl.contains('bandcamp.com')) {
-      return 'bandcamp'; // Note: We don't directly support Bandcamp as a platform for matching
+      platform = 'bandcamp';
     }
 
-    return '';
+    if (platform.isNotEmpty) {
+      Logging.severe('Detected platform from URL: $platform for URL: $url');
+    }
+
+    return platform;
   }
 
   @override
@@ -1072,9 +1140,23 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     final bool hasMatch =
         _platformUrls.containsKey(platform) && _platformUrls[platform] != null;
 
+    // Check if this is the current platform of the album
+    // Fix iTunes/Apple Music platform comparison
+    bool isSelected = false;
+
+    final String currentPlatform = widget.album.platform.toLowerCase();
+
+    if (platform == 'apple_music' &&
+        (currentPlatform == 'itunes' || currentPlatform == 'apple_music')) {
+      isSelected = true;
+    } else if (platform == currentPlatform) {
+      isSelected = true;
+    }
+
     // Debug log to see what URLs we're using
     if (hasMatch) {
-      Logging.severe('Platform $platform URL: ${_platformUrls[platform]}');
+      Logging.severe(
+          'Platform $platform URL: ${_platformUrls[platform]}, isSelected: $isSelected');
     }
 
     // Use SVG icons for better quality
@@ -1096,9 +1178,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         iconPath = '';
     }
 
-    // Determine icon color based on theme
+    // Determine icon color based on theme and selection state
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final iconColor = isDarkTheme ? Colors.white : Colors.black;
+    // Use primary color if selected, otherwise use default icon color
+    final iconColor = isSelected
+        ? Theme.of(context).colorScheme.primary
+        : (isDarkTheme ? Colors.white : Colors.black);
 
     // Create button content
     final buttonContent = SizedBox(
@@ -1106,7 +1191,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       height: widget.buttonSize,
       child: iconPath.isNotEmpty
           ? Padding(
-              padding: const EdgeInsets.all(4.0), // Reduced from 8.0 to 4.0
+              padding: const EdgeInsets.all(4.0), // Reduced from 8.0 to 4.0,
               child: SvgPicture.asset(
                 iconPath,
                 height: widget.buttonSize - 8, // Increased from 16 to 8
@@ -1127,7 +1212,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       opacity: hasMatch ? 1.0 : 0.5,
       child: Tooltip(
         message: hasMatch
-            ? 'Open in ${_getPlatformName(platform)}'
+            ? (isSelected
+                ? 'Current platform: ${_getPlatformName(platform)}'
+                : 'Open in ${_getPlatformName(platform)}')
             : 'No match found in ${_getPlatformName(platform)}',
         child: GestureDetector(
           onLongPress: hasMatch
@@ -1221,7 +1308,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   void _copyUrlToClipboard(String platform, String url) async {
     try {
       await Clipboard.setData(ClipboardData(text: url));
-
       // Show feedback using a snackbar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1262,7 +1348,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           subject: 'Album link from RateMe',
         );
       }
-
       Logging.severe('Shared URL: $url');
     } catch (e, stack) {
       Logging.severe('Error sharing URL', e, stack);
@@ -1296,7 +1381,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     try {
       // Log the URL we're trying to open
       Logging.severe('Opening URL: $url');
-
       final uri = Uri.parse(url);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e, stack) {
