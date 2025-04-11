@@ -19,14 +19,14 @@ class ShareWidget extends StatefulWidget {
   final List<Map<String, dynamic>>? albums;
 
   const ShareWidget({
-    Key? key,
+    super.key, // Changed from "Key? key" to "super.key"
     required this.album,
     required this.tracks,
     required this.ratings,
     required this.averageRating,
     this.title,
     this.albums,
-  }) : super(key: key);
+  });
 
   @override
   State<ShareWidget> createState() => ShareWidgetState();
@@ -114,44 +114,41 @@ class ShareWidgetState extends State<ShareWidget> {
           ),
         const Divider(),
         if (widget.albums != null)
-          ...widget.albums!
-              .map((album) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      children: [
-                        Image.network(
-                          album['artworkUrl100'] ?? '',
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.album, size: 60),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                album['collectionName'] ?? 'Unknown Album',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              Text(album['artistName'] ?? 'Unknown Artist'),
-                              Text(
-                                'Rating: ${(album['averageRating'] ?? 0.0).toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+          ...widget.albums!.map((album) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: [
+                    Image.network(
+                      album['artworkUrl100'] ?? '',
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.album, size: 60),
                     ),
-                  ))
-              .toList(),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            album['collectionName'] ?? 'Unknown Album',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(album['artistName'] ?? 'Unknown Artist'),
+                          Text(
+                            'Rating: ${(album['averageRating'] ?? 0.0).toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
       ],
     );
   }
@@ -264,7 +261,7 @@ class ShareWidgetState extends State<ShareWidget> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
