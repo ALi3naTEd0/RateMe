@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/skeleton_loading.dart';
 import 'platform_service.dart'; // Add this import to fix the undefined identifier
+import 'widgets/platform_match_widget.dart'; // Add this import
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -996,6 +997,16 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                   errorBuilder: (context, error, stackTrace) =>
                                       const Icon(Icons.album, size: 300),
                                 ),
+
+                                // Add PlatformMatchWidget with 8px top padding
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: unifiedAlbum != null
+                                      ? PlatformMatchWidget(
+                                          album: unifiedAlbum!)
+                                      : const SizedBox.shrink(),
+                                ),
+
                                 const SizedBox(height: 16),
                                 _buildInfoRow(
                                     "Artist",

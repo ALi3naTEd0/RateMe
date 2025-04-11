@@ -1,4 +1,4 @@
-# Changelog
+# RateMe Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cross-platform streaming integration with buttons for Spotify, Apple Music and Deezer
+- Integration with existing Bandcamp links to provide unified streaming experience
+- Context menu for streaming buttons with copy URL and open options
 - Default search platform selection in settings
 - Default search platform persistence across app restarts
 - Multi-platform search capability (iTunes, Spotify, Deezer)
@@ -22,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Improved platform detection from album URLs
+- Better matching algorithm for finding the same album across different streaming services
 - Fixed issues with Deezer track handling, ratings persistence and album artwork display
 - Fixed platform icons in light theme showing incorrectly
 - Fixed automatic search when changing platforms in the main search bar
@@ -287,6 +292,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated dependencies to latest versions
 - Improved UI responsiveness
+
+## [1.1.0] - 2023-06-18
+- Added album rating persistence
+- Added track ratings
+- Added track listing display
+- Fixed UI issues on smaller screens
 
 ## [1.0.1] - 2025-03-01
 

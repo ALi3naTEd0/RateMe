@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For MethodChannel
+import 'package:rateme/widgets/platform_match_widget.dart';
 import 'package:url_launcher/url_launcher.dart'; // This includes all URL launching functions
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Add this import
@@ -447,6 +448,19 @@ class _DetailsPageState extends State<DetailsPage> {
                                   const Icon(Icons.album, size: 300),
                             ),
                           ),
+
+                          // Add PlatformMatchWidget below the artwork
+                          if (unifiedAlbum != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 0.0),
+                              child: PlatformMatchWidget(
+                                album: unifiedAlbum!,
+                                showTitle: false,
+                                buttonSize: 40.0,
+                              ),
+                            ),
+
                           // Album info section
                           Padding(
                             padding: const EdgeInsets.all(16.0),
