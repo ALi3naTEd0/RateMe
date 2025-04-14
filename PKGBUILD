@@ -33,27 +33,38 @@ sha256sums=('SKIP')
 
 prepare() {
     cd "$srcdir/RateMe"
-    # Make sure we are using the latest flutter version
-    flutter upgrade
+    
+    # Handle Flutter upgrade with local changes
+    echo "Checking Flutter environment..."
+    if ! flutter upgrade --force; then
+        echo "Warning: Flutter upgrade failed, attempting to continue with existing Flutter version"
+    fi
+    
     flutter clean
     
-    # Create api_keys.dart with the real API keys
+    # Decode the API keys at build time
+    SPOTIFY_CLIENT_ID=$(echo 'MWRkZjIwMjFlZTM4NGZhODhiOTJmMGVkOTdkZTY4MDI=' | base64 -d)
+    SPOTIFY_CLIENT_SECRET=$(echo 'ZjI4YzdmZWQ1Nzk0NDk3ODlkMjdjZTM4YWJjMTJjMzk=' | base64 -d)
+    DISCOGS_CONSUMER_KEY=$(echo 'amZkZHNmUWt5dUNjd0V5am5zd2s=' | base64 -d)
+    DISCOGS_CONSUMER_SECRET=$(echo 'bkFMb1NtRHdLbm9CT1RKRHhnT1NQU2JPa2tXRlN2RVk=' | base64 -d)
+    
+    # Create api_keys.dart with pre-decoded keys
     mkdir -p lib
     cat > lib/api_keys.dart << EOF
+import 'dart:convert';
+
 class ApiKeys {
-  // Spotify API keys - Base64 encoded for basic obfuscation
-  static const String spotifyClientId = _decodeKey('MWRkZjIwMjFlZTM4NGZhODhiOTJmMGVkOTdkZTY4MDI=');
-  static const String spotifyClientSecret = _decodeKey('ZjI4YzdmZWQ1Nzk0NDk3ODlkMjdjZTM4YWJjMTJjMzk=');
+  // Spotify API keys - Pre-decoded for constant usage
+  static const String spotifyClientId = '$SPOTIFY_CLIENT_ID';
+  static const String spotifyClientSecret = '$SPOTIFY_CLIENT_SECRET';
   
-  // Discogs API keys - Base64 encoded for basic obfuscation
-  static const String discogsConsumerKey = _decodeKey('amZkZHNmUWt5dUNjd0V5am5zd2s=');
-  static const String discogsConsumerSecret = _decodeKey('bkFMb1NtRHdLbm9CT1RKRHhnT1NQU2JPa2tXRlN2RVk=');
+  // Discogs API keys - Pre-decoded for constant usage
+  static const String discogsConsumerKey = '$DISCOGS_CONSUMER_KEY';
+  static const String discogsConsumerSecret = '$DISCOGS_CONSUMER_SECRET';
   
-  // Decode base64 encoded keys
-  static String _decodeKey(String encodedKey) {
-    // Simple base64 decoding - this happens at runtime
-    final List<int> bytes = base64.decode(encodedKey);
-    return utf8.decode(bytes);
+  // Method to get Spotify auth token
+  static String getSpotifyToken() {
+    return base64.encode(utf8.encode('\$spotifyClientId:\$spotifyClientSecret'));
   }
   
   // API request timeout durations (in seconds)
@@ -78,9 +89,6 @@ class ApiKeys {
   static const bool enableResponseCaching = true;
   static const int defaultCacheExpiryMinutes = 60;
 }
-
-// Import statement for base64 and utf8 - needed at the top of the file
-import 'dart:convert';
 
 class ApiEndpoints {
   // Spotify endpoints
