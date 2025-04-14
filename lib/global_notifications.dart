@@ -14,8 +14,7 @@ class GlobalNotifications {
 
   /// Notify when default search platform changes
   static void defaultSearchPlatformChanged(SearchPlatform platform) {
-    Logging.severe(
-        'Broadcasting default platform change: ${platform.displayName}');
+    Logging.severe('Broadcasting default platform change: ${platform.name}');
     _platformChangeController.add(platform);
   }
 

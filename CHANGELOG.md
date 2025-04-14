@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Discogs integration with complete search and album details support
+- Universal EP/Single handling across all platforms (iTunes/Apple Music, Spotify, Deezer, Discogs)
+- Standardized album suffix normalization system for cross-platform compatibility
+- Smart detection and cleanup of album name variations (EP, Single, etc.)
+- Share functionality for album links on mobile platforms
+- Clipboard integration for desktop platforms when sharing
+- Enhanced album matching between platforms with improved similarity algorithms
+- Special platform-specific matching for album variations
+- Context menu for streaming buttons with copy, open, and share options
 - Cross-platform streaming integration with buttons for Spotify, Apple Music and Deezer
 - Integration with existing Bandcamp links to provide unified streaming experience
 - Context menu for streaming buttons with copy URL and open options
@@ -25,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Fixed EP/Single designation mismatches between all music platforms
+- Fixed album naming inconsistencies between streaming services
+- Improved album title normalization for iTunes, Spotify, Deezer and Discogs
+- Enhanced string similarity calculations for better album matches
+- Fixed special case handling for album suffix variations across all platforms
 - Improved platform detection from album URLs
 - Better matching algorithm for finding the same album across different streaming services
 - Fixed issues with Deezer track handling, ratings persistence and album artwork display
@@ -38,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better handling of non-standard API responses from music platforms
 
 ### Changed
+- Universal album name normalization system for all platforms
+- Enhanced algorithm for EP/Single name cleanup across all music services
+- Added direct album name comparison after standardization for all platforms
+- Improved multi-platform album matching with standardized naming conventions
 - Reorganized Settings page with grouped options for search preferences
 - Enhanced default platform selection with visual platform indicators
 - Implemented automatic platform updates when default is changed in settings
@@ -48,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved search result ranking algorithm
 
 ### Technical
+- Centralized album name normalization with regex-based suffix detection
+- Standardized string comparison utilities for better text matching
+- Platform-agnostic album title cleanup system
+- Improved platform service factory with better error handling
 - Improved BuildContext management with GlobalKey approach
 - Added StreamController-based global notification system
 - Enhanced error logging for platform-specific issues

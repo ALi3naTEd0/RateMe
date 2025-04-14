@@ -58,6 +58,9 @@ class _SettingsPageState extends State<SettingsPage> {
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
+  // Add this field to store the current platform
+  SearchPlatform _currentPlatform = SearchPlatform.itunes;
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +69,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadSettings();
     _checkDatabaseSize();
     _loadPreferences();
+    // Load saved platform preference
+    _loadPlatformPreference();
   }
 
   Future<void> _loadSettings() async {
@@ -879,7 +884,7 @@ class _SettingsPageState extends State<SettingsPage> {
           'default_search_platform', platform.index.toString());
 
       Logging.severe(
-          'Default search platform updated to ${platform.displayName} (index: ${platform.index})');
+          'Default search platform updated to ${platform.name} (index: ${platform.index})');
 
       setState(() {
         _defaultSearchPlatform = platform;
@@ -891,8 +896,8 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(
-                  'Default search platform updated to ${platform.displayName}')),
+              content:
+                  Text('Default search platform updated to ${platform.name}')),
         );
       }
     } catch (e) {
@@ -900,6 +905,109 @@ class _SettingsPageState extends State<SettingsPage> {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Error setting default platform: $e')),
       );
+    }
+  }
+
+  // Add a method to load platform preference
+  Future<void> _loadPlatformPreference() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final platformStr = await db.getSetting('default_search_platform');
+
+      if (platformStr != null) {
+        int platformIndex = int.tryParse(platformStr) ?? 0;
+        if (platformIndex >= 0 &&
+            platformIndex < SearchPlatform.values.length) {
+          setState(() {
+            _currentPlatform = SearchPlatform.values[platformIndex];
+          });
+        }
+      }
+      Logging.severe(
+          'Loaded default search platform: ${_currentPlatform.name}');
+    } catch (e) {
+      Logging.severe('Error loading default search platform', e);
+    }
+  }
+
+  // Add a method to save platform preference
+  Future<void> _savePlatformPreference(SearchPlatform platform) async {
+    try {
+      final db = DatabaseHelper.instance;
+      await db.saveSetting(
+          'default_search_platform', platform.index.toString());
+
+      // Notify the rest of the app about the platform change
+      GlobalNotifications.defaultSearchPlatformChanged(platform);
+
+      Logging.severe('Saved new default search platform: ${platform.name}');
+    } catch (e) {
+      Logging.severe('Error saving default search platform', e);
+    }
+  }
+
+  // Fix platform color method with missing bandcamp case
+  Color _getPlatformColor(SearchPlatform platform) {
+    switch (platform) {
+      case SearchPlatform.itunes:
+        return const Color(0xFFFC3C44); // Apple Music red
+      case SearchPlatform.spotify:
+        return const Color(0xFF1DB954); // Spotify green
+      case SearchPlatform.deezer:
+        return const Color(0xFF00C7F2); // Deezer blue
+      case SearchPlatform.discogs:
+        return const Color(0xFFFF5500); // Discogs orange
+      case SearchPlatform.bandcamp:
+        // Add this case to handle bandcamp
+        return const Color(0xFF1DA0C3); // Bandcamp blue
+    }
+  }
+
+  // Helper method to get platform icon - completely rewritten - add bandcamp case
+  IconData getPlatformIconForPlatform(SearchPlatform platform) {
+    switch (platform) {
+      case SearchPlatform.itunes:
+        return Icons.music_note;
+      case SearchPlatform.spotify:
+        return Icons.music_note;
+      case SearchPlatform.deezer:
+        return Icons.music_note;
+      case SearchPlatform.discogs:
+        return Icons.music_note;
+      case SearchPlatform.bandcamp:
+        return Icons.music_note;
+    }
+  }
+
+  // Add the missing _getPlatformIconPath method to _SettingsPageState
+  String _getPlatformIconPath(SearchPlatform platform) {
+    switch (platform) {
+      case SearchPlatform.itunes:
+        return 'lib/icons/apple_music.svg';
+      case SearchPlatform.spotify:
+        return 'lib/icons/spotify.svg';
+      case SearchPlatform.deezer:
+        return 'lib/icons/deezer.svg';
+      case SearchPlatform.discogs:
+        return 'lib/icons/discogs.svg';
+      case SearchPlatform.bandcamp:
+        return 'lib/icons/bandcamp.svg';
+    }
+  }
+
+  // When displaying SearchPlatform.itunes in dropdowns or lists, make sure it shows as Apple Music
+  String _getDisplayNameForPlatform(SearchPlatform platform) {
+    switch (platform) {
+      case SearchPlatform.itunes:
+        return 'Apple Music'; // Changed from "iTunes" to "Apple Music"
+      case SearchPlatform.spotify:
+        return 'Spotify';
+      case SearchPlatform.deezer:
+        return 'Deezer';
+      case SearchPlatform.discogs:
+        return 'Discogs';
+      case SearchPlatform.bandcamp:
+        return 'Bandcamp';
     }
   }
 
@@ -1186,8 +1294,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                           _saveDefaultSearchPlatform(platform);
                                         }
                                       },
-                                      items:
-                                          SearchPlatform.values.map((platform) {
+                                      items: [
+                                        SearchPlatform.itunes,
+                                        SearchPlatform.spotify,
+                                        SearchPlatform.deezer,
+                                        SearchPlatform.discogs,
+                                      ].map((platform) {
                                         return DropdownMenuItem<SearchPlatform>(
                                           value: platform,
                                           child: Row(
@@ -1195,8 +1307,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                             children: [
                                               SvgPicture.asset(
                                                 _getPlatformIconPath(platform),
-                                                width: 20,
-                                                height: 20,
+                                                width: 30,
+                                                height: 30,
                                                 // Fix icon colors for both themes
                                                 colorFilter: ColorFilter.mode(
                                                     Theme.of(context)
@@ -1207,7 +1319,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     BlendMode.srcIn),
                                               ),
                                               const SizedBox(width: 8),
-                                              Text(platform.displayName),
+                                              Text(_getDisplayNameForPlatform(
+                                                  platform)),
                                             ],
                                           ),
                                         );
@@ -1357,6 +1470,20 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                         ),
+
+                        const SizedBox(height: 24),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            'Search Settings',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildPlatformSelectionTile(context),
                       ],
                     ),
                   ),
@@ -1364,18 +1491,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-  }
-
-  /// Helper method to get platform icon path
-  String _getPlatformIconPath(SearchPlatform platform) {
-    switch (platform) {
-      case SearchPlatform.itunes:
-        return 'lib/icons/apple_music.svg';
-      case SearchPlatform.spotify:
-        return 'lib/icons/spotify.svg';
-      case SearchPlatform.deezer:
-        return 'lib/icons/deezer.svg';
-    }
   }
 
   Widget _buildSkeletonSettings() {
@@ -1499,5 +1614,58 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Widget _buildPlatformSelectionTile(BuildContext context) {
+    return ListTile(
+      title: const Text('Default Search Platform'),
+      subtitle: Text('Currently: ${_currentPlatform.name}'),
+      trailing: DropdownButton<SearchPlatform>(
+        value: _currentPlatform,
+        onChanged: (SearchPlatform? newValue) {
+          if (newValue != null) {
+            setState(() {
+              _currentPlatform = newValue;
+            });
+            _savePlatformPreference(newValue);
+          }
+        },
+        items: [
+          SearchPlatform.itunes,
+          SearchPlatform.spotify,
+          SearchPlatform.deezer,
+          SearchPlatform.discogs,
+        ].map((platform) {
+          return DropdownMenuItem<SearchPlatform>(
+            value: platform,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getPlatformIcon(platform),
+                    color: _getPlatformColor(platform), size: 20),
+                const SizedBox(width: 8),
+                Text(_getDisplayNameForPlatform(platform)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Helper method to get platform icon
+  IconData _getPlatformIcon(SearchPlatform platform) {
+    switch (platform) {
+      case SearchPlatform.spotify:
+        return Icons.album;
+      case SearchPlatform.itunes:
+        return Icons.album;
+      case SearchPlatform.deezer:
+        return Icons.album;
+      case SearchPlatform.discogs:
+        return Icons.album;
+      case SearchPlatform.bandcamp:
+        return Icons.album;
+    }
   }
 }

@@ -6,6 +6,8 @@ import 'album_model.dart';
 import 'logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_keys.dart'; // Add this import
+import 'search_service.dart';
+import 'database/database_helper.dart';
 
 /// Service to handle interactions with different music platforms
 class PlatformService {
@@ -56,170 +58,36 @@ class PlatformService {
 
   /// Search for albums across all platforms
   static Future<List<dynamic>> searchAlbums(String query) async {
-    Logging.severe('PlatformService.searchAlbums called with query: $query');
-    if (query.isEmpty) return [];
-
-    // Handle iTunes/Apple Music URLs
-    if (query.contains('music.apple.com') ||
-        query.contains('itunes.apple.com')) {
-      try {
-        final uri = Uri.parse(query);
-        final pathSegments = uri.pathSegments;
-
-        String? collectionId;
-        if (pathSegments.contains('album')) {
-          final albumIdIndex = pathSegments.indexOf('album') + 2;
-          if (albumIdIndex < pathSegments.length) {
-            collectionId = pathSegments[albumIdIndex].split('?').first;
-          }
-        } else {
-          collectionId = uri.queryParameters['i'] ?? uri.queryParameters['id'];
-        }
-
-        if (collectionId != null) {
-          final url = Uri.parse(
-              'https://itunes.apple.com/lookup?id=$collectionId&entity=song');
-          final response = await http.get(url);
-          final data = jsonDecode(response.body);
-
-          if (data['results'] != null && data['results'].isNotEmpty) {
-            // Get album info (first result)
-            final albumInfo = data['results'][0];
-
-            // Get tracks (remaining results)
-            final tracks = data['results']
-                .skip(1) // Skip the first result (album info)
-                .where((item) =>
-                    item['wrapperType'] == 'track' && item['kind'] == 'song')
-                .toList();
-
-            // Add tracks to album info
-            albumInfo['tracks'] = tracks;
-
-            // Return just the album with its tracks
-            return [normalizeResult(albumInfo, 'itunes')];
-          }
-        }
-      } catch (e) {
-        Logging.severe('Error processing iTunes/Apple Music URL', e);
-      }
-      return [];
-    }
-
-    // Handle Spotify URLs
-    if (query.contains('spotify.com') || query.contains('open.spotify')) {
-      try {
-        final albumId = _extractSpotifyAlbumId(query);
-        if (albumId != null) {
-          Logging.severe('Spotify album ID extracted: $albumId');
-          final album = await fetchSpotifyAlbum(albumId);
-          return album != null ? [normalizeResult(album, 'spotify')] : [];
-        } else {
-          Logging.severe('Could not extract Spotify album ID from URL: $query');
-        }
-      } catch (e) {
-        Logging.severe('Error processing Spotify URL', e);
-      }
-      return [];
-    }
-
-    // Handle Deezer URLs
-    if (query.contains('deezer.com')) {
-      try {
-        final albumId = _extractDeezerAlbumId(query);
-        if (albumId != null) {
-          Logging.severe('Deezer album ID extracted: $albumId');
-          final album = await fetchDeezerAlbum(albumId);
-          return album != null ? [normalizeResult(album, 'deezer')] : [];
-        } else {
-          Logging.severe('Could not extract Deezer album ID from URL: $query');
-        }
-      } catch (e) {
-        Logging.severe('Error processing Deezer URL', e);
-      }
-      return [];
-    }
-
-    // Handle platform-specific searches
-    final platform = detectPlatform(query);
     try {
-      switch (platform) {
-        case 'spotify':
-          final results = await searchSpotifyAlbums(query);
-          return results
-              .map((album) => normalizeResult(album, 'spotify'))
-              .toList();
-        case 'bandcamp':
-          final album = await fetchBandcampAlbum(query);
-          return album != null
-              ? [normalizeResult(album.toJson(), 'bandcamp')]
-              : [];
-        case 'deezer':
-          final results = await searchDeezerAlbums(query);
-          return results
-              .map((album) => normalizeResult(album, 'deezer'))
-              .toList();
-        case 'itunes':
-        default:
-          final results = await searchiTunesAlbums(query);
-          return results
-              .map((album) => normalizeResult(album, 'itunes'))
-              .toList();
-      }
-    } catch (e) {
-      Logging.severe('Error searching albums', e);
-      return [];
-    }
-  }
+      // Get the default search platform from database
+      final db = DatabaseHelper.instance;
+      final platformStr = await db.getSetting('default_search_platform');
 
-  /// Extract Spotify album ID from URL
-  static String? _extractSpotifyAlbumId(String url) {
-    try {
-      final uri = Uri.parse(url);
-      final pathSegments = uri.pathSegments;
+      // Default to iTunes if not specified
+      SearchPlatform platform = SearchPlatform.itunes;
 
-      // Handle different Spotify URL formats
-      if (pathSegments.contains('album') &&
-          pathSegments.length > pathSegments.indexOf('album') + 1) {
-        return pathSegments[pathSegments.indexOf('album') + 1];
-      }
-
-      // Handle shortened URLs that redirect
-      if (pathSegments.isNotEmpty && pathSegments.last.length >= 22) {
-        // This might be an album ID directly in the path
-        return pathSegments.last;
-      }
-
-      return null;
-    } catch (e) {
-      Logging.severe('Error extracting Spotify album ID', e);
-      return null;
-    }
-  }
-
-  /// Extract Deezer album ID from URL
-  static String? _extractDeezerAlbumId(String url) {
-    try {
-      final uri = Uri.parse(url);
-      final pathSegments = uri.pathSegments;
-
-      // Handle standard Deezer URLs: https://www.deezer.com/album/12345
-      if (pathSegments.contains('album') &&
-          pathSegments.length > pathSegments.indexOf('album') + 1) {
-        return pathSegments[pathSegments.indexOf('album') + 1];
-      }
-
-      // Handle alternative formats: https://www.deezer.com/en/album/12345
-      for (int i = 0; i < pathSegments.length - 1; i++) {
-        if (pathSegments[i] == 'album' && pathSegments.length > i + 1) {
-          return pathSegments[i + 1];
+      if (platformStr != null) {
+        int platformIndex = int.tryParse(platformStr) ?? 0;
+        if (platformIndex >= 0 &&
+            platformIndex < SearchPlatform.values.length) {
+          platform = SearchPlatform.values[platformIndex];
         }
       }
 
-      return null;
-    } catch (e) {
-      Logging.severe('Error extracting Deezer album ID', e);
-      return null;
+      Logging.severe('Searching albums on platform: ${platform.name}');
+
+      // Search using the specified platform
+      final results = await SearchService.searchAlbum(query, platform);
+
+      // Return the results list or an empty list if null
+      if (results != null && results['results'] is List) {
+        return results['results'] as List;
+      }
+
+      return [];
+    } catch (e, stack) {
+      Logging.severe('Error in searchAlbums', e, stack);
+      return [];
     }
   }
 
@@ -1201,6 +1069,53 @@ class PlatformService {
     } catch (e) {
       Logging.severe('Error parsing duration: $isoDuration - $e');
       return 0;
+    }
+  }
+
+  // Method to check if a platform is supported
+  static bool isPlatformSupported(String platformName) {
+    final platform = platformName.toLowerCase();
+    return platform == 'itunes' ||
+        platform == 'spotify' ||
+        platform == 'deezer' ||
+        platform == 'discogs' ||
+        platform == 'bandcamp';
+  }
+
+  // Get icon path for a platform
+  static String getIconPathForPlatform(String platformName) {
+    final platform = platformName.toLowerCase();
+    switch (platform) {
+      case 'spotify':
+        return 'lib/icons/spotify.svg';
+      case 'deezer':
+        return 'lib/icons/deezer.svg';
+      case 'discogs':
+        return 'lib/icons/discogs.svg';
+      case 'bandcamp':
+        return 'lib/icons/bandcamp.svg';
+      case 'itunes':
+      default:
+        return 'lib/icons/apple_music.svg';
+    }
+  }
+
+  // Get display name for a platform
+  static String getDisplayNameForPlatform(String platformName) {
+    final platform = platformName.toLowerCase();
+    switch (platform) {
+      case 'itunes':
+        return 'Apple Music';
+      case 'spotify':
+        return 'Spotify';
+      case 'deezer':
+        return 'Deezer';
+      case 'discogs':
+        return 'Discogs';
+      case 'bandcamp':
+        return 'Bandcamp';
+      default:
+        return platformName;
     }
   }
 }

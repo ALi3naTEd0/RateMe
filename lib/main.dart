@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-// Remove unused imports:
-// import 'package:shared_preferences/shared_preferences.dart';
+// Remove unnecessary import:
+// import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
-// Remove unused import:
-// import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
-// Remove unused import:
-// import 'dart:io';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
+import 'search_service.dart';
 import 'user_data.dart';
 import 'custom_lists_page.dart';
 import 'theme.dart';
@@ -21,10 +17,10 @@ import 'footer.dart';
 import 'settings_page.dart';
 import 'platform_service.dart';
 import 'platform_ui.dart';
-import 'search_service.dart'; // Add import for SearchPlatform enum
 import 'database/database_helper.dart'; // Add this import for DatabaseHelper
 import 'package:flutter_svg/flutter_svg.dart'; // Add this import for SVG rendering
 import 'global_notifications.dart'; // Add import for global notifications
+import 'clipboard_detector.dart'; // Add import for the new clipboard detector
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,7 +55,7 @@ class _MyAppState extends State<MyApp> {
   List<Map<String, dynamic>> searchResults = [];
   bool _isLoading = false;
   Timer? _debounce;
-  Timer? _clipboardTimer;
+  Timer? _clipboardTimer; // Add this line to define _clipboardTimer
   SearchPlatform _selectedSearchPlatform =
       SearchPlatform.itunes; // Add platform state
 
@@ -73,7 +69,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _loadSettings();
-    _startClipboardListener();
+    _startClipboardDetection(); // Replace _startClipboardListener with this method
     _loadSearchPlatform(); // Add function to load saved search platform
 
     // Add listener for default platform changes
@@ -94,8 +90,7 @@ class _MyAppState extends State<MyApp> {
     GlobalNotifications.onSearchPlatformChanged.listen((platform) {
       // Only update if the current platform is different
       if (_selectedSearchPlatform != platform) {
-        Logging.severe(
-            'Default search platform changed to: ${platform.displayName}');
+        Logging.severe('Default search platform changed to: ${platform.name}');
         setState(() {
           _selectedSearchPlatform = platform;
         });
@@ -191,7 +186,7 @@ class _MyAppState extends State<MyApp> {
               _selectedSearchPlatform = SearchPlatform.values[platformIndex];
             });
             Logging.severe(
-                'Loaded default search platform: ${_selectedSearchPlatform.displayName}');
+                'Loaded default search platform: ${_selectedSearchPlatform.name}');
           }
         }
       }
@@ -226,6 +221,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() => searchResults = []);
+      ClipboardDetector.reportSearchResult(false); // Report empty search
       return;
     }
 
@@ -234,11 +230,18 @@ class _MyAppState extends State<MyApp> {
     try {
       // Update to use the selected platform
       final results =
-          await SearchService.searchAlbums(query, _selectedSearchPlatform);
+          await SearchService.searchAlbum(query, _selectedSearchPlatform);
 
       if (mounted) {
         setState(() {
-          searchResults = List<Map<String, dynamic>>.from(results);
+          if (results != null && results['results'] != null) {
+            searchResults = List<Map<String, dynamic>>.from(results['results']);
+            // Report successful search if we found results
+            ClipboardDetector.reportSearchResult(searchResults.isNotEmpty);
+          } else {
+            searchResults = [];
+            ClipboardDetector.reportSearchResult(false); // Report failed search
+          }
           _isLoading = false;
         });
       }
@@ -248,63 +251,45 @@ class _MyAppState extends State<MyApp> {
           searchResults = [];
           _isLoading = false;
         });
-
-        scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(content: Text('Error searching: $e')),
-        );
+        Logging.severe('Error performing search', e);
+        ClipboardDetector.reportSearchResult(false); // Report failed search
       }
     }
   }
 
-  void _startClipboardListener() {
-    _clipboardTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!mounted) return;
-
-      try {
-        final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-        final text = clipboardData?.text;
-
-        if (text != null && text.isNotEmpty && searchController.text.isEmpty) {
-          final lowerText = text.toLowerCase();
-          final bool isAppleMusic = lowerText.contains('music.apple.com') ||
-              lowerText.contains('itunes.apple.com') ||
-              lowerText.contains('apple.co') ||
-              lowerText.contains('apple music');
-
-          final bool isBandcamp = lowerText.contains('bandcamp.com') ||
-              lowerText.contains('.bandcamp.') ||
-              lowerText.contains('bandcamp:');
-
-          final bool isSpotify = lowerText.contains('spotify.com') ||
-              lowerText.contains('open.spotify');
-
-          final bool isDeezer = lowerText.contains('deezer.com');
-
-          if (isAppleMusic || isBandcamp || isSpotify || isDeezer) {
-            String platform = 'unknown';
-            if (isAppleMusic) platform = 'Apple Music';
-            if (isBandcamp) platform = 'Bandcamp';
-            if (isSpotify) platform = 'Spotify';
-            if (isDeezer) platform = 'Deezer';
-
-            Logging.severe('$platform URL detected in clipboard');
-
-            setState(() {
-              searchController.text = text;
-              _performSearch(text);
-            });
-
-            scaffoldMessengerKey.currentState?.showSnackBar(
-              SnackBar(
-                  content:
-                      Text('$platform URL detected and pasted into search')),
-            );
-          }
+  // Replace _startClipboardDetection with this updated method in _MyAppState
+  void _startClipboardDetection() {
+    _clipboardTimer = ClipboardDetector.startClipboardListener(
+      onDetected: (text) {
+        // Only use this for non-URL text to avoid duplicate processing
+        if (searchController.text.isEmpty &&
+            !text.toLowerCase().contains('http')) {
+          setState(() {
+            searchController.text = text;
+            _performSearch(text);
+          });
         }
-      } catch (e) {
-        Logging.severe('Error checking clipboard', e);
-      }
-    });
+      },
+      onUrlDetected: (url, searchQuery) {
+        // Used for URLs with extracted artist/album info
+        if (searchController.text.isEmpty) {
+          setState(() {
+            searchController.text = url;
+            _performSearch(searchQuery);
+          });
+        }
+      },
+      onSnackBarMessage: (message) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      },
+      onSearchCompleted: (success) {
+        // Report search result back to clipboard detector
+        // This will prevent repeated processing after a successful search
+        ClipboardDetector.reportSearchResult(success);
+      },
+    );
   }
 
   void _showMigrationPrompt() {
@@ -336,7 +321,8 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
-    _clipboardTimer?.cancel();
+    _clipboardTimer?.cancel(); // Make sure to cancel the timer properly
+    ClipboardDetector.stopClipboardListener(); // Update this line
     searchController.dispose();
     _debounce?.cancel();
     // Also close global notification streams
@@ -474,7 +460,7 @@ class _MyAppState extends State<MyApp> {
                   children: [
                     SizedBox(width: sideOffset),
 
-                    // Platform dropdown with fixed colors
+                    // Platform dropdown with fixed theme-aware colors
                     Theme(
                       // Remove highlighting effects
                       data: Theme.of(context).copyWith(
@@ -486,7 +472,7 @@ class _MyAppState extends State<MyApp> {
                         icon: Icon(
                           Icons.arrow_drop_down,
                           size: 18,
-                          color: iconColor, // Use explicit color based on theme
+                          color: iconColor,
                         ),
                         underline: Container(), // Remove underline
                         onChanged: (SearchPlatform? platform) {
@@ -494,26 +480,19 @@ class _MyAppState extends State<MyApp> {
                             _updateSearchPlatform(platform);
                           }
                         },
-                        items: SearchPlatform.values
-                            .map((SearchPlatform platform) {
-                          return DropdownMenuItem<SearchPlatform>(
-                            value: platform,
-                            child: SvgPicture.asset(
-                              _getPlatformIconPath(platform),
-                              width: 26,
-                              height: 26,
-                              // Apply color filter to ALL icons, whether selected or not
-                              colorFilter:
-                                  ColorFilter.mode(iconColor!, BlendMode.srcIn),
-                            ),
-                          );
-                        }).toList(),
+                        items: [
+                          // Explicitly list each platform to avoid duplicates
+                          _buildDropdownItem(SearchPlatform.itunes, iconColor),
+                          _buildDropdownItem(SearchPlatform.spotify, iconColor),
+                          _buildDropdownItem(SearchPlatform.deezer, iconColor),
+                          _buildDropdownItem(SearchPlatform.discogs, iconColor),
+                        ],
                       ),
                     ),
 
                     const SizedBox(width: 8),
 
-                    // Original search field style
+                    // Search field with improved automatic URL detection
                     SizedBox(
                       width: searchWidth - 60,
                       child: TextField(
@@ -522,16 +501,46 @@ class _MyAppState extends State<MyApp> {
                           labelText: 'Search Albums or Paste URL',
                           suffixIcon: IconButton(
                             icon: Icon(Icons.search, color: iconColor),
-                            onPressed: () =>
-                                _performSearch(searchController.text),
+                            onPressed: () {
+                              final text = searchController.text.trim();
+                              if (_containsMusicUrl(text)) {
+                                _processManualUrl(text);
+                              } else {
+                                _performSearch(text);
+                              }
+                            },
                           ),
                         ),
                         onChanged: (query) {
+                          // Don't auto-search when text looks like a URL
                           if (_debounce?.isActive ?? false) _debounce!.cancel();
-                          _debounce =
-                              Timer(const Duration(milliseconds: 500), () {
-                            _performSearch(query);
-                          });
+
+                          // Check if the text contains a URL and process it immediately
+                          // This auto-triggers URL processing without needing Enter key
+                          if (_containsMusicUrl(query)) {
+                            _debounce =
+                                Timer(const Duration(milliseconds: 200), () {
+                              _processManualUrl(query);
+                            });
+                          } else {
+                            // Only auto-search for non-URLs after a small delay
+                            _debounce =
+                                Timer(const Duration(milliseconds: 500), () {
+                              _performSearch(query);
+                            });
+                          }
+                        },
+                        onTap: () {
+                          // Reset clipboard detector when field is tapped
+                          ClipboardDetector.resumeNotifications();
+                        },
+                        onSubmitted: (text) {
+                          // Still support Enter key for explicit submission
+                          if (_containsMusicUrl(text)) {
+                            _processManualUrl(text);
+                          } else {
+                            _performSearch(text);
+                          }
                         },
                         maxLength: 255,
                       ),
@@ -578,6 +587,46 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  // Add a helper method to create dropdown items
+  DropdownMenuItem<SearchPlatform> _buildDropdownItem(
+      SearchPlatform platform, Color? iconColor) {
+    // Make sure iconColor is not null before using it
+    final Color safeIconColor = iconColor ?? Colors.grey;
+
+    // Add tooltip text to show the proper platform names
+    String tooltipText;
+    switch (platform) {
+      case SearchPlatform.itunes:
+        tooltipText = 'Apple Music';
+        break;
+      case SearchPlatform.spotify:
+        tooltipText = 'Spotify';
+        break;
+      case SearchPlatform.deezer:
+        tooltipText = 'Deezer';
+        break;
+      case SearchPlatform.discogs:
+        tooltipText = 'Discogs';
+        break;
+      default:
+        tooltipText = 'Select platform';
+        break;
+    }
+
+    return DropdownMenuItem<SearchPlatform>(
+      value: platform,
+      child: Tooltip(
+        message: tooltipText,
+        child: SvgPicture.asset(
+          _getPlatformIconPath(platform),
+          width: 26,
+          height: 26,
+          colorFilter: ColorFilter.mode(safeIconColor, BlendMode.srcIn),
+        ),
+      ),
+    );
+  }
+
   // Helper method to get platform icon path
   String _getPlatformIconPath(SearchPlatform platform) {
     if (platform == SearchPlatform.itunes) {
@@ -588,6 +637,9 @@ class _MyAppState extends State<MyApp> {
     }
     if (platform == SearchPlatform.deezer) {
       return 'lib/icons/deezer.svg';
+    }
+    if (platform == SearchPlatform.discogs) {
+      return 'lib/icons/discogs.svg';
     }
     return 'lib/icons/spotify.svg';
   }
@@ -602,6 +654,9 @@ class _MyAppState extends State<MyApp> {
     }
     if (platform == SearchPlatform.deezer) {
       return const Color(0xFF00C7F2); // Deezer blue
+    }
+    if (platform == SearchPlatform.discogs) {
+      return const Color(0xFFFF5500); // Discogs orange
     }
     return Colors.grey;
   }
@@ -624,7 +679,56 @@ class _MyAppState extends State<MyApp> {
     if (platform == SearchPlatform.deezer) {
       return Icons.music_note;
     }
+    if (platform == SearchPlatform.discogs) {
+      return Icons.music_note;
+    }
     return Icons.search;
+  }
+
+  // Add this helper method to check for music URLs (same as in ClipboardDetector)
+  bool _containsMusicUrl(String text) {
+    final lowerText = text.toLowerCase();
+    return lowerText.contains('music.apple.com') ||
+        lowerText.contains('itunes.apple.com') ||
+        lowerText.contains('apple.co') ||
+        lowerText.contains('bandcamp.com') ||
+        lowerText.contains('.bandcamp.') ||
+        lowerText.contains('spotify.com') ||
+        lowerText.contains('open.spotify') ||
+        lowerText.contains('deezer.com') ||
+        lowerText.contains('discogs.com');
+  }
+
+  // Modified method to directly process manually pasted URLs
+  void _processManualUrl(String url) {
+    if (url.isEmpty) return;
+
+    Logging.severe('Processing manually entered URL: $url');
+
+    // Use the simpler processManualUrl method
+    ClipboardDetector.processManualUrl(
+      url,
+      onDetected: (text) {
+        setState(() {
+          searchController.text = text;
+          _performSearch(text);
+        });
+      },
+      onUrlDetected: (url, searchQuery) {
+        setState(() {
+          searchController.text = url;
+          _performSearch(searchQuery);
+        });
+      },
+      onSnackBarMessage: (message) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      },
+      onSearchCompleted: (success) {
+        ClipboardDetector.reportSearchResult(success);
+      },
+    );
   }
 }
 
@@ -655,70 +759,54 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   final TextEditingController searchController = TextEditingController();
   List<dynamic> searchResults = [];
   Timer? _debounce;
-  Timer? _clipboardTimer;
+  Timer? _clipboardTimer; // Add this line to define _clipboardTimer
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _startClipboardListener();
+    _startClipboardDetection(); // Replace _startClipboardListener
     _loadAppVersion();
   }
 
-  void _startClipboardListener() {
-    _clipboardTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!mounted) return;
-
-      try {
-        final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-        final text = clipboardData?.text;
-
-        if (text != null && text.isNotEmpty && searchController.text.isEmpty) {
-          final lowerText = text.toLowerCase();
-          final bool isAppleMusic = lowerText.contains('music.apple.com') ||
-              lowerText.contains('itunes.apple.com') ||
-              lowerText.contains('apple.co') ||
-              lowerText.contains('apple music');
-
-          final bool isBandcamp = lowerText.contains('bandcamp.com') ||
-              lowerText.contains('.bandcamp.') ||
-              lowerText.contains('bandcamp:');
-
-          final bool isSpotify = lowerText.contains('spotify.com') ||
-              lowerText.contains('open.spotify');
-
-          final bool isDeezer = lowerText.contains('deezer.com');
-
-          if (isAppleMusic || isBandcamp || isSpotify || isDeezer) {
-            String platform = 'unknown';
-            if (isAppleMusic) platform = 'Apple Music';
-            if (isBandcamp) platform = 'Bandcamp';
-            if (isSpotify) platform = 'Spotify';
-            if (isDeezer) platform = 'Deezer';
-
-            Logging.severe('$platform URL detected in clipboard');
-
-            setState(() {
-              searchController.text = text;
-              _performSearch(text);
-            });
-
-            scaffoldMessengerKey.currentState?.showSnackBar(
-              SnackBar(
-                  content:
-                      Text('$platform URL detected and pasted into search')),
-            );
-          }
+  // Replace _startClipboardDetection with this updated method
+  void _startClipboardDetection() {
+    _clipboardTimer = ClipboardDetector.startClipboardListener(
+      onDetected: (text) {
+        // Only use this for non-URL text to avoid duplicate processing
+        if (searchController.text.isEmpty &&
+            !text.toLowerCase().contains('http')) {
+          setState(() {
+            searchController.text = text;
+            _performSearch(text);
+          });
         }
-      } catch (e) {
-        Logging.severe('Error checking clipboard', e);
-      }
-    });
+      },
+      onUrlDetected: (url, searchQuery) {
+        // Used for URLs with extracted artist/album info
+        if (searchController.text.isEmpty) {
+          setState(() {
+            searchController.text = url;
+            _performSearch(searchQuery);
+          });
+        }
+      },
+      onSnackBarMessage: (message) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      },
+      onSearchCompleted: (success) {
+        // Report search result back to clipboard detector
+        ClipboardDetector.reportSearchResult(success);
+      },
+    );
   }
 
   @override
   void dispose() {
-    _clipboardTimer?.cancel();
+    _clipboardTimer?.cancel(); // Make sure to cancel the timer properly
+    ClipboardDetector.stopClipboardListener(); // Update this line
     searchController.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -813,6 +901,7 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
   void _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() => searchResults = []);
+      ClipboardDetector.reportSearchResult(false); // Report empty search
       return;
     }
 
@@ -962,6 +1051,16 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
                     _debounce = Timer(const Duration(milliseconds: 500), () {
                       _performSearch(query);
                     });
+
+                    // Mark as manual input only if it contains a music URL
+                    if (_containsMusicUrl(query)) {
+                      ClipboardDetector.reportManualPaste();
+                    }
+                  },
+                  // Add onPaste handler to detect manual pastes
+                  onTap: () {
+                    // Mark this as a manual clipboard operation
+                    ClipboardDetector.reportManualPaste();
                   },
                   maxLength: 255,
                 ),
@@ -1001,5 +1100,19 @@ class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
         ],
       ),
     );
+  }
+
+  // Only keep the _containsMusicUrl method since it's being used
+  bool _containsMusicUrl(String text) {
+    final lowerText = text.toLowerCase();
+    return lowerText.contains('music.apple.com') ||
+        lowerText.contains('itunes.apple.com') ||
+        lowerText.contains('apple.co') ||
+        lowerText.contains('bandcamp.com') ||
+        lowerText.contains('.bandcamp.') ||
+        lowerText.contains('spotify.com') ||
+        lowerText.contains('open.spotify') ||
+        lowerText.contains('deezer.com') ||
+        lowerText.contains('discogs.com');
   }
 }
