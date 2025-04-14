@@ -210,8 +210,9 @@ class ClipboardDetector {
       // Discogs URLs look like:
       // https://www.discogs.com/master/1211526 or
       // https://www.discogs.com/release/12345678
+      // or even localized URLs like https://www.discogs.com/es/release/12345678
 
-      // Extract the ID and type from the URL
+      // Extract the ID and type from the URL - make regex more flexible to handle various URL formats
       final regExp = RegExp(r'/(master|release)/(\d+)');
       final match = regExp.firstMatch(url);
 
@@ -220,38 +221,13 @@ class ClipboardDetector {
         final id = match.group(2);
         Logging.severe('Extracted Discogs $type ID: $id');
 
-        // Use the Discogs API to get release details
-        final apiUrl = 'https://api.discogs.com/$type' 's/$id';
+        // Don't hit the API - just construct a standardized URL for direct use
+        // This is more reliable and doesn't hit rate limits
+        final standardizedUrl = 'https://www.discogs.com/$type/$id';
+        Logging.severe('Created standardized Discogs URL: $standardizedUrl');
 
-        // Add simple headers for unauthenticated request
-        final response = await http.get(
-          Uri.parse(apiUrl),
-          headers: {'User-Agent': 'RateMe/1.0'},
-        );
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-
-          String artistName = '';
-          String albumName = '';
-
-          // Handle different response structures based on type
-          if (type == 'master') {
-            if (data['artists'] != null && data['artists'].isNotEmpty) {
-              artistName = data['artists'][0]['name'] ?? '';
-            }
-            albumName = data['title'] ?? '';
-          } else {
-            // For releases
-            artistName = data['artists_sort'] ?? '';
-            albumName = data['title'] ?? '';
-          }
-
-          if (artistName.isNotEmpty && albumName.isNotEmpty) {
-            Logging.severe('Extracted from Discogs: $artistName - $albumName');
-            return '$artistName $albumName';
-          }
-        }
+        // Return empty string to signal we should use the direct URL approach
+        return '';
       }
     } catch (e) {
       Logging.severe('Error extracting Discogs info', e);
@@ -275,7 +251,6 @@ class ClipboardDetector {
   }
 
   /// Process text that might contain a music URL
-  /// This is the main entry point that should be called when text is pasted or entered
   static Future<bool> processText(
     String text, {
     required Function(String) onDetected,
@@ -403,6 +378,32 @@ class ClipboardDetector {
           }
 
           onDetected(text); // Use the original URL directly
+        } else if (isDiscogs) {
+          // For Discogs, we always want direct URL handling
+          // Check if it's a valid Discogs album URL and standardize it
+          final regExp = RegExp(r'/(master|release)/(\d+)');
+          final match = regExp.firstMatch(text);
+
+          if (match != null && match.groupCount >= 2) {
+            final type = match.group(1);
+            final id = match.group(2);
+            Logging.severe('Valid Discogs $type detected with ID: $id');
+
+            // Always standardize the URL format
+            final standardizedUrl = 'https://www.discogs.com/$type/$id';
+            onSnackBarMessage('Discogs album found');
+
+            // Use the standardized URL directly
+            onDetected(standardizedUrl);
+          } else {
+            Logging.severe('Discogs URL detected but format not recognized');
+            onSnackBarMessage('Discogs link detected');
+            onDetected(text); // Use the original URL directly
+          }
+
+          // Complete immediately to avoid API delays
+          onSearchCompleted(true);
+          return true;
         } else {
           // For other platforms, use the extracted search query
           if (searchQuery.isEmpty || searchQuery == text) {

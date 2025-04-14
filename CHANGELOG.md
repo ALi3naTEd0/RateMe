@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Comprehensive track duration detection for Discogs albums across all available versions
+- Smart version selection for Discogs albums based on format, country, and data quality
 - Discogs integration with complete search and album details support
 - Universal EP/Single handling across all platforms (iTunes/Apple Music, Spotify, Deezer, Discogs)
 - Standardized album suffix normalization system for cross-platform compatibility
@@ -50,8 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling for missing track information
 - Fixed crashes when loading albums with inconsistent track data
 - Better handling of non-standard API responses from music platforms
+- Improved track duration detection for Discogs albums with multiple release versions
+- Enhanced version selection logic to handle albums with variant track listings
 
 ### Changed
+- Improved Discogs album data quality with intelligent version selection algorithm
+- Enhanced logging for easier debugging of platform-specific integration issues
 - Universal album name normalization system for all platforms
 - Enhanced algorithm for EP/Single name cleanup across all music services
 - Added direct album name comparison after standardization for all platforms

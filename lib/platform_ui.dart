@@ -22,6 +22,8 @@ class PlatformUI {
     } else if (platformLower.contains('youtube') ||
         platformLower.contains('ytmusic')) {
       return 'lib/icons/youtube_music.svg';
+    } else if (platformLower.contains('discogs')) {
+      return 'lib/icons/discogs.svg';
     }
 
     // Default fallback
@@ -34,17 +36,19 @@ class PlatformUI {
 
     switch (platform) {
       case 'spotify':
-        return Icons.music_note;
+        return Icons.album;
       case 'itunes':
       case 'apple_music':
         return Icons.apple;
       case 'deezer':
-        return Icons.library_music;
+        return Icons.album;
       case 'bandcamp':
+        return Icons.album;
+      case 'discogs':
         return Icons.album;
       default:
         // Instead of defaulting to bandcamp icon, let's use a generic music icon
-        return Icons.music_note;
+        return Icons.album;
     }
   }
 
@@ -66,6 +70,8 @@ class PlatformUI {
       return 'deezer';
     } else if (url.contains('bandcamp.com')) {
       return 'bandcamp';
+    } else if (url.contains('discogs.com')) {
+      return 'discogs';
     }
 
     // For iTunes API results, check for the collectionId/collectionName pattern
@@ -92,6 +98,8 @@ class PlatformUI {
         return const Color(0xFF00C7F2);
       case 'bandcamp':
         return const Color(0xFF1DA0C3);
+      case 'discogs':
+        return const Color(0xFFFF5500);
       default:
         return Colors.grey.shade700;
     }
