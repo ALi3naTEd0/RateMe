@@ -41,9 +41,20 @@ prepare() {
     mkdir -p lib
     cat > lib/api_keys.dart << EOF
 class ApiKeys {
-  // Real API keys for application usage
-  static const String spotifyClientId = '1ddf2021ee384fa88b92f0ed97de6802';
-  static const String spotifyClientSecret = 'f28c7fed579449789d27ce38abc12c39';
+  // Spotify API keys - Base64 encoded for basic obfuscation
+  static const String spotifyClientId = _decodeKey('MWRkZjIwMjFlZTM4NGZhODhiOTJmMGVkOTdkZTY4MDI=');
+  static const String spotifyClientSecret = _decodeKey('ZjI4YzdmZWQ1Nzk0NDk3ODlkMjdjZTM4YWJjMTJjMzk=');
+  
+  // Discogs API keys - Base64 encoded for basic obfuscation
+  static const String discogsConsumerKey = _decodeKey('amZkZHNmUWt5dUNjd0V5am5zd2s=');
+  static const String discogsConsumerSecret = _decodeKey('bkFMb1NtRHdLbm9CT1RKRHhnT1NQU2JPa2tXRlN2RVk=');
+  
+  // Decode base64 encoded keys
+  static String _decodeKey(String encodedKey) {
+    // Simple base64 decoding - this happens at runtime
+    final List<int> bytes = base64.decode(encodedKey);
+    return utf8.decode(bytes);
+  }
   
   // API request timeout durations (in seconds)
   static const int defaultRequestTimeout = 30;
@@ -68,11 +79,19 @@ class ApiKeys {
   static const int defaultCacheExpiryMinutes = 60;
 }
 
+// Import statement for base64 and utf8 - needed at the top of the file
+import 'dart:convert';
+
 class ApiEndpoints {
   // Spotify endpoints
   static const String spotifyAlbumSearch = 'search';
   static const String spotifyAlbumDetails = 'albums';
   static const String spotifyArtistDetails = 'artists';
+  
+  // Discogs endpoints
+  static const String discogsSearch = 'database/search';
+  static const String discogsMaster = 'masters';
+  static const String discogsRelease = 'releases';
 }
 EOF
 }
