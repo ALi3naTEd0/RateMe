@@ -54,15 +54,13 @@ jobs:
 
       - name: Generate API Keys File
         run: |
-          mkdir -p lib
-          cat > lib/api_keys.dart << EOF
-          /// API Keys for external services
-          class ApiKeys {
-            /// Spotify API Credentials
-            static const String spotifyClientId = '${{ secrets.SPOTIFY_CLIENT_ID }}';
-            static const String spotifyClientSecret = '${{ secrets.SPOTIFY_CLIENT_SECRET }}';
-          }
-          EOF
+          # Use the create_api_keys.sh script for consistency
+          chmod +x installers/create_api_keys.sh
+          SPOTIFY_CLIENT_ID='${{ secrets.SPOTIFY_CLIENT_ID }}' \
+          SPOTIFY_CLIENT_SECRET='${{ secrets.SPOTIFY_CLIENT_SECRET }}' \
+          DISCOGS_CONSUMER_KEY='${{ secrets.DISCOGS_CONSUMER_KEY }}' \
+          DISCOGS_CONSUMER_SECRET='${{ secrets.DISCOGS_CONSUMER_SECRET }}' \
+          ./installers/create_api_keys.sh
           
           # Generate app icons using magick instead of convert
           cd macos/Runner/Assets.xcassets/AppIcon.appiconset

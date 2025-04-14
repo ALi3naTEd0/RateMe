@@ -84,12 +84,21 @@ jobs:
         shell: pwsh
         run: |
           # Execute the PowerShell script with parameters
-          .\installers\create_api_keys.ps1 -SpotifyClientId '${{ secrets.SPOTIFY_CLIENT_ID }}' -SpotifyClientSecret '${{ secrets.SPOTIFY_CLIENT_SECRET }}'
+          .\installers\create_api_keys.ps1 `
+            -SpotifyClientId '${{ secrets.SPOTIFY_CLIENT_ID }}' `
+            -SpotifyClientSecret '${{ secrets.SPOTIFY_CLIENT_SECRET }}' `
+            -DiscogsConsumerKey '${{ secrets.DISCOGS_CONSUMER_KEY }}' `
+            -DiscogsConsumerSecret '${{ secrets.DISCOGS_CONSUMER_SECRET }}'
           
           # Verify file was created
           if (-not (Test-Path "lib\api_keys.dart")) {
             Write-Error "API keys file was not created by script"
             exit 1
+          }
+          
+          # Show first few lines for debugging (without showing actual keys)
+          Get-Content -Path "lib\api_keys.dart" | Select-Object -First 3 | ForEach-Object { 
+            $_ -replace "'[^']*'", "'***'" 
           }
 
       # Create the necessary native_assets directory for Windows
