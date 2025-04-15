@@ -24,7 +24,7 @@ class ApiKeys {
   
   // Method to get Spotify auth token
   static String getSpotifyToken() {
-    return base64.encode(utf8.encode('\$spotifyClientId:\$spotifyClientSecret'));
+    return base64.encode(utf8.encode(spotifyClientId + ':' + spotifyClientSecret));
   }
   
   // API request timeout durations (in seconds)
