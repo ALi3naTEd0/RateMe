@@ -559,6 +559,94 @@ class UserData {
     }
   }
 
+  // Get tracks for an album
+  static Future<List<Map<String, dynamic>>> getTracksForAlbum(
+      String albumId) async {
+    try {
+      final db = await getDatabaseInstance();
+
+      // Query the tracks table using the album ID
+      List<Map<String, dynamic>> trackMaps = await db.query(
+        'tracks',
+        where: 'album_id = ?',
+        whereArgs: [albumId],
+        orderBy: 'position ASC',
+      );
+
+      Logging.severe(
+          'Retrieved ${trackMaps.length} tracks from database for album $albumId');
+
+      if (trackMaps.isNotEmpty) {
+        return trackMaps;
+      }
+
+      // If no tracks in database, see if we have stored track data in the album's 'data' field
+      final albumResult = await db.query(
+        'albums',
+        columns: ['data'],
+        where: 'id = ?',
+        whereArgs: [albumId],
+      );
+
+      if (albumResult.isNotEmpty && albumResult[0]['data'] != null) {
+        try {
+          Map<String, dynamic> albumData =
+              jsonDecode(albumResult[0]['data'].toString());
+
+          if (albumData.containsKey('tracks') && albumData['tracks'] is List) {
+            Logging.severe('Found tracks in album data for $albumId');
+            return List<Map<String, dynamic>>.from(albumData['tracks']);
+          }
+        } catch (e) {
+          Logging.severe('Error parsing album data: $e');
+        }
+      }
+
+      // Return empty list if nothing found
+      return [];
+    } catch (e, stack) {
+      Logging.severe('Error getting tracks for album: $albumId', e, stack);
+      return [];
+    }
+  }
+
+  /// Save tracks for an album to the database
+  static Future<void> saveTracksForAlbum(
+      String albumId, List<Map<String, dynamic>> tracks) async {
+    try {
+      await initializeDatabase();
+
+      final db = await DatabaseHelper.instance.database;
+
+      // Store each track
+      for (var track in tracks) {
+        // Update the track data to match the correct database schema
+        final Map<String, dynamic> trackData = {
+          'id': track['id'] ??
+              track['trackId'] ??
+              '', // Ensure we use the right field name
+          'album_id': albumId, // Add album_id column
+          'name': track['name'],
+          'position': track['position'],
+          'duration_ms': track['duration_ms'],
+          'data': track['data'] ?? '{}',
+        };
+
+        await db.insert(
+          'tracks',
+          trackData,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      Logging.severe(
+          'Saved ${tracks.length} tracks to database for album $albumId');
+    } catch (e, stack) {
+      Logging.severe('Error saving tracks for album $albumId', e, stack);
+      rethrow; // Re-throw for caller to handle
+    }
+  }
+
   // RATINGS METHODS
 
   /// Save a track rating
@@ -1325,6 +1413,38 @@ class UserData {
     } catch (e) {
       Logging.severe('Error checking database integrity', e);
       return false;
+    }
+  }
+
+  /// Save a single track to the database
+  static Future<void> saveTrack(String albumId, String trackId, String name,
+      int position, int durationMs) async {
+    try {
+      await initializeDatabase();
+      final db = await getDatabaseInstance();
+
+      // Create a JSON object to store as data
+      final trackData = {
+        'title': name,
+        'position': position,
+        'durationMs': durationMs
+      };
+
+      await db.insert(
+        'tracks',
+        {
+          'id': trackId,
+          'album_id': albumId,
+          'name': name,
+          'position': position,
+          'duration_ms': durationMs,
+          'data': json
+              .encode(trackData), // Store JSON data for additional information
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e, stack) {
+      Logging.severe('Error saving track', e, stack);
     }
   }
 }

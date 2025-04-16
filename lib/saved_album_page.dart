@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:rateme/database/database_helper.dart';
+import 'package:rateme/platforms/discogs_service.dart';
+import 'package:rateme/platforms/platform_service_factory.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -95,6 +99,10 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           true) {
         detectedPlatform = 'deezer';
         Logging.severe('Detected Deezer album based on URL');
+      } else if (widget.album['url']?.toString().contains('discogs.com') ==
+          true) {
+        detectedPlatform = 'discogs';
+        Logging.severe('Detected Discogs album based on URL');
       } else if (albumId is int ||
           (albumId is String && int.tryParse(albumId) != null)) {
         detectedPlatform = 'itunes';
@@ -124,6 +132,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         await _fetchSpotifyTracks();
       } else if (detectedPlatform == 'deezer') {
         await _fetchDeezerTracks();
+      } else if (detectedPlatform == 'discogs') {
+        await _fetchDiscogsTracks();
       } else {
         await _fetchItunesTracks();
       }
@@ -635,6 +645,314 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     }
   }
 
+  Future<void> _fetchDiscogsTracks() async {
+    try {
+      Logging.severe(
+          'Fetching Discogs tracks for album: ${unifiedAlbum?.name}');
+      Logging.severe(
+          'ALBUM DEBUG: Raw album data from widget: ${jsonEncode(widget.album)}');
+
+      // 1. First try getting tracks from unified album model
+      if (unifiedAlbum != null && unifiedAlbum!.tracks.isNotEmpty) {
+        // ...existing code...
+        return;
+      }
+
+      // 2. Try to get tracks from database
+      final albumId = unifiedAlbum?.id ??
+          widget.album['id'] ??
+          widget.album['collectionId'];
+      Logging.severe('Looking up tracks from database for album ID: $albumId');
+
+      final tracksList = await UserData.getTracksForAlbum(albumId.toString());
+      Logging.severe(
+          'Retrieved ${tracksList.length} tracks from database for album $albumId');
+
+      List<Track> dbTracks = [];
+      if (tracksList.isNotEmpty) {
+        for (var trackData in tracksList) {
+          dbTracks.add(Track(
+            id: trackData['id'] ??
+                '', // Use 'id' instead of 'trackId' to match DB schema
+            name: trackData['name'] ?? 'Unknown Track',
+            position: trackData['position'] ?? 0,
+            durationMs: trackData['duration_ms'] ?? 0,
+            metadata: trackData,
+          ));
+        }
+
+        // Check if we have track durations
+        bool hasDurations = dbTracks.any((track) => track.durationMs > 0);
+
+        if (hasDurations) {
+          Logging.severe('Found tracks with durations in database, using them');
+          setState(() {
+            tracks = dbTracks;
+            calculateAlbumDuration();
+          });
+          return;
+        }
+
+        Logging.severe(
+            'Tracks found in database but missing durations, will attempt to fetch durations');
+      }
+
+      // 3. Try to fetch track details directly from Discogs API
+      String albumUrl = widget.album['url']?.toString() ?? '';
+      if (albumUrl.isNotEmpty && albumUrl.contains('discogs.com')) {
+        // Check if we have a cached release URL for this master URL
+        final albumId = widget.album['id']?.toString() ?? '';
+        if (albumUrl.contains('/master/')) {
+          final releaseUrl = await getReleaseUrlForMaster(albumUrl);
+          if (releaseUrl != null && releaseUrl.isNotEmpty) {
+            Logging.severe(
+                'Using cached release URL instead of master: $releaseUrl');
+            albumUrl = releaseUrl;
+          }
+        }
+
+        Logging.severe('Fetching directly from Discogs API: $albumUrl');
+
+        // Create Discogs service instance
+        final platformFactory = PlatformServiceFactory();
+        if (!platformFactory.isPlatformSupported('discogs')) {
+          Logging.severe('Discogs service not supported');
+          _createTracksFromRatings();
+          return;
+        }
+
+        final discogsService =
+            platformFactory.getService('discogs') as DiscogsService;
+        final discogsAlbumDetails =
+            await discogsService.fetchAlbumDetails(albumUrl);
+
+        // Process track details
+        if (discogsAlbumDetails != null &&
+            discogsAlbumDetails['tracks'] != null &&
+            discogsAlbumDetails['tracks'] is List &&
+            discogsAlbumDetails['tracks'].isNotEmpty) {
+          List<Track> apiTracks = [];
+          final apiTracksList = discogsAlbumDetails['tracks'] as List;
+
+          // If this was a master URL, save this release URL for future use
+          if (albumUrl != widget.album['url'] && albumId.isNotEmpty) {
+            await saveMasterReleaseMapping(
+                albumId, widget.album['url'], albumUrl);
+          }
+
+          // Process tracks
+          for (int i = 0; i < apiTracksList.length; i++) {
+            final trackData = apiTracksList[i];
+            final paddedPosition = (i + 1).toString().padLeft(3, '0');
+            final trackId = '$albumId$paddedPosition';
+            final trackDuration = trackData['trackTimeMillis'] ?? 0;
+            final trackName = trackData['trackName'] ?? 'Track ${i + 1}';
+
+            Logging.severe(
+                'Created Discogs track: $trackName with ID $trackId, duration: $trackDuration ms');
+
+            apiTracks.add(Track(
+              id: trackId,
+              name: trackName,
+              position: i + 1,
+              durationMs: trackDuration,
+              metadata: trackData,
+            ));
+          }
+
+          // Save to database for future use
+          if (apiTracks.isNotEmpty) {
+            List<Map<String, dynamic>> tracksForDb = [];
+
+            for (var track in apiTracks) {
+              tracksForDb.add({
+                'id': track.id, // Use 'id' not 'trackId' to match DB schema
+                'name': track.name,
+                'position': track.position,
+                'duration_ms': track.durationMs,
+                'album_id': albumId, // Add album_id to match DB schema
+                'data': '{}',
+              });
+            }
+
+            try {
+              await UserData.saveTracksForAlbum(
+                  albumId.toString(), tracksForDb);
+              Logging.severe(
+                  'Saved ${tracksForDb.length} tracks to database for album $albumId');
+            } catch (e) {
+              Logging.severe('Error saving tracks for album $albumId: $e');
+            }
+          }
+
+          // Merge with existing ratings
+          if (ratings.isNotEmpty) {
+            final mergedTracks = _mergeTracksWithRatings(apiTracks);
+            setState(() {
+              tracks = mergedTracks;
+              calculateAlbumDuration();
+            });
+            return;
+          } else {
+            // Use API tracks directly
+            setState(() {
+              tracks = apiTracks;
+              calculateAlbumDuration();
+            });
+            return;
+          }
+        }
+      }
+
+      // 4. If we still have no tracks but do have ratings, create tracks from ratings
+      if (ratings.isNotEmpty) {
+        Logging.severe('Creating tracks from ratings');
+        _createTracksFromRatings();
+      } else {
+        // If everything fails, show empty tracks list
+        setState(() {
+          tracks = [];
+          isLoading = false;
+        });
+      }
+    } catch (e, stack) {
+      Logging.severe('Error fetching Discogs tracks', e, stack);
+
+      // If there's an error but we have ratings, try to create placeholder tracks
+      if (ratings.isNotEmpty) {
+        _createTracksFromRatings();
+      } else if (mounted) {
+        setState(() {
+          tracks = [];
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  // New helper method to merge tracks with existing ratings
+  List<Track> _mergeTracksWithRatings(List<Track> apiTracks) {
+    Logging.severe(
+        'Merging ${apiTracks.length} tracks with ${ratings.keys.length} ratings');
+
+    // Create a map of position to track ID from ratings
+    final Map<int, String> ratingPositionToIdMap = {};
+
+    // Extract positions from track IDs (assuming format like "1211526001" where last 3 digits are position)
+    for (String trackId in ratings.keys) {
+      try {
+        if (trackId.length >= 4) {
+          final posStr = trackId.substring(trackId.length - 3);
+          final position = int.tryParse(posStr) ?? 0;
+
+          if (position > 0) {
+            ratingPositionToIdMap[position] = trackId;
+          }
+        }
+      } catch (e) {
+        Logging.severe('Error parsing track position from ID: $e');
+      }
+    }
+
+    // Update API tracks with appropriate IDs to match ratings
+    List<Track> mergedTracks = [];
+
+    for (int i = 0; i < apiTracks.length; i++) {
+      final position = apiTracks[i].position;
+
+      if (ratingPositionToIdMap.containsKey(position)) {
+        final ratingTrackId = ratingPositionToIdMap[position]!;
+
+        // Create a new track with the rating ID but API track data
+        mergedTracks.add(Track(
+          id: ratingTrackId, // Use the ID from ratings
+          name: apiTracks[i].name,
+          position: position,
+          durationMs: apiTracks[i].durationMs,
+          metadata: apiTracks[i].metadata,
+        ));
+      } else {
+        // Keep the original track
+        mergedTracks.add(apiTracks[i]);
+      }
+    }
+
+    return mergedTracks;
+  }
+
+  // New helper to retrieve a release URL for a master URL from the database
+  Future<String?> getReleaseUrlForMaster(String masterUrl) async {
+    try {
+      // Parse the master ID from URL
+      final masterIdMatch = RegExp(r'/master/(\d+)').firstMatch(masterUrl);
+      if (masterIdMatch == null) return null;
+
+      final masterId = masterIdMatch.group(1);
+      if (masterId == null) return null;
+
+      // Query the database for a saved mapping
+      final db = await DatabaseHelper.instance.database;
+
+      final result = await db.query('master_release_map',
+          where: 'master_id = ?', whereArgs: [masterId], limit: 1);
+
+      if (result.isNotEmpty && result[0].containsKey('release_url')) {
+        final releaseUrl = result[0]['release_url'] as String?;
+        Logging.severe(
+            'Found cached release URL for master $masterId: $releaseUrl');
+        return releaseUrl;
+      }
+
+      return null;
+    } catch (e) {
+      Logging.severe('Error retrieving release URL for master: $e');
+      return null;
+    }
+  }
+
+  // New helper to save mapping between master and release URLs
+  Future<void> saveMasterReleaseMapping(
+      String albumId, String masterUrl, String releaseUrl) async {
+    try {
+      // Parse the master ID from URL
+      final masterIdMatch = RegExp(r'/master/(\d+)').firstMatch(masterUrl);
+      if (masterIdMatch == null) return;
+
+      final masterId = masterIdMatch.group(1);
+      if (masterId == null) return;
+
+      // Create the table if it doesn't exist
+      final db = await DatabaseHelper.instance.database;
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS master_release_map (
+          master_id TEXT PRIMARY KEY,
+          master_url TEXT,
+          release_url TEXT,
+          album_id TEXT,
+          timestamp TEXT
+        )
+      ''');
+
+      // Save the mapping
+      await db.insert(
+          'master_release_map',
+          {
+            'master_id': masterId,
+            'master_url': masterUrl,
+            'release_url': releaseUrl,
+            'album_id': albumId,
+            'timestamp': DateTime.now().toIso8601String()
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+
+      Logging.severe(
+          'Saved mapping from master $masterId to release URL: $releaseUrl');
+    } catch (e) {
+      Logging.severe('Error saving master-release mapping: $e');
+    }
+  }
+
   Future<void> _fetchItunesTracks() async {
     try {
       Logging.severe(
@@ -795,6 +1113,26 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         ratings[trackIdStr] = newRating;
       });
 
+      // Also update the track metadata if we can find the track
+      for (int i = 0; i < tracks.length; i++) {
+        if (tracks[i].id.toString() == trackIdStr) {
+          // Create a new track with updated metadata
+          final updatedTrack = Track(
+            id: tracks[i].id,
+            name: tracks[i].name,
+            position: tracks[i].position,
+            durationMs: tracks[i].durationMs,
+            metadata: {...tracks[i].metadata, 'rating': newRating},
+          );
+
+          // Update the track in the list
+          setState(() {
+            tracks[i] = updatedTrack;
+          });
+          break;
+        }
+      }
+
       // Delay calculation slightly to ensure state is updated
       await Future.delayed(const Duration(milliseconds: 50));
       calculateAverageRating();
@@ -852,8 +1190,52 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   Widget _buildTrackSlider(dynamic trackId) {
-    // Always use string keys for ratings lookup
+    // Get the track index by ID
+    int trackIndex = -1;
     final trackIdStr = trackId.toString();
+
+    for (int i = 0; i < tracks.length; i++) {
+      if (tracks[i].id.toString() == trackIdStr) {
+        trackIndex = i;
+        break;
+      }
+    }
+
+    // Initialize rating value
+    double ratingValue = 0.0;
+
+    // Check multiple sources for ratings in this priority:
+    // 1. First check if the track's metadata has a rating
+    if (trackIndex >= 0 && tracks[trackIndex].metadata.containsKey('rating')) {
+      ratingValue = tracks[trackIndex].metadata['rating'].toDouble();
+      Logging.severe(
+          'Found rating in track metadata for $trackIdStr: $ratingValue');
+    }
+    // 2. Check the ratings map directly
+    else if (ratings.containsKey(trackIdStr)) {
+      ratingValue = ratings[trackIdStr] ?? 0.0;
+      Logging.severe(
+          'Found rating in ratings map for $trackIdStr: $ratingValue');
+    }
+    // 3. Try position-based matching (for Discogs primarily)
+    else if (trackIndex >= 0) {
+      int position = tracks[trackIndex].position;
+      String positionStr = position.toString().padLeft(3, '0');
+
+      // Look for any rating key with this position
+      for (String key in ratings.keys) {
+        if (key.endsWith(positionStr)) {
+          ratingValue = ratings[key] ?? 0.0;
+          Logging.severe(
+              'Found position-based rating for track $trackIdStr (position $positionStr): $ratingValue from key $key');
+          break;
+        }
+      }
+    }
+
+    // Always log the final rating value for debugging
+    Logging.severe(
+        'Using rating $ratingValue for track $trackIdStr (ID type: ${trackId.runtimeType})');
 
     return SizedBox(
       width: 150,
@@ -868,8 +1250,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                 min: 0,
                 max: 10,
                 divisions: 10,
-                value: ratings[trackIdStr] ?? 0.0,
-                label: (ratings[trackIdStr] ?? 0.0).toStringAsFixed(0),
+                value: ratingValue,
+                label: ratingValue.toStringAsFixed(0),
                 onChanged: (newRating) => _updateRating(trackId, newRating),
               ),
             ),
@@ -877,11 +1259,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           SizedBox(
             width: 25,
             child: Text(
-              (ratings[trackIdStr] ?? 0).toStringAsFixed(0),
-              // Explicitly define the const value in another way:
-              style: const TextStyle(
-                fontSize: 16,
-              ),
+              ratingValue.toStringAsFixed(0),
+              style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.end,
             ),
           ),
@@ -1100,7 +1479,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                         child: Center(child: Text('Rating')))),
                               ],
                               rows: tracks.map((track) {
-                                final trackId = track.id;
                                 return DataRow(
                                   cells: [
                                     DataCell(Text(track.position.toString())),
@@ -1111,7 +1489,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                     )),
                                     DataCell(
                                         Text(formatDuration(track.durationMs))),
-                                    DataCell(_buildTrackSlider(trackId)),
+                                    DataCell(_buildTrackSlider(track
+                                        .id)), // Use the fixed method directly
                                   ],
                                 );
                               }).toList(),
@@ -1640,5 +2019,165 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     }
 
     return 'Unknown Date';
+  }
+
+  // Improved track creation from ratings with database lookup and rating matching
+  void _createTracksFromRatings() async {
+    try {
+      Logging.severe('Creating tracks from ratings');
+
+      // Extract the album ID from the widget
+      final String albumId = widget.album['id'].toString();
+      final String artistName = widget.album['artist']?.toString() ?? '';
+      final String albumName = widget.album['name']?.toString() ?? '';
+
+      Logging.severe(
+          'Creating tracks for album: $albumName by $artistName (ID: $albumId)');
+      Logging.severe('Available ratings: ${ratings.toString()}');
+
+      // Direct database lookup for tracks
+      List<Track> tracksFromDb = await _loadTracksDirectlyFromDatabase(albumId);
+
+      if (tracksFromDb.isNotEmpty) {
+        // We have tracks from the database - now match them with ratings
+        Logging.severe(
+            'Found ${tracksFromDb.length} tracks in database for album $albumId');
+
+        // Match each track with its rating
+        for (int i = 0; i < tracksFromDb.length; i++) {
+          Track track = tracksFromDb[i];
+          String trackId = track.id.toString();
+
+          // Check for direct match in ratings
+          if (ratings.containsKey(trackId)) {
+            Logging.severe(
+                'Found direct rating match for track $trackId: ${ratings[trackId]}');
+
+            // Update track metadata with rating
+            tracksFromDb[i] = Track(
+              id: track.id,
+              name: track.name,
+              position: track.position,
+              durationMs: track.durationMs,
+              metadata: {...track.metadata, 'rating': ratings[trackId]},
+            );
+          }
+          // Check for position-based match
+          else {
+            // Try to find rating based on track position (last 3 digits of ID)
+            String? matchedRatingId;
+            double? matchedRating;
+
+            // Try looking for any ID that ends with the track position
+            String positionStr = track.position.toString().padLeft(3, '0');
+
+            for (String ratingId in ratings.keys) {
+              if (ratingId.endsWith(positionStr)) {
+                matchedRatingId = ratingId;
+                matchedRating = ratings[ratingId];
+                Logging.severe(
+                    'Found position-based rating for track $trackId (position $positionStr): $matchedRating (ID: $matchedRatingId)');
+                break;
+              }
+            }
+
+            // If found a matching rating, update the track
+            if (matchedRating != null) {
+              tracksFromDb[i] = Track(
+                id: track.id,
+                name: track.name,
+                position: track.position,
+                durationMs: track.durationMs,
+                metadata: {
+                  ...track.metadata,
+                  'rating': matchedRating,
+                  'matchedRatingId': matchedRatingId,
+                },
+              );
+            }
+          }
+        }
+
+        // Find how many tracks have ratings
+        int tracksWithRatings =
+            tracksFromDb.where((t) => t.metadata.containsKey('rating')).length;
+        Logging.severe(
+            '$tracksWithRatings/${tracksFromDb.length} tracks have ratings associated');
+
+        // Set the tracks
+        if (mounted) {
+          setState(() {
+            tracks = tracksFromDb;
+            isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // If we get here, we need to fetch tracks from the API
+      Logging.severe(
+          'No tracks found in database, will attempt to fetch from API');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e, stack) {
+      Logging.severe('Error creating tracks from ratings', e, stack);
+      if (mounted) {
+        setState(() {
+          tracks = [];
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Direct database lookup for tracks
+  Future<List<Track>> _loadTracksDirectlyFromDatabase(String albumId) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final dbTracks = await db.query('tracks',
+          where: 'album_id = ?', whereArgs: [albumId], orderBy: 'position ASC');
+
+      Logging.severe(
+          'Retrieved ${dbTracks.length} tracks from database for album $albumId');
+
+      if (dbTracks.isEmpty) {
+        return [];
+      }
+
+      // Convert database rows to Track objects
+      List<Track> result = [];
+
+      for (var trackData in dbTracks) {
+        try {
+          final trackId = trackData['id'].toString();
+          final trackName = trackData['name'].toString();
+          final position = trackData['position'] as int? ?? 0;
+          final durationMs = trackData['duration_ms'] as int? ?? 0;
+
+          // Log track details for debugging
+          Logging.severe(
+              'Track from DB: ID=$trackId, Name=$trackName, Position=$position');
+
+          // Create track object
+          result.add(Track(
+            id: trackId,
+            name: trackName,
+            position: position,
+            durationMs: durationMs,
+            metadata: {}, // Empty metadata initially, will add rating later
+          ));
+        } catch (e) {
+          Logging.severe('Error creating track from database record: $e');
+        }
+      }
+
+      return result;
+    } catch (e, stack) {
+      Logging.severe('Error loading tracks from database', e, stack);
+      return [];
+    }
   }
 }

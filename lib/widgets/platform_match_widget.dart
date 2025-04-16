@@ -1,14 +1,16 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Added for Clipboard
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../album_model.dart';
 import '../logging.dart';
 import '../widgets/skeleton_loading.dart';
 import '../platforms/platform_service_factory.dart';
-import '../search_service.dart'; // Add import for SearchService
+import '../search_service.dart';
+import '../database/database_helper.dart'; // Import for database access
 
 /// Widget that displays buttons to open an album in various streaming platforms
 class PlatformMatchWidget extends StatefulWidget {
@@ -43,7 +45,116 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   @override
   void initState() {
     super.initState();
-    _findMatchingAlbums();
+    _loadPlatformMatches();
+  }
+
+  Future<void> _loadPlatformMatches() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      // First try to load platform matches from the database
+      final savedMatches = await _loadMatchesFromDatabase();
+
+      if (savedMatches.isNotEmpty) {
+        Logging.severe(
+            'Loaded ${savedMatches.length} platform matches from database');
+        setState(() {
+          _platformUrls.addAll(savedMatches);
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // If no saved matches, find them and save to database
+      await _findMatchingAlbums();
+    } catch (e, stack) {
+      Logging.severe('Error loading platform matches', e, stack);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Load platform matches from the database
+  Future<Map<String, String?>> _loadMatchesFromDatabase() async {
+    try {
+      final albumId = widget.album.id.toString();
+      final db = await DatabaseHelper.instance.database;
+
+      final results = await db.query(
+        'platform_matches',
+        where: 'album_id = ?',
+        whereArgs: [albumId],
+      );
+
+      if (results.isEmpty) return {};
+
+      Map<String, String?> matches = {};
+      for (var row in results) {
+        final platform = row['platform'] as String;
+        final url = row['url'] as String?;
+        matches[platform] = url;
+      }
+
+      return matches;
+    } catch (e, stack) {
+      Logging.severe('Error loading platform matches from database', e, stack);
+      return {};
+    }
+  }
+
+  /// Save platform matches to the database
+  Future<void> _savePlatformMatches() async {
+    try {
+      final albumId = widget.album.id.toString();
+      final db = await DatabaseHelper.instance.database;
+
+      // First check if the platform_matches table exists
+      final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_matches'");
+
+      // Create the table if it doesn't exist
+      if (tableCheck.isEmpty) {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS platform_matches (
+            album_id TEXT,
+            platform TEXT,
+            url TEXT,
+            verified INTEGER DEFAULT 0,
+            timestamp TEXT,
+            PRIMARY KEY (album_id, platform)
+          )
+        ''');
+      }
+
+      // Insert/update platform matches
+      for (var entry in _platformUrls.entries) {
+        if (entry.value != null && entry.value!.isNotEmpty) {
+          await db.insert(
+            'platform_matches',
+            {
+              'album_id': albumId,
+              'platform': entry.key,
+              'url': entry.value,
+              'verified': 1,
+              'timestamp': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      Logging.severe(
+          'Saved ${_platformUrls.length} platform matches to database');
+    } catch (e, stack) {
+      Logging.severe('Error saving platform matches to database', e, stack);
+    }
   }
 
   Future<void> _findMatchingAlbums() async {
@@ -64,7 +175,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       if (isBandcamp) {
         // For bandcamp albums, add the original URL as a bandcamp platform URL
         _platformUrls['bandcamp'] = widget.album.url;
-        Logging.severe('Added bandcamp source URL: ${widget.album.url}');
       } else if (_supportedPlatforms.contains(currentPlatform)) {
         _platformUrls[currentPlatform] = widget.album.url;
       }
@@ -75,16 +185,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         String sourcePlatform = _determinePlatformFromUrl(widget.album.url);
         if (sourcePlatform.isNotEmpty) {
           _platformUrls[sourcePlatform] = widget.album.url;
-          Logging.severe(
-              'Added source platform URL: $sourcePlatform -> ${widget.album.url}');
         }
       }
 
-      // Always search for additional platforms, even for Bandcamp albums
       // Create search query from album and artist
       final artist = widget.album.artist.trim();
       final albumName = widget.album.name.trim();
-      Logging.severe('Searching for album matches: $artist - $albumName');
 
       // Search for the album on each platform we don't already have
       await Future.wait(_supportedPlatforms
@@ -118,8 +224,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
             if (type != null && id != null) {
               // Convert to website URL
               final correctedUrl = 'https://www.discogs.com/$type/$id';
-              Logging.severe(
-                  'Corrected Discogs API URL to website URL: $correctedUrl');
               _platformUrls['discogs'] = correctedUrl;
             }
           }
@@ -128,6 +232,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
 
       // Verify matches for accuracy - remove potentially incorrect matches
       await _verifyMatches();
+
+      // Save verified matches to database for future use
+      await _savePlatformMatches();
     } catch (e, stack) {
       Logging.severe('Error finding matching albums', e, stack);
     } finally {
@@ -141,8 +248,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
 
   /// Verify that matches are accurate by checking if they meet minimum match criteria
   Future<void> _verifyMatches() async {
-    Logging.severe('Verifying platform matches for accuracy');
-
     final List<String> platformsToVerify = [..._supportedPlatforms, 'bandcamp'];
     final String artistName = widget.album.artist;
     final String albumName = widget.album.name;
@@ -157,8 +262,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     if (albumName.toLowerCase().contains("ep") ||
         albumName.toLowerCase().contains("single")) {
       cleanedAlbumName = SearchService.removeAlbumSuffixes(albumName);
-      Logging.severe(
-          'Using cleaned album name for matching: $cleanedAlbumName');
     }
 
     // Track platforms to remove due to failed verification
@@ -176,19 +279,21 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         // Skip verification for source platform
         if ((isITunesOrAppleMusic && platform == 'apple_music') ||
             (platform == currentPlatform)) {
-          Logging.severe(
-              'Skipping verification for $platform (source platform)');
           continue;
+        }
+
+        // Special handling for Discogs to be more lenient
+        if (platform == 'discogs') {
+          // For Discogs, we'll trust the URL format directly and be more lenient
+          if (url.contains('/master/') || url.contains('/release/')) {
+            continue; // Skip further verification for Discogs
+          }
         }
 
         // Special case for Spotify with EP/Single in the source album name
         if (platform == 'spotify' &&
             (albumName.toLowerCase().contains("ep") ||
                 albumName.toLowerCase().contains("single"))) {
-          // Be more lenient with Spotify EP/Single matching
-          Logging.severe(
-              'Using special handling for Spotify EP/Single matching');
-
           try {
             if (_platformFactory.isPlatformSupported(platform)) {
               final service = _platformFactory.getService(platform);
@@ -210,8 +315,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
 
                 if (artistMatches && albumsMatch) {
                   // Direct match after cleanup, keep this URL
-                  Logging.severe(
-                      'Direct match for Spotify after cleanup: $spotifyArtistName - $spotifyAlbumName');
                   continue;
                 }
 
@@ -225,9 +328,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
                 // Lowered threshold just for Spotify EP/Single matches
                 const double threshold = 0.45;
 
-                Logging.severe(
-                    'Spotify EP/Single match score: $matchScore (threshold: $threshold)');
-
                 if (matchScore >= threshold) {
                   // Good enough match for Spotify with EP/Single
                   continue;
@@ -236,7 +336,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
             }
 
             // If we get here, the Spotify match failed verification
-            Logging.severe('Removing Spotify match as validation failed: $url');
             platformsToRemove.add(platform);
           } catch (e) {
             Logging.severe('Error in special Spotify verification: $e');
@@ -248,9 +347,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
 
         // Normal verification for other platforms and non-EP/Single Spotify matches
         if (url.contains('/search?') || url.contains('/search/')) {
-          Logging.severe(
-              '$platform URL is just a search URL, needs verification: $url');
-
           // For search URLs, we need stricter verification
           bool isValidMatch = false;
 
@@ -272,8 +368,11 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
                 // All platforms share the same threshold for consistency
                 const double threshold = 0.7;
                 isValidMatch = matchScore >= threshold;
-                Logging.severe(
-                    'Match score for $platform: $matchScore (threshold: $threshold)');
+                // Only log scores below threshold
+                if (!isValidMatch) {
+                  Logging.severe(
+                      'Low match score for $platform: $matchScore (below threshold: $threshold)');
+                }
               } else {
                 // Fall back to basic verification if detailed info isn't available
                 isValidMatch = await service.verifyAlbumExists(
@@ -285,8 +384,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           }
 
           if (!isValidMatch) {
-            Logging.severe(
-                'Removing $platform match as validation failed: $url');
             platformsToRemove.add(platform);
           }
         } else {
@@ -304,9 +401,11 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
                     albumDetails['artistName'] ?? '',
                     albumDetails['collectionName'] ?? '');
 
-                // Log the match score
-                Logging.severe(
-                    'Direct URL match score for $platform: $matchScore');
+                // Only log low scores
+                if (matchScore < 0.7) {
+                  Logging.severe(
+                      'Low direct URL match score for $platform: $matchScore');
+                }
 
                 // Use a consistent threshold across all platforms
                 const double threshold = 0.5;

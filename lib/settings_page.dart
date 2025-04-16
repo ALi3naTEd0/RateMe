@@ -930,52 +930,19 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Add a method to save platform preference
-  Future<void> _savePlatformPreference(SearchPlatform platform) async {
-    try {
-      final db = DatabaseHelper.instance;
-      await db.saveSetting(
-          'default_search_platform', platform.index.toString());
-
-      // Notify the rest of the app about the platform change
-      GlobalNotifications.defaultSearchPlatformChanged(platform);
-
-      Logging.severe('Saved new default search platform: ${platform.name}');
-    } catch (e) {
-      Logging.severe('Error saving default search platform', e);
-    }
-  }
-
-  // Fix platform color method with missing bandcamp case
-  Color _getPlatformColor(SearchPlatform platform) {
-    switch (platform) {
-      case SearchPlatform.itunes:
-        return const Color(0xFFFC3C44); // Apple Music red
-      case SearchPlatform.spotify:
-        return const Color(0xFF1DB954); // Spotify green
-      case SearchPlatform.deezer:
-        return const Color(0xFF00C7F2); // Deezer blue
-      case SearchPlatform.discogs:
-        return const Color(0xFFFF5500); // Discogs orange
-      case SearchPlatform.bandcamp:
-        // Add this case to handle bandcamp
-        return const Color(0xFF1DA0C3); // Bandcamp blue
-    }
-  }
-
   // Helper method to get platform icon - completely rewritten - add bandcamp case
   IconData getPlatformIconForPlatform(SearchPlatform platform) {
     switch (platform) {
       case SearchPlatform.itunes:
-        return Icons.music_note;
+        return Icons.album;
       case SearchPlatform.spotify:
-        return Icons.music_note;
+        return Icons.album;
       case SearchPlatform.deezer:
-        return Icons.music_note;
+        return Icons.album;
       case SearchPlatform.discogs:
-        return Icons.music_note;
+        return Icons.album;
       case SearchPlatform.bandcamp:
-        return Icons.music_note;
+        return Icons.album;
     }
   }
 
@@ -1470,20 +1437,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                         ),
-
-                        const SizedBox(height: 24),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            'Search Settings',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildPlatformSelectionTile(context),
                       ],
                     ),
                   ),
@@ -1614,58 +1567,5 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
-  }
-
-  Widget _buildPlatformSelectionTile(BuildContext context) {
-    return ListTile(
-      title: const Text('Default Search Platform'),
-      subtitle: Text('Currently: ${_currentPlatform.name}'),
-      trailing: DropdownButton<SearchPlatform>(
-        value: _currentPlatform,
-        onChanged: (SearchPlatform? newValue) {
-          if (newValue != null) {
-            setState(() {
-              _currentPlatform = newValue;
-            });
-            _savePlatformPreference(newValue);
-          }
-        },
-        items: [
-          SearchPlatform.itunes,
-          SearchPlatform.spotify,
-          SearchPlatform.deezer,
-          SearchPlatform.discogs,
-        ].map((platform) {
-          return DropdownMenuItem<SearchPlatform>(
-            value: platform,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(_getPlatformIcon(platform),
-                    color: _getPlatformColor(platform), size: 20),
-                const SizedBox(width: 8),
-                Text(_getDisplayNameForPlatform(platform)),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // Helper method to get platform icon
-  IconData _getPlatformIcon(SearchPlatform platform) {
-    switch (platform) {
-      case SearchPlatform.spotify:
-        return Icons.album;
-      case SearchPlatform.itunes:
-        return Icons.album;
-      case SearchPlatform.deezer:
-        return Icons.album;
-      case SearchPlatform.discogs:
-        return Icons.album;
-      case SearchPlatform.bandcamp:
-        return Icons.album;
-    }
   }
 }

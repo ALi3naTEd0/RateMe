@@ -41,6 +41,7 @@ class PlatformServiceFactory {
         service = DeezerService();
         break;
       case 'discogs':
+        // Ensure we're using the correct implementation
         service = DiscogsService();
         break;
       // case 'bandcamp':

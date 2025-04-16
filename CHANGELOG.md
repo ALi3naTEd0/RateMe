@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Fixed track rating persistence for Discogs albums using position-based matching
+- Fixed slider display issues for albums with mismatched track IDs
+- Fixed stack overflow error in rating slider rendering code
 - Fixed EP/Single designation mismatches between all music platforms
 - Fixed album naming inconsistencies between streaming services
 - Improved album title normalization for iTunes, Spotify, Deezer and Discogs
@@ -54,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better handling of non-standard API responses from music platforms
 - Improved track duration detection for Discogs albums with multiple release versions
 - Enhanced version selection logic to handle albums with variant track listings
+- Fixed duplicate "Search Settings" option in settings page
 
 ### Changed
 - Improved Discogs album data quality with intelligent version selection algorithm
@@ -70,8 +74,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced platform detection from URLs
 - Reorganized search service to better handle multiple platforms
 - Improved search result ranking algorithm
+- Enhanced rating persistence with a robust position-based fallback system
+- Refactored track rating display with consistent handling across platforms
+- Improved track name storage and retrieval from database
 
 ### Technical
+- Connected track ratings with SQLite database storage for persistent ratings
+- Added position-based track ID matching for ratings when direct ID match fails
+- Fixed recursive method calls causing stack overflow errors in rating display
+- Implemented robust track metadata saving with ratings in database
+- Added reliable fallback mechanisms when track data is incomplete
+- Added extensive debug logging for rating matching and persistence
 - Centralized album name normalization with regex-based suffix detection
 - Standardized string comparison utilities for better text matching
 - Platform-agnostic album title cleanup system

@@ -32,11 +32,50 @@ class DatabaseHelper {
         Logging.severe('Using standard SQLite for mobile platform');
       }
 
-      await instance.database;
+      // Get database instance and ensure tables exist
+      final db = await instance.database;
+      await _ensureTables(db);
       _initialized = true;
       Logging.severe('Database initialized successfully');
     } catch (e, stack) {
       Logging.severe('Error initializing database helper', e, stack);
+    }
+  }
+
+  // Add a new method to verify and create tables if needed
+  static Future<void> _ensureTables(Database db) async {
+    try {
+      // Check if tracks table exists
+      final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='tracks'");
+
+      if (tableCheck.isEmpty) {
+        Logging.severe('Tracks table not found, creating it now');
+        // Create the tracks table
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS tracks (
+            id TEXT,
+            album_id TEXT,
+            name TEXT NOT NULL,
+            position INTEGER,
+            duration_ms INTEGER,
+            data TEXT,
+            PRIMARY KEY (id, album_id),
+            FOREIGN KEY (album_id) REFERENCES albums(id)
+          )
+        ''');
+
+        // Create index for tracks
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id)');
+
+        Logging.severe('Tracks table created successfully');
+      }
+
+      // Check for other essential tables and create them if needed
+      // ... similar checks for other tables
+    } catch (e, stack) {
+      Logging.severe('Error ensuring database tables exist', e, stack);
     }
   }
 
@@ -77,59 +116,70 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         artist TEXT NOT NULL,
-        artworkUrl TEXT,
+        artwork_url TEXT,
         url TEXT,
         platform TEXT,
-        releaseDate TEXT,
+        release_date TEXT,
         data TEXT
       )
     ''');
 
     await db.execute('''
-      CREATE TABLE ratings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        album_id TEXT NOT NULL,
-        track_id TEXT NOT NULL,
-        rating REAL NOT NULL,
-        timestamp TEXT NOT NULL,
-        FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
+      CREATE TABLE tracks (
+        id TEXT,
+        album_id TEXT,
+        name TEXT NOT NULL,
+        position INTEGER,
+        duration_ms INTEGER,
+        data TEXT,
+        PRIMARY KEY (id, album_id),
+        FOREIGN KEY (album_id) REFERENCES albums(id)
       )
     ''');
 
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS custom_lists (
+      CREATE TABLE ratings (
+        album_id TEXT,
+        track_id TEXT,
+        rating REAL,
+        timestamp TEXT,
+        PRIMARY KEY (album_id, track_id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE custom_lists (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
-        created_at TEXT,  
-        updated_at TEXT
+        createdAt TEXT,
+        updatedAt TEXT
       )
     ''');
 
     await db.execute('''
       CREATE TABLE album_lists (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        album_id TEXT NOT NULL,
-        list_id TEXT NOT NULL,
-        position INTEGER NOT NULL,
-        FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE,
-        FOREIGN KEY (list_id) REFERENCES custom_lists(id) ON DELETE CASCADE
+        list_id TEXT,
+        album_id TEXT,
+        position INTEGER,
+        PRIMARY KEY (list_id, album_id),
+        FOREIGN KEY (list_id) REFERENCES custom_lists(id),
+        FOREIGN KEY (album_id) REFERENCES albums(id)
       )
     ''');
 
     await db.execute('''
       CREATE TABLE album_order (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        album_id TEXT NOT NULL,
-        position INTEGER NOT NULL,
-        FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
+        album_id TEXT PRIMARY KEY,
+        position INTEGER,
+        FOREIGN KEY (album_id) REFERENCES albums(id)
       )
     ''');
 
     await db.execute('''
       CREATE TABLE settings (
         key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
+        value TEXT
       )
     ''');
 
@@ -140,6 +190,27 @@ class DatabaseHelper {
         query TEXT NOT NULL,
         platform TEXT NOT NULL,
         timestamp TEXT NOT NULL
+      )
+    ''');
+
+    // Add platform matches table
+    await db.execute('''
+      CREATE TABLE platform_matches (
+        album_id TEXT,
+        platform TEXT,
+        url TEXT,
+        verified INTEGER DEFAULT 0,
+        timestamp TEXT,
+        PRIMARY KEY (album_id, platform)
+      )
+    ''');
+
+    // Add master-release mapping table for Discogs
+    await db.execute('''
+      CREATE TABLE master_release_map (
+        master_id TEXT PRIMARY KEY,
+        release_id TEXT,
+        timestamp TEXT
       )
     ''');
 
@@ -436,7 +507,6 @@ class DatabaseHelper {
       }
 
       Logging.severe('Saving custom list with adapted data: $data');
-
       await db.insert(
         'custom_lists',
         data,
@@ -506,7 +576,6 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getAlbumsInList(String listId) async {
     try {
       final db = await database;
-
       // Join album_lists with albums to get album data
       final results = await db.rawQuery('''
         SELECT a.*, al.position
