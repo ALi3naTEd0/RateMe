@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'logging.dart';
 import 'platform_service.dart';
 import 'api_keys.dart';
+import 'database/search_history_db.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Enum representing the available search platforms
 enum SearchPlatform {
@@ -1967,5 +1969,52 @@ class SearchService {
 
     // If we got here, all parsing attempts failed
     return 0;
+  }
+
+  // Find the method that saves search queries
+
+  // Replace it with this version that uses both SharedPreferences and database
+
+  // Find the method that loads search history
+  // Replace it with this version that tries SQLite first
+
+  Future<List<String>> getSearchHistory() async {
+    try {
+      // 1. Try to get from SQLite first
+      final dbHistory = await SearchHistoryDb.getSearchHistory();
+
+      if (dbHistory.isNotEmpty) {
+        // Convert from database format to string format
+        return dbHistory.map((item) {
+          final query = item['query'] as String;
+          final platform = item['platform'] as String;
+          final timestamp = item['timestamp'] as String;
+          return '$query||||$platform||||$timestamp';
+        }).toList();
+      }
+
+      // 2. Fall back to SharedPreferences if database is empty
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList('search_history') ?? [];
+    } catch (e) {
+      Logging.severe('Error getting search history: $e');
+      return [];
+    }
+  }
+
+  // Find the method that clears search history
+  // Replace it with this version that clears from both places
+
+  Future<void> clearSearchHistory() async {
+    try {
+      // 1. Clear from SQLite
+      await SearchHistoryDb.clearSearchHistory();
+
+      // 2. Clear from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('search_history');
+    } catch (e) {
+      Logging.severe('Error clearing search history: $e');
+    }
   }
 }

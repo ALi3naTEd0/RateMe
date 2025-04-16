@@ -79,6 +79,17 @@ class DatabaseHelper {
     }
   }
 
+  // Add this new method after the _ensureTables method
+  Future<void> updateDatabaseSchema() async {
+    try {
+      Logging.severe('Checking and updating database schema if needed');
+      final db = await database;
+      await _updateDatabaseSchemaInternal(db);
+    } catch (e, stack) {
+      Logging.severe('Error updating database schema', e, stack);
+    }
+  }
+
   // Get the database instance
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -102,9 +113,115 @@ class DatabaseHelper {
         },
       );
 
+      // Remove the updateDatabaseSchema call from here - it's causing infinite recursion
+      // by calling database again inside _initDb
+      // await updateDatabaseSchema();
+
+      // Instead call _updateDatabaseSchemaInternal directly with the db instance
+      await _updateDatabaseSchemaInternal(db);
+
       return db;
     } catch (e, stack) {
       Logging.severe('Error initializing database', e, stack);
+      rethrow;
+    }
+  }
+
+  // Create a non-recursive version of updateDatabaseSchema that accepts a database instance
+  Future<void> _updateDatabaseSchemaInternal(Database db) async {
+    try {
+      Logging.severe('Updating database schema internally');
+
+      // Check if master_release_map table exists
+      final masterReleaseTableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='master_release_map'");
+
+      if (masterReleaseTableCheck.isEmpty) {
+        Logging.severe('Creating missing master_release_map table');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS master_release_map (
+            master_id TEXT,
+            release_id TEXT,
+            timestamp TEXT,
+            PRIMARY KEY (master_id)
+          )
+        ''');
+      } else {
+        // Check if release_id column exists in master_release_map table
+        final columnCheck =
+            await db.rawQuery('PRAGMA table_info(master_release_map)');
+        final columnNames =
+            columnCheck.map((c) => c['name'].toString()).toList();
+
+        if (!columnNames.contains('release_id')) {
+          Logging.severe(
+              'Adding missing release_id column to master_release_map table');
+          // SQLite doesn't directly support adding columns with constraints, so we need to recreate the table
+          await db.transaction((txn) async {
+            // Create temporary table with correct schema
+            await txn.execute('''
+              CREATE TABLE master_release_map_temp (
+                master_id TEXT,
+                release_id TEXT,
+                timestamp TEXT,
+                PRIMARY KEY (master_id)
+              )
+            ''');
+
+            // Copy data from old table to new one
+            await txn.execute('''
+              INSERT INTO master_release_map_temp (master_id, timestamp)
+              SELECT master_id, timestamp FROM master_release_map
+            ''');
+
+            // Drop old table
+            await txn.execute('DROP TABLE master_release_map');
+
+            // Rename new table to original name
+            await txn.execute(
+                'ALTER TABLE master_release_map_temp RENAME TO master_release_map');
+          });
+        }
+      }
+
+      // Check for platform_matches table
+      final platformMatchesTableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_matches'");
+
+      if (platformMatchesTableCheck.isEmpty) {
+        Logging.severe('Creating missing platform_matches table');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS platform_matches (
+            album_id TEXT,
+            platform TEXT,
+            url TEXT,
+            verified INTEGER DEFAULT 0,
+            timestamp TEXT,
+            PRIMARY KEY (album_id, platform)
+          )
+        ''');
+      }
+
+      Logging.severe('Database schema update completed');
+    } catch (e, stack) {
+      Logging.severe('Error in _updateDatabaseSchemaInternal', e, stack);
+    }
+  }
+
+  // Get the database path
+  Future<String> getDatabasePath() async {
+    try {
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // For desktop apps, use app documents directory
+        final appDir = await getApplicationDocumentsDirectory();
+        return join(appDir.path, 'rateme.db');
+      } else {
+        // For mobile, use the default database location
+        final dbPath = await getDatabasesPath();
+        return join(dbPath, 'rateme.db');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error getting database path', e, stack);
       rethrow;
     }
   }
@@ -216,24 +333,6 @@ class DatabaseHelper {
 
     // Add indices for common lookups
     await _createIndices(db);
-  }
-
-  // Get the database path
-  Future<String> getDatabasePath() async {
-    try {
-      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        // For desktop apps, use app documents directory
-        final appDir = await getApplicationDocumentsDirectory();
-        return join(appDir.path, 'rateme.db');
-      } else {
-        // For mobile, use the default database location
-        final dbPath = await getDatabasesPath();
-        return join(dbPath, 'rateme.db');
-      }
-    } catch (e, stack) {
-      Logging.severe('Error getting database path', e, stack);
-      rethrow;
-    }
   }
 
   // Create indices for better performance

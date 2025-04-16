@@ -56,6 +56,27 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     }
 
     try {
+      // Add debug log to see the album's source platform
+      Logging.severe(
+          'PlatformMatch: Loading matches for album: ${widget.album.name} from platform: ${widget.album.platform}');
+
+      // Always add the source platform itself to _platformUrls - this ensures we always show the source platform
+      if (widget.album.url.isNotEmpty) {
+        final currentPlatform = widget.album.platform.toLowerCase();
+        _platformUrls[currentPlatform] = widget.album.url;
+
+        // For URL-based platform detection
+        String urlDetectedPlatform =
+            _determinePlatformFromUrl(widget.album.url);
+        if (urlDetectedPlatform.isNotEmpty &&
+            urlDetectedPlatform != currentPlatform) {
+          Logging.severe(
+              'PlatformMatch: URL-detected platform ($urlDetectedPlatform) different from album platform ($currentPlatform)');
+          // Add the URL-detected platform as well
+          _platformUrls[urlDetectedPlatform] = widget.album.url;
+        }
+      }
+
       // First try to load platform matches from the database
       final savedMatches = await _loadMatchesFromDatabase();
 
@@ -510,13 +531,18 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
     }
 
-    // Debug the order
+    // Debug the order and URLs
     Logging.severe('Platform order: ${sortedPlatforms.join(', ')}');
+    for (final platform in sortedPlatforms) {
+      Logging.severe('  $platform URL: ${_platformUrls[platform]}');
+    }
 
-    // Only hide the widget if the only match is the current platform AND it's not bandcamp
-    // This allows bandcamp links to always show, but hides redundant platform links
+    // Fix: Show all platform matches, even if the only match is the current platform
+    // The original check was hiding the widget when the only match was the source platform
+    // Changed condition to only apply the filter for platforms other than 'discogs'
     if (sortedPlatforms.length == 1 &&
         sortedPlatforms.first == widget.album.platform.toLowerCase() &&
+        sortedPlatforms.first != 'discogs' &&
         sortedPlatforms.first != 'bandcamp') {
       return const SizedBox.shrink();
     }
@@ -646,8 +672,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       child: Tooltip(
         message: hasMatch
             ? (isSelected
-                ? 'Current platform: ${_getPlatformName(platform)}'
-                : 'Open in ${_getPlatformName(platform)}')
+                ? _getPlatformName(
+                    platform) // Simply show the platform name without "Current platform:"
+                : _getPlatformName(platform))
             : 'No match found in ${_getPlatformName(platform)}',
         child: GestureDetector(
           onLongPress: hasMatch
@@ -708,7 +735,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
             children: [
               const Icon(Icons.open_in_new, size: 26),
               const SizedBox(width: 6),
-              Text('Open in ${_getPlatformName(platform)}'),
+              Text(_getPlatformName(platform)),
             ],
           ),
         ),
