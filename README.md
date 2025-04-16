@@ -38,7 +38,8 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Features
 
-- **Multi-Platform Support**: Rate albums from Apple Music, Bandcamp, Spotify, and Deezer
+- **Multi-Platform Support**: Rate albums from Apple Music, Spotify, Deezer, Discogs, and Bandcamp
+- **Cross-Platform Matching**: Easily find your albums across different music services
 - **Track-by-Track Rating**: Rate individual tracks on a 0-10 scale
 - **Custom Lists**: Organize albums into custom lists (e.g., "Best of 2023", "Prog Rock", etc.)
 - **Data Export/Import**: Easily backup and restore your collection
@@ -52,6 +53,9 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 - **Pull-to-Refresh**: Update content with a simple swipe down gesture
 - **Skeleton UI**: Beautiful loading placeholders while fetching content
 - **Pagination**: Smooth navigation through large collections
+- **Search History**: Access your recent album searches
+- **SQLite Database**: Fast performance and reliable data storage
+- **Track Duration Support**: View track lengths from various platforms including Discogs
 
 ## Screenshots
 
@@ -194,15 +198,16 @@ makepkg -si
 
 - [Flutter](https://flutter.dev/): Used for developing the user interface, Flutter provides a flexible and intuitive framework for creating visually appealing applications.
 - [Dart](https://dart.dev/): As the primary programming language, Dart powers the logic and functionality of the **Rate Me!** application.
+- [SQLite](https://www.sqlite.org/): Local database for efficient album and track storage.
 - [iTunes API](https://affiliate.itunes.apple.com/resources/documentation/itunes-store-web-service-search-api/): Utilized to search for albums and retrieve detailed album data.
 - [Spotify API](https://developer.spotify.com/documentation/web-api/): Integration for searching and retrieving Spotify albums and tracks.
 - [Deezer API](https://developers.deezer.com/api): Music streaming platform API for album and track discovery.
+- [Discogs API](https://www.discogs.com/developers/): Deep integration with Discogs for comprehensive album and track information.
 - **JSON Parser for Bandcamp**: A JSON parser is used to search and retrieve detailed album data from Bandcamp links.
-- [SQLite](https://www.sqlite.org/): Local database for efficient album and track storage.
 
 ## Getting Started
 
-1. **Search for Albums**: Enter an artist or album name to search, or paste an Apple Music, Bandcamp, or Spotify URL
+1. **Search for Albums**: Enter an artist or album name to search, or paste a URL from Apple Music, Bandcamp, Spotify, Deezer or Discogs
 2. **Rate Albums**: Open an album and use the sliders to rate each track from 0-10
 3. **Create Lists**: Organize your music by creating custom lists
 4. **Share Your Ratings**: Generate beautiful images of your ratings to share
@@ -229,11 +234,12 @@ RateMe provides several options for managing your data:
 
 RateMe uses a unified data model that ensures consistent handling of music from different platforms. This model:
 
-- Works across multiple music platforms (Apple Music, Bandcamp, Spotify, etc.)
+- Works across multiple music platforms (Apple Music, Spotify, Deezer, Discogs, and Bandcamp)
 - Maintains backward compatibility with previous versions
 - Provides consistent field naming and data access
 - Improves reliability and error handling
 - Supports cascading deletes and proper relationships
+- Enables cross-platform album matching and lookup
 
 ## Privacy
 
@@ -268,6 +274,8 @@ This Flutter project follows a modular architecture and uses the Provider patter
 
 - **iTunes API**: Album and track information via official API
 - **Spotify API**: OAuth2 integration for fetching album and track details
+- **Deezer API**: Direct integration for album and track details
+- **Discogs API**: Comprehensive integration with release matching and master record support
 - **Bandcamp**: Album and track information via embedded JSON-LD data
 - **RateYourMusic**: Additional album information lookup
 
@@ -285,8 +293,8 @@ This Flutter project follows a modular architecture and uses the Provider patter
 
 ## Roadmap
 
+- Improved Discogs integration with more metadata support
 - Implementation of Apple Music authentication and API integration
-- Deezer API integration for expanded music catalog access
 - Advanced search filter and sort options
 - Advanced query optimization for large datasets (10,000+ albums)
 - Database telemetry and performance monitoring
