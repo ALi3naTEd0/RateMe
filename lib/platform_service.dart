@@ -4,7 +4,6 @@ import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'album_model.dart';
 import 'logging.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'api_keys.dart'; // Add this import
 import 'search_service.dart';
 import 'database/database_helper.dart';
@@ -94,9 +93,10 @@ class PlatformService {
   /// Get Spotify access token
   static Future<String?> _getSpotifyToken() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final storedToken = prefs.getString(_spotifyTokenKey);
-      final expiryTime = prefs.getInt(_spotifyTokenExpiryKey) ?? 0;
+      final db = DatabaseHelper.instance;
+      final storedToken = await db.getSetting(_spotifyTokenKey);
+      final expiryTime =
+          int.tryParse(await db.getSetting(_spotifyTokenExpiryKey) ?? '0') ?? 0;
 
       // Check if token is still valid
       if (storedToken != null &&
@@ -127,8 +127,8 @@ class PlatformService {
         // Save token with expiry time - make sure it's an int
         final expiryTimeMs =
             DateTime.now().millisecondsSinceEpoch + (expiresIn * 1000);
-        await prefs.setString(_spotifyTokenKey, accessToken);
-        await prefs.setInt(_spotifyTokenExpiryKey, expiryTimeMs);
+        await db.saveSetting(_spotifyTokenKey, accessToken);
+        await db.saveSetting(_spotifyTokenExpiryKey, expiryTimeMs.toString());
 
         Logging.severe(
             'New Spotify token obtained, expires in $expiresIn seconds');

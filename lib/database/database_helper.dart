@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Add this import
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import '../logging.dart';
 import '../album_model.dart';
+import '../platforms/platform_service_factory.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
@@ -90,19 +92,33 @@ class DatabaseHelper {
     }
   }
 
-  // Get the database instance
+  // Get the database instance with locking to prevent concurrent access issues
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDb();
+    _database ??= await _initDb();
     return _database!;
   }
 
-  // Initialize the database
+  // Helper method for synchronization - simplified without using unused lock object
+  Future<T> synchronized<T>(Object lock, Future<T> Function() action) async {
+    if (_database != null) return action();
+
+    try {
+      Logging.severe('Acquiring database lock');
+      return await action();
+    } finally {
+      Logging.severe('Released database lock');
+    }
+  }
+
+  // Initialize the database with proper error handling and timeouts
   Future<Database> _initDb() async {
     try {
       Logging.severe('Initializing database at ${await getDatabasePath()}');
+      final path = await getDatabasePath();
+
+      // Add proper timeout settings
       Database db = await openDatabase(
-        await getDatabasePath(),
+        path,
         version: 1,
         onCreate: (db, version) async {
           await _createDb(db, version);
@@ -111,14 +127,20 @@ class DatabaseHelper {
           // Check if indices exist and create them if not
           await _ensureIndices(db);
         },
+        // Add timeout settings
+        singleInstance: true,
+        readOnly: false,
+        // Remove the unsupported queryTimeoutDuration parameter
       );
 
-      // Remove the updateDatabaseSchema call from here - it's causing infinite recursion
-      // by calling database again inside _initDb
-      // await updateDatabaseSchema();
-
-      // Instead call _updateDatabaseSchemaInternal directly with the db instance
+      // Update schema directly with the db instance
       await _updateDatabaseSchemaInternal(db);
+
+      // Set pragmas for better performance and stability
+      await db.execute('PRAGMA journal_mode = WAL;');
+      await db.execute('PRAGMA synchronous = NORMAL;');
+      await db.execute('PRAGMA cache_size = 1000;');
+      await db.execute('PRAGMA temp_store = MEMORY;');
 
       return db;
     } catch (e, stack) {
@@ -454,11 +476,12 @@ class DatabaseHelper {
         'id': album.id.toString(),
         'name': album.name,
         'artist': album.artist,
-        'artworkUrl': album.artworkUrl,
+        'artwork_url': album.artworkUrl, // <-- fix column name
         'url': album.url,
         'platform': album.platform,
-        'releaseDate': album.releaseDate.toIso8601String(),
-        'data': album.metadata.toString(),
+        'release_date':
+            album.releaseDate.toIso8601String(), // <-- fix column name
+        'data': jsonEncode(album.metadata),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -482,9 +505,19 @@ class DatabaseHelper {
     }
   }
 
+  // Improved getAllAlbums method with proper transaction handling
   Future<List<Map<String, dynamic>>> getAllAlbums() async {
     final db = await database;
-    return await db.query('albums');
+    try {
+      return await db.query('albums');
+    } catch (e, stack) {
+      Logging.severe(
+          'Error getting all albums, attempting to fix locks', e, stack);
+      await fixDatabaseLocks();
+      // Retry once after fixing locks
+      final retryDb = await database;
+      return await retryDb.query('albums');
+    }
   }
 
   Future<void> deleteAlbum(String id) async {
@@ -617,48 +650,6 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAllCustomLists() async {
-    try {
-      final db = await database;
-      final lists = await db.query('custom_lists');
-
-      // Map field names to expected format
-      return lists.map((list) {
-        final Map<String, dynamic> result = Map.from(list);
-
-        // Handle both snake_case and camelCase field formats
-        if (list.containsKey('created_at')) {
-          result['createdAt'] = list['created_at'];
-        }
-
-        if (list.containsKey('updated_at')) {
-          result['updatedAt'] = list['updated_at'];
-        }
-
-        return result;
-      }).toList();
-    } catch (e, stack) {
-      Logging.severe('Error getting all custom lists', e, stack);
-      return [];
-    }
-  }
-
-  Future<void> deleteCustomList(String listId) async {
-    final db = await database;
-    await db.delete(
-      'custom_lists',
-      where: 'id = ?',
-      whereArgs: [listId],
-    );
-
-    // Also delete all album-list relationships
-    await db.delete(
-      'album_lists',
-      where: 'list_id = ?',
-      whereArgs: [listId],
-    );
-  }
-
   Future<void> addAlbumToList(
       String albumId, String listId, int position) async {
     final db = await database;
@@ -699,26 +690,577 @@ class DatabaseHelper {
 
   // Settings methods
   Future<void> saveSetting(String key, String value) async {
-    final db = await database;
-    await db.insert(
-      'settings',
-      {
-        'key': key,
-        'value': value,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    try {
+      final db = await database;
+
+      // Simple direct implementation without timestamps
+      final List<Map<String, dynamic>> result = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: [key],
+      );
+
+      if (result.isNotEmpty) {
+        // Update existing setting
+        await db.update(
+          'settings',
+          {'value': value},
+          where: 'key = ?',
+          whereArgs: [key],
+        );
+      } else {
+        // Insert new setting
+        await db.insert(
+          'settings',
+          {'key': key, 'value': value},
+        );
+      }
+
+      // Log for critical settings
+      if (key == 'primaryColor' ||
+          key == 'themeMode' ||
+          key == 'useDarkButtonText') {
+        Logging.severe('Setting saved successfully: $key = $value');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error saving setting: $key = $value', e, stack);
+
+      // Try one more time with a simplified approach
+      try {
+        final db = await database;
+
+        // Delete any existing value first
+        await db.delete(
+          'settings',
+          where: 'key = ?',
+          whereArgs: [key],
+        );
+
+        // Then insert fresh
+        await db.insert(
+          'settings',
+          {'key': key, 'value': value},
+        );
+
+        Logging.severe('Setting saved using fallback method: $key = $value');
+      } catch (e2, stack2) {
+        Logging.severe(
+            'Fatal error saving setting with fallback method', e2, stack2);
+      }
+    }
   }
 
   Future<String?> getSetting(String key) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> result = await db.query(
+        'settings',
+        columns: ['value'],
+        where: 'key = ?',
+        whereArgs: [key],
+      );
+
+      if (result.isNotEmpty) {
+        // For color settings, log the actual value to verify
+        if (key == 'primaryColor') {
+          Logging.severe(
+              'DatabaseHelper: Retrieved primaryColor = ${result.first['value']}');
+        }
+        return result.first['value'] as String?;
+      }
+      return null;
+    } catch (e, stack) {
+      Logging.severe('Error getting setting: $key', e, stack);
+      return null;
+    }
+  }
+
+  // Helper method to save a custom list - enhanced version that replaces the simpler version above
+  Future<void> saveCustomList(
+      String listId, String name, String description, List<String> albumIds,
+      {DateTime? createdAt, DateTime? updatedAt}) async {
     final db = await database;
-    final result = await db.query(
-      'settings',
-      where: 'key = ?',
-      whereArgs: [key],
+
+    await db.transaction((txn) async {
+      // Use txn for all DB operations inside this transaction!
+
+      // Check table schema to handle both naming conventions
+      final columns = await txn.rawQuery('PRAGMA table_info(custom_lists)');
+      final columnNames = columns.map((c) => c['name'].toString()).toList();
+
+      // Determine whether to use snake_case or camelCase field names
+      final Map<String, dynamic> data = {
+        'id': listId,
+        'name': name,
+        'description': description,
+      };
+
+      // Add timestamp fields in the right format based on schema
+      if (columnNames.contains('created_at')) {
+        data['created_at'] = (createdAt ?? DateTime.now()).toIso8601String();
+        data['updated_at'] = (updatedAt ?? DateTime.now()).toIso8601String();
+      } else {
+        data['createdAt'] = (createdAt ?? DateTime.now()).toIso8601String();
+        data['updatedAt'] = (updatedAt ?? DateTime.now()).toIso8601String();
+      }
+
+      await txn.insert(
+        'custom_lists',
+        data,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Then, delete any existing album relationships for this list
+      await txn.delete(
+        'album_lists',
+        where: 'list_id = ?',
+        whereArgs: [listId],
+      );
+
+      // Finally, insert all the album relationships with their positions
+      for (int i = 0; i < albumIds.length; i++) {
+        await txn.insert(
+          'album_lists',
+          {
+            'list_id': listId,
+            'album_id': albumIds[i],
+            'position': i,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+
+    Logging.severe('Saved custom list: $name with ${albumIds.length} albums');
+  }
+
+  // Improved getAllCustomLists method with proper transaction handling
+  Future<List<Map<String, dynamic>>> getAllCustomLists() async {
+    try {
+      final db = await database;
+
+      // Check table schema to handle both naming conventions
+      final columns = await db.rawQuery('PRAGMA table_info(custom_lists)');
+      final columnNames = columns.map((c) => c['name'].toString()).toList();
+      final useSnakeCase = columnNames.contains('created_at');
+
+      // Get all lists within a transaction to prevent locking
+      final lists = await db.transaction((txn) async {
+        return await txn.query('custom_lists');
+      });
+
+      // Process results outside of transaction to reduce lock time
+      List<Map<String, dynamic>> result = [];
+
+      for (var list in lists) {
+        final listId = list['id'] as String;
+        final Map<String, dynamic> resultList = Map.from(list);
+
+        // Normalize field names to camelCase for consistency
+        if (useSnakeCase) {
+          if (list.containsKey('created_at')) {
+            resultList['createdAt'] = list['created_at'];
+          }
+          if (list.containsKey('updated_at')) {
+            resultList['updatedAt'] = list['updated_at'];
+          }
+        }
+
+        // Get album IDs for this list in a separate transaction
+        final albumResults = await db.transaction((txn) async {
+          return await txn.query(
+            'album_lists',
+            columns: ['album_id'],
+            where: 'list_id = ?',
+            whereArgs: [listId],
+            orderBy: 'position ASC',
+          );
+        });
+
+        final albumIds =
+            albumResults.map((row) => row['album_id'] as String).toList();
+        resultList['albumIds'] = albumIds;
+
+        result.add(resultList);
+      }
+
+      return result;
+    } catch (e, stack) {
+      Logging.severe(
+          'Error getting custom lists, attempting to fix locks', e, stack);
+      await fixDatabaseLocks();
+
+      // Retry once after fixing locks
+      final db = await database;
+      final lists = await db.query('custom_lists');
+
+      // Simplified return on retry to reduce complexity
+      return lists;
+    }
+  }
+
+  // Helper method to delete a custom list - enhanced version that uses transaction
+  Future<void> deleteCustomList(String listId) async {
+    final db = await database;
+
+    await db.transaction((txn) async {
+      // Delete the list
+      await txn.delete(
+        'custom_lists',
+        where: 'id = ?',
+        whereArgs: [listId],
+      );
+
+      // Delete all album relationships for this list
+      await txn.delete(
+        'album_lists',
+        where: 'list_id = ?',
+        whereArgs: [listId],
+      );
+    });
+
+    Logging.severe('Deleted custom list: $listId');
+  }
+
+  // Add a new method to fix database locking issues
+  Future<void> fixDatabaseLocks() async {
+    try {
+      Logging.severe('Attempting to fix database locks');
+
+      // Close the current database connection
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+
+      // Wait a moment to ensure connection is closed
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Get the database path
+      final dbPath = await getDatabasePath();
+      final dbFile = File(dbPath);
+
+      // Check if database exists
+      if (await dbFile.exists()) {
+        // Check for lock files
+        final journalFile = File('$dbPath-journal');
+        final walFile = File('$dbPath-wal');
+        final shmFile = File('$dbPath-shm');
+
+        // Delete lock files if they exist
+        if (await journalFile.exists()) {
+          Logging.severe('Removing journal file');
+          await journalFile.delete();
+        }
+
+        if (await walFile.exists()) {
+          Logging.severe('Removing WAL file');
+          await walFile.delete();
+        }
+
+        if (await shmFile.exists()) {
+          Logging.severe('Removing SHM file');
+          await shmFile.delete();
+        }
+      }
+
+      // Reopen the database
+      _database = await _initDb();
+      Logging.severe('Database locks fixed and connection reopened');
+    } catch (e, stack) {
+      Logging.severe('Error fixing database locks', e, stack);
+    }
+  }
+
+  // Add this method to fetch tracks for an album by albumId
+  Future<List<Map<String, dynamic>>> getTracksForAlbum(String albumId) async {
+    final db = await database;
+    final results = await db.query(
+      'tracks',
+      where: 'album_id = ?',
+      whereArgs: [albumId],
+      orderBy: 'position ASC',
     );
 
-    if (result.isEmpty) return null;
-    return result.first['value'].toString();
+    Logging.severe(
+        'Retrieved ${results.length} tracks from database for album $albumId');
+
+    if (results.isEmpty) return [];
+
+    // Get ratings for this album
+    final ratings = await getRatingsForAlbum(albumId);
+    // Build a map of trackId -> rating
+    final Map<String, double> ratingById = {
+      for (var r in ratings)
+        if (r['track_id'] != null && r['rating'] != null)
+          r['track_id'].toString(): (r['rating'] as num).toDouble()
+    };
+    // Also build a map of position -> rating (for fallback)
+    final Map<int, double> ratingByPosition = {};
+    for (var r in ratings) {
+      final tid = r['track_id']?.toString();
+      final pos = int.tryParse(tid ?? '');
+      if (pos != null && r['rating'] != null) {
+        ratingByPosition[pos] = (r['rating'] as num).toDouble();
+      }
+    }
+
+    List<Map<String, dynamic>> tracks = [];
+
+    for (var result in results) {
+      final trackId = result['id']?.toString();
+      final trackNumber = result['position'] is int
+          ? result['position'] as int
+          : int.tryParse(result['position']?.toString() ?? '') ?? 0;
+
+      // Try to get rating by ID, fallback to position, then fallback to trailing number in ID
+      double rating = 0.0;
+      if (ratingById.containsKey(trackId)) {
+        rating = ratingById[trackId]!;
+      } else if (ratingByPosition.containsKey(trackNumber)) {
+        rating = ratingByPosition[trackNumber]!;
+      } else {
+        // Fallback: If trackId ends with a number, try to match rating by that number
+        final match = RegExp(r'(\d+)$').firstMatch(trackId ?? '');
+        if (match != null) {
+          final trailingNum = int.tryParse(match.group(1)!);
+          if (trailingNum != null &&
+              ratingByPosition.containsKey(trailingNum)) {
+            rating = ratingByPosition[trailingNum]!;
+          }
+        }
+      }
+
+      Map<String, dynamic> track = {
+        'trackId': trackId,
+        'trackName': result['name'],
+        'trackNumber': trackNumber,
+        'trackTimeMillis': result['duration_ms'],
+        'rating': rating,
+      };
+
+      // Add extra data if available
+      String? dataJson = result['data'] as String?;
+      if (dataJson != null && dataJson.isNotEmpty) {
+        try {
+          final extraData = jsonDecode(dataJson);
+          if (extraData is Map<String, dynamic>) {
+            extraData.forEach((key, value) {
+              if (value != null && !track.containsKey(key)) {
+                track[key] = value;
+              }
+            });
+          }
+        } catch (e) {
+          Logging.severe('Error parsing track data JSON: $e');
+        }
+      }
+
+      tracks.add(track);
+    }
+
+    return tracks;
+  }
+
+  // Add a method to insert tracks for an album
+  Future<void> insertTracks(
+      String albumId, List<Map<String, dynamic>> tracks) async {
+    final db = await database;
+
+    await db.transaction((txn) async {
+      for (var track in tracks) {
+        // --- FIX: Ensure trackName and trackTimeMillis are mapped from possible Bandcamp keys ---
+        String trackId = track['trackId']?.toString() ?? '';
+        if (trackId.isEmpty) continue;
+
+        // Try to get name from multiple possible keys
+        String trackName = track['trackName'] ??
+            track['name'] ??
+            track['title'] ??
+            'Unknown Track';
+
+        // Try to get position from multiple possible keys
+        int position = track['trackNumber'] ??
+            track['position'] ??
+            tracks.indexOf(track) + 1;
+
+        // Try to get duration from multiple possible keys
+        int durationMs = track['trackTimeMillis'] ??
+            track['duration_ms'] ??
+            track['durationMs'] ??
+            track['duration'] ??
+            0;
+
+        await txn.insert(
+          'tracks',
+          {
+            'id': trackId,
+            'album_id': albumId,
+            'name': trackName,
+            'position': position,
+            'duration_ms': durationMs,
+            'data': jsonEncode(track),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+
+    Logging.severe('Inserted ${tracks.length} tracks for album $albumId');
+  }
+
+  // Create tracks from rating IDs when no actual track data exists
+  Future<List<Map<String, dynamic>>> createTracksFromRatings(
+      String albumId) async {
+    try {
+      Logging.severe('Creating tracks from ratings for album $albumId');
+      final db = await database;
+
+      // Get all ratings for this album
+      final ratings = await getRatingsForAlbum(albumId);
+      if (ratings.isEmpty) return [];
+
+      List<Map<String, dynamic>> tracks = [];
+
+      // Create a track for each rating
+      for (int i = 0; i < ratings.length; i++) {
+        final rating = ratings[i];
+        final trackId = rating['track_id'].toString();
+
+        // Try to get track name from tracks table first
+        final existingTracks = await db.query(
+          'tracks',
+          where: 'id = ?',
+          whereArgs: [trackId],
+        );
+
+        String trackName = 'Track ${i + 1}';
+        if (existingTracks.isNotEmpty) {
+          trackName = existingTracks.first['name'].toString();
+        }
+
+        tracks.add({
+          'trackId': trackId,
+          'trackName': trackName,
+          'trackNumber': i + 1,
+          'trackTimeMillis': 0,
+          'rating': rating['rating'],
+        });
+      }
+
+      Logging.severe(
+          'Created ${tracks.length} tracks from ratings for album $albumId');
+      return tracks;
+    } catch (e, stack) {
+      Logging.severe('Error creating tracks from ratings', e, stack);
+      return [];
+    }
+  }
+
+  /// Utility: Update tracks for an album by scraping/parsing Bandcamp again using the album URL.
+  /// This is for fixing old Bandcamp albums that were saved without track data.
+  ///
+  /// This implementation will use BandcampService if available.
+  Future<bool> refreshBandcampAlbumTracks(
+      String albumId, String albumUrl) async {
+    // Only proceed for Bandcamp URLs
+    if (!albumUrl.contains('bandcamp.com')) {
+      Logging.severe(
+          'refreshBandcampAlbumTracks: Not a Bandcamp URL: $albumUrl');
+      return false;
+    }
+
+    Logging.severe(
+        'Refreshing Bandcamp tracks for album $albumId from $albumUrl');
+
+    try {
+      // Try to use BandcampService if implemented
+      // Import BandcampService at the top: import '../platforms/bandcamp_service.dart';
+      // and PlatformServiceFactory: import '../platforms/platform_service_factory.dart';
+      final platformFactory = PlatformServiceFactory();
+      final bandcampService = platformFactory.getService('bandcamp');
+
+      // Try to fetch album details using BandcampService
+      final albumDetails = await bandcampService.fetchAlbumDetails(albumUrl);
+
+      if (albumDetails != null &&
+          albumDetails['tracks'] is List &&
+          (albumDetails['tracks'] as List).isNotEmpty) {
+        // Save tracks to DB
+        await insertTracks(
+            albumId, List<Map<String, dynamic>>.from(albumDetails['tracks']));
+        Logging.severe('Refreshed Bandcamp tracks for $albumId');
+        return true;
+      } else {
+        Logging.severe('BandcampService did not return valid track data.');
+        return false;
+      }
+    } catch (e, stack) {
+      Logging.severe('BandcampService not implemented or failed', e, stack);
+      Logging.severe(
+          'Bandcamp refresh not implemented. See BandcampService for details.');
+      return false;
+    }
+  }
+
+  /// Remove duplicate tracks for an album, keeping only the one with the longest duration for each normalized track name.
+  Future<int> removeDuplicateTracksForAlbum(String albumId) async {
+    final db = await database;
+    int removed = 0;
+
+    // Get all tracks for this album
+    final tracks = await db.query(
+      'tracks',
+      where: 'album_id = ?',
+      whereArgs: [albumId],
+    );
+
+    // Group by normalized name, keep the one with the longest duration
+    final Map<String, Map<String, dynamic>> bestTracks = {};
+    for (final track in tracks) {
+      final name = (track['name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+      final normalized = name.toLowerCase();
+      final duration = track['duration_ms'] ?? 0;
+      if (!bestTracks.containsKey(normalized) ||
+          (bestTracks[normalized]?['duration_ms'] ?? 0) < duration) {
+        bestTracks[normalized] = track;
+      }
+    }
+
+    // Build a set of (id, album_id) to keep
+    final Set<String> keepKeys =
+        bestTracks.values.map((t) => '${t['id']}|${t['album_id']}').toSet();
+
+    // Delete all tracks for this album not in keepKeys
+    for (final track in tracks) {
+      final key = '${track['id']}|${track['album_id']}';
+      if (!keepKeys.contains(key)) {
+        await db.delete(
+          'tracks',
+          where: 'id = ? AND album_id = ?',
+          whereArgs: [track['id'], track['album_id']],
+        );
+        removed++;
+      }
+    }
+
+    Logging.severe('Removed $removed duplicate tracks for album $albumId');
+    return removed;
+  }
+
+  // Add these new methods:
+
+  // Get all settings from the database
+  Future<List<Map<String, dynamic>>> getAllSettings() async {
+    final db = await database;
+    return await db.query('settings');
+  }
+
+  // Clear all settings from the database
+  Future<void> clearSettings() async {
+    final db = await database;
+    await db.delete('settings');
+    Logging.severe('Cleared all settings from database');
   }
 }

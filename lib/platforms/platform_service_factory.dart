@@ -4,7 +4,7 @@ import 'apple_music_service.dart';
 import 'deezer_service.dart';
 import 'discogs_service.dart';
 import '../logging.dart';
-// import 'bandcamp_service.dart';
+import 'bandcamp_service.dart';
 
 /// Factory to create platform-specific services
 class PlatformServiceFactory {
@@ -44,9 +44,9 @@ class PlatformServiceFactory {
         // Ensure we're using the correct implementation
         service = DiscogsService();
         break;
-      // case 'bandcamp':
-      //   service = BandcampService();
-      //   break;
+      case 'bandcamp':
+        service = BandcampService();
+        break;
       default:
         Logging.severe('Unsupported platform service: $platformId');
         throw UnsupportedError('Platform not supported: $platformId');

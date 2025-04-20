@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart'; // Add this import for ConflictAlgorithm
+import 'package:sqflite/sqflite.dart';
 import '../album_model.dart';
 import '../logging.dart';
 import 'database_helper.dart';
 
+/// @deprecated This class is only used for one-time migration and will be removed in a future update
 class MigrationUtility {
   static const String migrationCompletedKey = 'sqlite_migration_completed';
 

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../database/database_helper.dart';
 import 'platform_service_base.dart';
 import '../api_keys.dart';
 import '../logging.dart';
-import '../search_service.dart'; // Add import for SearchService
+import '../search_service.dart';
 
 class SpotifyService extends PlatformServiceBase {
   // Token storage keys
@@ -159,9 +159,11 @@ class SpotifyService extends PlatformServiceBase {
   /// Get an access token from Spotify API
   Future<String?> _getAccessToken() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final storedToken = prefs.getString(_tokenKey);
-      final expiryTime = prefs.getInt(_tokenExpiryKey) ?? 0;
+      final dbHelper = DatabaseHelper.instance;
+      final storedToken = await dbHelper.getSetting(_tokenKey);
+      final expiryString = await dbHelper.getSetting(_tokenExpiryKey);
+      final expiryTime =
+          expiryString != null ? int.tryParse(expiryString) ?? 0 : 0;
 
       // Check if token is still valid (with 5 minute buffer)
       if (storedToken != null &&
@@ -192,8 +194,8 @@ class SpotifyService extends PlatformServiceBase {
         // Save token with expiry time
         final expiry =
             DateTime.now().millisecondsSinceEpoch + (expiresIn * 1000);
-        await prefs.setString(_tokenKey, accessToken);
-        await prefs.setInt(_tokenExpiryKey, expiry);
+        await dbHelper.saveSetting(_tokenKey, accessToken);
+        await dbHelper.saveSetting(_tokenExpiryKey, expiry.toString());
 
         return accessToken;
       } else {

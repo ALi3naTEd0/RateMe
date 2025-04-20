@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'user_data.dart';
+import 'database/database_helper.dart';
 import 'saved_album_page.dart';
+import 'user_data.dart';
 import 'logging.dart';
 import 'widgets/skeleton_loading.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Define the enum outside the class to make it accessible everywhere
 enum SortOrder {
@@ -26,6 +27,12 @@ class SavedRatingsPage extends StatefulWidget {
 }
 
 class _SavedRatingsPageState extends State<SavedRatingsPage> {
+  // Add these missing key definitions
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   List<Map<String, dynamic>> albums = [];
   List<Map<String, dynamic>> displayedAlbums = []; // For pagination
   List<String> albumOrder = [];
@@ -51,17 +58,18 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   Future<void> _loadSortPreference() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedSortIndex = prefs.getInt('album_sort_order');
+      final db = DatabaseHelper.instance;
+      final savedSortIndex = await db.getSetting('ratings_sort_order');
 
-      if (savedSortIndex != null &&
-          savedSortIndex >= 0 &&
-          savedSortIndex < SortOrder.values.length) {
-        setState(() {
-          currentSortOrder = SortOrder.values[savedSortIndex];
-          Logging.severe(
-              'Loaded saved sort order: $currentSortOrder ($savedSortIndex)');
-        });
+      if (savedSortIndex != null) {
+        int? value = int.tryParse(savedSortIndex.toString());
+        if (value != null && value >= 0 && value < SortOrder.values.length) {
+          setState(() {
+            currentSortOrder = SortOrder.values[value];
+            Logging.severe(
+                'Loaded saved sort order: $currentSortOrder ($value)');
+          });
+        }
       }
     } catch (e) {
       Logging.severe('Error loading sort preference: $e');
@@ -369,8 +377,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           });
 
           // Save the preference
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('album_sort_order', SortOrder.custom.index);
+          final db = DatabaseHelper.instance;
+          await db.saveSetting(
+              'ratings_sort_order', SortOrder.custom.index.toString());
 
           // Save the album order
           await UserData.saveAlbumOrder(albumOrder);
@@ -385,8 +394,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         });
 
         // Save the preference
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('album_sort_order', sortOrder.index);
+        final db = DatabaseHelper.instance;
+        await db.saveSetting('ratings_sort_order', sortOrder.index.toString());
 
         // Save the new order if it's a custom order
         if (sortOrder == SortOrder.custom) {
@@ -437,138 +446,159 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate page width for consistency with other screens
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        automaticallyImplyLeading: false,
-        title: Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-                onPressed: () => Navigator.of(context).pop(),
+    // Get the correct icon color based on theme brightness
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      debugShowCheckedModeBanner: false,
+      theme: Theme.of(context),
+      home: Scaffold(
+        appBar: AppBar(
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          leadingWidth: horizontalPadding + 48,
+          title: Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: Text(
+              'Saved Albums',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black, // Add explicit color for visibility
               ),
-              const SizedBox(width: 8),
-              const Text('Saved Albums'),
-            ],
-          ),
-        ),
-        actions: [
-          // Add sort button with label showing current sort
-          Padding(
-            padding: EdgeInsets.only(right: horizontalPadding),
-            child: Row(
-              children: [
-                if (!isLoading && albums.isNotEmpty)
-                  Text(
-                    _getSortOrderLabel(),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.sort),
-                  tooltip: 'Sort Albums',
-                  onPressed: () => _showSortOptionsMenu(context),
-                ),
-              ],
             ),
-          )
-        ],
-      ),
-      body: Center(
-        child: SizedBox(
-          width: pageWidth,
-          child: isLoading
-              ? Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: 10, // Show 10 placeholder items
-                        itemBuilder: (context, index) =>
-                            const AlbumCardSkeleton(),
-                      ),
+          ),
+          leading: Padding(
+            padding: EdgeInsets.only(left: horizontalPadding),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: iconColor),
+              padding: const EdgeInsets.all(8.0),
+              constraints: const BoxConstraints(),
+              iconSize: 24.0,
+              splashRadius: 28.0,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          actions: [
+            // Sort button with label showing current sort
+            Padding(
+              padding: EdgeInsets.only(right: horizontalPadding),
+              child: Row(
+                children: [
+                  if (!isLoading && albums.isNotEmpty)
+                    Text(
+                      _getSortOrderLabel(),
+                      style: const TextStyle(fontSize: 14),
                     ),
-                  ],
-                )
-              : albums.isEmpty
-                  ? const Center(child: Text('No saved albums'))
-                  : RefreshIndicator(
-                      key: _refreshIndicatorKey,
-                      onRefresh: _refreshData,
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: ReorderableListView.builder(
-                              itemCount: displayedAlbums.length,
-                              onReorder: (oldIndex, newIndex) async {
-                                // Convert display indices to global indices
-                                final globalOldIndex =
-                                    currentPage * itemsPerPage + oldIndex;
-                                final globalNewIndex =
-                                    currentPage * itemsPerPage +
-                                        (newIndex > oldIndex
-                                            ? newIndex - 1
-                                            : newIndex);
+                  IconButton(
+                    icon: Icon(Icons.sort, color: iconColor),
+                    tooltip: 'Sort Albums',
+                    onPressed: () => _showSortOptionsMenu(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        body: Center(
+          child: SizedBox(
+            width: pageWidth,
+            child: isLoading
+                ? Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 10, // Show 10 placeholder items
+                          itemBuilder: (context, index) =>
+                              const AlbumCardSkeleton(),
+                        ),
+                      ),
+                    ],
+                  )
+                : albums.isEmpty
+                    ? const Center(child: Text('No saved albums'))
+                    : RefreshIndicator(
+                        key: _refreshIndicatorKey,
+                        onRefresh: _refreshData,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: ReorderableListView.builder(
+                                itemCount: displayedAlbums.length,
+                                onReorder: (oldIndex, newIndex) async {
+                                  // Convert display indices to global indices
+                                  final globalOldIndex =
+                                      currentPage * itemsPerPage + oldIndex;
+                                  final globalNewIndex =
+                                      currentPage * itemsPerPage +
+                                          (newIndex > oldIndex
+                                              ? newIndex - 1
+                                              : newIndex);
 
-                                setState(() {
-                                  final album = albums.removeAt(globalOldIndex);
-                                  albums.insert(globalNewIndex, album);
+                                  setState(() {
+                                    final album =
+                                        albums.removeAt(globalOldIndex);
+                                    albums.insert(globalNewIndex, album);
 
-                                  // Update album order
-                                  albumOrder = albums
-                                      .map((a) =>
-                                          a['id']?.toString() ??
-                                          a['collectionId']?.toString() ??
-                                          '')
-                                      .where((id) => id.isNotEmpty)
-                                      .toList();
+                                    // Update album order
+                                    albumOrder = albums
+                                        .map((a) =>
+                                            a['id']?.toString() ??
+                                            a['collectionId']?.toString() ??
+                                            '')
+                                        .where((id) => id.isNotEmpty)
+                                        .toList();
 
-                                  _updateDisplayedAlbums();
-                                });
+                                    _updateDisplayedAlbums();
+                                  });
 
-                                await UserData.saveAlbumOrder(albumOrder);
-                              },
-                              itemBuilder: (context, index) {
-                                final album = displayedAlbums[index];
-                                return _buildCompactAlbumCard(album, index);
-                              },
-                            ),
-                          ),
-                          // Pagination controls
-                          if (totalPages > 1)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.arrow_back),
-                                    onPressed:
-                                        currentPage > 0 ? _previousPage : null,
-                                    tooltip: 'Previous page',
-                                  ),
-                                  Text('${currentPage + 1} / $totalPages'),
-                                  IconButton(
-                                    icon: const Icon(Icons.arrow_forward),
-                                    onPressed: currentPage < totalPages - 1
-                                        ? _nextPage
-                                        : null,
-                                    tooltip: 'Next page',
-                                  ),
-                                ],
+                                  await UserData.saveAlbumOrder(albumOrder);
+                                },
+                                itemBuilder: (context, index) {
+                                  final album = displayedAlbums[index];
+                                  return _buildCompactAlbumCard(album, index);
+                                },
                               ),
                             ),
-                        ],
+                            // Pagination controls
+                            if (totalPages > 1)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_back),
+                                      onPressed: currentPage > 0
+                                          ? _previousPage
+                                          : null,
+                                      tooltip: 'Previous page',
+                                    ),
+                                    Text('${currentPage + 1} / $totalPages'),
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_forward),
+                                      onPressed: currentPage < totalPages - 1
+                                          ? _nextPage
+                                          : null,
+                                      tooltip: 'Next page',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
+          ),
         ),
       ),
     );
@@ -625,15 +655,49 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         album['name'] ?? album['collectionName'] ?? 'Unknown Album';
     final artistName =
         album['artist'] ?? album['artistName'] ?? 'Unknown Artist';
-    final artworkUrl = album['artworkUrl'] ?? album['artworkUrl100'] ?? '';
     final albumId = album['id'] ?? album['collectionId'] ?? '';
 
     // Use a simpler approach for getting the rating
     final averageRating = album['averageRating'] ?? 0.0;
 
-    // Check if this is a Bandcamp album
-    final isBandcamp = album['platform'] == 'bandcamp' ||
-        (album['url']?.toString().contains('bandcamp.com') ?? false);
+    // Extract artwork URL from album data JSON or from artwork_url field
+    String artworkUrl = ''; // First declaration is here
+
+    // First try to get from artwork_url column directly
+    if (album['artwork_url'] != null &&
+        album['artwork_url'].toString().isNotEmpty) {
+      artworkUrl = album['artwork_url'].toString();
+      Logging.severe('Found artwork URL in artwork_url column: $artworkUrl');
+    }
+    // If empty, try extracting from album data
+    else {
+      try {
+        // Try parsing the 'data' field which contains the complete album JSON
+        final data = album['data'] as String?;
+        if (data != null && data.isNotEmpty) {
+          final albumData = jsonDecode(data);
+          if (albumData['artworkUrl'] != null) {
+            artworkUrl = albumData['artworkUrl']
+                .toString(); // Using the existing variable
+          } else if (albumData['artworkUrl100'] != null) {
+            artworkUrl = albumData['artworkUrl100'].toString().replaceAll(
+                '100x100', '600x600'); // Using the existing variable
+          }
+        }
+
+        // Log the source of the artwork URL
+        if (artworkUrl.isNotEmpty) {
+          Logging.severe('Found artwork URL from album data: $artworkUrl');
+        }
+      } catch (e) {
+        Logging.severe('Error extracting artwork URL: $e');
+      }
+    }
+
+    // Use a placeholder if no artwork URL is found
+    if (artworkUrl.isEmpty) {
+      Logging.severe('No artwork URL found for album ${album['id']}');
+    }
 
     return Card(
       key: ValueKey(albumId),
@@ -648,11 +712,10 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
               width: 48, // Rating box width
               height: 48, // Rating box height
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(
-                    red: Theme.of(context).colorScheme.primary.r.toDouble(),
-                    green: Theme.of(context).colorScheme.primary.g.toDouble(),
-                    blue: Theme.of(context).colorScheme.primary.b.toDouble(),
-                    alpha: 0.15),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withAlpha(38), // Use withAlpha instead of withOpacity
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.primary,
@@ -750,15 +813,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             normalizedAlbum['artworkUrl100'] = normalizedAlbum['artworkUrl'];
           }
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SavedAlbumPage(
-                album: normalizedAlbum,
-                isBandcamp: isBandcamp,
-              ),
-            ),
-          ).then((_) => _loadAlbums());
+          _openAlbum(context, albumId);
         },
       ),
     );
@@ -854,5 +909,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         }
       }
     }
+  }
+
+  void _openAlbum(BuildContext context, String albumId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SavedAlbumPage(albumId: albumId),
+      ),
+    );
   }
 }

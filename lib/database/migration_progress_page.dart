@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../logging.dart';
+import '../theme_service.dart'; // Change this import from theme.dart to theme_service.dart
 import 'migration_utility.dart';
 import 'database_helper.dart';
 
+/// @deprecated This class is only used for one-time migration and will be removed in a future update
 class MigrationStats {
   int albums = 0;
   int tracks = 0;
@@ -13,6 +15,7 @@ class MigrationStats {
   int listAlbums = 0;
 }
 
+/// @deprecated This page is only used for one-time migration and will be removed in a future update
 class MigrationProgressPage extends StatefulWidget {
   const MigrationProgressPage({super.key});
 
@@ -194,48 +197,55 @@ class _MigrationProgressPageState extends State<MigrationProgressPage> {
         automaticallyImplyLeading: !isMigrating,
       ),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.storage, size: 64),
-              const SizedBox(height: 24),
-              Text(
-                'Upgrading to SQLite Database',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please do not close the app during this process.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              LinearProgressIndicator(
-                value: isMigrating ? null : progress,
-                minHeight: 8,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                status,
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              if (showStats) ...[
+        child: ConstrainedBox(
+          // Use the ThemeService's standardized width constraint (85% of screen width)
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width *
+                ThemeService.contentMaxWidthFactor,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.storage, size: 64),
                 const SizedBox(height: 24),
-                _buildStatsCard(),
-              ],
-              const SizedBox(height: 32),
-              if (!isMigrating)
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(migrationSuccess);
-                  },
-                  child: Text(migrationSuccess ? 'Continue' : 'Close'),
+                Text(
+                  'Upgrading to SQLite Database',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
                 ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Please do not close the app during this process.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                LinearProgressIndicator(
+                  value: isMigrating ? null : progress,
+                  minHeight: 8,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  status,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                if (showStats) ...[
+                  const SizedBox(height: 24),
+                  _buildStatsCard(),
+                ],
+                const SizedBox(height: 32),
+                if (!isMigrating)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(migrationSuccess);
+                    },
+                    child: Text(migrationSuccess ? 'Continue' : 'Close'),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

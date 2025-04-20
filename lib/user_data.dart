@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:rateme/search_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart'; // Add this import for Sqflite
 import 'album_model.dart';
@@ -46,16 +45,17 @@ class UserData {
   static Future<bool> isMigrationNeeded() async {
     try {
       // Check migration flag first
-      final prefs = await SharedPreferences.getInstance();
+      final db = DatabaseHelper.instance;
       final migrationCompleted =
-          prefs.getBool('sqlite_migration_completed') ?? false;
+          (await db.getSetting('sqlite_migration_completed')) == 'true';
 
       if (migrationCompleted) {
         return false;
       }
 
       // Check if there's SharedPreferences data to migrate
-      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      final savedAlbums =
+          (await db.getSetting('saved_albums'))?.split(',') ?? [];
       return savedAlbums.isNotEmpty;
     } catch (e) {
       Logging.severe('Error checking migration status', e);
@@ -67,8 +67,9 @@ class UserData {
   static Future<String?> exportMigrationBackup() async {
     try {
       // First check if we have SharedPreferences data to migrate
-      final prefs = await SharedPreferences.getInstance();
-      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      final db = DatabaseHelper.instance;
+      final savedAlbums =
+          (await db.getSetting('saved_albums'))?.split(',') ?? [];
 
       if (savedAlbums.isEmpty) {
         Logging.severe('No SharedPreferences data to migrate');
@@ -84,8 +85,10 @@ class UserData {
       final backupData = <String, dynamic>{};
 
       // Export all SharedPreferences keys
-      for (final key in prefs.getKeys()) {
-        final value = prefs.get(key);
+      final settings = await db.getAllSettings();
+      for (final setting in settings) {
+        final key = setting['key'];
+        final value = setting['value'];
         if (value != null) {
           // Handle different value types
           if (value is List<String>) {
@@ -141,8 +144,8 @@ class UserData {
 
       if (success) {
         // Mark migration as completed
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('sqlite_migration_completed', true);
+        final db = DatabaseHelper.instance;
+        await db.saveSetting('sqlite_migration_completed', 'true');
 
         Logging.severe('Migration to SQLite completed successfully');
         return true;
@@ -161,170 +164,132 @@ class UserData {
   /// Add an album to the saved albums list
   static Future<bool> addToSavedAlbums(Map<String, dynamic> album) async {
     try {
-      // Create a clean copy of the album data to avoid modifying the original
-      final Map<String, dynamic> albumToSave = Map<String, dynamic>.from(album);
       Logging.severe(
-          'Preparing album for saving: ${albumToSave["collectionName"] ?? albumToSave["name"]}');
-
-      // Add saved timestamp for sorting by date added
-      albumToSave['savedTimestamp'] = DateTime.now().millisecondsSinceEpoch;
-
-      // Ensure ID is consistently stored as a string
-      var albumId = albumToSave['id'] ?? albumToSave['collectionId'];
-      if (albumId == null) {
-        Logging.severe('Cannot save album: No ID found');
-        return false;
-      }
-
-      // Make sure albumId is a string
-      final albumIdStr = albumId.toString();
-      albumToSave['id'] = albumIdStr;
+          'Preparing album for saving: ${album['name'] ?? album['collectionName']}');
 
       // Get database instance
-      final db = await getDatabaseInstance();
+      final dbHelper = DatabaseHelper.instance;
+      final db = await dbHelper.database;
 
-      // First, get the table info to see what columns exist
-      final List<Map<String, dynamic>> tableInfo =
-          await db.rawQuery("PRAGMA table_info(albums)");
-      final List<String> existingColumns =
-          tableInfo.map((col) => col['name'].toString()).toList();
+      // Get table info to ensure we only insert compatible fields
+      final tableInfo = await db.rawQuery("PRAGMA table_info(albums)");
+      final columnNames =
+          tableInfo.map((col) => col['name'] as String).toList();
+      Logging.severe('Album table columns: $columnNames');
 
-      Logging.severe('Album table columns: $existingColumns');
+      // Create a compatible album entry
+      final albumEntry = <String, dynamic>{};
 
-      // Create a map with only the columns that exist in the table
-      final Map<String, dynamic> compatibleData = {};
+      // Handle ID field correctly
+      final id = album['id'] ?? album['collectionId'];
+      if (id != null) {
+        albumEntry['id'] = id.toString();
+      }
 
-      // Always include ID
-      compatibleData['id'] = albumIdStr;
+      // Map common fields
+      final compatibleFields = [
+        'name',
+        'artist',
+        'artwork_url',
+        'artworkUrl100',
+        'platform',
+        'release_date',
+        'url',
+        'data'
+      ];
 
-      // Map standard fields to their possible column names in the database
-      final fieldMappings = {
-        // Common mappings between our data model and database schema
-        'name': ['name', 'collection_name', 'collectionName'],
-        'artist': ['artist', 'artist_name', 'artistName'],
-        'artwork': [
-          'artwork_url',
-          'artworkUrl',
-          'artwork_url100',
-          'artworkUrl100'
-        ],
-        'platform': ['platform', 'source'],
-        'url': ['url', 'album_url', 'albumUrl'],
-        'savedTimestamp': ['saved_timestamp', 'savedTimestamp'],
-      };
-
-      // Process each field using the mappings
-      for (var field in fieldMappings.keys) {
-        final possibleColumns = fieldMappings[field]!;
-        final valueFields = [
-          ...possibleColumns
-        ]; // Fields to check in source data
-
-        // Find a value for this type of field
-        dynamic fieldValue;
-        for (var valueField in valueFields) {
-          if (albumToSave.containsKey(valueField) &&
-              albumToSave[valueField] != null) {
-            fieldValue = albumToSave[valueField];
-            break;
-          }
+      for (final field in compatibleFields) {
+        if (album.containsKey(field) && columnNames.contains(field)) {
+          albumEntry[field] = album[field];
         }
+      }
 
-        // If we found a value, add it to any matching column in the database
-        if (fieldValue != null) {
-          for (var column in possibleColumns) {
-            if (existingColumns.contains(column)) {
-              compatibleData[column] = fieldValue;
+      // Special case for artwork - try multiple fields
+      if (album.containsKey('artworkUrl100') &&
+          columnNames.contains('artwork_url')) {
+        albumEntry['artwork_url'] = album['artworkUrl100'];
+      } else if (album.containsKey('artworkUrl') &&
+          columnNames.contains('artwork_url')) {
+        albumEntry['artwork_url'] = album['artworkUrl'];
+      }
+
+      // Map artist name fields
+      if (album.containsKey('artistName') && columnNames.contains('artist')) {
+        albumEntry['artist'] = album['artistName'];
+      }
+
+      // Map collection name fields
+      if (album.containsKey('collectionName') && columnNames.contains('name')) {
+        albumEntry['name'] = album['collectionName'];
+      }
+
+      // CRITICAL FIX: Check for tracks and save them to the database
+      List<Map<String, dynamic>>? tracks;
+
+      // Try to extract tracks from various locations
+      if (album.containsKey('tracks') && album['tracks'] is List) {
+        tracks = List<Map<String, dynamic>>.from(album['tracks']);
+        Logging.severe('Found ${tracks.length} tracks in album data');
+      } else if (album.containsKey('data')) {
+        // Try to extract tracks from the data field
+        if (album['data'] is String) {
+          try {
+            final dataMap = jsonDecode(album['data']);
+            if (dataMap != null &&
+                dataMap.containsKey('tracks') &&
+                dataMap['tracks'] is List) {
+              tracks = List<Map<String, dynamic>>.from(dataMap['tracks']);
+              Logging.severe(
+                  'Found ${tracks.length} tracks in album data field');
             }
+          } catch (e) {
+            Logging.severe('Error extracting tracks from data field: $e');
           }
+        } else if (album['data'] is Map &&
+            album['data'].containsKey('tracks')) {
+          tracks = List<Map<String, dynamic>>.from(album['data']['tracks']);
+          Logging.severe('Found ${tracks.length} tracks in album data map');
         }
       }
 
-      // Handle tracks separately - if the column exists and tracks are available
-      if (existingColumns.contains('tracks') &&
-          albumToSave.containsKey('tracks')) {
-        try {
-          // Convert tracks to a simple list if needed
-          if (albumToSave['tracks'] is List) {
-            compatibleData['tracks'] = jsonEncode(albumToSave['tracks']);
-          } else if (albumToSave['tracks'] is String) {
-            // Already a string, just copy it
-            compatibleData['tracks'] = albumToSave['tracks'];
-          }
-        } catch (e) {
-          Logging.severe('Error encoding tracks: $e');
-        }
-      }
-
-      // Add any raw columns that exist in both album and database schema
-      // This handles columns we didn't explicitly map above
-      for (var key in albumToSave.keys) {
-        if (existingColumns.contains(key) && !compatibleData.containsKey(key)) {
-          compatibleData[key] = albumToSave[key];
-        }
-      }
-
-      // Check if album already exists
-      final existingAlbums = await db.query(
-        'albums',
-        where: 'id = ?',
-        whereArgs: [albumIdStr],
-      );
+      // Make sure the album ID is ready for database
+      albumEntry['id'] = albumEntry['id'].toString();
 
       Logging.severe(
-          'Saving album with compatible fields: ${compatibleData.keys.join(", ")}');
+          'Saving album with compatible fields: ${albumEntry.keys.join(", ")}');
 
-      // Insert or update the album
-      try {
-        if (existingAlbums.isEmpty) {
-          await db.insert('albums', compatibleData);
-          Logging.severe('Inserted new album: $albumIdStr');
-        } else {
-          await db.update(
-            'albums',
-            compatibleData,
-            where: 'id = ?',
-            whereArgs: [albumIdStr],
-          );
-          Logging.severe('Updated existing album: $albumIdStr');
-        }
-        return true;
-      } catch (e, stack) {
-        Logging.severe(
-            'Database operation failed, attempting fallback:', e, stack);
+      // Check if album already exists
+      final existingAlbum = await db.query(
+        'albums',
+        where: 'id = ?',
+        whereArgs: [albumEntry['id']],
+      );
 
-        // Fallback: use minimal required fields
-        try {
-          final minimalData = {
-            'id': albumIdStr,
-          };
-
-          // Add any fields that definitely exist in the database
-          for (var col in existingColumns) {
-            if (compatibleData.containsKey(col)) {
-              minimalData[col] = compatibleData[col];
-            }
-          }
-
-          if (existingAlbums.isEmpty) {
-            await db.insert('albums', minimalData);
-          } else {
-            await db.update(
-              'albums',
-              minimalData,
-              where: 'id = ?',
-              whereArgs: [albumIdStr],
-            );
-          }
-          Logging.severe('Album saved with minimal data: $albumIdStr');
-          return true;
-        } catch (e2, stack2) {
-          Logging.severe('Final fallback attempt failed:', e2, stack2);
-          return false;
-        }
+      if (existingAlbum.isNotEmpty) {
+        // Update existing album
+        await db.update(
+          'albums',
+          albumEntry,
+          where: 'id = ?',
+          whereArgs: [albumEntry['id']],
+        );
+        Logging.severe('Updated existing album: ${albumEntry['id']}');
+      } else {
+        // Insert new album
+        await db.insert('albums', albumEntry);
+        Logging.severe('Inserted new album: ${albumEntry['id']}');
       }
+
+      // CRITICAL FIX: If we have tracks, save them to the tracks table
+      if (tracks != null && tracks.isNotEmpty) {
+        await dbHelper.insertTracks(albumEntry['id'].toString(), tracks);
+        Logging.severe(
+            'Saved ${tracks.length} tracks for album ${albumEntry['id']}');
+      }
+
+      return true;
     } catch (e, stack) {
-      Logging.severe('Error saving album:', e, stack);
+      Logging.severe('Error saving album', e, stack);
       return false;
     }
   }
@@ -818,69 +783,27 @@ class UserData {
 
   // CUSTOM LISTS METHODS
 
-  /// Save a custom list
+  static Future<List<CustomList>> getCustomLists() async {
+    try {
+      // Replace SharedPreferences usage with DatabaseHelper
+      final lists = await DatabaseHelper.instance.getAllCustomLists();
+      return lists.map((map) => CustomList.fromJson(map)).toList();
+    } catch (e, stack) {
+      Logging.severe('Error getting custom lists', e, stack);
+      return [];
+    }
+  }
+
   static Future<bool> saveCustomList(CustomList list) async {
     try {
-      // Make sure IDs are cleaned before saving
-      list.cleanupAlbumIds();
-
-      Logging.severe(
-          'Saving custom list: ${list.name} with ${list.albumIds.length} albums');
-
-      final db = await getDatabaseInstance();
-
-      // First save the list info
-      final Map<String, dynamic> listData = {
-        'id': list.id,
-        'name': list.name,
-        'description': list.description,
-        'created_at': list.createdAt.toIso8601String(),
-        'updated_at': list.updatedAt.toIso8601String(),
-      };
-
-      // Begin transaction
-      await db.transaction((txn) async {
-        // Check if list exists
-        final existing = await txn
-            .query('custom_lists', where: 'id = ?', whereArgs: [list.id]);
-        if (existing.isEmpty) {
-          await txn.insert('custom_lists', listData);
-          Logging.severe('Created new list: ${list.name}');
-        } else {
-          await txn.update(
-            'custom_lists',
-            listData,
-            where: 'id = ?',
-            whereArgs: [list.id],
-          );
-          Logging.severe('Updated existing list: ${list.name}');
-        }
-
-        // Delete old album associations
-        await txn.delete(
-          'album_lists',
-          where: 'list_id = ?',
-          whereArgs: [list.id],
-        );
-
-        // Add new album associations
-        for (int i = 0; i < list.albumIds.length; i++) {
-          final albumId = list.albumIds[i];
-          // Skip empty IDs
-          if (albumId.isEmpty) continue;
-          Logging.severe('Adding album ID: $albumId to list ${list.name}');
-
-          await txn.insert(
-            'album_lists',
-            {
-              'list_id': list.id,
-              'album_id': albumId,
-              'position': i,
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-        }
-      });
+      await DatabaseHelper.instance.saveCustomList(
+        list.id,
+        list.name,
+        list.description,
+        list.albumIds,
+        createdAt: list.createdAt,
+        updatedAt: list.updatedAt,
+      );
       return true;
     } catch (e, stack) {
       Logging.severe('Error saving custom list', e, stack);
@@ -888,48 +811,9 @@ class UserData {
     }
   }
 
-  /// Get all custom lists
-  static Future<List<CustomList>> getCustomLists() async {
-    try {
-      await initializeDatabase();
-      // Get lists from database
-      final lists = await DatabaseHelper.instance.getAllCustomLists();
-      final result = <CustomList>[];
-
-      for (final list in lists) {
-        try {
-          // Get album IDs for this list
-          final albumIds =
-              await DatabaseHelper.instance.getAlbumIdsForList(list['id']);
-
-          // Create CustomList object
-          result.add(CustomList(
-            id: list['id'],
-            name: list['name'],
-            description: list['description'] ?? '',
-            albumIds: albumIds,
-            createdAt: DateTime.parse(list['created_at']),
-            updatedAt: DateTime.parse(list['updated_at']),
-          ));
-        } catch (e) {
-          Logging.severe('Error loading custom list: $e');
-        }
-      }
-
-      return result;
-    } catch (e, stack) {
-      Logging.severe('Error getting custom lists', e, stack);
-      return [];
-    }
-  }
-
-  /// Delete a custom list
   static Future<bool> deleteCustomList(String listId) async {
     try {
-      await initializeDatabase();
-
       await DatabaseHelper.instance.deleteCustomList(listId);
-      Logging.severe('Custom list deleted: $listId');
       return true;
     } catch (e, stack) {
       Logging.severe('Error deleting custom list', e, stack);
@@ -969,8 +853,10 @@ class UserData {
   /// Get default search platform from preferences
   static Future<SearchPlatform> getDefaultSearchPlatform() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final platformIndex = prefs.getInt('defaultSearchPlatform') ?? 0;
+      final db = DatabaseHelper.instance;
+      final platformIndex =
+          int.tryParse(await db.getSetting('defaultSearchPlatform') ?? '0') ??
+              0;
 
       if (platformIndex < SearchPlatform.values.length) {
         return SearchPlatform.values[platformIndex];
@@ -981,6 +867,33 @@ class UserData {
       Logging.severe('Error getting default search platform', e);
       return SearchPlatform.itunes; // Default on error
     }
+  }
+
+  static Future<String?> getDefaultPlatform() async {
+    return await DatabaseHelper.instance.getSetting('default_platform');
+  }
+
+  static Future<void> setDefaultPlatform(String platform) async {
+    try {
+      // Remove the unused 'db' variable
+      await DatabaseHelper.instance.saveSetting('default_platform', platform);
+    } catch (e, stack) {
+      Logging.severe('Error setting default platform', e, stack);
+    }
+  }
+
+  static Future<String?> getSearchPlatform() async {
+    try {
+      final dbHelper = DatabaseHelper.instance;
+      return await dbHelper.getSetting('searchPlatform');
+    } catch (e, stack) {
+      Logging.severe('Error getting search platform', e, stack);
+      return null;
+    }
+  }
+
+  static Future<void> setSearchPlatform(String platform) async {
+    await DatabaseHelper.instance.saveSetting('searchPlatform', platform);
   }
 
   // Import/Export methods can remain largely the same but need adapting to the new database structure
@@ -1307,12 +1220,12 @@ class UserData {
       Function(String stage, double progress)? progressCallback) async {
     try {
       // First import to SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
+      final db = DatabaseHelper.instance;
 
       progressCallback?.call('Clearing existing data...', 0.1);
 
       // Clear existing SharedPreferences data
-      await prefs.clear();
+      await db.clearSettings();
 
       progressCallback?.call('Importing data to SharedPreferences...', 0.2);
 
@@ -1327,16 +1240,16 @@ class UserData {
         if (key == '_backup_meta') continue; // Skip metadata
 
         if (value is String) {
-          await prefs.setString(key, value);
+          await db.saveSetting(key, value);
         } else if (value is bool) {
-          await prefs.setBool(key, value);
+          await db.saveSetting(key, value.toString());
         } else if (value is int) {
-          await prefs.setInt(key, value);
+          await db.saveSetting(key, value.toString());
         } else if (value is double) {
-          await prefs.setDouble(key, value);
+          await db.saveSetting(key, value.toString());
         } else if (value is List) {
           if (value.every((item) => item is String)) {
-            await prefs.setStringList(key, List<String>.from(value));
+            await db.saveSetting(key, value.join(','));
           }
         }
 
@@ -1349,7 +1262,8 @@ class UserData {
       }
 
       // Verify SharedPreferences data was imported
-      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
+      final savedAlbums =
+          (await db.getSetting('saved_albums'))?.split(',') ?? [];
       Logging.severe(
           'Imported ${savedAlbums.length} albums to SharedPreferences');
 
@@ -1410,8 +1324,8 @@ class UserData {
     try {
       await initializeDatabase();
       return await DatabaseHelper.instance.checkDatabaseIntegrity();
-    } catch (e) {
-      Logging.severe('Error checking database integrity', e);
+    } catch (e, stack) {
+      Logging.severe('Error checking database integrity', e, stack);
       return false;
     }
   }
@@ -1446,5 +1360,17 @@ class UserData {
     } catch (e, stack) {
       Logging.severe('Error saving track', e, stack);
     }
+  }
+
+  // Replace db.getAllSettings() with a manual query to the settings table
+  Future<List<Map<String, dynamic>>> getAllSettings() async {
+    final db = await DatabaseHelper.instance.database;
+    return await db.query('settings');
+  }
+
+  // Replace db.clearSettings() with a manual delete from the settings table
+  Future<void> clearSettings() async {
+    final db = await DatabaseHelper.instance.database;
+    await db.delete('settings');
   }
 }

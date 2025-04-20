@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'album_model.dart';
 import 'logging.dart';
+import 'database/database_helper.dart';
 
 /// Service to handle safe migration of legacy data to new model format
 class DataMigrationService {
@@ -180,6 +181,61 @@ class DataMigrationService {
     } catch (e) {
       Logging.severe('Error rolling back migration', e);
       return false;
+    }
+  }
+
+  /// Migrate all albums to the new model format
+  static Future<int> migrateAlbumsToNewModel() async {
+    try {
+      Logging.severe('Starting album model migration...');
+      final db = await DatabaseHelper.instance.database;
+      int migratedCount = 0;
+
+      // Get all albums
+      final albums = await db.query('albums');
+
+      Logging.severe('Found ${albums.length} albums to check for migration');
+
+      // Migrate each album to new format
+      for (final albumMap in albums) {
+        try {
+          // Skip albums that already have modelVersion in their data
+          final dataString = albumMap['data']?.toString() ?? '';
+          if (dataString.contains('modelVersion')) {
+            Logging.severe('Album ID ${albumMap['id']} already migrated');
+            continue;
+          }
+
+          // Create Album object from legacy format
+          final album = Album.fromJson(albumMap);
+
+          // Convert to new format (this adds modelVersion: 1)
+          final newData = album.toJson();
+
+          // Update in database
+          await db.update(
+            'albums',
+            {'data': newData.toString()},
+            where: 'id = ?',
+            whereArgs: [albumMap['id']],
+          );
+
+          migratedCount++;
+
+          if (migratedCount % 10 == 0) {
+            Logging.severe('Migrated $migratedCount albums so far');
+          }
+        } catch (e) {
+          Logging.severe('Error migrating album ${albumMap['id']}: $e');
+        }
+      }
+
+      Logging.severe(
+          'Album model migration complete. Migrated $migratedCount albums.');
+      return migratedCount;
+    } catch (e, stack) {
+      Logging.severe('Error during album model migration', e, stack);
+      return 0;
     }
   }
 }

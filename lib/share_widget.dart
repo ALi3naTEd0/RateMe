@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'album_model.dart'; // Add this import for Track class
 
 class ShareWidget extends StatefulWidget {
   static final GlobalKey<ShareWidgetState> shareKey =
@@ -12,18 +11,18 @@ class ShareWidget extends StatefulWidget {
   static final GlobalKey _boundaryKey = GlobalKey(); // Add static boundary key
 
   final Map<String, dynamic> album;
-  final List<Track> tracks;
-  final Map<String, double> ratings;
-  final double averageRating;
+  final List<dynamic>? tracks;
+  final Map<String, dynamic>? ratings;
+  final double? averageRating;
   final String? title;
   final List<Map<String, dynamic>>? albums;
 
   const ShareWidget({
-    super.key, // Changed from "Key? key" to "super.key"
+    super.key, // Convert to super parameter
     required this.album,
-    required this.tracks,
-    required this.ratings,
-    required this.averageRating,
+    this.tracks,
+    this.ratings,
+    this.averageRating,
     this.title,
     this.albums,
   });
@@ -182,7 +181,7 @@ class ShareWidgetState extends State<ShareWidget> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    'Average Rating: ${widget.averageRating.toStringAsFixed(1)}',
+                    'Average Rating: ${widget.averageRating?.toStringAsFixed(1) ?? 'N/A'}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -196,72 +195,73 @@ class ShareWidgetState extends State<ShareWidget> {
         const Divider(height: 32),
         // Add debug information
         Text(
-          "Tracks: ${widget.tracks.length}, ID type: ${widget.tracks.isNotEmpty ? widget.tracks.first.id.runtimeType : 'unknown'}",
+          "Tracks: ${widget.tracks?.length ?? 0}, ID type: ${widget.tracks?.isNotEmpty == true ? widget.tracks!.first.id.runtimeType : 'unknown'}",
           style: const TextStyle(fontSize: 10, color: Colors.grey),
         ),
 
         // Track list with improved error handling
-        ...widget.tracks.map((track) {
-          // Safely get the track ID as string for ratings lookup
-          String trackIdStr = track.id.toString();
-          double rating = widget.ratings[trackIdStr] ?? 0.0;
+        ...widget.tracks?.map((track) {
+              // Safely get the track ID as string for ratings lookup
+              String trackIdStr = track.id.toString();
+              double rating = widget.ratings?[trackIdStr] ?? 0.0;
 
-          // Log any issues for debugging
-          if (widget.ratings.containsKey(trackIdStr)) {
-            debugPrint("Found rating $rating for track $trackIdStr");
-          } else {
-            // Try alternative keys
-            debugPrint(
-                "No rating found for track $trackIdStr, available keys: ${widget.ratings.keys.join(', ')}");
-          }
+              // Log any issues for debugging
+              if (widget.ratings?.containsKey(trackIdStr) == true) {
+                debugPrint("Found rating $rating for track $trackIdStr");
+              } else {
+                // Try alternative keys
+                debugPrint(
+                    "No rating found for track $trackIdStr, available keys: ${widget.ratings?.keys.join(', ')}");
+              }
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                // Track number
-                SizedBox(
-                  width: 30,
-                  child: Text(
-                    track.position.toString(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                // Title
-                Expanded(
-                  child: Text(
-                    track.name,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                // Duration
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    formatDuration(track.durationMs),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Rating
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    rating.toInt().toString(),
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: rating > 0
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                      fontWeight:
-                          rating > 0 ? FontWeight.bold : FontWeight.normal,
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    // Track number
+                    SizedBox(
+                      width: 30,
+                      child: Text(
+                        track.position.toString(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
+                    // Title
+                    Expanded(
+                      child: Text(
+                        track.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Duration
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        formatDuration(track.durationMs),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Rating
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        rating.toInt().toString(),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: rating > 0
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                          fontWeight:
+                              rating > 0 ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        }),
+              );
+            }) ??
+            [],
       ],
     );
   }

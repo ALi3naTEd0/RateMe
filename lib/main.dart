@@ -1,43 +1,128 @@
 import 'package:flutter/material.dart';
-// Remove unnecessary import:
-// import 'package:flutter/services.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
-import 'dart:convert';
 import 'dart:async';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
 import 'search_service.dart';
+import 'settings_service.dart';
 import 'user_data.dart';
 import 'custom_lists_page.dart';
-import 'theme.dart';
 import 'footer.dart';
 import 'settings_page.dart';
-import 'platform_service.dart';
 import 'platform_ui.dart';
-import 'database/database_helper.dart'; // Add this import for DatabaseHelper
-import 'package:flutter_svg/flutter_svg.dart'; // Add this import for SVG rendering
-import 'global_notifications.dart'; // Add import for global notifications
-import 'clipboard_detector.dart'; // Add import for the new clipboard detector
+import 'database/database_helper.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'global_notifications.dart';
+import 'clipboard_detector.dart';
+import 'preferences_migration.dart';
+import 'database/migration_utility.dart';
+import 'database/cleanup_utility.dart';
+import 'theme_service.dart' as ts;
+import 'color_utility.dart';
 
 void main() async {
+  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  Logging.setupLogging();
 
-  // Initialize database
-  await UserData.initializeDatabase();
+  // Initialize logging
+  Logging.initialize();
+
+  // Initialize the database first
+  await DatabaseHelper.initialize();
+
+  // CRITICAL FIX: Check if color is corrupted on startup and fix it
+  await _validateAndFixColorIfNeeded();
 
   // Check if migration is needed
-  final migrationNeeded = await UserData.isMigrationNeeded();
+  final migrationCompleted = await MigrationUtility.isMigrationCompleted();
+  if (!migrationCompleted) {
+    Logging.severe(
+        'Database migration not completed. User can run from Settings.');
+  }
 
-  runApp(MyApp(showMigrationPrompt: migrationNeeded));
+  // Migrate any remaining preferences
+  await PreferencesMigration.migrateRemainingPreferences();
+
+  // Initialize theme service
+  await ts.ThemeService.initialize();
+
+  // Log the theme mode after initialization to verify it's correct
+  Logging.severe(
+      'Initial theme mode after initialization: ${ts.ThemeService.themeMode}');
+
+  // Run the app
+  runApp(const MyApp());
+
+  // Log app startup
+  Logging.severe('Application started');
+}
+
+/// Validate and fix the primary color if it's missing or corrupted
+Future<void> _validateAndFixColorIfNeeded() async {
+  try {
+    // Directly access database for maximum reliability
+    final db = await DatabaseHelper.instance.database;
+
+    // Get the raw color value first to diagnose the issue
+    final colorRows = await db
+        .query('settings', where: 'key = ?', whereArgs: ['primaryColor']);
+    final colorStr =
+        colorRows.isNotEmpty ? colorRows.first['value'] as String? : null;
+
+    Logging.severe('STARTUP COLOR CHECK: Current color in database: $colorStr');
+
+    // CRITICAL FIX: Better detection for corrupted colors:
+    // 1. Delete settings if it's black OR has a corrupted format
+    // 2. Force the default purple color with direct SQL to avoid any translation issues
+    if (colorStr == null ||
+        colorStr.isEmpty ||
+        colorStr == '#FF000000' ||
+        colorStr == '#FF000001' ||
+        colorStr == '#FF010001' ||
+        colorStr == '#FF000100' ||
+        colorStr == '#FF010100') {
+      Logging.severe(
+          'STARTUP COLOR CHECK: Detected missing or corrupted color - resetting to default purple');
+
+      // Delete any existing primaryColor setting first to ensure clean state
+      await db
+          .delete('settings', where: 'key = ?', whereArgs: ['primaryColor']);
+
+      // Insert the correct default purple directly
+      await db
+          .insert('settings', {'key': 'primaryColor', 'value': '#FF864AF9'});
+
+      // Verify the direct insertion worked
+      final verifyRows = await db
+          .query('settings', where: 'key = ?', whereArgs: ['primaryColor']);
+      final verifiedColor =
+          verifyRows.isNotEmpty ? verifyRows.first['value'] as String? : null;
+
+      Logging.severe('STARTUP COLOR CHECK: Reset result: $verifiedColor');
+    } else {
+      // Even if the color looks valid, verify it can be parsed
+      try {
+        final color = ColorUtility.hexToColor(colorStr);
+        final colorHex = ColorUtility.colorToHex(color);
+        Logging.severe('STARTUP COLOR CHECK: Verified valid color: $colorHex');
+      } catch (e) {
+        Logging.severe(
+            'STARTUP COLOR CHECK: Error parsing color, resetting to default: $e');
+
+        // Handle any parsing errors by resetting to default
+        await db
+            .delete('settings', where: 'key = ?', whereArgs: ['primaryColor']);
+        await db
+            .insert('settings', {'key': 'primaryColor', 'value': '#FF864AF9'});
+      }
+    }
+  } catch (e) {
+    Logging.severe('Error validating color at startup: $e');
+  }
 }
 
 class MyApp extends StatefulWidget {
   final bool showMigrationPrompt;
-
   const MyApp({
     super.key,
     this.showMigrationPrompt = false,
@@ -49,56 +134,103 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
-  Color _primaryColor = const Color(0xFF864AF9);
-
+  // Set the correct default purple color
+  static const Color defaultPurpleColor = Color(0xFF864AF9);
+  Color _primaryColor = defaultPurpleColor;
   final TextEditingController searchController = TextEditingController();
   List<Map<String, dynamic>> searchResults = [];
   bool _isLoading = false;
   Timer? _debounce;
-  Timer? _clipboardTimer; // Add this line to define _clipboardTimer
-  SearchPlatform _selectedSearchPlatform =
-      SearchPlatform.itunes; // Add platform state
-
+  Timer? _clipboardTimer;
+  SearchPlatform _selectedSearchPlatform = SearchPlatform.itunes;
   final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
-
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
+
+    // Fix: Set ThemeMode and Color directly from ThemeService right at initState
+    _themeMode = ts.ThemeService.themeMode;
+    _primaryColor = ts.ThemeService.primaryColor;
+
+    // Add this tracking of changes to the theme mode and color during initialization
+    Logging.severe(
+        'MAIN: initState - Setting initial ThemeMode to: $_themeMode');
+    Logging.severe(
+        'MAIN: initState - Setting initial PrimaryColor to: $_primaryColor (${_colorToHex(_primaryColor)})');
+
+    _loadTheme();
+
+    // Add a listener to ensure ThemeService changes are applied
+    ts.ThemeService.addListener(_themeListener);
+
     _loadSettings();
-    _startClipboardDetection(); // Replace _startClipboardListener with this method
-    _loadSearchPlatform(); // Add function to load saved search platform
-
-    // Add listener for default platform changes
+    _startClipboardDetection();
+    _loadSearchPlatform();
     _setupGlobalListeners();
-
-    // Check if migration prompt should be shown
     if (widget.showMigrationPrompt) {
-      // Add a small delay to allow the app to initialize
       Future.delayed(const Duration(seconds: 2), () {
         _showMigrationPrompt();
       });
     }
+    _setupNotificationListener();
+
+    // Register for theme changes
+    SettingsService.addThemeListener((mode, color) {
+      if (mounted) {
+        setState(() {
+          _themeMode = mode;
+          _primaryColor = color;
+        });
+      }
+    });
+
+    _loadTheme();
+
+    // Set up separate listeners for theme changes vs color changes
+    SettingsService.addThemeListener((mode, color) {
+      if (mounted) {
+        setState(() {
+          _themeMode = mode;
+          // Also update the color since the API requires it
+          _primaryColor = color;
+        });
+      }
+    });
+
+    // Add color-specific listener
+    SettingsService.addPrimaryColorListener((color) {
+      if (mounted) {
+        setState(() {
+          _primaryColor = color;
+        });
+      }
+    });
+
+    // Add a listener to ThemeService to update when theme changes
+    ts.ThemeService.addListener((mode, color) {
+      if (mounted) {
+        setState(() {
+          _themeMode = mode;
+          _primaryColor = color;
+        });
+        Logging.severe('Theme updated via listener: mode=$mode, color=$color');
+      }
+    });
   }
 
-  // Set up listeners for global notifications
   void _setupGlobalListeners() {
-    // Listen for search platform changes from settings
     GlobalNotifications.onSearchPlatformChanged.listen((platform) {
-      // Only update if the current platform is different
       if (_selectedSearchPlatform != platform) {
         Logging.severe('Default search platform changed to: ${platform.name}');
         setState(() {
           _selectedSearchPlatform = platform;
         });
-
-        // Check if there's a current search
         final currentQuery = searchController.text.trim();
         if (currentQuery.isNotEmpty) {
-          // Wait for state to update before searching
           Future.delayed(const Duration(milliseconds: 100), () {
             _performSearch(currentQuery);
           });
@@ -109,10 +241,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _loadSettings() async {
     try {
-      // Get settings from database
       final db = DatabaseHelper.instance;
-
-      // Load theme mode
       final themeModeStr = await db.getSetting('themeMode');
       ThemeMode mode = ThemeMode.system;
       if (themeModeStr != null) {
@@ -121,8 +250,6 @@ class _MyAppState extends State<MyApp> {
           mode = ThemeMode.values[modeIndex];
         }
       }
-
-      // Load primary color
       final colorStr = await db.getSetting('primaryColor');
       Color primaryColor = const Color(0xFF864AF9);
       if (colorStr != null) {
@@ -131,10 +258,7 @@ class _MyAppState extends State<MyApp> {
           primaryColor = Color(colorValue);
         }
       }
-
-      // Load default search platform
       await _loadSearchPlatform();
-
       setState(() {
         _themeMode = mode;
         _primaryColor = primaryColor;
@@ -144,39 +268,27 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  void _updateTheme(ThemeMode mode) async {
-    try {
-      // Save theme mode to database
-      final db = DatabaseHelper.instance;
-      await db.saveSetting('themeMode', mode.index.toString());
-
-      // Log when theme changes
-      Logging.severe('Theme changed to: $mode (index: ${mode.index})');
-
-      setState(() => _themeMode = mode);
-    } catch (e) {
-      Logging.severe('Error saving theme mode', e);
-    }
+  void _updateTheme(ThemeMode mode) {
+    ts.ThemeService.setThemeMode(mode);
+    setState(() {
+      _themeMode = mode;
+    });
   }
 
-  void _updatePrimaryColor(Color color) async {
-    try {
-      final db = DatabaseHelper.instance;
-      // Fix deprecated color.value usage with color.toARGB32()
-      await db.saveSetting('primaryColor', color.toARGB32().toString());
+  void _updatePrimaryColor(Color color) {
+    // Set ThemeService color first
+    ts.ThemeService.setPrimaryColor(color);
 
-      setState(() => _primaryColor = color);
-    } catch (e) {
-      Logging.severe('Error saving primary color', e);
-    }
+    // Then update the local state variable
+    setState(() {
+      _primaryColor = color;
+    });
   }
 
-  // Update _loadSearchPlatform to use SQLite
   Future<void> _loadSearchPlatform() async {
     try {
       final db = DatabaseHelper.instance;
       final platformStr = await db.getSetting('default_search_platform');
-
       if (platformStr != null) {
         final platformIndex = int.tryParse(platformStr);
         if (platformIndex != null &&
@@ -195,20 +307,13 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // Add method to update search platform
   void _updateSearchPlatform(SearchPlatform platform) async {
     try {
-      // This method is called when the user manually changes the platform
-      // We should only update the persistent default if specifically requested
-      // For now, just update the current UI state
       setState(() {
         _selectedSearchPlatform = platform;
       });
-
-      // If there's a current search, perform it with the new platform
       final currentQuery = searchController.text.trim();
       if (currentQuery.isNotEmpty) {
-        // Wait for state to update before searching
         Future.delayed(const Duration(milliseconds: 100), () {
           _performSearch(currentQuery);
         });
@@ -221,26 +326,21 @@ class _MyAppState extends State<MyApp> {
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() => searchResults = []);
-      ClipboardDetector.reportSearchResult(false); // Report empty search
+      ClipboardDetector.reportSearchResult(false);
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
-      // Update to use the selected platform
       final results =
           await SearchService.searchAlbum(query, _selectedSearchPlatform);
-
       if (mounted) {
         setState(() {
           if (results != null && results['results'] != null) {
             searchResults = List<Map<String, dynamic>>.from(results['results']);
-            // Report successful search if we found results
             ClipboardDetector.reportSearchResult(searchResults.isNotEmpty);
           } else {
             searchResults = [];
-            ClipboardDetector.reportSearchResult(false); // Report failed search
+            ClipboardDetector.reportSearchResult(false);
           }
           _isLoading = false;
         });
@@ -252,16 +352,14 @@ class _MyAppState extends State<MyApp> {
           _isLoading = false;
         });
         Logging.severe('Error performing search', e);
-        ClipboardDetector.reportSearchResult(false); // Report failed search
+        ClipboardDetector.reportSearchResult(false);
       }
     }
   }
 
-  // Replace _startClipboardDetection with this updated method in _MyAppState
   void _startClipboardDetection() {
     _clipboardTimer = ClipboardDetector.startClipboardListener(
       onDetected: (text) {
-        // Only use this for non-URL text to avoid duplicate processing
         if (searchController.text.isEmpty &&
             !text.toLowerCase().contains('http')) {
           setState(() {
@@ -271,7 +369,6 @@ class _MyAppState extends State<MyApp> {
         }
       },
       onUrlDetected: (url, searchQuery) {
-        // Used for URLs with extracted artist/album info
         if (searchController.text.isEmpty) {
           setState(() {
             searchController.text = url;
@@ -285,8 +382,6 @@ class _MyAppState extends State<MyApp> {
         );
       },
       onSearchCompleted: (success) {
-        // Report search result back to clipboard detector
-        // This will prevent repeated processing after a successful search
         ClipboardDetector.reportSearchResult(success);
       },
     );
@@ -294,7 +389,6 @@ class _MyAppState extends State<MyApp> {
 
   void _showMigrationPrompt() {
     if (!mounted) return;
-
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: const Text(
@@ -319,49 +413,155 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  @override
-  void dispose() {
-    _clipboardTimer?.cancel(); // Make sure to cancel the timer properly
-    ClipboardDetector.stopClipboardListener(); // Update this line
-    searchController.dispose();
-    _debounce?.cancel();
-    // Also close global notification streams
-    GlobalNotifications.dispose();
-    super.dispose();
+  // Modify the setupNotificationListener method to preserve theme mode
+  void _setupNotificationListener() {
+    SettingsService.addThemeListener((mode, color) {
+      if (mounted) {
+        setState(() {
+          // Only update theme mode if it's different from current
+          // This prevents the color changes from affecting theme mode
+          if (mode != _themeMode) {
+            _themeMode = mode;
+            Logging.severe('Theme mode updated to: $_themeMode');
+          }
+
+          // Always update color
+          _primaryColor = color;
+          Logging.severe('Primary color updated to: $_primaryColor');
+        });
+      }
+    });
+  }
+
+  // Modify the _loadTheme method to ensure the opacity is always enforced
+  Future<void> _loadTheme() async {
+    try {
+      final prevMode = _themeMode; // Store previous mode for comparison
+
+      // Update state with ThemeService values
+      setState(() {
+        _themeMode = ts.ThemeService.themeMode;
+        _primaryColor = ts.ThemeService.primaryColor;
+        Logging.severe(
+            'MAIN: _loadTheme - Loaded PrimaryColor: ${_colorToHex(_primaryColor)}');
+      });
+
+      // Log any changes in theme mode
+      if (prevMode != _themeMode) {
+        Logging.severe('Theme mode changed from $prevMode to $_themeMode');
+      } else {
+        Logging.severe('Theme mode remains $_themeMode');
+      }
+
+      Logging.severe(
+          'USING COLOR FOR THEME: $_primaryColor (RGB: ${_primaryColor.r}, ${_primaryColor.g}, ${_primaryColor.b})');
+    } catch (e) {
+      Logging.severe('Error loading theme: $e');
+    }
   }
 
   @override
+  void dispose() {
+    _clipboardTimer?.cancel();
+    ClipboardDetector.stopClipboardListener();
+    searchController.dispose();
+    _debounce?.cancel();
+    GlobalNotifications.dispose();
+
+    ts.ThemeService.removeListener(_themeListener);
+
+    super.dispose();
+  }
+
+  void _themeListener(ThemeMode mode, Color color) {
+    if (mounted) {
+      setState(() {
+        _themeMode = mode;
+        _primaryColor = color;
+      });
+    }
+  }
+
+  // Fix the build method to prevent ThemeMode.system override
+  @override
   Widget build(BuildContext context) {
+    // First, store the current values to ensure they don't change during build
+    final currentThemeMode = _themeMode; // IMPORTANT: Make a local copy
+    final currentPrimaryColor = _primaryColor; // IMPORTANT: Make a local copy
+
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
     final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
-
-    // Define iconAdjustment constant here
     const iconAdjustment = 8.0;
+
+    Logging.severe('MAIN: build - Using ThemeMode: $currentThemeMode');
+    Logging.severe(
+        'MAIN: build - Using PrimaryColor: ${currentPrimaryColor.r}, ${currentPrimaryColor.g}, ${currentPrimaryColor.b}');
+    Logging.severe(
+        'MAIN BUILD: Using ThemeService color = ${ts.ThemeService.primaryColor}');
+
+    // Sanity check - if somehow main.dart's state got out of sync with ThemeService
+    if (currentThemeMode != ts.ThemeService.themeMode && mounted) {
+      // Fix without triggering a build during the current build
+      Future.microtask(() {
+        if (mounted) {
+          setState(() {
+            _themeMode = ts.ThemeService.themeMode;
+          });
+        }
+      });
+    }
 
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
       title: 'RateMe!',
       debugShowCheckedModeBanner: false,
-      theme: RateMeTheme.getTheme(Brightness.light, _primaryColor),
-      darkTheme: RateMeTheme.getTheme(Brightness.dark, _primaryColor),
-      themeMode: _themeMode,
+
+      // CRITICAL: Use currentThemeMode instead of _themeMode to prevent changes during build
+      theme: ts.ThemeService.lightTheme.copyWith(
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          width: MediaQuery.of(context).size.width *
+              0.85, // Set to 85% of screen width
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+        ),
+      ),
+      darkTheme: ts.ThemeService.darkTheme.copyWith(
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          width: MediaQuery.of(context).size.width *
+              0.85, // Set to 85% of screen width
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+        ),
+      ),
+      themeMode:
+          currentThemeMode, // !!! Use the local copy to prevent inconsistency
+
       home: Builder(builder: (context) {
-        // Get theme-aware icon color after theme is applied
-        final iconColor = Theme.of(context).iconTheme.color;
+        // FIXED: Get the correct color for icons based on theme brightness
+        final iconColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : Colors.black;
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(
+            title: Text(
               'Rate Me!',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 24,
+                // Add explicit color based on theme brightness
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
               ),
             ),
             centerTitle: true,
-            leadingWidth:
-                sideOffset + 80 - iconAdjustment, // Reduced from 120 to 80
+            leadingWidth: sideOffset + 80 - iconAdjustment,
             leading: Padding(
               padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
               child: Row(
@@ -371,9 +571,9 @@ class _MyAppState extends State<MyApp> {
                   Expanded(
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      visualDensity:
-                          VisualDensity.compact, // Add this for tighter spacing
-                      icon: const Icon(Icons.library_music_outlined),
+                      visualDensity: VisualDensity.compact,
+                      icon:
+                          Icon(Icons.library_music_outlined, color: iconColor),
                       tooltip: 'All Saved Albums',
                       onPressed: () {
                         navigatorKey.currentState?.push(
@@ -387,9 +587,8 @@ class _MyAppState extends State<MyApp> {
                   Expanded(
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      visualDensity:
-                          VisualDensity.compact, // Add this for tighter spacing
-                      icon: const Icon(Icons.format_list_bulleted),
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.format_list_bulleted, color: iconColor),
                       tooltip: 'Custom Lists',
                       onPressed: () {
                         navigatorKey.currentState?.push(
@@ -405,8 +604,8 @@ class _MyAppState extends State<MyApp> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.file_download),
-                visualDensity: VisualDensity.compact, // Match the left side
+                icon: Icon(Icons.file_download, color: iconColor),
+                visualDensity: VisualDensity.compact,
                 tooltip: 'Import Album',
                 onPressed: () async {
                   final result = await UserData.importAlbum();
@@ -414,7 +613,6 @@ class _MyAppState extends State<MyApp> {
                     final isBandcamp =
                         result['url']?.toString().contains('bandcamp.com') ??
                             false;
-
                     navigatorKey.currentState?.push(
                       MaterialPageRoute(
                         builder: (context) => DetailsPage(
@@ -429,8 +627,8 @@ class _MyAppState extends State<MyApp> {
               Padding(
                 padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
                 child: IconButton(
-                  icon: const Icon(Icons.settings),
-                  visualDensity: VisualDensity.compact, // Match the left side
+                  icon: Icon(Icons.settings, color: iconColor),
+                  visualDensity: VisualDensity.compact,
                   tooltip: 'Settings',
                   onPressed: () {
                     navigatorKey.currentState?.push(
@@ -451,18 +649,13 @@ class _MyAppState extends State<MyApp> {
           body: Column(
             children: [
               const SizedBox(height: 32),
-
-              // Search bar with platform selector
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(width: sideOffset),
-
-                    // Platform dropdown with fixed theme-aware colors
                     Theme(
-                      // Remove highlighting effects
                       data: Theme.of(context).copyWith(
                         highlightColor: Colors.transparent,
                         splashColor: Colors.transparent,
@@ -474,14 +667,13 @@ class _MyAppState extends State<MyApp> {
                           size: 18,
                           color: iconColor,
                         ),
-                        underline: Container(), // Remove underline
+                        underline: Container(),
                         onChanged: (SearchPlatform? platform) {
                           if (platform != null) {
                             _updateSearchPlatform(platform);
                           }
                         },
                         items: [
-                          // Explicitly list each platform to avoid duplicates
                           _buildDropdownItem(SearchPlatform.itunes, iconColor),
                           _buildDropdownItem(SearchPlatform.spotify, iconColor),
                           _buildDropdownItem(SearchPlatform.deezer, iconColor),
@@ -489,10 +681,7 @@ class _MyAppState extends State<MyApp> {
                         ],
                       ),
                     ),
-
                     const SizedBox(width: 8),
-
-                    // Search field with improved automatic URL detection
                     SizedBox(
                       width: searchWidth - 60,
                       child: TextField(
@@ -512,18 +701,13 @@ class _MyAppState extends State<MyApp> {
                           ),
                         ),
                         onChanged: (query) {
-                          // Don't auto-search when text looks like a URL
                           if (_debounce?.isActive ?? false) _debounce!.cancel();
-
-                          // Check if the text contains a URL and process it immediately
-                          // This auto-triggers URL processing without needing Enter key
                           if (_containsMusicUrl(query)) {
                             _debounce =
                                 Timer(const Duration(milliseconds: 200), () {
                               _processManualUrl(query);
                             });
                           } else {
-                            // Only auto-search for non-URLs after a small delay
                             _debounce =
                                 Timer(const Duration(milliseconds: 500), () {
                               _performSearch(query);
@@ -531,11 +715,9 @@ class _MyAppState extends State<MyApp> {
                           }
                         },
                         onTap: () {
-                          // Reset clipboard detector when field is tapped
                           ClipboardDetector.resumeNotifications();
                         },
                         onSubmitted: (text) {
-                          // Still support Enter key for explicit submission
                           if (_containsMusicUrl(text)) {
                             _processManualUrl(text);
                           } else {
@@ -545,12 +727,10 @@ class _MyAppState extends State<MyApp> {
                         maxLength: 255,
                       ),
                     ),
-
                     SizedBox(width: sideOffset),
                   ],
                 ),
               ),
-
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -579,7 +759,7 @@ class _MyAppState extends State<MyApp> {
                             ),
                           ),
               ),
-              const AppVersionFooter(),
+              const Footer(),
             ],
           ),
         );
@@ -587,13 +767,10 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // Add a helper method to create dropdown items
   DropdownMenuItem<SearchPlatform> _buildDropdownItem(
       SearchPlatform platform, Color? iconColor) {
-    // Make sure iconColor is not null before using it
     final Color safeIconColor = iconColor ?? Colors.grey;
 
-    // Add tooltip text to show the proper platform names
     String tooltipText;
     switch (platform) {
       case SearchPlatform.itunes:
@@ -627,7 +804,6 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // Helper method to get platform icon path
   String _getPlatformIconPath(SearchPlatform platform) {
     if (platform == SearchPlatform.itunes) {
       return 'lib/icons/apple_music.svg';
@@ -644,32 +820,27 @@ class _MyAppState extends State<MyApp> {
     return 'lib/icons/spotify.svg';
   }
 
-  // Fix: Adding the missing _getPlatformColor method
   Color _getPlatformColor(SearchPlatform platform) {
     if (platform == SearchPlatform.itunes) {
-      return const Color(0xFFFC3C44); // Apple Music red
+      return const Color(0xFFFC3C44);
     }
     if (platform == SearchPlatform.spotify) {
-      return const Color(0xFF1DB954); // Spotify green
+      return const Color(0xFF1DB954);
     }
     if (platform == SearchPlatform.deezer) {
-      return const Color(0xFF00C7F2); // Deezer blue
+      return const Color(0xFF00C7F2);
     }
     if (platform == SearchPlatform.discogs) {
-      return const Color(0xFFFF5500); // Discogs orange
+      return const Color(0xFFFF5500);
     }
     return Colors.grey;
   }
 
-  // Add the missing method that's being called in the build method
   Color getPlatformColorForPlatform(SearchPlatform platform) {
     return _getPlatformColor(platform);
   }
 
-  // Helper method to get platform icon - completely rewritten
   IconData getPlatformIconForPlatform(SearchPlatform platform) {
-    // This should be completely replaced by using the SVG icons
-    // Only kept for backward compatibility
     if (platform == SearchPlatform.itunes) {
       return Icons.music_note;
     }
@@ -685,7 +856,6 @@ class _MyAppState extends State<MyApp> {
     return Icons.search;
   }
 
-  // Add this helper method to check for music URLs (same as in ClipboardDetector)
   bool _containsMusicUrl(String text) {
     final lowerText = text.toLowerCase();
     return lowerText.contains('music.apple.com') ||
@@ -699,13 +869,9 @@ class _MyAppState extends State<MyApp> {
         lowerText.contains('discogs.com');
   }
 
-  // Modified method to directly process manually pasted URLs
   void _processManualUrl(String url) {
     if (url.isEmpty) return;
-
     Logging.severe('Processing manually entered URL: $url');
-
-    // Use the simpler processManualUrl method
     ClipboardDetector.processManualUrl(
       url,
       onDetected: (text) {
@@ -730,389 +896,66 @@ class _MyAppState extends State<MyApp> {
       },
     );
   }
+
+  // Helper method for consistent hex format logging
+  String _colorToHex(Color color) {
+    // CRITICAL FIX: Fix the broken hex formatting - the old method was incorrect
+    final int r = color.r.round();
+    final int g = color.g.round();
+    final int b = color.b.round();
+
+    return '#FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
+  }
 }
 
-class MusicRatingHomePage extends StatefulWidget {
-  final Function(ThemeMode) toggleTheme;
-  final ThemeMode currentTheme;
-  final Function(Color) onPrimaryColorChanged;
-  final Color primaryColor;
-
-  const MusicRatingHomePage({
-    super.key,
-    required this.toggleTheme,
-    required this.currentTheme,
-    required this.onPrimaryColorChanged,
-    required this.primaryColor,
-  });
-
-  @override
-  State<MusicRatingHomePage> createState() => _MusicRatingHomePageState();
-}
-
-class _MusicRatingHomePageState extends State<MusicRatingHomePage> {
-  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
-
-  final TextEditingController searchController = TextEditingController();
-  List<dynamic> searchResults = [];
-  Timer? _debounce;
-  Timer? _clipboardTimer; // Add this line to define _clipboardTimer
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startClipboardDetection(); // Replace _startClipboardListener
-    _loadAppVersion();
-  }
-
-  // Replace _startClipboardDetection with this updated method
-  void _startClipboardDetection() {
-    _clipboardTimer = ClipboardDetector.startClipboardListener(
-      onDetected: (text) {
-        // Only use this for non-URL text to avoid duplicate processing
-        if (searchController.text.isEmpty &&
-            !text.toLowerCase().contains('http')) {
-          setState(() {
-            searchController.text = text;
-            _performSearch(text);
-          });
-        }
-      },
-      onUrlDetected: (url, searchQuery) {
-        // Used for URLs with extracted artist/album info
-        if (searchController.text.isEmpty) {
-          setState(() {
-            searchController.text = url;
-            _performSearch(searchQuery);
-          });
-        }
-      },
-      onSnackBarMessage: (message) {
-        scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-      },
-      onSearchCompleted: (success) {
-        // Report search result back to clipboard detector
-        ClipboardDetector.reportSearchResult(success);
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _clipboardTimer?.cancel(); // Make sure to cancel the timer properly
-    ClipboardDetector.stopClipboardListener(); // Update this line
-    searchController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadAppVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    if (mounted) {
-      final appVersion = packageInfo.version;
-
-      try {
-        final response = await http.get(Uri.parse(
-            'https://api.github.com/repos/ALi3naTEd0/RateMe/releases/latest'));
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final latestVersion = data['tag_name'].toString().replaceAll('v', '');
-
-          if (latestVersion != appVersion && mounted) {
-            _showUpdateDialog(appVersion, latestVersion);
-          }
-        }
-      } catch (e) {
-        Logging.severe('Error checking for updates', e);
-      }
-    }
-  }
-
-  void _showUpdateDialog(String currentVersion, String latestVersion) {
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Update Available'),
-        content: Text(
-            'A new version ($latestVersion) is available.\nCurrent version: $currentVersion'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Later'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _launchUpdateUrl();
-            },
-            child: const Text('Update Now'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _launchUpdateUrl() {
-    launchUrl(
-      Uri.parse('https://github.com/ALi3naTEd0/RateMe/releases/latest'),
-      mode: LaunchMode.externalApplication,
-    );
-  }
-
-  void _showSnackBar(String message) {
-    scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  Future<void> _handleSearch(String query) async {
-    setState(() => _isLoading = true);
-
-    try {
-      final results = await PlatformService.searchAlbums(query);
-
-      if (mounted) {
-        setState(() {
-          searchResults = results;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      Logging.severe('Error searching albums', e);
-      if (mounted) {
-        setState(() {
-          searchResults = [];
-          _isLoading = false;
-        });
-        _showSnackBar('Error searching: $e');
-      }
-    }
-  }
-
-  void _performSearch(String query) async {
-    if (query.isEmpty) {
-      setState(() => searchResults = []);
-      ClipboardDetector.reportSearchResult(false); // Report empty search
-      return;
-    }
-
-    await _handleSearch(query);
-  }
-
-  void _onThemeChanged(ThemeMode mode) {
-    setState(() {
-      widget.toggleTheme(mode);
-      if (searchResults.isNotEmpty) {
-        List<Map<String, dynamic>> currentResults = List.from(searchResults);
-        searchResults = [];
-        Future.microtask(() {
-          if (mounted) {
-            setState(() => searchResults = currentResults);
-          }
-        });
-      }
+// Update the MaterialColorGenerator class to fix type issues and deprecated member usage
+class MaterialColorGenerator {
+  static MaterialColor from(Color color) {
+    // Replace color.value with color.value property
+    // Use toARGB32() instead of value as recommended by the deprecation warning
+    return MaterialColor(color.toARGB32(), {
+      50: _tintColor(color, 0.9),
+      100: _tintColor(color, 0.8),
+      200: _tintColor(color, 0.6),
+      300: _tintColor(color, 0.4),
+      400: _tintColor(color, 0.2),
+      500: color,
+      600: _shadeColor(color, 0.1),
+      700: _shadeColor(color, 0.2),
+      800: _shadeColor(color, 0.3),
+      900: _shadeColor(color, 0.4),
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final searchWidth = MediaQuery.of(context).size.width * 0.85;
-    final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
-
-    const iconAdjustment = 8.0;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Rate Me!',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
-        centerTitle: true,
-        leadingWidth:
-            sideOffset + 80 - iconAdjustment, // Reduced from 120 to 80
-        leading: Padding(
-          padding: EdgeInsets.only(left: sideOffset - iconAdjustment),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Expanded(
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  visualDensity:
-                      VisualDensity.compact, // Add this for tighter spacing
-                  icon: const Icon(Icons.library_music_outlined),
-                  tooltip: 'All Saved Albums',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SavedRatingsPage(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Expanded(
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  visualDensity:
-                      VisualDensity.compact, // Add this for tighter spacing
-                  icon: const Icon(Icons.format_list_bulleted),
-                  tooltip: 'Custom Lists',
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const CustomListsPage()),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.file_download),
-            visualDensity: VisualDensity.compact, // Match the left side
-            tooltip: 'Import Album',
-            onPressed: () async {
-              final result = await UserData.importAlbum();
-
-              if (result != null && mounted) {
-                final isBandcamp =
-                    result['url']?.toString().contains('bandcamp.com') ?? false;
-
-                final navigator = navigatorKey.currentState;
-                if (navigator == null) return;
-
-                navigator.push(
-                  MaterialPageRoute(
-                    builder: (context) => DetailsPage(
-                      album: result,
-                      isBandcamp: isBandcamp,
-                    ),
-                  ),
-                );
-              }
-            },
-          ),
-          Padding(
-            padding: EdgeInsets.only(right: sideOffset - iconAdjustment),
-            child: IconButton(
-              icon: const Icon(Icons.settings),
-              visualDensity: VisualDensity.compact, // Match the left side
-              tooltip: 'Settings',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SettingsPage(
-                    currentTheme: widget.currentTheme,
-                    onThemeChanged: _onThemeChanged,
-                    currentPrimaryColor: Theme.of(context).colorScheme.primary,
-                    onPrimaryColorChanged: widget.onPrimaryColorChanged,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 32),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0),
-            child: Center(
-              child: SizedBox(
-                width: searchWidth,
-                child: TextField(
-                  controller: searchController,
-                  decoration: InputDecoration(
-                    labelText: 'Search Albums or Paste URL',
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: () => _performSearch(searchController.text),
-                    ),
-                  ),
-                  onChanged: (query) {
-                    if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 500), () {
-                      _performSearch(query);
-                    });
-
-                    // Mark as manual input only if it contains a music URL
-                    if (_containsMusicUrl(query)) {
-                      ClipboardDetector.reportManualPaste();
-                    }
-                  },
-                  // Add onPaste handler to detect manual pastes
-                  onTap: () {
-                    // Mark this as a manual clipboard operation
-                    ClipboardDetector.reportManualPaste();
-                  },
-                  maxLength: 255,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : searchResults.isEmpty
-                    ? Center(child: Container())
-                    : Center(
-                        child: SizedBox(
-                          width: searchWidth,
-                          child: ListView.builder(
-                            itemCount: searchResults.length,
-                            itemBuilder: (context, index) {
-                              final album = searchResults[index];
-                              return PlatformUI.buildAlbumCard(
-                                album: album,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          DetailsPage(album: album),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-          ),
-          const AppVersionFooter(),
-        ],
-      ),
+  static Color _tintColor(Color color, double factor) {
+    return Color.fromRGBO(
+      // Fix: Use round() to convert double to int
+      _bound((color.r + ((255 - color.r) * factor)).round()),
+      _bound((color.g + ((255 - color.g) * factor)).round()),
+      _bound((color.b + ((255 - color.b) * factor)).round()),
+      1,
     );
   }
 
-  // Only keep the _containsMusicUrl method since it's being used
-  bool _containsMusicUrl(String text) {
-    final lowerText = text.toLowerCase();
-    return lowerText.contains('music.apple.com') ||
-        lowerText.contains('itunes.apple.com') ||
-        lowerText.contains('apple.co') ||
-        lowerText.contains('bandcamp.com') ||
-        lowerText.contains('.bandcamp.') ||
-        lowerText.contains('spotify.com') ||
-        lowerText.contains('open.spotify') ||
-        lowerText.contains('deezer.com') ||
-        lowerText.contains('discogs.com');
+  static Color _shadeColor(Color color, double factor) {
+    return Color.fromRGBO(
+      // Fix: Use round() to convert double to int
+      _bound((color.r - (color.r * factor)).round()),
+      _bound((color.g - (color.g * factor)).round()),
+      _bound((color.b - (color.b * factor)).round()),
+      1,
+    );
   }
+
+  static int _bound(int value) {
+    return value.clamp(0, 255);
+  }
+}
+
+void someDebugOrAdminFunction() async {
+  await CleanupUtility.runFullCleanup();
+  // or call specific methods:
+  // await CleanupUtility.fixDotZeroIssues();
+  // await CleanupUtility.cleanupPlatformMatches();
 }

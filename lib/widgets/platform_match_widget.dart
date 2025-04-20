@@ -10,7 +10,7 @@ import '../logging.dart';
 import '../widgets/skeleton_loading.dart';
 import '../platforms/platform_service_factory.dart';
 import '../search_service.dart';
-import '../database/database_helper.dart'; // Import for database access
+import '../database/database_helper.dart';
 
 /// Widget that displays buttons to open an album in various streaming platforms
 class PlatformMatchWidget extends StatefulWidget {
@@ -62,7 +62,13 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
 
       // Always add the source platform itself to _platformUrls - this ensures we always show the source platform
       if (widget.album.url.isNotEmpty) {
-        final currentPlatform = widget.album.platform.toLowerCase();
+        String currentPlatform = widget.album.platform.toLowerCase();
+
+        // Normalize iTunes to apple_music
+        if (currentPlatform == 'itunes') {
+          currentPlatform = 'apple_music';
+        }
+
         _platformUrls[currentPlatform] = widget.album.url;
 
         // For URL-based platform detection
@@ -120,7 +126,15 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       for (var row in results) {
         final platform = row['platform'] as String;
         final url = row['url'] as String?;
-        matches[platform] = url;
+
+        // Normalize iTunes to apple_music when loading from database
+        final normalizedPlatform =
+            platform.toLowerCase() == 'itunes' ? 'apple_music' : platform;
+
+        // Only add if not already present (prefer apple_music over itunes)
+        if (!matches.containsKey(normalizedPlatform)) {
+          matches[normalizedPlatform] = url;
+        }
       }
 
       return matches;
@@ -154,27 +168,90 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         ''');
       }
 
-      // Insert/update platform matches
+      // Before inserting, normalize any 'itunes' keys to 'apple_music'
+      Map<String, String?> normalizedUrls = {};
+
       for (var entry in _platformUrls.entries) {
+        final platform =
+            entry.key.toLowerCase() == 'itunes' ? 'apple_music' : entry.key;
+
+        // Only add if the URL is not empty
         if (entry.value != null && entry.value!.isNotEmpty) {
-          await db.insert(
-            'platform_matches',
-            {
-              'album_id': albumId,
-              'platform': entry.key,
-              'url': entry.value,
-              'verified': 1,
-              'timestamp': DateTime.now().toIso8601String(),
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          // If we already have apple_music and this is itunes with same URL, skip it
+          if (platform == 'apple_music' &&
+              normalizedUrls.containsKey('apple_music') &&
+              normalizedUrls['apple_music'] == entry.value) {
+            continue;
+          }
+
+          normalizedUrls[platform] = entry.value;
         }
       }
 
+      // Insert/update platform matches with normalized platforms
+      for (var entry in normalizedUrls.entries) {
+        await db.insert(
+          'platform_matches',
+          {
+            'album_id': albumId,
+            'platform': entry.key,
+            'url': entry.value,
+            'verified': 1,
+            'timestamp': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
       Logging.severe(
-          'Saved ${_platformUrls.length} platform matches to database');
+          'Saved ${normalizedUrls.length} platform matches to database');
+
+      // Clean up any duplicate entries in the database (fix existing data)
+      await _cleanupDuplicatePlatforms(db, albumId);
     } catch (e, stack) {
       Logging.severe('Error saving platform matches to database', e, stack);
+    }
+  }
+
+  // Add this new method to clean up existing duplicates
+  Future<void> _cleanupDuplicatePlatforms(Database db, String albumId) async {
+    try {
+      // First check if both 'itunes' and 'apple_music' exist for this album
+      final results = await db.query(
+        'platform_matches',
+        where: 'album_id = ? AND (platform = ? OR platform = ?)',
+        whereArgs: [albumId, 'itunes', 'apple_music'],
+      );
+
+      // Exit early if we don't have any Apple platforms
+      if (results.length <= 1) return;
+
+      // Check for duplicate URLs
+      String? itunesUrl;
+      String? appleMusicUrl;
+
+      for (var row in results) {
+        final platform = row['platform'] as String;
+        final url = row['url'] as String?;
+
+        if (platform == 'itunes') itunesUrl = url;
+        if (platform == 'apple_music') appleMusicUrl = url;
+      }
+
+      // If they have the same URL, delete the 'itunes' entry
+      if (itunesUrl != null &&
+          appleMusicUrl != null &&
+          itunesUrl == appleMusicUrl) {
+        await db.delete(
+          'platform_matches',
+          where: 'album_id = ? AND platform = ?',
+          whereArgs: [albumId, 'itunes'],
+        );
+        Logging.severe(
+            'Removed duplicate itunes platform match for album $albumId');
+      }
+    } catch (e) {
+      Logging.severe('Error cleaning up duplicate platforms: $e');
     }
   }
 
@@ -506,6 +583,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       return const SizedBox.shrink();
     }
 
+    // Remove iTunes if we also have Apple Music (they're the same service)
+    if (availablePlatforms.contains('apple_music') &&
+        availablePlatforms.contains('itunes')) {
+      availablePlatforms.remove('itunes');
+    }
+
     // Fix the order of platforms
     // Order: apple_music, spotify, deezer, bandcamp, discogs
     final sortedPlatforms = <String>[];
@@ -531,10 +614,10 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
     }
 
-    // Debug the order and URLs
+    // Debug the order and URLs only once
     Logging.severe('Platform order: ${sortedPlatforms.join(', ')}');
     for (final platform in sortedPlatforms) {
-      Logging.severe('  $platform URL: ${_platformUrls[platform]}');
+      Logging.severe('$platform URL: ${_platformUrls[platform]}');
     }
 
     // Fix: Show all platform matches, even if the only match is the current platform
@@ -601,19 +684,17 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     bool isSelected = false;
 
     final String currentPlatform = widget.album.platform.toLowerCase();
+    final String normalizedCurrentPlatform =
+        currentPlatform == 'itunes' ? 'apple_music' : currentPlatform;
 
-    if (platform == 'apple_music' &&
-        (currentPlatform == 'itunes' || currentPlatform == 'apple_music')) {
-      isSelected = true;
-    } else if (platform == currentPlatform) {
+    if (platform == normalizedCurrentPlatform) {
       isSelected = true;
     }
 
-    // Debug log to see what URLs we're using
-    if (hasMatch) {
-      Logging.severe(
-          'Platform $platform URL: ${_platformUrls[platform]}, isSelected: $isSelected');
-    }
+    // Only log once - remove duplicate logging
+    Logging.severe(
+      'Platform $platform URL: ${_platformUrls[platform]}, isSelected: $isSelected',
+    );
 
     // Use SVG icons for better quality
     String iconPath;

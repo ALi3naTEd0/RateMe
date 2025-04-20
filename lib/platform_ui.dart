@@ -39,7 +39,7 @@ class PlatformUI {
         return Icons.album;
       case 'itunes':
       case 'apple_music':
-        return Icons.apple;
+        return Icons.album;
       case 'deezer':
         return Icons.album;
       case 'bandcamp':

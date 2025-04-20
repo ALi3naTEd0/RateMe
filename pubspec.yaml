@@ -30,7 +30,7 @@ dependencies:
   intl: ^0.20.0
   logging: ^1.2.0
   flutter_launcher_icons: ^0.14.3
-  flutter_colorpicker: ^1.1.0  # Downgrade to stable version
+  flex_color_picker: ^3.7.0  # Add this line for a more reliable color picker
   flutter_svg: ^2.0.9  # Add this for SVG icons
   sqflite: ^2.3.0  # Add SQLite dependency
   sqflite_common_ffi: ^2.3.0  # Make sure this is added

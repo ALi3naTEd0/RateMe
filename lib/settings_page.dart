@@ -1,19 +1,25 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:rateme/global_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:rateme/global_notifications.dart';
+import 'color_utility.dart';
+import 'database/cleanup_utility.dart';
+import 'database/database_helper.dart';
+import 'database/json_fixer.dart';
+import 'database/migration_progress_page.dart';
+import 'theme_service.dart' as ts;
 import 'user_data.dart';
 import 'logging.dart';
 import 'debug_util.dart';
-import 'database/database_helper.dart';
-import 'database/migration_utility.dart'; // Add this import for MigrationUtility
-import 'widgets/skeleton_loading.dart'; // Add this import at the top with other imports
-import 'search_service.dart'; // Add this import for SearchPlatform enum
+import 'settings_service.dart';
+import 'widgets/skeleton_loading.dart';
+import 'search_service.dart';
+import 'backup_converter.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'version_info.dart';
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -34,11 +40,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
-
   late Color pickerColor;
   late Color textColor;
   final defaultColor = const Color(0xFF864AF9);
@@ -54,12 +55,16 @@ class _SettingsPageState extends State<SettingsPage> {
   // Add default search platform selection
   SearchPlatform _defaultSearchPlatform = SearchPlatform.itunes;
 
-  // Add these GlobalKeys at the top of your _SettingsPageState class
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-
   // Add this field to store the current platform
   SearchPlatform _currentPlatform = SearchPlatform.itunes;
+
+  // Add this variable to track processing state
+  final bool _isProcessing = false;
+
+  // Add these at the class level, near the other state variables
+  static const Color defaultPurpleColor = Color(0xFF864AF9);
+  late Color _primaryColor = defaultPurpleColor;
+  late bool _useDarkButtonText = false; // Add this variable declaration
 
   @override
   void initState() {
@@ -71,41 +76,151 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadPreferences();
     // Load saved platform preference
     _loadPlatformPreference();
+
+    // Add a listener for primary color changes
+    SettingsService.addPrimaryColorListener(_updatePrimaryColor);
+  }
+
+  @override
+  void dispose() {
+    // Remove the listener when the widget is disposed
+    SettingsService.removePrimaryColorListener(_updatePrimaryColor);
+    super.dispose();
+  }
+
+  // Method to update primary color when it changes elsewhere
+  void _updatePrimaryColor(Color color) {
+    if (mounted) {
+      setState(() {
+        _primaryColor = color;
+      });
+    }
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        useDarkText = prefs.getBool('useDarkButtonText') ?? false;
-        isLoading = false;
+    try {
+      // Use SettingsService instead of SharedPreferences
+      final settingsService = SettingsService();
+      await settingsService.initialize();
 
-        // Load default search platform preference
-        final platformIndex = prefs.getInt('defaultSearchPlatform') ?? 0;
-        if (platformIndex < SearchPlatform.values.length) {
-          defaultSearchPlatform = SearchPlatform.values[platformIndex];
+      if (mounted) {
+        // Fix the type issue
+        final darkButtonPref = await settingsService
+            .getSetting<bool>('useDarkButtonText', defaultValue: false);
+
+        setState(() {
+          // Use the result of the Future, not the Future itself
+          useDarkText = darkButtonPref ?? false;
+          isLoading = false;
+
+          // Fix the other Future usage in a similar way
+          final platformIndexFuture = settingsService
+              .getSetting<int>('defaultSearchPlatform', defaultValue: 0);
+          platformIndexFuture.then((platformIndex) {
+            if (mounted &&
+                platformIndex != null &&
+                platformIndex < SearchPlatform.values.length) {
+              setState(() {
+                defaultSearchPlatform = SearchPlatform.values[platformIndex];
+              });
+            }
+          });
+        });
+      }
+
+      // Load primary color with better detection of invalid colors
+      final colorString =
+          await DatabaseHelper.instance.getSetting('primaryColor');
+      Logging.severe('Raw primary color setting: $colorString');
+
+      // Define the default purple for clarity
+      final Color defaultPurpleColor = const Color(0xFF864AF9);
+
+      if (colorString != null && colorString.isNotEmpty) {
+        try {
+          // Parse the color string
+          if (colorString.startsWith('#')) {
+            String hexColor = colorString.substring(1);
+
+            // Ensure we have an 8-digit ARGB hex
+            if (hexColor.length == 6) {
+              hexColor = 'FF$hexColor';
+            } else if (hexColor.length == 8) {
+              // Force full opacity
+              hexColor = 'FF${hexColor.substring(2)}';
+            }
+
+            // Parse the hex string to int and create color
+            final colorValue = int.parse(hexColor, radix: 16);
+            final parsedColor = Color(colorValue);
+
+            // We don't need this check anymore since our color picker and saving is working properly
+            // Just use the parsed color directly
+            setState(() {
+              _primaryColor = parsedColor;
+            });
+            Logging.severe(
+                'Loaded color from database: $colorString (RGB: ${parsedColor.r}, ${parsedColor.g}, ${parsedColor.b})');
+          } else {
+            // Not a hex string, use default
+            setState(() {
+              _primaryColor = defaultPurpleColor;
+            });
+          }
+        } catch (e) {
+          // Error parsing, use default
+          Logging.severe('Error parsing color: $e');
+          setState(() {
+            _primaryColor = defaultPurpleColor;
+          });
         }
+      } else {
+        // No color setting, use default
+        setState(() {
+          _primaryColor = defaultPurpleColor;
+        });
+
+        // Save the default purple
+        final String hexR =
+            defaultPurpleColor.r.round().toRadixString(16).padLeft(2, '0');
+        final String hexG =
+            defaultPurpleColor.g.round().toRadixString(16).padLeft(2, '0');
+        final String hexB =
+            defaultPurpleColor.b.round().toRadixString(16).padLeft(2, '0');
+        final String correctHex = '#FF$hexR$hexG$hexB'.toUpperCase();
+
+        await DatabaseHelper.instance.saveSetting('primaryColor', correctHex);
+        Logging.severe('Saved default purple: $correctHex');
+      }
+
+      // Load dark button text setting
+      final darkButtonText =
+          await DatabaseHelper.instance.getSetting('useDarkButtonText');
+      setState(() {
+        _useDarkButtonText = darkButtonText == 'true';
       });
+    } catch (e) {
+      Logging.severe('Error loading settings: $e');
     }
   }
 
   Future<void> _loadPreferences() async {
     try {
       // Get database instance
-      final db = DatabaseHelper.instance;
+      final settingsService = SettingsService();
+      await settingsService.initialize();
 
-      // Load dark button text preference
-      final darkButtonTextSetting = await db.getSetting('useDarkButtonText');
-      // Fix: Change from final to var since we're reassigning it
-      var useDarkText = darkButtonTextSetting == 'true';
+      // Load dark button text preference with correct typing
+      // Wait for the Future to complete
+      final darkButtonTextSetting = await settingsService
+          .getSetting<bool>('useDarkButtonText', defaultValue: false);
+      bool darkButtonText = darkButtonTextSetting ?? false;
 
-      // Load default search platform
-      final platformIndexSetting =
-          await db.getSetting('default_search_platform');
-      int platformIndex = 0;
-      if (platformIndexSetting != null) {
-        platformIndex = int.tryParse(platformIndexSetting) ?? 0;
-      }
+      // Load default search platform with correct typing
+      // Wait for the Future to complete
+      final platformIndexSetting = await settingsService
+          .getSetting<int>('default_search_platform', defaultValue: 0);
+      int platformIndex = platformIndexSetting ?? 0;
 
       if (platformIndex < SearchPlatform.values.length) {
         _defaultSearchPlatform = SearchPlatform.values[platformIndex];
@@ -113,7 +228,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (mounted) {
         setState(() {
-          useDarkText = useDarkText;
+          useDarkText = darkButtonText;
         });
       }
     } catch (e) {
@@ -127,622 +242,124 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // Modify the _showSnackBar method to safely show snackbars
   void _showSnackBar(String message) {
-    scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  void _showAdvancedColorPicker() {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Color Picker',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  ColorPicker(
-                    pickerColor: pickerColor,
-                    onColorChanged: (color) {
-                      setState(() {
-                        pickerColor = color;
-                        textColor = color.computeLuminance() > 0.5
-                            ? Colors.black
-                            : Colors.white;
-                      });
-                      widget.onPrimaryColorChanged(color);
-                    },
-                    portraitOnly: true,
-                    colorPickerWidth: 300,
-                    enableAlpha: false,
-                    hexInputBar: true,
-                    displayThumbColor: true,
-                  ),
-                  TextButton(
-                    onPressed: () => navigator.pop(),
-                    child: const Text('Done'),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
         ),
-      ),
-    );
+      );
+    } else {
+      // Fallback to just logging if we can't show a snackbar
+      Logging.severe('SnackBar message (not shown): $message');
+    }
   }
 
   Future<void> _showClearDatabaseDialog() async {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    final result = await navigator.push<bool>(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Clear Database',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const Text('This will delete:'),
-                  const SizedBox(height: 8),
-                  const Text('• All saved albums'),
-                  const Text('• All ratings'),
-                  const Text('• All custom lists'),
-                  const Text('• All settings'),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'This action cannot be undone!',
-                    style: TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.bold),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => navigator.pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        onPressed: () => navigator.pop(true),
-                        child: const Text('Clear Everything'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (result == true) {
-      try {
-        final db = await DatabaseHelper.instance.database;
-        await db.transaction((txn) async {
-          await txn.delete('albums');
-          await txn.delete('ratings');
-          await txn.delete('custom_lists');
-          await txn.delete('album_lists');
-          await txn.delete('album_order');
-        });
-
-        navigatorKey.currentState?.popUntil((route) => route.isFirst);
-        _showSnackBar('Database cleared successfully');
-      } catch (e) {
-        Logging.severe('Error clearing database', e);
-        _showSnackBar('Error clearing database: $e');
-      }
-    }
-  }
-
-  Future<void> _showRepairDialog() async {
-    _showProgressDialog('Repairing Data...',
-        'Please wait while your data is being repaired...');
-
-    try {
-      bool repairResult = false;
-      int removedRatings = 0;
-
-      final db = await DatabaseHelper.instance.database;
-
-      final List<Map<String, dynamic>> orphanedRatings = await db.rawQuery('''
-        SELECT ratings.* FROM ratings 
-        LEFT JOIN albums ON ratings.album_id = albums.id
-        WHERE albums.id IS NULL
-      ''');
-
-      if (orphanedRatings.isNotEmpty) {
-        for (var rating in orphanedRatings) {
-          await db.delete(
-            'ratings',
-            where: 'id = ?',
-            whereArgs: [rating['id']],
-          );
-        }
-        removedRatings = orphanedRatings.length;
-        repairResult = true;
-      }
-
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar(
-        '${repairResult ? "Albums repaired successfully!" : "No album repairs needed"}\n'
-        'Removed $removedRatings orphaned ratings.',
-      );
-    } catch (e) {
-      navigatorKey.currentState?.pop(); // Dismiss progress
-      _showSnackBar('Error repairing data: $e');
-    }
-  }
-
-  Future<void> _importBackupWithProgress() async {
-    _showProgressDialog('Importing Backup', 'Reading backup file...');
-
-    try {
-      final result = await UserData.importData(
-        progressCallback: (stage, progress) {
-          if (mounted) {
-            final navigator = navigatorKey.currentState;
-            if (navigator == null) return;
-
-            navigator.pop();
-            _showProgressDialog(
-              'Importing Backup',
-              stage,
-              progress: progress,
-            );
-          }
-        },
-      );
-
-      navigatorKey.currentState?.pop();
-
-      if (result && mounted) {
-        _showImportSuccessDialog();
-      } else if (!result && mounted) {
-        _showSnackBar('Import failed or was cancelled');
-      }
-    } catch (e, stack) {
-      Logging.severe('Error during backup import', e, stack);
-      navigatorKey.currentState?.pop();
-      _showSnackBar('Import failed: $e');
-    }
-  }
-
-  void _showProgressDialog(String title, String message, {double? progress}) {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => Material(
-          type: MaterialType.transparency,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  progress != null
-                      ? LinearProgressIndicator(value: progress)
-                      : const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(message),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _performForceMigration() async {
-    _showProgressDialog('Migrating Data', 'Creating temporary backup...');
-
-    try {
-      Logging.severe('Starting force migration process');
-
-      final prefs = await SharedPreferences.getInstance();
-      final savedAlbums = prefs.getStringList('saved_albums') ?? [];
-
-      if (savedAlbums.isEmpty) {
-        Logging.severe(
-            'No SharedPreferences data found, rebuilding SQLite database only');
-        await _rebuildSQLiteDatabase();
-      } else {
-        Logging.severe(
-            'Found ${savedAlbums.length} albums in SharedPreferences, migrating to SQLite');
-
-        await MigrationUtility.resetMigrationStatus();
-
-        final backupData = <String, dynamic>{};
-
-        for (final key in prefs.getKeys()) {
-          final value = prefs.get(key);
-          if (value != null) {
-            if (value is List<String>) {
-              backupData[key] = value;
-            } else {
-              backupData[key] = value;
-            }
-          }
-        }
-
-        backupData['_backup_meta'] = {
-          'version': 1,
-          'timestamp': DateTime.now().toIso8601String(),
-          'format': 'legacy'
-        };
-
-        navigatorKey.currentState?.pop();
-        _showProgressDialog(
-            'Rebuilding Database', 'Clearing existing database...');
-
-        final db = await DatabaseHelper.instance.database;
-        await db.transaction((txn) async {
-          await txn.delete('albums');
-          await txn.delete('ratings');
-          await txn.delete('custom_lists');
-          await txn.delete('album_lists');
-          await txn.delete('album_order');
-          await txn.delete('settings');
-        });
-        Logging.severe('Database cleared successfully');
-
-        if (savedAlbums.isNotEmpty) {
-          try {
-            final firstAlbum = jsonDecode(savedAlbums.first);
-            Logging.severe(
-                'First album in migration: id=${firstAlbum['collectionId'] ?? firstAlbum['id']}, name=${firstAlbum['collectionName'] ?? firstAlbum['name']}');
-          } catch (e) {
-            Logging.severe('Error parsing first album for debug: $e');
-          }
-        }
-
-        navigatorKey.currentState?.pop();
-        _showProgressDialog(
-            'Rebuilding Database', 'Importing data from SharedPreferences...');
-
-        final tempDir = await getTemporaryDirectory();
-        final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-        final tempBackupPath =
-            '${tempDir.path}/rateme_migration_$timestamp.json';
-        final file = File(tempBackupPath);
-        await file.writeAsString(jsonEncode(backupData));
-        Logging.severe('Importing directly from file: $tempBackupPath');
-
-        bool success = await MigrationUtility.migrateToSQLite();
-
-        if (!success) {
-          Logging.severe('Direct migration failed, trying file-based import');
-          success = await UserData.importData(
-              fromFile: tempBackupPath, skipFilePicker: true);
-        }
-
-        await file.delete();
-
-        if (success) {
-          Logging.severe(
-              'Data imported successfully from SharedPreferences to SQLite');
-
-          final db = await DatabaseHelper.instance.database;
-          final count =
-              await db.rawQuery('SELECT COUNT(*) as count FROM albums');
-          final albumCount = Sqflite.firstIntValue(count) ?? 0;
-          Logging.severe(
-              'After migration: Album count in database = $albumCount');
-
-          if (albumCount == 0) {
-            Logging.severe(
-                'WARNING: Migration reported success but no albums were imported');
-          }
-        } else {
-          Logging.severe('Migration failed - import returned false');
-        }
-      }
-
-      final stats = await _getMigrationStats();
-
-      navigatorKey.currentState?.pop();
-      _showForceMigrationSuccessDialog(stats);
-    } catch (e, stack) {
-      Logging.severe('Error during force migration', e, stack);
-      navigatorKey.currentState?.pop();
-      _showSnackBar('Migration failed: $e');
-    }
-  }
-
-  Future<void> _rebuildSQLiteDatabase() async {
-    try {
-      final db = await DatabaseHelper.instance.database;
-
-      final backupData = <String, dynamic>{};
-
-      backupData['_backup_meta'] = {
-        'version': 2,
-        'timestamp': DateTime.now().toIso8601String(),
-        'format': 'sqlite'
-      };
-
-      final albums = await DatabaseHelper.instance.getAllAlbums();
-      backupData['albums'] = albums;
-      Logging.severe('Exported ${albums.length} albums');
-
-      final ratings = await db.query('ratings');
-      backupData['ratings'] = ratings;
-      Logging.severe('Exported ${ratings.length} ratings');
-
-      final lists = await db.query('custom_lists');
-      backupData['custom_lists'] = lists;
-      Logging.severe('Exported ${lists.length} custom lists');
-
-      final albumLists = await db.query('album_lists');
-      backupData['album_lists'] = albumLists;
-      Logging.severe('Exported ${albumLists.length} album-list relationships');
-
-      final albumOrder = await db.query('album_order', orderBy: 'position ASC');
-      backupData['album_order'] = albumOrder;
-      Logging.severe('Exported album order information');
-
-      final settings = await db.query('settings');
-      backupData['settings'] = settings;
-      Logging.severe('Exported ${settings.length} settings');
-
-      navigatorKey.currentState?.pop();
-      _showProgressDialog(
-          'Rebuilding Database', 'Clearing existing database...');
-
-      await db.transaction((txn) async {
-        await txn.delete('albums');
-        await txn.delete('ratings');
-        await txn.delete('custom_lists');
-        await txn.delete('album_lists');
-        await txn.delete('album_order');
-        await txn.delete('settings');
-      });
-      Logging.severe('Database cleared successfully');
-
-      navigatorKey.currentState?.pop();
-      _showProgressDialog(
-          'Rebuilding Database', 'Importing data into SQLite...');
-
-      await db.transaction((txn) async {
-        if (backupData['albums'] != null) {
-          for (final album in backupData['albums']) {
-            await txn.insert('albums', album);
-          }
-        }
-
-        if (backupData['ratings'] != null) {
-          for (final rating in backupData['ratings']) {
-            await txn.insert('ratings', rating);
-          }
-        }
-
-        if (backupData['custom_lists'] != null) {
-          for (final list in backupData['custom_lists']) {
-            await txn.insert('custom_lists', list);
-          }
-        }
-
-        if (backupData['album_lists'] != null) {
-          for (final albumList in backupData['album_lists']) {
-            await txn.insert('album_lists', albumList);
-          }
-        }
-
-        if (backupData['album_order'] != null) {
-          for (final order in backupData['album_order']) {
-            await txn.insert('album_order', order);
-          }
-        }
-
-        if (backupData['settings'] != null) {
-          for (final setting in backupData['settings']) {
-            await txn.insert('settings', setting);
-          }
-        }
-      });
-
-      Logging.severe('Data imported successfully into SQLite');
-    } catch (e, stack) {
-      Logging.severe('Error rebuilding SQLite database', e, stack);
-      rethrow;
-    }
-  }
-
-  Future<Map<String, int>> _getMigrationStats() async {
-    final stats = {
-      'albums': 0,
-      'ratings': 0,
-      'lists': 0,
-      'listAlbums': 0,
-    };
-
-    try {
-      final db = await DatabaseHelper.instance.database;
-
-      final albumResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM albums');
-      stats['albums'] = Sqflite.firstIntValue(albumResults) ?? 0;
-
-      final ratingResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM ratings');
-      stats['ratings'] = Sqflite.firstIntValue(ratingResults) ?? 0;
-
-      final listResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM custom_lists');
-      stats['lists'] = Sqflite.firstIntValue(listResults) ?? 0;
-
-      final listAlbumResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM album_lists');
-      stats['listAlbums'] = Sqflite.firstIntValue(listAlbumResults) ?? 0;
-    } catch (e) {
-      Logging.severe('Error getting migration stats: $e');
-    }
-
-    return stats;
-  }
-
-  void _showForceMigrationSuccessDialog(Map<String, int> stats) {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Migration Successful'),
+    return showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        // Renamed to dialogContext to be clear
+        return AlertDialog(
+          title: const Text('Clear Database'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Your database has been successfully rebuilt!'),
-              const SizedBox(height: 16),
-              const Text('Database Contents:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              _buildStatRow(Icons.album, 'Albums', stats['albums'] ?? 0),
-              _buildStatRow(Icons.audiotrack, 'Ratings', stats['ratings'] ?? 0),
-              _buildStatRow(Icons.list, 'Lists', stats['lists'] ?? 0),
-              _buildStatRow(Icons.playlist_add_check, 'Albums in lists',
-                  stats['listAlbums'] ?? 0),
+            children: const [
+              Text('This will delete:'),
+              SizedBox(height: 8),
+              Text('• All saved albums'),
+              Text('• All ratings'),
+              Text('• All custom lists'),
+              Text('• All settings'),
+              SizedBox(height: 16),
+              Text(
+                'This action cannot be undone!',
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => navigator.pop(),
-              child: const Text('OK'),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(), // Use dialogContext here
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              onPressed: () async {
+                try {
+                  // Close dialog first, using dialogContext to avoid async gap
+                  Navigator.of(dialogContext).pop();
+
+                  // Show loading indicator
+                  setState(() {
+                    isLoading = true;
+                  });
+
+                  final db = await DatabaseHelper.instance.database;
+                  await db.transaction((txn) async {
+                    await txn.delete('albums');
+                    await txn.delete('ratings');
+                    await txn.delete('custom_lists');
+                    await txn.delete('album_lists');
+                    await txn.delete('album_order');
+                  });
+
+                  // Use if (!mounted) return pattern before using context after async gap
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Database cleared successfully')),
+                  );
+                } catch (e) {
+                  Logging.severe('Error clearing database', e);
+                  // Use if (!mounted) return pattern
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error clearing database: $e')),
+                  );
+                } finally {
+                  // Hide loading indicator
+                  if (mounted) {
+                    setState(() {
+                      isLoading = false;
+                    });
+                  }
+                }
+              },
+              child: const Text('Clear Everything'),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
-  void _showImportSuccessDialog() async {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
+  void _showProgressDialog(String title, String message) {
+    if (!mounted) return;
 
-    try {
-      final db = await DatabaseHelper.instance.database;
-
-      final albumResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM albums');
-      final albumCount = Sqflite.firstIntValue(albumResults) ?? 0;
-
-      final ratingResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM ratings');
-      final ratingCount = Sqflite.firstIntValue(ratingResults) ?? 0;
-
-      final listResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM custom_lists');
-      final listCount = Sqflite.firstIntValue(listResults) ?? 0;
-
-      final listAlbumResults =
-          await db.rawQuery('SELECT COUNT(*) as count FROM album_lists');
-      final listAlbumCount = Sqflite.firstIntValue(listAlbumResults) ?? 0;
-
-      navigator.push(
-        PageRouteBuilder(
-          barrierColor: Colors.black54,
-          opaque: false,
-          pageBuilder: (_, __, ___) => AlertDialog(
-            title: const Text('Import Successful'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Your data was imported successfully!'),
-                const SizedBox(height: 16),
-                const Text('Imported Data:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildStatRow(Icons.album, 'Albums', albumCount),
-                _buildStatRow(Icons.audiotrack, 'Ratings', ratingCount),
-                _buildStatRow(Icons.list, 'Lists', listCount),
-                _buildStatRow(Icons.playlist_add_check, 'Albums in lists',
-                    listAlbumCount),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => navigator.pop(),
-                child: const Text('OK'),
-              ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(message),
             ],
           ),
-        ),
-      );
-    } catch (e) {
-      Logging.severe('Error showing import stats: $e');
-      _showSnackBar('Import completed successfully!');
-    }
-  }
-
-  Widget _buildStatRow(IconData icon, String label, int count) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          Text(
-            count.toString(),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -753,107 +370,61 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _performDatabaseMaintenance() async {
-    _showProgressDialog('Database Maintenance', 'Checking database size...');
-
     try {
-      // Get database size before vacuum
-      final sizeBefore = await UserData.getDatabaseSize();
-
-      // Check database integrity
-      final isIntegrityOk = await UserData.checkDatabaseIntegrity();
-      if (!isIntegrityOk) {
-        navigatorKey.currentState?.pop();
-        _showSnackBar(
-            'Database integrity check failed. Consider restoring from backup.');
-        return;
-      }
-
-      navigatorKey.currentState?.pop();
+      // Show the progress dialog
       _showProgressDialog('Database Maintenance', 'Optimizing database...');
 
-      // Perform vacuum
-      final vacuumSuccess = await UserData.vacuumDatabase();
+      // Get the database instance
+      final db = await DatabaseHelper.instance.database;
+      final initialSize = await DatabaseHelper.instance.getDatabaseSize();
 
-      if (!vacuumSuccess) {
-        navigatorKey.currentState?.pop();
-        _showSnackBar('Database optimization failed');
+      // Run integrity check
+      final isIntegrityOk =
+          await DatabaseHelper.instance.checkDatabaseIntegrity();
+      if (!isIntegrityOk) {
+        // Safely dismiss dialog and show message
+        if (mounted) {
+          Navigator.of(context).pop();
+          _showSnackBar(
+              'Database integrity check failed. Please try emergency reset.');
+        }
         return;
       }
 
-      // Get database size after vacuum
-      final sizeAfter = await UserData.getDatabaseSize();
+      // Vacuum database
+      await db.execute('VACUUM');
+      await db.execute('ANALYZE');
 
-      navigatorKey.currentState?.pop();
+      // Get final size
+      final finalSize = await DatabaseHelper.instance.getDatabaseSize();
+      final savedSize = initialSize - finalSize;
+      final percentSaved =
+          initialSize > 0 ? (savedSize / initialSize * 100) : 0;
 
-      // Show results
-      final savedSpace = sizeBefore - sizeAfter;
-      final percent = sizeBefore > 0 ? (savedSpace / sizeBefore * 100.0) : 0.0;
+      // Build message
+      String message = 'Database optimization completed successfully!';
+      if (savedSize > 0) {
+        message +=
+            ' Saved ${(savedSize / 1024).toStringAsFixed(1)}KB (${percentSaved.toStringAsFixed(1)}%).';
+      }
 
-      _showMaintenanceResultDialog(
-        sizeBefore: sizeBefore,
-        sizeAfter: sizeAfter,
-        savedSpace: savedSpace,
-        percent: percent,
-      );
-    } catch (e, stack) {
-      Logging.severe('Error during database maintenance', e, stack);
-      navigatorKey.currentState?.pop();
-      _showSnackBar('Error during database maintenance: $e');
+      // Check if widget is still mounted before showing results
+      if (mounted) {
+        // Dismiss the progress dialog
+        Navigator.of(context).pop();
+
+        // Show success message
+        _showSnackBar(message);
+      }
+    } catch (e) {
+      if (mounted) {
+        // Dismiss the progress dialog
+        Navigator.of(context).pop();
+
+        // Show error message
+        _showSnackBar('Error optimizing database: $e');
+      }
     }
-  }
-
-  void _showMaintenanceResultDialog({
-    required int sizeBefore,
-    required int sizeAfter,
-    required int savedSpace,
-    required double percent,
-  }) {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    // Format sizes for display
-    final beforeMB = (sizeBefore / 1024 / 1024).toStringAsFixed(2);
-    final afterMB = (sizeAfter / 1024 / 1024).toStringAsFixed(2);
-    final savedKB = (savedSpace / 1024).toStringAsFixed(2);
-
-    navigator.push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Database Optimization Complete'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Previous size: $beforeMB MB'),
-              Text('New size: $afterMB MB'),
-              const SizedBox(height: 8),
-              Text(
-                savedSpace > 0
-                    ? 'Space saved: $savedKB KB (${percent.toStringAsFixed(1)}%)'
-                    : 'No space was saved. Your database is already optimized.',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: savedSpace > 0 ? Colors.green : null,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'The database has been optimized for better performance.',
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => navigator.pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // Add refresh method
@@ -871,6 +442,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await _loadPreferences();
 
     // Show feedback to user
+    if (!mounted) return;
     _showSnackBar('Settings refreshed');
 
     Logging.severe('Settings refresh complete');
@@ -879,9 +451,9 @@ class _SettingsPageState extends State<SettingsPage> {
   // Save default search platform using the database
   Future<void> _saveDefaultSearchPlatform(SearchPlatform platform) async {
     try {
-      final db = DatabaseHelper.instance;
-      await db.saveSetting(
-          'default_search_platform', platform.index.toString());
+      final settingsService = SettingsService();
+      await settingsService.saveSetting(
+          'default_search_platform', platform.index);
 
       Logging.severe(
           'Default search platform updated to ${platform.name} (index: ${platform.index})');
@@ -894,34 +466,27 @@ class _SettingsPageState extends State<SettingsPage> {
       GlobalNotifications.defaultSearchPlatformChanged(platform);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Default search platform updated to ${platform.name}')),
-        );
+        _showSnackBar('Default search platform updated to ${platform.name}');
       }
     } catch (e) {
       Logging.severe('Error saving default search platform', e);
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('Error setting default platform: $e')),
-      );
+      _showSnackBar('Error setting default platform: $e');
     }
   }
 
   // Add a method to load platform preference
   Future<void> _loadPlatformPreference() async {
     try {
-      final db = DatabaseHelper.instance;
-      final platformStr = await db.getSetting('default_search_platform');
+      final settingsService = SettingsService();
+      final platformIndex = await settingsService
+          .getSetting<int>('default_search_platform', defaultValue: 0);
 
-      if (platformStr != null) {
-        int platformIndex = int.tryParse(platformStr) ?? 0;
-        if (platformIndex >= 0 &&
-            platformIndex < SearchPlatform.values.length) {
-          setState(() {
-            _currentPlatform = SearchPlatform.values[platformIndex];
-          });
-        }
+      if (platformIndex != null &&
+          platformIndex >= 0 &&
+          platformIndex < SearchPlatform.values.length) {
+        setState(() {
+          _currentPlatform = SearchPlatform.values[platformIndex];
+        });
       }
       Logging.severe(
           'Loaded default search platform: ${_currentPlatform.name}');
@@ -978,471 +543,1094 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _migrateToSqliteDatabase() async {
+    try {
+      // Navigate to migration page and wait for result
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const MigrationProgressPage(),
+        ),
+      );
+
+      // Early return if not mounted after navigation or if result is not true
+      if (!mounted || result != true) return;
+
+      // Show success dialog
+      await showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Migration Complete'),
+          content: const Text(
+            'Your data has been successfully migrated to SQLite database.\n\n'
+            'This improves app performance and reliability while ensuring '
+            'all your ratings and preferences are safely stored.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+
+      // Check mounted again after dialog
+      if (!mounted) return;
+
+      // Show snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Migration completed successfully!')),
+      );
+    } catch (e) {
+      Logging.severe('Error during migration', e);
+    }
+  }
+
+  Future<void> _importBackup() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      if (!mounted) return;
+
+      if (result == null || result.files.isEmpty) {
+        _showSnackBar('Import cancelled.');
+        return;
+      }
+
+      final file = result.files.first;
+      String jsonString;
+      if (file.bytes != null) {
+        jsonString = utf8.decode(file.bytes!);
+      } else if (file.path != null) {
+        jsonString = await File(file.path!).readAsString();
+      } else {
+        _showSnackBar('Import failed: Could not read file.');
+        return;
+      }
+
+      // Use the smart import that detects format
+      final success = await BackupConverter.smartImport(jsonString);
+
+      if (!mounted) return;
+      _showSnackBar(success
+          ? 'Backup restored successfully!'
+          : 'Import failed: Invalid backup format.');
+    } catch (e, stack) {
+      Logging.severe('Error importing backup', e, stack);
+      if (!mounted) return;
+      _showSnackBar('Import failed: $e');
+    }
+  }
+
+  Future<void> _exportBackup() async {
+    try {
+      final db = DatabaseHelper.instance;
+
+      // Create a modern, SQLite-compatible backup format
+      final exportMap = <String, dynamic>{};
+
+      // 1. Export albums with tracks
+      final albums = await db.getAllAlbums();
+      final List<Map<String, dynamic>> albumsWithTracks = [];
+
+      for (final album in albums) {
+        final albumId = album['id'].toString();
+        final tracks = await db.getTracksForAlbum(albumId);
+
+        // Create a copy of the album with tracks added
+        final albumWithTracks = Map<String, dynamic>.from(album);
+        albumWithTracks['tracks'] = tracks;
+        albumsWithTracks.add(albumWithTracks);
+      }
+
+      exportMap['albums'] = albumsWithTracks;
+
+      // 2. Export ratings
+      final ratings = await db.database.then((db) => db.query('ratings'));
+      exportMap['ratings'] = ratings;
+
+      // 3. Export custom lists
+      final customLists = await db.getAllCustomLists();
+      exportMap['custom_lists'] = customLists;
+
+      // 4. Export album order
+      final albumOrder = await db.getAlbumOrder();
+      exportMap['album_order'] = albumOrder;
+
+      // 5. Export settings
+      final settings = await db.database.then((db) => db.query('settings'));
+      exportMap['settings'] = settings;
+
+      // Convert to pretty-printed JSON
+      final jsonString = const JsonEncoder.withIndent('  ').convert(exportMap);
+
+      final savePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export Backup As',
+        fileName: 'rateme_backup.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (!mounted) return;
+
+      if (savePath == null) {
+        _showSnackBar('Export cancelled.');
+        return;
+      }
+
+      final file = await File(savePath).writeAsString(jsonString);
+
+      if (!mounted) return;
+      _showSnackBar('Backup exported to: ${file.path}');
+    } catch (e, stack) {
+      Logging.severe('Error exporting backup', e, stack);
+      if (!mounted) return;
+      _showSnackBar('Export failed: $e');
+    }
+  }
+
+  Future<void> _performEmergencyDatabaseReset() async {
+    try {
+      _showProgressDialog('Database Reset', 'Resetting database...');
+
+      // Fix: use fixDatabaseLocks
+      await DatabaseHelper.instance.fixDatabaseLocks();
+
+      // Always check if widget is still mounted before updating UI
+      if (mounted) {
+        Navigator.of(context).pop(); // Close the progress dialog
+        _showSnackBar('Database reset completed successfully.');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close the progress dialog
+        _showSnackBar('Database reset failed: $e');
+      }
+    }
+  }
+
+  // Add this method to fix the undefined identifier error
+  Future<void> _cleanupDuplicates() async {
+    try {
+      // Show the progress dialog
+      _showProgressDialog(
+          'Database Maintenance', 'Cleaning up platform duplicates...');
+
+      // Run the cleanup using CleanupUtility
+      await CleanupUtility.cleanupPlatformMatches();
+
+      // If we reach here, the operation completed successfully
+      if (mounted) {
+        // Dismiss the progress dialog
+        Navigator.of(context).pop();
+
+        // Show success message
+        _showSnackBar('Platform duplicates cleanup completed successfully');
+      }
+    } catch (e) {
+      // If there was an error
+      if (mounted) {
+        // Dismiss the progress dialog
+        Navigator.of(context).pop();
+
+        // Show error message
+        _showSnackBar('Error cleaning up platform duplicates: $e');
+      }
+    }
+  }
+
+  Future<void> _fixBandcampTrackIds() async {
+    try {
+      // Show the progress dialog
+      _showProgressDialog('Bandcamp Update', 'Updating Bandcamp albums...');
+
+      // Run the Bandcamp fix
+      await CleanupUtility.fixBandcampTrackIds();
+
+      // If we reach here, the operation completed successfully
+      if (mounted) {
+        // Dismiss the progress dialog
+        Navigator.of(context).pop();
+
+        // Show success message
+        _showSnackBar('Bandcamp albums updated successfully');
+      }
+    } catch (e) {
+      // If there was an error
+      if (mounted) {
+        // Dismiss the progress dialog
+        Navigator.of(context).pop();
+
+        // Show error message
+        _showSnackBar('Error updating Bandcamp albums: $e');
+      }
+    }
+  }
+
+  void _showColorPickerDialog() {
+    // Store original color for cancel
+    final originalColor = _primaryColor;
+    // Local state for the dialog
+    Color dialogColor = _primaryColor;
+    // Text controller for custom hex input
+    final hexController = TextEditingController(
+      text: ColorUtility.colorToHex(originalColor).substring(1),
+    );
+
+    // Log initial color values at dialog opening
+    Logging.severe('COLOR PICKER: Opening dialog with initial color: '
+        'RGB(${originalColor.r.round()}, ${originalColor.g.round()}, ${originalColor.b.round()}) - '
+        'HEX: ${ColorUtility.colorToHex(originalColor)}');
+
+    // CRITICAL DEBUG: Add decimal precision logging
+    Logging.severe('COLOR PICKER: Raw floating point values - '
+        'red=${originalColor.r}, green=${originalColor.g}, blue=${originalColor.b}');
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Select Primary Color'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ColorPicker(
+                        color: dialogColor,
+                        onColorChanged: (Color color) {
+                          dialogColor = color;
+                          // Update the hex text field when color changes
+                          hexController.text =
+                              ColorUtility.colorToHex(color).substring(1);
+                          setDialogState(() {}); // Update sample button
+
+                          // DIAGNOSTICS: Log every color change during selection
+                          final int r = (color.r * 255).round();
+                          final int g = (color.g * 255).round();
+                          final int b = (color.b * 255).round();
+
+                          // Log both the raw and properly converted values
+                          Logging.severe('COLOR PICKER: Changed to new color: '
+                              'RawValues(${color.r}, ${color.g}, ${color.b}) → '
+                              'IntRGB($r, $g, $b) → HEX: #FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}');
+                        },
+                        width: 40,
+                        height: 40,
+                        borderRadius: 4,
+                        spacing: 5,
+                        runSpacing: 5,
+                        wheelDiameter: 155,
+                        enableOpacity: false,
+                        showMaterialName: true,
+                        showColorName: true,
+                        pickersEnabled: const <ColorPickerType, bool>{
+                          ColorPickerType.primary: true,
+                          ColorPickerType.accent: true,
+                          ColorPickerType.wheel: true,
+                        },
+                      ),
+
+                      // Add custom hex input field
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      Row(
+                        children: [
+                          const Text('HEX: #'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: hexController,
+                              decoration: InputDecoration(
+                                hintText: '864AF9',
+                                helperText: 'Enter 6-digit hex code',
+                                prefixStyle: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                isDense: true,
+                              ),
+                              maxLength: 6,
+                              onChanged: (value) {
+                                // Don't process incomplete input
+                                if (value.length != 6) return;
+
+                                try {
+                                  // Try to parse the hex value
+                                  final colorValue =
+                                      int.parse('FF$value', radix: 16);
+                                  final newColor = Color(colorValue);
+
+                                  // Update the color picker and sample
+                                  dialogColor = newColor;
+                                  setDialogState(() {});
+
+                                  Logging.severe(
+                                      'COLOR PICKER: Manual hex input: #$value → ${ColorUtility.colorToHex(newColor)}');
+                                } catch (e) {
+                                  Logging.severe(
+                                      'COLOR PICKER: Invalid hex input: $value, error: $e');
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Add a preview section
+                      const SizedBox(height: 16),
+                      const Text('Preview:'),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: dialogColor,
+                                foregroundColor: _useDarkButtonText
+                                    ? Colors.black
+                                    : Colors.white,
+                              ),
+                              onPressed: () {},
+                              child: const Text('Sample Text'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () {
+                      // DIAGNOSTICS: Log cancel operation
+                      Logging.severe(
+                          'COLOR PICKER: Canceled - restoring original color: '
+                          'RGB(${originalColor.r.round()}, ${originalColor.g.round()}, ${originalColor.b.round()}) - '
+                          'HEX: ${ColorUtility.colorToHex(originalColor)}');
+
+                      // Cancel - restore the original color
+                      setState(() {
+                        _primaryColor = originalColor;
+                      });
+                      // Force UI update with original color
+                      ts.ThemeService.setPrimaryColorDirectly(originalColor);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: const Text('Save'),
+                    onPressed: () {
+                      // Try to get color from hex input first in case it was manually entered
+                      try {
+                        if (hexController.text.length == 6) {
+                          final colorValue =
+                              int.parse('FF${hexController.text}', radix: 16);
+                          dialogColor = Color(colorValue);
+                        }
+                      } catch (e) {
+                        Logging.severe(
+                            'COLOR PICKER: Error parsing final hex input: ${hexController.text}, error: $e');
+                      }
+
+                      // CRITICAL FIX: Use the correct float to int conversion here!
+                      // The flex_color_picker returns colors with .red/.green/.blue as 0.0-1.0 values
+                      // We must multiply by 255 and round for proper integer RGB values
+                      final int r = (dialogColor.r * 255).round();
+                      final int g = (dialogColor.g * 255).round();
+                      final int b = (dialogColor.b * 255).round();
+
+                      // ...rest of existing save code...
+
+                      // DIAGNOSTICS: Log pre-safety check values with raw floating point values
+                      Logging.severe(
+                          'COLOR PICKER: Selected color - Raw(${dialogColor.r}, ${dialogColor.g}, ${dialogColor.b}) → RGB($r, $g, $b)');
+
+                      // CRITICAL FIX: Add extra safeguards against very small values
+                      final int safeR = r < 3 ? 0 : r;
+                      final int safeG = g < 3 ? 0 : g;
+                      final int safeB = b < 3 ? 0 : b;
+
+                      // DIAGNOSTICS: Log post-safety check values
+                      Logging.severe(
+                          'COLOR PICKER: Post-safety check values: RGB($safeR, $safeG, $safeB)');
+
+                      // Use safe values for the color
+                      final Color safeColor =
+                          Color.fromARGB(255, safeR, safeG, safeB);
+
+                      // DIAGNOSTICS: Log the Color object values
+                      Logging.severe('COLOR PICKER: safeColor object values - '
+                          'RGB(${safeColor.r}, ${safeColor.g}, ${safeColor.b}) → '
+                          'Int(${(safeColor.r * 255).round()}, ${(safeColor.g * 255).round()}, ${(safeColor.b * 255).round()})');
+
+                      // Create hex string with alpha channel - Use proper values!
+                      final String storageHex =
+                          '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
+                                  '${safeG.toRadixString(16).padLeft(2, '0')}'
+                                  '${safeB.toRadixString(16).padLeft(2, '0')}'
+                              .toUpperCase();
+
+                      // DIAGNOSTICS: Log the final hex value that will be stored
+                      Logging.severe(
+                          'COLOR PICKER: Final hex value for storage: $storageHex');
+
+                      // Update state (UI)
+                      setState(() {
+                        _primaryColor = safeColor;
+                      });
+
+                      // CRITICAL FIX: Directly set the color in ThemeService first
+                      ts.ThemeService.setPrimaryColorDirectly(safeColor);
+
+                      // Then save to database with our properly formatted hex string
+                      DatabaseHelper.instance
+                          .saveSetting('primaryColor', storageHex);
+
+                      // Close dialog
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
+    // Get the correct icon color based on theme brightness
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
     // Log current theme mode for debugging
     Logging.severe(
         'Current theme mode in settings page: ${widget.currentTheme}');
 
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      scaffoldMessengerKey: _scaffoldMessengerKey,
-      debugShowCheckedModeBanner: false,
-      theme: Theme.of(context),
-      home: Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          automaticallyImplyLeading: false,
-          title: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 8),
-                const Text('Settings'),
-              ],
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        leadingWidth: horizontalPadding + 48,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: Text(
+            'Settings',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black, // Add explicit color for visibility
             ),
           ),
         ),
-        body: Center(
-          child: SizedBox(
-            width: pageWidth,
-            child: isLoading
-                ? _buildSkeletonSettings()
-                : RefreshIndicator(
-                    key: _refreshIndicatorKey,
-                    onRefresh: _refreshData,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        // Theme Section
-                        Card(
-                          margin: const EdgeInsets.all(8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Theme',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              RadioListTile<ThemeMode>(
-                                title: const Text('System'),
-                                value: ThemeMode.system,
-                                groupValue: widget.currentTheme,
-                                onChanged: (ThemeMode? mode) {
-                                  if (mode != null) {
-                                    widget.onThemeChanged(mode);
-                                    setState(() {});
-                                  }
-                                },
-                              ),
-                              RadioListTile<ThemeMode>(
-                                title: const Text('Light'),
-                                value: ThemeMode.light,
-                                groupValue: widget.currentTheme,
-                                onChanged: (ThemeMode? mode) {
-                                  if (mode != null) {
-                                    widget.onThemeChanged(mode);
-                                    setState(() {});
-                                  }
-                                },
-                              ),
-                              RadioListTile<ThemeMode>(
-                                title: const Text('Dark'),
-                                value: ThemeMode.dark,
-                                groupValue: widget.currentTheme,
-                                onChanged: (ThemeMode? mode) {
-                                  if (mode != null) {
-                                    widget.onThemeChanged(mode);
-                                    setState(() {});
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Color Section
-                        Card(
-                          margin: const EdgeInsets.all(8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'App Colors',
+        leading: Padding(
+          padding: EdgeInsets.only(left: horizontalPadding),
+          child: IconButton(
+            icon: Icon(Icons.arrow_back, color: iconColor),
+            padding: const EdgeInsets.all(8.0),
+            constraints: const BoxConstraints(),
+            iconSize: 24.0,
+            splashRadius: 28.0,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+      ),
+      body: _isProcessing
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+              child: SizedBox(
+                width: pageWidth,
+                child: isLoading
+                    ? _buildSkeletonSettings()
+                    : RefreshIndicator(
+                        key: _refreshIndicatorKey,
+                        onRefresh: _refreshData,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            // Theme Section
+                            Card(
+                              margin: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text(
+                                      'Theme',
                                       style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.restore),
-                                      tooltip: 'Restore default colors',
-                                      onPressed: () {
+                                  ),
+                                  RadioListTile<ThemeMode>(
+                                    title: const Text('System'),
+                                    value: ThemeMode.system,
+                                    groupValue: widget.currentTheme,
+                                    onChanged: (ThemeMode? mode) {
+                                      if (mode != null) {
+                                        widget.onThemeChanged(mode);
+                                        setState(() {});
+                                      }
+                                    },
+                                  ),
+                                  RadioListTile<ThemeMode>(
+                                    title: const Text('Light'),
+                                    value: ThemeMode.light,
+                                    groupValue: widget.currentTheme,
+                                    onChanged: (ThemeMode? mode) {
+                                      if (mode != null) {
+                                        widget.onThemeChanged(mode);
+                                        setState(() {});
+                                      }
+                                    },
+                                  ),
+                                  RadioListTile<ThemeMode>(
+                                    title: const Text('Dark'),
+                                    value: ThemeMode.dark,
+                                    groupValue: widget.currentTheme,
+                                    onChanged: (ThemeMode? mode) {
+                                      if (mode != null) {
+                                        widget.onThemeChanged(mode);
+                                        setState(() {});
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Color Section
+                            Card(
+                              margin: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          'App Colors',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.restore),
+                                          tooltip: 'Restore default colors',
+                                          onPressed: () async {
+                                            // Update UI first, synchronously
+                                            setState(() {
+                                              _primaryColor =
+                                                  defaultPurpleColor;
+                                              _useDarkButtonText = false;
+                                            });
+
+                                            // Call a separate method to handle all async operations
+                                            await _resetColorsToDefault();
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.color_lens),
+                                    title: const Text('Primary Color'),
+                                    subtitle:
+                                        const Text('Change app accent color'),
+                                    trailing: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: _primaryColor,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.grey),
+                                      ),
+                                    ),
+                                    onTap: _showColorPickerDialog,
+                                  ),
+                                  ListTile(
+                                    title: const Text('Button Text Color'),
+                                    trailing: Switch(
+                                      value: useDarkText,
+                                      thumbIcon: WidgetStateProperty
+                                          .resolveWith<Icon?>((states) {
+                                        return Icon(
+                                          useDarkText
+                                              ? Icons.format_color_text
+                                              : Icons.format_color_reset,
+                                          size: 16,
+                                          color: useDarkText
+                                              ? Colors.black
+                                              : Colors.white,
+                                        );
+                                      }),
+                                      inactiveTrackColor: HSLColor.fromColor(
+                                              Theme.of(context)
+                                                  .colorScheme
+                                                  .primary)
+                                          .withAlpha(0.5)
+                                          .toColor(),
+                                      activeTrackColor:
+                                          Theme.of(context).colorScheme.primary,
+                                      activeColor: Colors
+                                          .black, // When active, always black
+                                      inactiveThumbColor: Colors
+                                          .white, // When inactive, always white
+                                      onChanged: (bool value) async {
+                                        // Update local state immediately for UI feedback
                                         setState(() {
-                                          pickerColor = defaultColor;
-                                          textColor = defaultTextColor;
+                                          useDarkText = value;
+                                          _useDarkButtonText =
+                                              value; // Also update this variable for the preview
                                         });
-                                        widget.onPrimaryColorChanged(
-                                            defaultColor);
+
+                                        // Then save to database and notify services
+                                        final settingsService =
+                                            SettingsService();
+                                        await settingsService.saveSetting(
+                                            'useDarkButtonText', value);
+
+                                        // Call the notification method to ensure ThemeService is updated
+                                        SettingsService
+                                            .notifyButtonTextColorChanged(
+                                                value);
                                       },
                                     ),
-                                  ],
-                                ),
-                              ),
-                              ListTile(
-                                title: const Text('Primary Color'),
-                                subtitle: Text(
-                                  colorToHex(pickerColor)
-                                      .toString()
-                                      .toUpperCase(),
-                                  style: TextStyle(
-                                    color: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.color,
-                                    fontFamily: 'monospace',
+                                    subtitle: Text(useDarkText
+                                        ? 'Dark text'
+                                        : 'Light text'),
                                   ),
-                                ),
-                                trailing: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: pickerColor,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.grey),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Preview:'),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .scaffoldBackgroundColor,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: Theme.of(context)
+                                                  .dividerColor,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: SizedBox(
+                                                  width: 150,
+                                                  child: ElevatedButton(
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          _primaryColor,
+                                                      foregroundColor:
+                                                          _useDarkButtonText
+                                                              ? Colors.black
+                                                              : Colors.white,
+                                                    ),
+                                                    onPressed: () {},
+                                                    child: const Text(
+                                                        'Sample Text'),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                onTap: () => _showAdvancedColorPicker(),
+                                ],
                               ),
-                              ListTile(
-                                title: const Text('Button Text Color'),
-                                trailing: Switch(
-                                  value: useDarkText,
-                                  thumbIcon:
-                                      WidgetStateProperty.resolveWith<Icon?>(
-                                          (states) {
-                                    return Icon(
-                                      useDarkText
-                                          ? Icons.format_color_text
-                                          : Icons.format_color_reset,
-                                      size: 16,
-                                      color: useDarkText
-                                          ? Colors.black
-                                          : Colors.white,
-                                    );
-                                  }),
-                                  inactiveTrackColor: HSLColor.fromColor(
-                                          Theme.of(context).colorScheme.primary)
-                                      .withAlpha(0.5)
-                                      .toColor(),
-                                  activeTrackColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  activeColor:
-                                      Colors.black, // When active, always black
-                                  inactiveThumbColor: Colors
-                                      .white, // When inactive, always white
-                                  onChanged: (bool value) async {
-                                    final prefs =
-                                        await SharedPreferences.getInstance();
-                                    await prefs.setBool(
-                                        'useDarkButtonText', value);
-                                    setState(() {
-                                      useDarkText = value;
-                                    });
-                                  },
-                                ),
-                                subtitle: Text(
-                                    useDarkText ? 'Dark text' : 'Light text'),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(16),
+                            ),
+
+                            // Search Preferences Section
+                            Card(
+                              margin: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Preview:'),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .scaffoldBackgroundColor,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Theme.of(context).dividerColor,
+                                    const Text(
+                                      'Search Preferences',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    // Default search platform dropdown
+                                    Row(
+                                      children: [
+                                        const Text('Default Search Platform:'),
+                                        const Spacer(),
+                                        DropdownButton<SearchPlatform>(
+                                          value: _defaultSearchPlatform,
+                                          underline: Container(),
+                                          onChanged:
+                                              (SearchPlatform? platform) {
+                                            if (platform != null) {
+                                              _saveDefaultSearchPlatform(
+                                                  platform);
+                                            }
+                                          },
+                                          items: [
+                                            SearchPlatform.itunes,
+                                            SearchPlatform.spotify,
+                                            SearchPlatform.deezer,
+                                            SearchPlatform.discogs,
+                                          ].map((platform) {
+                                            return DropdownMenuItem<
+                                                SearchPlatform>(
+                                              value: platform,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  SvgPicture.asset(
+                                                    _getPlatformIconPath(
+                                                        platform),
+                                                    width: 30,
+                                                    height: 30,
+                                                    // Fix icon colors for both themes
+                                                    colorFilter: ColorFilter.mode(
+                                                        Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.dark
+                                                            ? Colors.white
+                                                            : Colors.black,
+                                                        BlendMode.srcIn),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                      _getDisplayNameForPlatform(
+                                                          platform)),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
                                         ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.palette,
-                                              color: pickerColor),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Sample Text',
-                                            style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyLarge
-                                                  ?.color,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          FilledButton(
-                                            onPressed: () {},
-                                            style: FilledButton.styleFrom(
-                                              backgroundColor: pickerColor,
-                                              foregroundColor: useDarkText
-                                                  ? Colors.black
-                                                  : Colors.white,
-                                              textStyle: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            child: const Text('Button'),
-                                          ),
-                                        ],
-                                      ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-
-                        // Search Preferences Section
-                        Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Search Preferences',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Default search platform dropdown
-                                Row(
-                                  children: [
-                                    const Text('Default Search Platform:'),
-                                    const Spacer(),
-                                    DropdownButton<SearchPlatform>(
-                                      value: _defaultSearchPlatform,
-                                      underline: Container(),
-                                      onChanged: (SearchPlatform? platform) {
-                                        if (platform != null) {
-                                          _saveDefaultSearchPlatform(platform);
-                                        }
-                                      },
-                                      items: [
-                                        SearchPlatform.itunes,
-                                        SearchPlatform.spotify,
-                                        SearchPlatform.deezer,
-                                        SearchPlatform.discogs,
-                                      ].map((platform) {
-                                        return DropdownMenuItem<SearchPlatform>(
-                                          value: platform,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              SvgPicture.asset(
-                                                _getPlatformIconPath(platform),
-                                                width: 30,
-                                                height: 30,
-                                                // Fix icon colors for both themes
-                                                colorFilter: ColorFilter.mode(
-                                                    Theme.of(context)
-                                                                .brightness ==
-                                                            Brightness.dark
-                                                        ? Colors.white
-                                                        : Colors.black,
-                                                    BlendMode.srcIn),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(_getDisplayNameForPlatform(
-                                                  platform)),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ],
                             ),
-                          ),
-                        ),
 
-                        // Data Management Section
-                        Card(
-                          margin: const EdgeInsets.all(8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Data Management',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.file_download),
-                                title: const Text('Import Backup'),
-                                subtitle: const Text(
-                                    'Restore data from a backup file'),
-                                onTap: _importBackupWithProgress,
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.file_upload),
-                                title: const Text('Export Backup'),
-                                subtitle: const Text(
-                                    'Save all your data as a backup file'),
-                                onTap: () async {
-                                  final success = await UserData.exportData();
-                                  if (success) {
-                                    _showSnackBar(
-                                        'Backup created successfully');
-                                  } else {
-                                    _showSnackBar('Failed to create backup');
-                                  }
-                                },
-                              ),
-                              const Divider(),
-                              ListTile(
-                                leading: const Icon(Icons.storage),
-                                title: const Text('Migrate to SQLite Database'),
-                                subtitle: const Text(
-                                    'Convert legacy data to new database format for better performance'),
-                                onTap: () => _performForceMigration(),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Database Management Section
-                        Card(
-                          margin: const EdgeInsets.all(8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Database Maintenance',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.cleaning_services),
-                                title: const Text('Optimize Database'),
-                                subtitle: const Text(
-                                    'Clean and optimize the database for better performance'),
-                                onTap: _performDatabaseMaintenance,
-                              ),
-                              FutureBuilder<int>(
-                                future: UserData.getDatabaseSize(),
-                                builder: (context, snapshot) {
-                                  final size = snapshot.data ?? 0;
-                                  final sizeText = size > 0
-                                      ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
-                                      : 'Unknown';
-
-                                  return Padding(
-                                    padding: const EdgeInsets.all(16.0),
+                            // Data Management Section
+                            Card(
+                              margin: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
                                     child: Text(
-                                      'Current database size: $sizeText',
-                                      style: const TextStyle(
-                                        fontStyle: FontStyle.italic,
-                                        fontSize: 14,
+                                      'Data Management',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Debug & Development Section
-                        Card(
-                          margin: const EdgeInsets.all(8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Debug & Development',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
                                   ),
-                                ),
+                                  ListTile(
+                                    leading: const Icon(Icons.file_download),
+                                    title: const Text('Import Backup'),
+                                    subtitle: const Text(
+                                        'Restore data from a backup file'),
+                                    onTap: _importBackup,
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.file_upload),
+                                    title: const Text('Export Backup'),
+                                    subtitle: const Text(
+                                        'Save all your data as a backup file'),
+                                    onTap: _exportBackup,
+                                  ),
+                                  const Divider(),
+                                ],
                               ),
-                              ListTile(
-                                leading: const Icon(Icons.bug_report),
-                                title: const Text('Show Debug Info'),
-                                subtitle:
-                                    const Text('View technical information'),
-                                onTap: () => DebugUtil.showDebugReport(context),
+                            ),
+
+                            // Database Management Section
+                            Card(
+                              margin: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text(
+                                      'Database Maintenance',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  // Move the database size display to here (top of the section)
+                                  FutureBuilder<int>(
+                                    future: UserData.getDatabaseSize(),
+                                    builder: (context, snapshot) {
+                                      final size = snapshot.data ?? 0;
+                                      final sizeText = size > 0
+                                          ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
+                                          : 'Unknown';
+
+                                      return Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Text(
+                                          'Current database size: $sizeText',
+                                          style: const TextStyle(
+                                            fontStyle: FontStyle.italic,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons
+                                        .storage), // Changed to storage icon
+                                    title: const Text(
+                                        'Migrate to SQLite Database'),
+                                    subtitle: const Text(
+                                        'Update database and convert albums to new model format'),
+                                    onTap: () async {
+                                      final shouldMigrate =
+                                          await showDialog<bool>(
+                                                context: context,
+                                                builder: (context) =>
+                                                    AlertDialog(
+                                                  title: const Text(
+                                                      'Database Migration'),
+                                                  content: const Text(
+                                                    'This will migrate your data to the SQLite database and update album models to the latest format. '
+                                                    'This step is required for all users upgrading from older versions.\n\n'
+                                                    'The app will show a progress indicator during migration.',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(context)
+                                                              .pop(false),
+                                                      child:
+                                                          const Text('Cancel'),
+                                                    ),
+                                                    ElevatedButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(context)
+                                                              .pop(true),
+                                                      child:
+                                                          const Text('Migrate'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ) ??
+                                              false;
+
+                                      if (shouldMigrate) {
+                                        _migrateToSqliteDatabase();
+                                      }
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.healing),
+                                    title:
+                                        const Text('Fix Platform Duplicates'),
+                                    subtitle: const Text(
+                                        'Clean up duplicate iTunes/Apple Music entries'),
+                                    onTap: _cleanupDuplicates,
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.rocket_launch),
+                                    title: const Text('Optimize Database'),
+                                    subtitle: const Text(
+                                        'Clean and optimize the database for better performance'),
+                                    onTap: _performDatabaseMaintenance,
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons
+                                        .update), // or Icons.sync_alt, Icons.upgrade, Icons.format_paint
+                                    title: const Text(
+                                        'Convert Albums to New Format'),
+                                    subtitle: const Text(
+                                        'Update album data for compatibility'),
+                                    onTap: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Convert Albums?'),
+                                          content: const Text(
+                                              'This will update album data to the latest format for compatibility. '
+                                              'This operation is safe but might take some time for large libraries.'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(context)
+                                                      .pop(false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(context)
+                                                      .pop(true),
+                                              child: const Text('Convert'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (confirmed == true) {
+                                        // Show loading
+                                        setState(() {
+                                          isLoading = true;
+                                        });
+
+                                        try {
+                                          // Do async operations
+                                          await JsonFixer.fixAlbumDataFields();
+                                          await JsonFixer
+                                              .fixIdsAndMetadataInAlbumData();
+
+                                          // After async gap, check if widget is still mounted
+                                          if (!mounted) return;
+                                          _showAlbumConversionSuccessSnackBar(
+                                              'Albums converted successfully!');
+                                        } catch (e) {
+                                          // Log error
+                                          Logging.severe(
+                                              'Error converting albums', e);
+
+                                          // After async gap, check if widget is still mounted
+                                          if (!mounted) return;
+                                          _showAlbumConversionErrorSnackBar(
+                                              'Error converting albums: $e');
+                                        } finally {
+                                          // Hide loading indicator only if still mounted
+                                          if (mounted) {
+                                            setState(() {
+                                              isLoading = false;
+                                            });
+                                          }
+                                        }
+                                      }
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons
+                                        .downloading), // A cloud sync icon representing updating from cloud service
+                                    title: const Text('Update Bandcamp Albums'),
+                                    subtitle: const Text(
+                                        'Refresh track data for Bandcamp albums'),
+                                    onTap: _fixBandcampTrackIds,
+                                  ),
+                                  ListTile(
+                                    leading: Icon(
+                                      Icons.warning_amber_rounded,
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                    title: const Text('Emergency Reset'),
+                                    subtitle: const Text(
+                                        'Reset database connection if problems occur'),
+                                    onTap: _performEmergencyDatabaseReset,
+                                  ),
+                                  const Divider(height: 32),
+                                ],
                               ),
-                              ListTile(
-                                leading: const Icon(Icons.healing),
-                                title: const Text('Repair Album Data'),
-                                subtitle: const Text(
-                                    'Fix problems with album display'),
-                                onTap: () => _showRepairDialog(),
+                            ),
+
+                            // Debug & Development Section
+                            Card(
+                              margin: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text(
+                                      'Debug & Development',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  // Add About option
+                                  ListTile(
+                                    leading: const Icon(Icons.info_outline),
+                                    title: const Text('About Rate Me!'),
+                                    subtitle: const Text(
+                                        'View app information and links'),
+                                    onTap: () => _showAboutDialog(context),
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.bug_report),
+                                    title: const Text('Show Debug Info'),
+                                    subtitle: const Text(
+                                        'View technical information'),
+                                    onTap: () =>
+                                        DebugUtil.showDebugReport(context),
+                                  ),
+                                  ListTile(
+                                    leading: Icon(
+                                      Icons.delete_forever,
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                    title: const Text('Clear Database'),
+                                    subtitle: const Text(
+                                        'Delete all saved data (cannot be undone)'),
+                                    onTap: () => _showClearDatabaseDialog(),
+                                  ),
+                                ],
                               ),
-                              ListTile(
-                                leading: const Icon(Icons.delete_forever),
-                                title: const Text('Clear Database'),
-                                subtitle: const Text(
-                                    'Delete all saved data (cannot be undone)'),
-                                onTap: () => _showClearDatabaseDialog(),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-          ),
-        ),
-      ),
+                      ),
+              ),
+            ),
     );
   }
 
@@ -1567,5 +1755,213 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  // Add this method to show the About dialog
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('About Rate Me!', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text(
+              'Rate Me! is an open-source music rating app that helps you track and organize your album listening experience.',
+              style: TextStyle(fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            // Use VersionInfo to display version number with the full version string
+            Text('Version: ${VersionInfo.fullVersionString}',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+
+            // Cleaner sponsor section with a more elegant button - LIGHTER BACKGROUND using shade100
+            ElevatedButton.icon(
+              onPressed: () async {
+                final url = Uri.parse('https://github.com/sponsors/ALi3naTEd0');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } else {
+                  Logging.severe('Could not launch $url');
+                }
+              },
+              icon: const Icon(Icons.favorite, color: Colors.pink),
+              label: const Text('Sponsor This Project',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.pink.shade700,
+                backgroundColor: Colors
+                    .pink.shade100, // Changed to shade100 for better contrast
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            const Text('Links:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Center(
+              child: InkWell(
+                onTap: () async {
+                  // Fixed URL - added /RateMe to repository URL
+                  final url = Uri.parse('https://github.com/ALi3naTEd0/RateMe');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  } else {
+                    Logging.severe('Could not launch $url');
+                  }
+                },
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.code, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'GitHub Repository',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: InkWell(
+                onTap: () async {
+                  final url = Uri.parse('https://ali3nated0.github.io/RateMe/');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  } else {
+                    Logging.severe('Could not launch $url');
+                  }
+                },
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.language, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Visit Website',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '© 2025 ALi3naTEd0',
+              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add these helper methods to your class:
+  void _showAlbumConversionSuccessSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showAlbumConversionErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _resetColorsToDefault() async {
+    try {
+      // Log the start of the reset operation
+      Logging.severe('RESET COLORS: Starting color reset to default purple');
+
+      // Create the correct purple color directly
+      final Color correctPurpleColor = const Color(0xFF864AF9);
+      final int r = 134;
+      final int g = 74;
+      final int b = 249;
+
+      // First update the UI state for immediate feedback
+      setState(() {
+        _primaryColor = correctPurpleColor;
+        _useDarkButtonText = false;
+        useDarkText = false;
+      });
+
+      // Create properly formatted hex string with correct values
+      final String colorHex =
+          '#FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
+              .toUpperCase();
+
+      // CRITICAL FIX: Add extra debugging to verify the actual color values
+      Logging.severe(
+          'RESET COLORS: Purple color - RGB($r,$g,$b) → Hex: $colorHex');
+
+      // Save directly to database first
+      await DatabaseHelper.instance.saveSetting('primaryColor', colorHex);
+
+      // Then reset the button text color to "light" (false)
+      await DatabaseHelper.instance.saveSetting('useDarkButtonText', 'false');
+
+      // Ensure ThemeService gets the direct update with a fresh color instance
+      final freshPurpleColor = Color.fromARGB(255, r, g, b);
+      ts.ThemeService.setPrimaryColorDirectly(freshPurpleColor);
+
+      // Notify UI about the color change with the fresh color instance
+      SettingsService.notifyColorChangeOnly(freshPurpleColor);
+
+      // Notify about button text color change
+      SettingsService.notifyButtonTextColorChanged(false);
+
+      // Show confirmation
+      if (mounted) {
+        _showSnackBar('Restored default colors');
+      }
+
+      Logging.severe('RESET COLORS: Color reset completed successfully');
+    } catch (e) {
+      Logging.severe('Error resetting colors to default: $e');
+      if (mounted) {
+        _showSnackBar('Error restoring default colors: $e');
+      }
+    }
+  }
+}
+
+// Fix the ColorExtension implementation to use integer value before calling toRadixString
+extension ColorExtension on Color {
+  String toHex() {
+    // Convert to integers first, then to hex string
+    final aHex = a.round().toRadixString(16).padLeft(2, '0');
+    final rHex = r.round().toRadixString(16).padLeft(2, '0');
+    final gHex = g.round().toRadixString(16).padLeft(2, '0');
+    final bHex = b.round().toRadixString(16).padLeft(2, '0');
+
+    return '$aHex$rHex$gHex$bHex';
   }
 }

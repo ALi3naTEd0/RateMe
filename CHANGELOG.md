@@ -7,7 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Major Database Migration & Persistence Overhaul
+- Complete rewrite of app's core data persistence from SharedPreferences to SQLite
+- New database architecture providing better performance, reliability and data integrity
+- Backward compatibility with previous versions through guided migration process
+- Extensive logging and error handling for diagnosing database issues
+- Implementation of transaction support for data consistency
+- Database maintenance tools including vacuum, integrity checks, and emergency reset
+- Cross-platform data migration with progress tracking
+- Recovery mechanisms for database connection issues
+
+### Theme System Redesign
+- Complete overhaul of app theming with new ThemeService architecture
+- Centralized theme management with reactive updates across the app
+- Support for dynamic theme and color changes without app restart
+- Fixed critical color corruption issues with proper color value handling
+- Support for dark mode, light mode and system default with seamless transitions
+- Consistent 85% width design pattern across all UI components
+
 ### Added
+- Complete migration from SharedPreferences to SQLite database for all settings and user data
+- Reliable track data persistence for all platforms (iTunes/Apple Music, Spotify, Deezer, Discogs, Bandcamp)
+- Fixed Bandcamp album metadata storage with proper track information preservation
+- Multi-level metadata extraction from various album data sources for maximum reliability
+- Custom hex color input field in color picker for precise color selection
+- Interactive color preview in settings for immediate feedback
+- Improved support option in About dialog
+- Enhanced footer with version information and sponsor links
+- Consistent notification styling with 85% width to match app theme
+- Refined database maintenance tools with appropriate icons
+- Emergency reset option for critical database issues
+- Complete migration from SharedPreferences to SQLite database for all app settings
+- New database helper methods for settings management
+- Centralized version tracking with version_info.dart
+- Automatic migration of remaining SharedPreferences data
+- Final cleanup utility for SharedPreferences
+- Database integrity verification and repair tools
+- Enhanced album ID handling for cross-platform compatibility
+- Improved error recovery for database operations
+- Support for backup and restore of all settings
+- More reliable track ID handling with position-based fallbacks
 - Comprehensive track duration detection for Discogs albums across all available versions
 - Smart version selection for Discogs albums based on format, country, and data quality
 - Discogs integration with complete search and album details support
@@ -36,30 +75,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
-- Fixed track rating persistence for Discogs albums using position-based matching
-- Fixed slider display issues for albums with mismatched track IDs
-- Fixed stack overflow error in rating slider rendering code
-- Fixed EP/Single designation mismatches between all music platforms
-- Fixed album naming inconsistencies between streaming services
-- Improved album title normalization for iTunes, Spotify, Deezer and Discogs
-- Enhanced string similarity calculations for better album matches
-- Fixed special case handling for album suffix variations across all platforms
-- Improved platform detection from album URLs
-- Better matching algorithm for finding the same album across different streaming services
-- Fixed issues with Deezer track handling, ratings persistence and album artwork display
-- Fixed platform icons in light theme showing incorrectly
-- Fixed automatic search when changing platforms in the main search bar
-- Fixed database timestamp constraints for ratings across all platforms
-- Fixed inconsistent handling of track IDs across different music platforms
-- Fixed album ratings consistency across different platforms
-- Improved error handling for missing track information
-- Fixed crashes when loading albums with inconsistent track data
-- Better handling of non-standard API responses from music platforms
-- Improved track duration detection for Discogs albums with multiple release versions
-- Enhanced version selection logic to handle albums with variant track listings
-- Fixed duplicate "Search Settings" option in settings page
+- Critical issue with Bandcamp albums not storing track information properly
+- Improved metadata extraction for albums with multiple track data sources
+- Fixed track persistence for albums from all supported platforms
+- Multiple metadata extraction strategies for maximum data reliability
+- Critical color handling issues with reliable RGB value storage and retrieval
+- Theme consistency issues with proper state management and persistence
+- Settings page color picker corruption with proper color value normalization
+- Race condition in ThemeService preventing proper theme application
+- Implemented robust error handling for database operations
+- Fixed notification issues with standardized 85% width for consistent UI
+- Fixed album conversion using appropriate JsonFixer implementation
+- Fixed duplicate functionality for Bandcamp album updating and album format conversion
+- Eliminated corrupted colors (particularly black and near-black colors) through proper value handling
+- Fixed color selection in settings page to always use correct color channels
+- Platform-specific path issues for data storage
+- Proper disposal of resources to prevent memory leaks
+- Improved state handling for asynchronous operations
 
 ### Changed
+- Reorganized Settings page with more intuitive grouping of options
+- Updated icons for better visual representation of functionality
+- Improved About dialog with additional support options and GitHub sponsor links
+- Replaced SharedPreferences with SQLite for all settings storage
+- Improved startup performance with optimized database initialization
+- Enhanced error handling throughout settings management
+- Added proper database transaction support for settings operations
+- Simplified theme management with direct database access
+- More consistent API for accessing user preferences
+- Better organization of settings with standardized access methods
 - Improved Discogs album data quality with intelligent version selection algorithm
 - Enhanced logging for easier debugging of platform-specific integration issues
 - Universal album name normalization system for all platforms
@@ -79,6 +123,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved track name storage and retrieval from database
 
 ### Technical
+- Implemented centralized version tracking system
+- Added consistent notification formatting for better UX
+- Improved SnackBar appearance with standardized width
+- Enhanced sponsor integration for better project support options
+- Created DatabaseHelper with comprehensive settings support
+- Added automatic database initialization during app startup
+- Implemented robust error handling for all database operations
+- Added migration utility for SharedPreferences to SQLite
+- Enhanced logging for database operations
+- Added database schema validation and repair tools
+- Improved backup and restore capabilities
+- More consistent API for settings management
 - Connected track ratings with SQLite database storage for persistent ratings
 - Added position-based track ID matching for ratings when direct ID match fails
 - Fixed recursive method calls causing stack overflow errors in rating display

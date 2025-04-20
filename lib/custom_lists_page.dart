@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart'; // Add import for ConflictAlgorithm
-import 'dart:convert';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
 import 'album_model.dart';
 import 'logging.dart';
 import 'widgets/skeleton_loading.dart'; // Add this import
+import 'database/database_helper.dart'; // Add import for database helper
+import 'dart:convert';
 
 // Model for custom album lists
 class CustomList {
@@ -95,16 +95,22 @@ class _CustomListsPageState extends State<CustomListsPage> {
   }
 
   Future<void> _loadButtonPreference() async {
-    final prefs = await SharedPreferences.getInstance();
+    final useDarkText =
+        await DatabaseHelper.instance.getSetting('useDarkButtonText') == 'true';
     if (mounted) {
       setState(() {
-        useDarkButtonText = prefs.getBool('useDarkButtonText') ?? false;
+        useDarkButtonText = useDarkText;
       });
     }
   }
 
   Future<void> _loadLists() async {
-    final loadedLists = await UserData.getCustomLists();
+    final savedLists = await DatabaseHelper.instance
+        .getAllCustomLists()
+        .then((lists) => lists.map((list) => jsonEncode(list)).toList());
+    final loadedLists = savedLists
+        .map((list) => CustomList.fromJson(jsonDecode(list)))
+        .toList();
     if (mounted) {
       setState(() {
         lists = loadedLists;
@@ -356,11 +362,41 @@ class _CustomListsPageState extends State<CustomListsPage> {
     _showSnackBar('Lists refreshed');
   }
 
+  Future<void> _reorderLists(int oldIndex, int newIndex) async {
+    // Convert display indices to global indices
+    final globalOldIndex = currentPage * itemsPerPage + oldIndex;
+    final globalNewIndex = currentPage * itemsPerPage +
+        (newIndex > oldIndex ? newIndex - 1 : newIndex);
+
+    setState(() {
+      final item = lists.removeAt(globalOldIndex);
+      lists.insert(globalNewIndex, item);
+      _updateDisplayedLists();
+    });
+
+    // Save to database instead of SharedPreferences
+    for (int i = 0; i < lists.length; i++) {
+      await DatabaseHelper.instance.saveCustomList(
+        lists[i].id,
+        lists[i].name,
+        lists[i].description,
+        lists[i].albumIds,
+        createdAt: lists[i].createdAt,
+        updatedAt: lists[i].updatedAt,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
+
+    // Get the correct icon color based on theme brightness
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
 
     return MaterialApp(
       navigatorKey: navigatorKey,
@@ -369,21 +405,30 @@ class _CustomListsPageState extends State<CustomListsPage> {
       theme: Theme.of(context),
       home: Scaffold(
         appBar: AppBar(
-          centerTitle: false,
+          centerTitle: false, // Set to false for left alignment
           automaticallyImplyLeading: false,
+          leadingWidth: horizontalPadding + 48,
           title: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 8),
-                const Text('Custom Lists'),
-              ],
+            padding: const EdgeInsets.only(left: 8.0),
+            child: Text(
+              'Custom Lists',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black, // Add explicit color for visibility
+              ),
+            ),
+          ),
+          leading: Padding(
+            padding: EdgeInsets.only(left: horizontalPadding),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: iconColor),
+              padding: const EdgeInsets.all(8.0),
+              constraints: const BoxConstraints(),
+              iconSize: 24.0,
+              splashRadius: 28.0,
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ),
         ),
@@ -418,29 +463,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
                             Expanded(
                               child: ReorderableListView.builder(
                                 onReorder: (oldIndex, newIndex) async {
-                                  // Convert display indices to global indices
-                                  final globalOldIndex =
-                                      currentPage * itemsPerPage + oldIndex;
-                                  final globalNewIndex =
-                                      currentPage * itemsPerPage +
-                                          (newIndex > oldIndex
-                                              ? newIndex - 1
-                                              : newIndex);
-
-                                  setState(() {
-                                    final item = lists.removeAt(globalOldIndex);
-                                    lists.insert(globalNewIndex, item);
-
-                                    _updateDisplayedLists();
-                                  });
-
-                                  final prefs =
-                                      await SharedPreferences.getInstance();
-                                  await prefs.setStringList(
-                                      'custom_lists',
-                                      lists
-                                          .map((l) => jsonEncode(l.toJson()))
-                                          .toList());
+                                  await _reorderLists(oldIndex, newIndex);
                                 },
                                 itemCount: displayedLists.length,
                                 itemBuilder: (context, index) {
@@ -555,7 +578,9 @@ class _CustomListsPageState extends State<CustomListsPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CustomListDetailsPage(list: list),
+              builder: (context) => CustomListDetailsPage(
+                list: list,
+              ),
             ),
           ).then((_) => _loadLists());
         },
@@ -774,18 +799,21 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     albumWithDefaults['artworkUrl100'] =
         album['artworkUrl100'] ?? album['artworkUrl'] ?? '';
 
-    final isBandcamp = album['platform'] == 'bandcamp' ||
-        (album['url']?.toString().contains('bandcamp.com') ?? false);
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SavedAlbumPage(
-          album: albumWithDefaults,
-          isBandcamp: isBandcamp,
+    final albumId =
+        album['id']?.toString() ?? album['collectionId']?.toString();
+    if (albumId != null && albumId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SavedAlbumPage(albumId: albumId),
         ),
-      ),
-    ).then((_) => _loadAlbums());
+      );
+    } else {
+      // Optionally show an error if albumId is missing
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Album ID missing, cannot open album.')),
+      );
+    }
   }
 
   void _showShareDialog() {
@@ -845,6 +873,11 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
+    // Get the correct icon color based on theme brightness
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
@@ -859,7 +892,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: Icon(Icons.arrow_back, color: iconColor),
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                   onPressed: () => Navigator.of(context).pop(),
@@ -891,7 +924,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
               child: IconButton(
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.settings),
+                icon: Icon(Icons.settings, color: iconColor),
                 onPressed: () => showMenu(
                   context: context,
                   position: const RelativeRect.fromLTRB(100, 50, 0, 0),
@@ -1003,10 +1036,9 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
               height: 48,
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary.withValues(
-                    red: Theme.of(context).colorScheme.primary.r.toDouble(),
-                    green: Theme.of(context).colorScheme.primary.g.toDouble(),
-                    blue: Theme.of(context).colorScheme.primary.b.toDouble(),
-                    alpha: 0.15),
+                      alpha: (Theme.of(context).colorScheme.primary.a * 0.15)
+                          .toDouble(),
+                    ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.primary,
@@ -1158,5 +1190,62 @@ Future<bool> saveCustomList(CustomList list) async {
   } catch (e, stack) {
     Logging.severe('Error saving custom list', e, stack);
     return false;
+  }
+}
+
+// Add method to fetch lists from database
+Future<List<CustomList>> getCustomListsFromDatabase() async {
+  try {
+    final dbHelper = DatabaseHelper.instance;
+    final listsData = await dbHelper.getAllCustomLists();
+
+    if (listsData.isEmpty) {
+      Logging.severe('No custom lists found in database');
+      return [];
+    }
+
+    final lists = listsData.map((data) {
+      return CustomList.fromJson(data);
+    }).toList();
+
+    Logging.severe('Loaded ${lists.length} custom lists from database');
+    return lists;
+  } catch (e, stack) {
+    Logging.severe('Error loading custom lists from database', e, stack);
+    return [];
+  }
+}
+
+// Add method to delete list from database
+Future<bool> deleteCustomListFromDatabase(String listId) async {
+  try {
+    final dbHelper = DatabaseHelper.instance;
+    await dbHelper.deleteCustomList(listId);
+
+    Logging.severe('Deleted custom list from database: $listId');
+    return true;
+  } catch (e, stack) {
+    Logging.severe('Error deleting custom list from database', e, stack);
+    return false;
+  }
+}
+
+// Add method to get albums from a list directly from database
+Future<List<Map<String, dynamic>>> getListAlbumsFromDatabase(
+    String listId) async {
+  try {
+    final dbHelper = DatabaseHelper.instance;
+    final albumsData = await dbHelper.getAlbumsInList(listId);
+
+    if (albumsData.isEmpty) {
+      Logging.severe('No albums found in list $listId');
+      return [];
+    }
+
+    Logging.severe('Loaded ${albumsData.length} albums for list $listId');
+    return albumsData;
+  } catch (e, stack) {
+    Logging.severe('Error loading albums for list from database', e, stack);
+    return [];
   }
 }

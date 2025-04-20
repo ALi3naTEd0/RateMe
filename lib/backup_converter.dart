@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'database/database_helper.dart'; // Add database helper import
 import 'album_model.dart';
 import 'logging.dart';
 
@@ -110,28 +110,35 @@ class BackupConverter {
       }
 
       // 6. Import the converted data
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      final db = DatabaseHelper.instance;
 
-      await Future.forEach(convertedData.entries,
-          (MapEntry<String, dynamic> entry) async {
-        final key = entry.key;
-        final value = entry.value;
+      // For each album in the backup
+      for (var albumData in convertedData['saved_albums']) {
+        try {
+          final album = Album.fromJson(jsonDecode(albumData));
+          await db.insertAlbum(album);
+        } catch (e) {
+          Logging.severe('Error importing album: $e');
+        }
+      }
 
-        if (value is int) {
-          await prefs.setInt(key, value);
-        } else if (value is double) {
-          await prefs.setDouble(key, value);
-        } else if (value is bool) {
-          await prefs.setBool(key, value);
-        } else if (value is String) {
-          await prefs.setString(key, value);
-        } else if (value is List) {
-          if (value.every((item) => item is String)) {
-            await prefs.setStringList(key, List<String>.from(value));
+      // For each rating in the backup
+      for (String key in convertedData.keys) {
+        if (key.startsWith('saved_ratings_')) {
+          for (var ratingData in convertedData[key]) {
+            try {
+              final rating = jsonDecode(ratingData);
+              final albumId = rating['albumId'];
+              final trackId = rating['trackId'];
+              final ratingValue = rating['rating']?.toDouble() ?? 0.0;
+
+              await db.saveRating(albumId, trackId, ratingValue);
+            } catch (e) {
+              Logging.severe('Error importing rating: $e');
+            }
           }
         }
-      });
+      }
 
       _showSnackBar('Backup converted and imported successfully!');
       return true;
@@ -487,5 +494,653 @@ class BackupConverter {
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  /// Import albums, ratings, lists, etc. from a JSON backup file
+  static Future<void> importFromJsonFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString);
+
+      final db = DatabaseHelper.instance;
+
+      // Import albums
+      if (data['albums'] is List) {
+        for (final albumJson in data['albums']) {
+          try {
+            final album = Album.fromJson(albumJson);
+            await db.insertAlbum(album);
+          } catch (e) {
+            Logging.severe('Failed to import album: $e');
+          }
+        }
+      }
+
+      // Import ratings
+      if (data['ratings'] is List) {
+        for (final rating in data['ratings']) {
+          try {
+            await db.saveRating(
+              rating['albumId'].toString(),
+              rating['trackId'].toString(),
+              (rating['rating'] as num).toDouble(),
+            );
+          } catch (e) {
+            Logging.severe('Failed to import rating: $e');
+          }
+        }
+      }
+
+      // Import custom lists and album-list relationships
+      if (data['lists'] is List) {
+        for (final list in data['lists']) {
+          try {
+            // Insert the list metadata
+            await db.insertCustomList(list);
+
+            // Insert album-list relationships if present
+            if (list['albumIds'] is List) {
+              final albumIds = List<String>.from(list['albumIds']);
+              for (int i = 0; i < albumIds.length; i++) {
+                await db.addAlbumToList(albumIds[i], list['id'], i);
+              }
+            }
+          } catch (e) {
+            Logging.severe('Failed to import list: $e');
+          }
+        }
+      }
+
+      Logging.severe('Backup import completed from $filePath');
+    } catch (e, stack) {
+      Logging.severe('Error importing backup', e, stack);
+    }
+  }
+
+  /// Import from a SharedPreferences-style JSON backup
+  static Future<void> importSharedPrefsBackup(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString);
+
+      final db = DatabaseHelper.instance;
+
+      // Import albums
+      if (data['saved_albums'] is List) {
+        for (final albumStr in data['saved_albums']) {
+          try {
+            final albumJson = jsonDecode(albumStr);
+            // You may need to adapt this if Album.fromJson doesn't match legacy format
+            final album = Album.fromJson(albumJson);
+            await db.insertAlbum(album);
+          } catch (e) {
+            Logging.severe('Failed to import album: $e');
+          }
+        }
+      }
+
+      // Import ratings
+      for (final key in data.keys) {
+        if (key.startsWith('saved_ratings_')) {
+          final albumId = key.replaceFirst('saved_ratings_', '');
+          final ratingsList = data[key];
+          if (ratingsList is List) {
+            for (final ratingStr in ratingsList) {
+              try {
+                final ratingJson = jsonDecode(ratingStr);
+                final trackId = ratingJson['trackId'].toString();
+                final rating = (ratingJson['rating'] as num).toDouble();
+                await db.saveRating(albumId, trackId, rating);
+              } catch (e) {
+                Logging.severe('Failed to import rating: $e');
+              }
+            }
+          }
+        }
+      }
+
+      Logging.severe(
+          'SharedPreferences backup import completed from $filePath');
+    } catch (e, stack) {
+      Logging.severe('Error importing SharedPreferences backup', e, stack);
+    }
+  }
+
+  /// Import albums from SharedPreferences-style "saved_albums" backup
+  static Future<void> importSavedAlbums(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString);
+
+      final db = DatabaseHelper.instance;
+
+      // Import albums
+      if (data['saved_albums'] is List) {
+        int count = 0;
+        for (final albumStr in data['saved_albums']) {
+          try {
+            final albumJson = jsonDecode(albumStr);
+            // Use fromLegacy for best compatibility with old format
+            final album = Album.fromLegacy(albumJson);
+            await db.insertAlbum(album);
+            count++;
+          } catch (e) {
+            Logging.severe('Failed to import album: $e');
+          }
+        }
+        Logging.severe('Imported $count albums from saved_albums');
+      } else {
+        Logging.severe('No saved_albums found in backup');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error importing saved_albums', e, stack);
+    }
+  }
+
+  /// Import albums and ratings from SharedPreferences-style backup
+  static Future<void> importSavedAlbumsAndRatings(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString);
+
+      final db = DatabaseHelper.instance;
+
+      // Import albums
+      if (data['saved_albums'] is List) {
+        int count = 0;
+        for (final albumStr in data['saved_albums']) {
+          try {
+            final albumJson = jsonDecode(albumStr);
+            // Use fromLegacy for best compatibility with old format
+            final album = Album.fromLegacy(albumJson);
+            await db.insertAlbum(album);
+            count++;
+          } catch (e) {
+            Logging.severe('Failed to import album: $e');
+          }
+        }
+        Logging.severe('Imported $count albums from saved_albums');
+      } else {
+        Logging.severe('No saved_albums found in backup');
+      }
+
+      // Import ratings
+      int ratingsCount = 0;
+      for (final key in data.keys) {
+        if (key.startsWith('saved_ratings_')) {
+          final albumId = key.replaceFirst('saved_ratings_', '');
+          final ratingsList = data[key];
+          if (ratingsList is List) {
+            for (final ratingStr in ratingsList) {
+              try {
+                final ratingJson = jsonDecode(ratingStr);
+                final trackId = ratingJson['trackId'].toString();
+                final rating = (ratingJson['rating'] as num).toDouble();
+                await db.saveRating(albumId, trackId, rating);
+                ratingsCount++;
+              } catch (e) {
+                Logging.severe('Failed to import rating: $e');
+              }
+            }
+          }
+        }
+      }
+      Logging.severe('Imported $ratingsCount ratings from backup');
+    } catch (e, stack) {
+      Logging.severe('Error importing saved albums/ratings', e, stack);
+    }
+  }
+
+  /// Import custom lists from SharedPreferences-style "custom_lists" backup
+  static Future<void> importCustomLists(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString);
+
+      final db = DatabaseHelper.instance;
+
+      // Import custom lists
+      if (data['custom_lists'] is List) {
+        int count = 0;
+        for (final listStr in data['custom_lists']) {
+          try {
+            final listJson = jsonDecode(listStr);
+
+            // Insert the list metadata
+            await db.insertCustomList(listJson);
+
+            // Insert album-list relationships if present
+            if (listJson['albumIds'] is List) {
+              final albumIds = List<String>.from(listJson['albumIds']);
+              for (int i = 0; i < albumIds.length; i++) {
+                await db.addAlbumToList(albumIds[i], listJson['id'], i);
+              }
+            }
+            count++;
+          } catch (e) {
+            Logging.severe('Failed to import custom list: $e');
+          }
+        }
+        Logging.severe('Imported $count custom lists from custom_lists');
+      } else {
+        Logging.severe('No custom_lists found in backup');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error importing custom_lists', e, stack);
+    }
+  }
+
+  /// Import album order from SharedPreferences-style "savedAlbumsOrder"
+  static Future<void> importAlbumOrder(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString);
+
+      final db = DatabaseHelper.instance;
+
+      if (data['savedAlbumsOrder'] is List) {
+        final albumOrder = List<String>.from(data['savedAlbumsOrder']);
+        await db.saveAlbumOrder(albumOrder);
+        Logging.severe('Imported album order with ${albumOrder.length} albums');
+      } else {
+        Logging.severe('No savedAlbumsOrder found in backup');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error importing album order', e, stack);
+    }
+  }
+
+  /// Import everything from SharedPreferences-style backup
+  static Future<void> importAll(String filePath) async {
+    await importSavedAlbumsAndRatings(filePath);
+    await importCustomLists(filePath);
+    await importAlbumOrder(filePath);
+    Logging.severe('Completed full import from SharedPreferences backup');
+  }
+
+  /// Import from a SharedPreferences-style JSON string.
+  static Future<void> importFromSharedPrefsJsonString(String jsonString) async {
+    final db = DatabaseHelper.instance;
+    final Map<String, dynamic> prefs = json.decode(jsonString);
+
+    // Albums
+    final List<String> savedAlbums =
+        List<String>.from(prefs['saved_albums'] ?? []);
+    int importedAlbums = 0;
+    for (final albumJson in savedAlbums) {
+      try {
+        final albumMap = json.decode(albumJson);
+        final album = Album.fromLegacy(albumMap);
+        await db.insertAlbum(album);
+        importedAlbums++;
+      } catch (e) {
+        Logging.severe('Failed to import album: $e');
+      }
+    }
+    Logging.severe('Imported $importedAlbums albums from saved_albums');
+
+    // Ratings
+    int importedRatings = 0;
+    for (final key in prefs.keys) {
+      if (key.startsWith('saved_ratings_')) {
+        final albumId = key.replaceFirst('saved_ratings_', '');
+        final List<String> ratingsList = List<String>.from(prefs[key] ?? []);
+        for (final ratingJson in ratingsList) {
+          try {
+            final ratingMap = json.decode(ratingJson);
+            final trackId = ratingMap['trackId'].toString();
+            final rating = (ratingMap['rating'] as num?)?.toDouble() ?? 0.0;
+            await db.saveRating(albumId, trackId, rating);
+            importedRatings++;
+          } catch (e) {
+            Logging.severe('Failed to import rating: $e');
+          }
+        }
+      }
+    }
+    Logging.severe('Imported $importedRatings ratings from backup');
+
+    // Custom lists
+    final List<String> customLists =
+        List<String>.from(prefs['custom_lists'] ?? []);
+    int importedLists = 0;
+    for (final listJson in customLists) {
+      try {
+        final listMap = json.decode(listJson);
+        await db.insertCustomList(listMap);
+        // Insert album-list relationships if present
+        if (listMap['albumIds'] is List) {
+          final albumIds = List<String>.from(listMap['albumIds']);
+          for (int i = 0; i < albumIds.length; i++) {
+            await db.addAlbumToList(albumIds[i], listMap['id'], i);
+          }
+        }
+        importedLists++;
+      } catch (e) {
+        Logging.severe('Failed to import custom list: $e');
+      }
+    }
+    Logging.severe('Imported $importedLists custom lists from custom_lists');
+
+    // Album order
+    final List<String> albumOrder =
+        List<String>.from(prefs['album_order'] ?? []);
+    if (albumOrder.isNotEmpty) {
+      await db.saveAlbumOrder(albumOrder);
+      Logging.severe('Imported album order with ${albumOrder.length} albums');
+    }
+
+    Logging.severe('Completed full import from SharedPreferences backup');
+  }
+
+  /// Import data from a SharedPreferences-style JSON backup
+  static Future<bool> importFromSharedPrefsJson(String jsonString) async {
+    try {
+      Logging.severe('Importing from SharedPreferences format JSON');
+
+      final Map<String, dynamic> data = json.decode(jsonString);
+      final db = DatabaseHelper.instance;
+
+      // Track what we've imported
+      final stats = <String, int>{};
+
+      // 1. Import albums
+      if (data.containsKey('saved_albums')) {
+        final List<dynamic> albumJsons = data['saved_albums'];
+        int albumCount = 0;
+
+        for (final albumJson in albumJsons) {
+          try {
+            // Handle both string (old format) and map (new format) album entries
+            final Map<String, dynamic> albumData =
+                albumJson is String ? json.decode(albumJson) : albumJson;
+
+            // Convert to Album object and save
+            final album = Album.fromJson(albumData);
+            await db.insertAlbum(album);
+            albumCount++;
+          } catch (e) {
+            Logging.severe('Error importing album: $e');
+          }
+        }
+
+        stats['albums'] = albumCount;
+        Logging.severe('Imported $albumCount albums');
+      }
+
+      // 2. Import ratings
+      int ratingCount = 0;
+      for (final key in data.keys) {
+        if (key.startsWith('saved_ratings_')) {
+          final albumId = key.replaceFirst('saved_ratings_', '');
+          final List<dynamic> ratingJsons = data[key];
+
+          for (final ratingJson in ratingJsons) {
+            try {
+              // Handle both string (old format) and map (new format) rating entries
+              final Map<String, dynamic> ratingData =
+                  ratingJson is String ? json.decode(ratingJson) : ratingJson;
+
+              final trackId = ratingData['trackId'].toString();
+              final rating = (ratingData['rating'] is num)
+                  ? (ratingData['rating'] as num).toDouble()
+                  : double.parse(ratingData['rating'].toString());
+
+              await db.saveRating(albumId, trackId, rating);
+              ratingCount++;
+            } catch (e) {
+              Logging.severe('Error importing rating: $e');
+            }
+          }
+        }
+      }
+
+      stats['ratings'] = ratingCount;
+      Logging.severe('Imported $ratingCount ratings');
+
+      // 3. Import custom lists
+      if (data.containsKey('custom_lists')) {
+        final List<dynamic> listJsons = data['custom_lists'];
+        int listCount = 0;
+
+        for (final listJson in listJsons) {
+          try {
+            // Handle both string (old format) and map (new format) list entries
+            final Map<String, dynamic> listData =
+                listJson is String ? json.decode(listJson) : listJson;
+
+            await db.insertCustomList(listData);
+            listCount++;
+          } catch (e) {
+            Logging.severe('Error importing custom list: $e');
+          }
+        }
+
+        stats['lists'] = listCount;
+        Logging.severe('Imported $listCount custom lists');
+      }
+
+      // 4. Import album order
+      if (data.containsKey('album_order')) {
+        final List<dynamic> albumOrder = data['album_order'];
+        if (albumOrder.isNotEmpty) {
+          final List<String> albumIds =
+              albumOrder.map((id) => id.toString()).toList();
+          await db.saveAlbumOrder(albumIds);
+          stats['album_order'] = albumIds.length;
+          Logging.severe('Imported album order with ${albumIds.length} items');
+        }
+      }
+
+      // 5. Import settings
+      int settingsCount = 0;
+      for (final key in data.keys) {
+        // Skip known list/array keys we've already processed
+        if (key == 'saved_albums' ||
+            key == 'custom_lists' ||
+            key == 'album_order' ||
+            key.startsWith('saved_ratings_')) {
+          continue;
+        }
+
+        try {
+          final value = data[key];
+          if (value != null) {
+            await db.saveSetting(key, value.toString());
+            settingsCount++;
+          }
+        } catch (e) {
+          Logging.severe('Error importing setting $key: $e');
+        }
+      }
+
+      stats['settings'] = settingsCount;
+      Logging.severe('Imported $settingsCount settings');
+
+      // Log overall import stats
+      Logging.severe('Import completed: $stats');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error importing from SharedPreferences JSON', e, stack);
+      return false;
+    }
+  }
+
+  /// Import data from newer SQLite-compatible JSON backup
+  static Future<bool> importFromSqliteJson(String jsonString) async {
+    try {
+      Logging.severe('Importing from SQLite format JSON');
+
+      final Map<String, dynamic> backup = json.decode(jsonString);
+      final db = DatabaseHelper.instance;
+
+      // Track import stats
+      final stats = <String, int>{};
+
+      // 1. Import albums
+      if (backup.containsKey('albums')) {
+        final List<dynamic> albums = backup['albums'];
+        int albumCount = 0;
+
+        for (final albumData in albums) {
+          try {
+            final album = Album.fromJson(albumData);
+            await db.insertAlbum(album);
+
+            // Import tracks if present
+            if (albumData.containsKey('tracks') &&
+                albumData['tracks'] is List) {
+              await db.insertTracks(album.id,
+                  List<Map<String, dynamic>>.from(albumData['tracks']));
+            }
+            albumCount++;
+          } catch (e) {
+            Logging.severe('Error importing album: $e');
+          }
+        }
+
+        stats['albums'] = albumCount;
+        Logging.severe('Imported $albumCount albums from SQLite format');
+      }
+
+      // 2. Import ratings
+      if (backup.containsKey('ratings')) {
+        final List<dynamic> ratings = backup['ratings'];
+        int ratingCount = 0;
+
+        for (final rating in ratings) {
+          try {
+            final albumId = rating['album_id'].toString();
+            final trackId = rating['track_id'].toString();
+            final ratingValue = (rating['rating'] is num)
+                ? (rating['rating'] as num).toDouble()
+                : double.parse(rating['rating'].toString());
+
+            await db.saveRating(albumId, trackId, ratingValue);
+            ratingCount++;
+          } catch (e) {
+            Logging.severe('Error importing rating: $e');
+          }
+        }
+
+        stats['ratings'] = ratingCount;
+        Logging.severe('Imported $ratingCount ratings from SQLite format');
+      }
+
+      // 3. Import custom lists
+      if (backup.containsKey('custom_lists')) {
+        final List<dynamic> lists = backup['custom_lists'];
+        int listCount = 0;
+
+        for (final list in lists) {
+          try {
+            await db.insertCustomList(list);
+            listCount++;
+          } catch (e) {
+            Logging.severe('Error importing custom list: $e');
+          }
+        }
+
+        stats['lists'] = listCount;
+        Logging.severe('Imported $listCount custom lists from SQLite format');
+      }
+
+      // 4. Import album order
+      if (backup.containsKey('album_order')) {
+        final List<dynamic> albumOrder = backup['album_order'];
+        if (albumOrder.isNotEmpty) {
+          final List<String> albumIds =
+              albumOrder.map((id) => id.toString()).toList();
+          await db.saveAlbumOrder(albumIds);
+          stats['album_order'] = albumIds.length;
+          Logging.severe('Imported album order from SQLite format');
+        }
+      }
+
+      // 5. Import settings
+      if (backup.containsKey('settings')) {
+        final List<dynamic> settings = backup['settings'];
+        int settingsCount = 0;
+
+        for (final setting in settings) {
+          try {
+            final key = setting['key'].toString();
+            final value = setting['value'].toString();
+            await db.saveSetting(key, value);
+            settingsCount++;
+          } catch (e) {
+            Logging.severe('Error importing setting: $e');
+          }
+        }
+
+        stats['settings'] = settingsCount;
+        Logging.severe('Imported $settingsCount settings from SQLite format');
+      }
+
+      Logging.severe('Import from SQLite format completed: $stats');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error importing from SQLite JSON', e, stack);
+      return false;
+    }
+  }
+
+  /// Smart import that detects format based on JSON structure
+  static Future<bool> smartImport(String jsonString) async {
+    try {
+      Logging.severe('Smart import: Detecting backup format...');
+
+      final Map<String, dynamic> data = json.decode(jsonString);
+
+      // Detect format based on structure
+      bool isSqliteFormat =
+          data.containsKey('albums') && data.containsKey('ratings');
+      bool isSharedPrefsFormat = data.containsKey('saved_albums') ||
+          data.keys.any((key) => key.startsWith('saved_ratings_'));
+
+      if (isSqliteFormat) {
+        Logging.severe('Detected SQLite format backup');
+        return importFromSqliteJson(jsonString);
+      } else if (isSharedPrefsFormat) {
+        Logging.severe('Detected SharedPreferences format backup');
+        return importFromSharedPrefsJson(jsonString);
+      } else {
+        Logging.severe('Unknown backup format');
+        return false;
+      }
+    } catch (e, stack) {
+      Logging.severe('Error in smart import', e, stack);
+      return false;
+    }
   }
 }

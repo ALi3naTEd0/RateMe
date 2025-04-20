@@ -10,9 +10,9 @@ class Album {
   final String platform;
   final DateTime releaseDate;
   final Map<String, dynamic> metadata;
-  final List<Track> tracks;
+  List<Track> tracks; // <-- remove 'final' here
 
-  const Album({
+  Album({
     required this.id,
     required this.name,
     required this.artist,

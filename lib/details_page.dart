@@ -1,21 +1,21 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For MethodChannel
-import 'package:rateme/widgets/platform_match_widget.dart';
-import 'package:url_launcher/url_launcher.dart'; // This includes all URL launching functions
-import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Add this import
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'dart:convert'; // Add this import for jsonEncode
-// Remove the unused HTTP import
-import 'user_data.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'album_model.dart';
+import 'database/database_helper.dart';
 import 'logging.dart';
+import 'user_data.dart';
 import 'custom_lists_page.dart';
 import 'share_widget.dart';
 import 'package:share_plus/share_plus.dart';
-import 'album_model.dart'; // Add this import
-import 'saved_album_page.dart'; // Add this import
-import 'widgets/skeleton_loading.dart'; // Add this import
-import 'search_service.dart'; // Add this import to fix undefined SearchService
+import 'saved_album_page.dart';
+import 'widgets/platform_match_widget.dart';
+import 'widgets/skeleton_loading.dart';
+import 'search_service.dart';
 
 class DetailsPage extends StatefulWidget {
   final dynamic album;
@@ -56,7 +56,22 @@ class _DetailsPageState extends State<DetailsPage> {
   void initState() {
     super.initState();
     _initialize();
-    _loadButtonPreference();
+    _loadButtonTextPreference(); // Add this line to load the button text preference
+  }
+
+  // Add this method to load the button text preference
+  Future<void> _loadButtonTextPreference() async {
+    try {
+      final dbHelper = DatabaseHelper.instance;
+      final buttonPref = await dbHelper.getSetting('useDarkButtonText');
+      if (mounted) {
+        setState(() {
+          useDarkButtonText = buttonPref == 'true';
+        });
+      }
+    } catch (e) {
+      Logging.severe('Error loading button text preference', e);
+    }
   }
 
   Future<void> _initialize() async {
@@ -385,9 +400,13 @@ class _DetailsPageState extends State<DetailsPage> {
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
-    // Calculate DataTable width to fit within our constraints
-    // This allows the DataTable to scale properly while staying within our pageWidth
-    final dataTableWidth = pageWidth - 16; // Apply small padding
+    // Get the correct icon color based on theme brightness
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
+    // Add this line to define dataTableWidth
+    final dataTableWidth = pageWidth - 32; // Apply padding for the data table
 
     return MaterialApp(
       navigatorKey: navigatorKey,
@@ -403,9 +422,14 @@ class _DetailsPageState extends State<DetailsPage> {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.arrow_back, color: iconColor),
+                  padding: const EdgeInsets.all(
+                      8.0), // Increase padding for larger hit area
+                  constraints:
+                      const BoxConstraints(), // Remove constraints to allow more space
+                  iconSize: 24.0, // Explicit icon size
+                  splashRadius:
+                      28.0, // Add splash radius to improve visual feedback
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: 8),
@@ -759,7 +783,20 @@ class _DetailsPageState extends State<DetailsPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              data: Theme.of(context).sliderTheme,
+              // Create a custom SliderThemeData here based on the useDarkButtonText preference
+              data: SliderThemeData(
+                activeTrackColor: Theme.of(context).colorScheme.primary,
+                inactiveTrackColor:
+                    Theme.of(context).colorScheme.primary.withAlpha(76),
+                thumbColor: Theme.of(context).colorScheme.primary,
+                overlayColor:
+                    Theme.of(context).colorScheme.primary.withAlpha(76),
+                valueIndicatorColor: Theme.of(context).colorScheme.primary,
+                valueIndicatorTextStyle: TextStyle(
+                  color: useDarkButtonText ? Colors.black : Colors.white,
+                ),
+                showValueIndicator: ShowValueIndicator.always,
+              ),
               child: Slider(
                 min: 0,
                 max: 10,
@@ -803,15 +840,10 @@ class _DetailsPageState extends State<DetailsPage> {
                   final album =
                       await UserData.importAlbum(); // Remove context parameter
                   if (album != null && mounted) {
-                    navigator.pushReplacement(
+                    Navigator.push(
+                      context,
                       MaterialPageRoute(
-                        builder: (_) => SavedAlbumPage(
-                          album: album,
-                          isBandcamp: album['url']
-                                  ?.toString()
-                                  .contains('bandcamp.com') ??
-                              false,
-                        ),
+                        builder: (context) => const SavedAlbumPage(),
                       ),
                     );
                   }
@@ -846,7 +878,7 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
-  void _showAddToListDialog() {
+  Future<void> _showAddToListDialog() async {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
@@ -953,11 +985,42 @@ class _DetailsPageState extends State<DetailsPage> {
         // Save the album first since user made selections
         final albumToSave = unifiedAlbum?.toJson() ?? widget.album;
 
-        // Debug info
+        // DEBUG: Add logging to see what we're saving
         Logging.severe('Adding album to lists: ${jsonEncode({
               'id': albumToSave['id'] ?? albumToSave['collectionId'],
               'name': albumToSave['name'] ?? albumToSave['collectionName'],
             })}');
+
+        // CRITICAL FIX: Make sure tracks are included in saved data
+        // For Bandcamp albums, ensure tracks are included in the JSON data
+        if ((albumToSave['platform'] == 'bandcamp' || widget.isBandcamp) &&
+            tracks.isNotEmpty) {
+          // Ensure there's a place to store the tracks metadata
+          if (!albumToSave.containsKey('data')) {
+            albumToSave['data'] = jsonEncode({
+              'tracks': tracks.map((t) => t.toJson()).toList(),
+            });
+            Logging.severe(
+                'Added ${tracks.length} tracks to Bandcamp album data for storage');
+          } else if (albumToSave['data'] is String) {
+            // If data is already a string (JSON), parse it, add tracks, and re-encode
+            try {
+              final Map<String, dynamic> dataMap =
+                  jsonDecode(albumToSave['data']);
+              dataMap['tracks'] = tracks.map((t) => t.toJson()).toList();
+              albumToSave['data'] = jsonEncode(dataMap);
+              Logging.severe(
+                  'Updated existing data field with ${tracks.length} tracks for Bandcamp album');
+            } catch (e) {
+              // If data can't be parsed as JSON, replace it entirely
+              albumToSave['data'] = jsonEncode({
+                'tracks': tracks.map((t) => t.toJson()).toList(),
+              });
+              Logging.severe(
+                  'Replaced unparseable data with tracks for Bandcamp album');
+            }
+          }
+        }
 
         // First make sure the album is saved to database
         final saveResult = await UserData.addToSavedAlbums(albumToSave);
@@ -1360,15 +1423,6 @@ class _DetailsPageState extends State<DetailsPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _loadButtonPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        useDarkButtonText = prefs.getBool('useDarkButtonText') ?? false;
-      });
-    }
   }
 
   // Add this method to handle refresh

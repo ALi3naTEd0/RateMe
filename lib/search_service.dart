@@ -6,7 +6,8 @@ import 'logging.dart';
 import 'platform_service.dart';
 import 'api_keys.dart';
 import 'database/search_history_db.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'database/database_helper.dart';
+import 'platforms/platform_service_factory.dart';
 
 /// Enum representing the available search platforms
 enum SearchPlatform {
@@ -26,12 +27,50 @@ enum SearchPlatform {
 }
 
 class SearchService {
+  final PlatformServiceFactory _factory = PlatformServiceFactory();
+  String _defaultPlatform = 'spotify';
+
+  // Change to use DatabaseHelper for default platform
+  Future<void> initialize() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final storedPlatform = await db.getSetting('defaultSearchPlatform');
+      if (storedPlatform != null &&
+          _factory.isPlatformSupported(storedPlatform)) {
+        _defaultPlatform = storedPlatform;
+      }
+      Logging.severe(
+          'Search service initialized with default platform: $_defaultPlatform');
+    } catch (e, stack) {
+      Logging.severe('Error initializing search service', e, stack);
+    }
+  }
+
+  Future<String> getDefaultPlatform() async {
+    // Try to get from database first
+    final db = DatabaseHelper.instance;
+    final storedPlatform = await db.getSetting('defaultSearchPlatform');
+    if (storedPlatform != null &&
+        _factory.isPlatformSupported(storedPlatform)) {
+      _defaultPlatform = storedPlatform;
+    }
+    return _defaultPlatform;
+  }
+
+  Future<void> setDefaultPlatform(String platform) async {
+    if (_factory.isPlatformSupported(platform)) {
+      _defaultPlatform = platform;
+      // Save to database
+      final db = DatabaseHelper.instance;
+      await db.saveSetting('defaultSearchPlatform', platform);
+    }
+  }
+
   /// Search for an album on a given platform
   static Future<Map<String, dynamic>?> searchAlbum(
       String query, SearchPlatform platform) async {
     // Check if the query is a URL first
     String lowerQuery = query.toLowerCase();
-
     // Override platform based on URL detection
     if (lowerQuery.contains('bandcamp.com')) {
       Logging.severe(
@@ -48,21 +87,16 @@ class SearchService {
     } else if (lowerQuery.contains('discogs.com')) {
       Logging.severe(
           'URL detection in searchAlbum: Switching to Discogs for URL: $query');
-
       // Extract release ID and type from URL
       final regExp = RegExp(r'/(master|release)/(\d+)');
       final match = regExp.firstMatch(query);
-
       if (match != null && match.groupCount >= 2) {
         final type = match.group(1);
         final id = match.group(2);
-
         Logging.severe('Detected Discogs $type ID: $id');
-
         try {
           // Fetch basic album info from Discogs API to display a proper preview
           final apiUrl = 'https://api.discogs.com/${type}s/$id';
-
           final response = await http.get(
             Uri.parse(apiUrl),
             headers: {
@@ -71,35 +105,27 @@ class SearchService {
                   'Discogs key=${ApiKeys.discogsConsumerKey}, secret=${ApiKeys.discogsConsumerSecret}',
             },
           );
-
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
-
             // Extract title and artist info
             String title = data['title'] ?? 'Unknown Album';
             String artist = '';
-
             if (type == 'master') {
               if (data['artists'] != null && data['artists'].isNotEmpty) {
                 artist = data['artists'][0]['name'] ?? '';
               }
             } else {
-              // release
               artist = data['artists_sort'] ?? '';
             }
-
             if (artist.isEmpty) {
               artist = 'Unknown Artist';
             }
-
             // Get artwork URL if available
             String artworkUrl = '';
             if (data['images'] != null && data['images'].isNotEmpty) {
               artworkUrl = data['images'][0]['uri'] ?? '';
             }
-
             Logging.severe('Found Discogs album: $artist - $title');
-
             // Return the album with actual data, plus a flag to indicate this is from a direct URL
             return {
               'results': [
@@ -123,12 +149,13 @@ class SearchService {
         } catch (e) {
           Logging.severe('Error fetching Discogs album data: $e');
         }
-
+      } else {
         // Fallback if API call fails
         return {
           'results': [
             {
-              'collectionId': id,
+              'collectionId': match?.group(2) ??
+                  'unknown', // Use match?.group(2) instead of undefined 'id'
               'collectionName': 'Discogs Album', // Generic title
               'artistName': 'Loading details...',
               'artworkUrl100': '',
@@ -138,7 +165,6 @@ class SearchService {
           ]
         };
       }
-
       // If URL parsing failed, proceed with search
       platform = SearchPlatform.discogs;
     } else if (lowerQuery.contains('music.apple.com') ||
@@ -147,7 +173,6 @@ class SearchService {
           'URL detection in searchAlbum: Switching to iTunes for URL: $query');
       return await searchITunes(query);
     }
-
     // If it's not a URL, use the specified platform
     switch (platform) {
       case SearchPlatform.spotify:
@@ -170,17 +195,14 @@ class SearchService {
     try {
       // Default to iTunes if not specified
       final results = await searchITunes(query);
-
       // If results are null, return an empty list
       if (results == null) {
         return [];
       }
-
       // Extract the results list from the map
       if (results.containsKey('results') && results['results'] is List) {
         return results['results'] as List;
       }
-
       // Fallback: return an empty list if no results found
       return [];
     } catch (e, stack) {
@@ -197,23 +219,18 @@ class SearchService {
       if (query.toLowerCase().contains('music.apple.com') ||
           query.toLowerCase().contains('itunes.apple.com')) {
         Logging.severe('Detected Apple Music/iTunes album URL: $query');
-
         // Extract the album ID from the URL
         final regExp = RegExp(r'/album/[^/]+/(\d+)');
         final match = regExp.firstMatch(query);
-
         if (match != null && match.groupCount >= 1) {
           final albumId = match.group(1);
           Logging.severe('Extracted Apple Music album ID from URL: $albumId');
-
           // Use the iTunes lookup API to get album details
           final lookupUrl = Uri.parse(
               'https://itunes.apple.com/lookup?id=$albumId&entity=song');
           final lookupResponse = await http.get(lookupUrl);
-
           if (lookupResponse.statusCode == 200) {
             final data = jsonDecode(lookupResponse.body);
-
             if (data['resultCount'] > 0) {
               // First result is the album, others are the tracks
               final albumInfo = data['results'][0];
@@ -221,7 +238,6 @@ class SearchService {
                   .sublist(1)
                   .where((item) => item['wrapperType'] == 'track')
                   .toList();
-
               // Format the album details
               final album = {
                 'id': albumInfo['collectionId'],
@@ -246,7 +262,6 @@ class SearchService {
                   };
                 }).toList(),
               };
-
               // Return the single album with full details
               Logging.severe(
                   'Found exact Apple Music album from URL with ${trackResults.length} tracks: ${album['collectionName']}');
@@ -257,53 +272,41 @@ class SearchService {
           }
         }
       }
-
       // Standard search handling for non-URL queries
       Logging.severe('Performing enhanced iTunes search for: $query');
-
       // 1. First search by general term (with limit=50)
       final searchUrl = Uri.parse(
           'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}'
           '&entity=album&limit=50&sort=recent');
-
       final searchResponse = await http.get(searchUrl);
       if (searchResponse.statusCode != 200) {
         throw 'iTunes API error: ${searchResponse.statusCode}';
       }
-
       final searchData = jsonDecode(searchResponse.body);
       Logging.severe(
           'iTunes general search returned ${searchData['resultCount']} results');
-
       // 2. Search specifically by artist name to improve relevance
       final artistSearchUrl = Uri.parse(
           'https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}'
           '&attribute=artistTerm&entity=album&limit=100');
-
       final artistSearchResponse = await http.get(artistSearchUrl);
       if (artistSearchResponse.statusCode != 200) {
         throw 'iTunes artist search API error: ${artistSearchResponse.statusCode}';
       }
-
       final artistSearchData = jsonDecode(artistSearchResponse.body);
       Logging.severe(
           'iTunes artist-specific search returned ${artistSearchData['resultCount']} results');
-
       // Combine results, filter and handle duplicates
       final Map<String, dynamic> uniqueAlbums = {};
-
       // Process artist-specific search results (higher priority)
       _processSearchResults(artistSearchData['results'], uniqueAlbums, true);
-
       // Apply the same deduplication logic to general search results
       _processSearchResults(searchData['results'], uniqueAlbums, false);
-
       // Filter and sort results
       final validAlbums =
           _filterAndSortAlbums(uniqueAlbums.values.toList(), query);
       Logging.severe(
           'iTunes search: ${validAlbums.length} unique albums after deduplication and filtering');
-
       // 4. If there's a specific artist match, get their full discography
       if (validAlbums
           .where((a) =>
@@ -313,7 +316,6 @@ class SearchService {
         Logging.severe(
             'iTunes search: appended artist discography, final count: ${validAlbums.length}');
       }
-
       // Make sure all albums have platform set to 'itunes'
       for (var album in validAlbums) {
         album['platform'] = 'itunes';
@@ -334,13 +336,10 @@ class SearchService {
           item['collectionType'] == 'Album') {
         final String albumName = item['collectionName'].toString();
         final String artistName = item['artistName'].toString();
-
         final String cleanAlbumName = albumName
             .replaceAll(RegExp(r' - Single$'), '')
             .replaceAll(RegExp(r' - EP$'), '');
-
         final String albumKey = "${artistName}_$cleanAlbumName".toLowerCase();
-
         if (uniqueAlbums.containsKey(albumKey)) {
           _handleDuplicate(uniqueAlbums, albumKey, item);
         } else {
@@ -354,17 +353,14 @@ class SearchService {
   static void _handleDuplicate(
       Map<String, dynamic> uniqueAlbums, String albumKey, dynamic newItem) {
     final existing = uniqueAlbums[albumKey];
-
     if ((newItem['trackCount'] ?? 0) > (existing['trackCount'] ?? 0)) {
       uniqueAlbums[albumKey] = newItem;
     }
-
     if (existing['collectionExplicitness'] !=
         newItem['collectionExplicitness']) {
       if (newItem['collectionExplicitness'] == 'explicit') {
         uniqueAlbums[albumKey] = newItem;
       }
-
       if (newItem['collectionExplicitness'] == 'cleaned' &&
           !newItem['collectionName'].toString().contains('(Clean)')) {
         final cleanItem = Map<String, dynamic>.from(newItem);
@@ -382,7 +378,6 @@ class SearchService {
       item = Map<String, dynamic>.from(item);
       item['collectionName'] = "${item['collectionName']} (Clean)";
     }
-
     uniqueAlbums[albumKey] = item;
   }
 
@@ -397,7 +392,6 @@ class SearchService {
     // Separate exact artist match albums from others
     final artistAlbums = <dynamic>[];
     final otherAlbums = <dynamic>[];
-
     for (var album in validAlbums) {
       if (album['artistName'].toString().toLowerCase() == query.toLowerCase()) {
         artistAlbums.add(album);
@@ -425,31 +419,25 @@ class SearchService {
       List<dynamic> results, String query) async {
     try {
       if (results.isEmpty) return;
-
       final artistId = results.first['artistId'];
       final artistUrl = Uri.parse('https://itunes.apple.com/lookup?id=$artistId'
           '&entity=album&limit=200');
-
       final artistResponse = await http.get(artistUrl);
       final artistData = jsonDecode(artistResponse.body);
-
       Logging.severe(
           'Artist discography lookup returned ${artistData['resultCount']} items');
-
       for (var item in artistData['results']) {
         if (item['wrapperType'] == 'collection' &&
             item['collectionType'] == 'Album') {
           bool alreadyAdded = results.any((existing) {
             return existing['collectionId'] == item['collectionId'];
           });
-
           if (!alreadyAdded) {
             if (item['collectionExplicitness'] == 'cleaned' &&
                 !item['collectionName'].toString().contains('(Clean)')) {
               item = Map<String, dynamic>.from(item);
               item['collectionName'] = "${item['collectionName']} (Clean)";
             }
-
             if (item['artistName'].toString().toLowerCase() ==
                 query.toLowerCase()) {
               results.insert(
@@ -478,27 +466,21 @@ class SearchService {
       if (query.toLowerCase().contains('spotify.com') &&
           query.toLowerCase().contains('/album/')) {
         Logging.severe('Detected Spotify album URL: $query');
-
         // Extract the album ID from the URL
         final regExp = RegExp(r'/album/([a-zA-Z0-9]+)');
         final match = regExp.firstMatch(query);
-
         if (match != null && match.groupCount >= 1) {
           final albumId = match.group(1);
           Logging.severe('Extracted Spotify album ID from URL: $albumId');
-
           // Get access token
           final accessToken = await _getSpotifyAccessToken();
-
           // Use the Spotify API to get album details
           final albumUrl =
               Uri.parse('https://api.spotify.com/v1/albums/$albumId');
           final albumResponse = await http
               .get(albumUrl, headers: {'Authorization': 'Bearer $accessToken'});
-
           if (albumResponse.statusCode == 200) {
             final albumData = jsonDecode(albumResponse.body);
-
             // Format as a single result with complete information
             final album = {
               'id': albumData['id'],
@@ -525,7 +507,6 @@ class SearchService {
                 };
               }).toList(),
             };
-
             // Return only this single album with full track information
             Logging.severe(
                 'Found exact Spotify album from URL with ${album['tracks'].length} tracks: ${album['collectionName']}');
@@ -535,10 +516,8 @@ class SearchService {
           }
         }
       }
-
       // Standard search for non-URL queries
       final encodedQuery = Uri.encodeComponent(query);
-
       // Get access token - fix the authentication method
       String accessToken;
       try {
@@ -551,22 +530,17 @@ class SearchService {
         Logging.severe('Error getting Spotify token', e, stack);
         throw 'Error getting Spotify token: $e';
       }
-
       final url = Uri.parse(
           'https://api.spotify.com/v1/search?q=$encodedQuery&type=album&limit=50');
-
       final response = await http
           .get(url, headers: {'Authorization': 'Bearer $accessToken'});
-
       if (response.statusCode != 200) {
         throw 'Spotify API error: ${response.statusCode}';
       }
-
       final data = jsonDecode(response.body);
       if (!data.containsKey('albums') || !data['albums'].containsKey('items')) {
         return null;
       }
-
       // Format results to match the expected structure
       final results = data['albums']['items'].map((album) {
         return {
@@ -583,7 +557,6 @@ class SearchService {
           'releaseDate': album['release_date'],
         };
       }).toList();
-
       return {'results': results};
     } catch (e, stack) {
       Logging.severe('Error searching Spotify', e, stack);
@@ -597,12 +570,10 @@ class SearchService {
       // Use constants directly since ApiKeys values are already constants
       const clientId = ApiKeys.spotifyClientId;
       const clientSecret = ApiKeys.spotifyClientSecret;
-
       // Encode credentials and create authorization header
       const credentials = "$clientId:$clientSecret";
       final bytes = utf8.encode(credentials);
       final base64Credentials = base64.encode(bytes);
-
       // Make token request
       final tokenUrl = Uri.parse('https://accounts.spotify.com/api/token');
       final response = await http.post(
@@ -613,13 +584,11 @@ class SearchService {
         },
         body: {'grant_type': 'client_credentials'},
       );
-
       if (response.statusCode != 200) {
         Logging.severe(
             'Spotify token error: ${response.statusCode} ${response.body}');
         throw 'Failed to get Spotify token: ${response.statusCode}';
       }
-
       final data = jsonDecode(response.body);
       if (!data.containsKey('access_token')) {
         throw 'No access token in Spotify response';
@@ -640,30 +609,23 @@ class SearchService {
       if (query.toLowerCase().contains('deezer.com') &&
           query.toLowerCase().contains('/album/')) {
         Logging.severe('Detected Deezer album URL: $query');
-
         // Extract the album ID from the URL - modified to handle country codes
         final RegExp regExp = RegExp(r'/album/(\d+)');
         final match = regExp.firstMatch(query);
-
         if (match != null && match.groupCount >= 1) {
           final albumId = match.group(1);
           Logging.severe('Extracted Deezer album ID from URL: $albumId');
-
           // Fetch this specific album directly
           final albumUrl = Uri.parse('https://api.deezer.com/album/$albumId');
           final albumResponse = await http.get(albumUrl);
-
           if (albumResponse.statusCode == 200) {
             final albumData = jsonDecode(albumResponse.body);
-
             // Now fetch the track information
             final tracksUrl =
                 Uri.parse('https://api.deezer.com/album/$albumId/tracks');
             final tracksResponse = await http.get(tracksUrl);
-
             if (tracksResponse.statusCode == 200) {
               final tracksData = jsonDecode(tracksResponse.body);
-
               // Format as a single result with complete information
               final album = {
                 'id': albumData['id'],
@@ -691,9 +653,8 @@ class SearchService {
                     'artistName': track['artist']['name'],
                   };
                 }).toList(),
-                'nb_tracks': albumData['nb_tracks'] ?? 0
+                'nb_tracks': albumData['nb_tracks'] ?? 0,
               };
-
               // Return only this single album with full track information
               Logging.severe(
                   'Found exact Deezer album from URL with ${album['tracks'].length} tracks: ${album['collectionName']}');
@@ -704,28 +665,22 @@ class SearchService {
           }
         }
       }
-
       // Standard search for non-URL queries
       final encodedQuery = Uri.encodeComponent(query);
       final url = Uri.parse(
           'https://api.deezer.com/search/album?q=$encodedQuery&limit=50');
-
       Logging.severe('Deezer search URL: $url');
-
       final response = await http.get(url);
       if (response.statusCode != 200) {
         throw 'Deezer API error: ${response.statusCode}';
       }
-
       final data = jsonDecode(response.body);
       if (!data.containsKey('data')) {
         return null;
       }
-
       // Log the number of results we're getting
       Logging.severe(
           'Deezer search returned ${data['data'].length} results for query: $query');
-
       // Format results to match the expected structure
       final results = data['data'].map<Map<String, dynamic>>((album) {
         return {
@@ -745,7 +700,6 @@ class SearchService {
               album['release_date'] ?? DateTime.now().toIso8601String(),
         };
       }).toList();
-
       return {'results': results};
     } catch (e, stack) {
       Logging.severe('Error searching Deezer', e, stack);
@@ -759,7 +713,6 @@ class SearchService {
     try {
       // Determine platform from album data
       String platform = album['platform'] ?? 'unknown';
-
       if (platform == 'unknown') {
         // Try to infer platform from URL
         final url = album['url'] ?? '';
@@ -775,9 +728,7 @@ class SearchService {
           platform = 'discogs';
         }
       }
-
       Logging.severe('Fetching tracks for album on platform: $platform');
-
       // Use appropriate fetching method based on platform
       switch (platform.toLowerCase()) {
         case 'spotify':
@@ -791,9 +742,8 @@ class SearchService {
         case 'itunes':
           return await fetchITunesAlbumDetails(album);
       }
-
       // Add a fallback return after the switch
-      return await fetchITunesAlbumDetails(album);
+      return null;
     } catch (e, stack) {
       Logging.severe('Error fetching album tracks', e, stack);
       return null;
@@ -806,21 +756,16 @@ class SearchService {
     try {
       final albumId = album['id'] ?? album['collectionId'];
       if (albumId == null) return null;
-
       // Get access token with the correct method
       final accessToken = await _getSpotifyAccessToken();
-
       // Get album details
       final url = Uri.parse('https://api.spotify.com/v1/albums/$albumId');
       final response = await http
           .get(url, headers: {'Authorization': 'Bearer $accessToken'});
-
       if (response.statusCode != 200) {
         throw 'Spotify API error: ${response.statusCode}';
       }
-
       final data = jsonDecode(response.body);
-
       // Parse tracks
       final tracks = data['tracks']['items'].map<Map<String, dynamic>>((track) {
         return {
@@ -831,7 +776,6 @@ class SearchService {
           'artistName': track['artists'][0]['name'],
         };
       }).toList();
-
       // Return album with tracks
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
@@ -848,17 +792,13 @@ class SearchService {
     try {
       final albumId = album['id'] ?? album['collectionId'];
       if (albumId == null) return null;
-
       // Get album tracks
       final url = Uri.parse('https://api.deezer.com/album/$albumId/tracks');
       final response = await http.get(url);
-
       if (response.statusCode != 200) {
         throw 'Deezer API error: ${response.statusCode}';
       }
-
       final data = jsonDecode(response.body);
-
       // Parse tracks
       final tracks = data['data'].map<Map<String, dynamic>>((track) {
         return {
@@ -870,7 +810,6 @@ class SearchService {
           'artistName': track['artist']['name'],
         };
       }).toList();
-
       // Return album with tracks
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
@@ -892,7 +831,6 @@ class SearchService {
           (album['tracks'] as List).isNotEmpty) {
         return album;
       }
-
       // If tracks are missing, we can try to use the platform service
       final albumUrl = album['url'];
       if (albumUrl != null && albumUrl.isNotEmpty) {
@@ -902,7 +840,6 @@ class SearchService {
           return album;
         }
       }
-
       // For now, return the album as is
       return album;
     } catch (e, stack) {
@@ -917,24 +854,19 @@ class SearchService {
     try {
       final collectionId = album['collectionId'] ?? album['id'];
       if (collectionId == null) return null;
-
       // Look up album and tracks
       final url = Uri.parse(
           'https://itunes.apple.com/lookup?id=$collectionId&entity=song');
       final response = await http.get(url);
-
       if (response.statusCode != 200) {
         throw 'iTunes API error: ${response.statusCode}';
       }
-
       final data = jsonDecode(response.body);
-
       // Filter to get just the tracks
       final tracks = data['results']
           .where((item) =>
               item['wrapperType'] == 'track' && item['kind'] == 'song')
           .toList();
-
       // Return album with tracks
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
@@ -950,43 +882,34 @@ class SearchService {
       Map<String, dynamic> album) async {
     try {
       Logging.severe('Fetching Discogs album details: ${album['url']}');
-
       // Extract the ID from the URL
       final RegExp regExp = RegExp(r'/(master|release)/(\d+)');
       final match = regExp.firstMatch(album['url'] as String);
-
       if (match == null || match.groupCount < 2) {
         Logging.severe(
             'Could not extract ID from Discogs URL: ${album['url']}');
         return null;
       }
-
       final type = match.group(1);
       final id = match.group(2);
-
       if (type == null || id == null) {
         return null;
       }
-
       // Build the API URL with authentication parameters directly in the URL
       final apiUrl =
           'https://api.discogs.com/${type}s/$id?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}';
       Logging.severe('Fetching from Discogs API: $apiUrl');
-
       final response = await http.get(
         Uri.parse(apiUrl),
         headers: {
           'User-Agent': 'RateMe/1.0',
         },
       );
-
       if (response.statusCode != 200) {
         Logging.severe('Discogs API error: ${response.statusCode}');
         return album; // Return original album on error
       }
-
       final data = jsonDecode(response.body);
-
       // Extract artist name
       String artistName = '';
       if (data['artists'] != null) {
@@ -994,40 +917,62 @@ class SearchService {
       } else if (data['artists_sort'] != null) {
         artistName = data['artists_sort'];
       }
-
       if (artistName.isEmpty) {
         artistName = album['artistName'] ?? 'Unknown Artist';
       }
-
       // Extract album title
       final albumTitle =
           data['title'] ?? album['collectionName'] ?? 'Unknown Album';
-
       // Extract tracks from the current response first
       List<Map<String, dynamic>> tracks = <Map<String, dynamic>>[];
-
+      int trackIndex = 0;
       if (data['tracklist'] != null) {
-        tracks = _processDiscogsTrackList(data['tracklist'], id, artistName);
+        for (var track in data['tracklist']) {
+          // Skip headings, indexes, etc.
+          if (track['type_'] == 'heading' || track['type_'] == 'index') {
+            continue;
+          }
+          trackIndex++;
+          // Create a unique numeric track ID
+          int trackId = int.parse(id) * 1000 + trackIndex;
+          // Extract track artist if available, or use album artist
+          String trackArtist = artistName;
+          if (track['artists'] != null &&
+              track['artists'] is List &&
+              track['artists'].isNotEmpty) {
+            trackArtist = track['artists'].map((a) => a['name']).join(', ');
+          }
+          // Parse duration - only if it actually exists
+          int durationMs = 0;
+          if (track['duration'] != null &&
+              track['duration'].toString().trim().isNotEmpty) {
+            durationMs = parseTrackDuration(track['duration']);
+            Logging.severe(
+                'Parsed track ${track['title']}: duration ${track['duration']} -> ${durationMs}ms');
+          }
+          tracks.add({
+            'trackId': trackId,
+            'trackName': track['title'] ?? 'Track $trackIndex',
+            'trackNumber': trackIndex,
+            'trackTimeMillis': durationMs > 0 ? durationMs : null,
+            'artistName': trackArtist,
+          });
+        }
       }
-
       // Check if we have track durations in the initial response
       bool hasTrackDurations = _tracksHaveDurations(tracks);
-
       if (hasTrackDurations) {
         Logging.severe('Original response has track durations, using those');
       } else {
         Logging.severe(
             'Original response missing track durations, will search for alternatives');
-
         // Now we need to build a comprehensive set of versions to try
         final List<Map<String, dynamic>> versionsToTry = [];
-
         // APPROACH 1: If we have a release, try its master release
         String? masterId;
         if (type == "release" && data['master_id'] != null) {
           masterId = data['master_id'].toString();
           Logging.severe('Found master release ID: $masterId for release: $id');
-
           versionsToTry.add({
             'id': masterId,
             'type': 'masters',
@@ -1035,21 +980,17 @@ class SearchService {
             'note': 'Master of current release',
           });
         }
-
         // APPROACH 2: Get specific versions from releases list
         List<dynamic> releasesVersions = [];
-
         // For a master, get its releases
         if (type == "master") {
           try {
             final releasesUrl =
                 'https://api.discogs.com/masters/$id/versions?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}';
-
             final releasesResponse = await http.get(
               Uri.parse(releasesUrl),
               headers: {'User-Agent': 'RateMe/1.0'},
             );
-
             if (releasesResponse.statusCode == 200) {
               final releasesData = jsonDecode(releasesResponse.body);
               if (releasesData['versions'] != null) {
@@ -1067,12 +1008,10 @@ class SearchService {
           try {
             final masterReleasesUrl =
                 'https://api.discogs.com/masters/$masterId/versions?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}';
-
             final masterReleasesResponse = await http.get(
               Uri.parse(masterReleasesUrl),
               headers: {'User-Agent': 'RateMe/1.0'},
             );
-
             if (masterReleasesResponse.statusCode == 200) {
               final masterReleasesData =
                   jsonDecode(masterReleasesResponse.body);
@@ -1086,32 +1025,24 @@ class SearchService {
             Logging.severe('Error fetching master releases: $e');
           }
         }
-
         // Process and score all available releases
         final preferredCountries = ['US', 'UK', 'Japan', 'Germany', 'France'];
         final preferredFormats = ['CD', 'Digital', 'File', 'Vinyl'];
-
         for (var version in releasesVersions) {
           if (version['id'] != null) {
             final versionId = version['id'].toString();
-
             // Skip the current release if it's in the list (already tried it)
             if (type == 'release' && versionId == id) continue;
-
             // Score this version based on various factors
             int score = 50; // Base score
-
             // Factor 1: Country preference
             final country = (version['country'] as String?) ?? '';
             if (preferredCountries.contains(country)) {
               score += (5 - preferredCountries.indexOf(country)) * 5;
             }
-
             // Factor 2: Format preference - formats are often in a list like ["CD", "Album"]
             final format = version['format'] ?? [];
             String formatStr = '';
-
-            // Track if we found a preferred format (removed unused variable warning)
             if (format is List && format.isNotEmpty) {
               formatStr = format.join(', ');
               for (final preferredFormat in preferredFormats) {
@@ -1133,13 +1064,11 @@ class SearchService {
                 }
               }
             }
-
             // Factor 3: Major label releases often have better metadata
             final label = version['label'] as String? ?? '';
             if (label.isNotEmpty) {
               score += 5;
             }
-
             // Factor 4: Newer releases tend to have better data
             final year = version['released'] as String? ?? '';
             if (year.length == 4 && int.tryParse(year) != null) {
@@ -1150,7 +1079,6 @@ class SearchService {
                 score += 5;
               }
             }
-
             versionsToTry.add({
               'id': versionId,
               'type': 'releases', // These are always specific releases
@@ -1161,14 +1089,11 @@ class SearchService {
             });
           }
         }
-
         // Sort versions by score (highest first)
         versionsToTry
             .sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-
         // Increase the number of versions to try - specifically for cases like Lingua Ignota
         final maxVersionsToTry = math.min(15, versionsToTry.length);
-
         Logging.severe(
             'Will try up to $maxVersionsToTry alternate versions to find track durations:');
         for (int i = 0; i < maxVersionsToTry; i++) {
@@ -1176,28 +1101,22 @@ class SearchService {
           Logging.severe(
               '  ${i + 1}. ${version['type']}/${version['id']} - Score: ${version['score']} - ${version['note']}');
         }
-
         // Now systematically try versions until we find durations
         for (int i = 0; i < maxVersionsToTry; i++) {
           final version = versionsToTry[i];
           final versionType = version['type'] as String;
           final versionId = version['id'] as String;
-
           Logging.severe(
               'Trying ${i + 1}/$maxVersionsToTry: $versionType/$versionId (${version['note']})');
-
           try {
             final versionUrl =
                 'https://api.discogs.com/$versionType/$versionId?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}';
-
             final versionResponse = await http.get(
               Uri.parse(versionUrl),
               headers: {'User-Agent': 'RateMe/1.0'},
             );
-
             if (versionResponse.statusCode == 200) {
               final versionData = jsonDecode(versionResponse.body);
-
               if (versionData['tracklist'] != null) {
                 // Process tracks from this version
                 final versionTracks = _processDiscogsTrackList(
@@ -1208,14 +1127,11 @@ class SearchService {
                 final durationPercentage =
                     _calculateTrackDurationPercentage(versionTracks);
 
-                // Fixed string interpolation issue
                 Logging.severe(
                     'Version $versionId has ${versionTracks.length} tracks with ${(durationPercentage * 100).toStringAsFixed(1)}% having durations');
-
                 if (hasVersionDurations) {
                   Logging.severe(
                       'Found version with good track durations: $versionType/$versionId');
-
                   // Lower the threshold for track count difference to better handle variants
                   // Some releases might have a few bonus tracks or slightly different tracklists
                   if (tracks.isEmpty ||
@@ -1236,17 +1152,14 @@ class SearchService {
           }
         }
       }
-
       // If we still don't have track durations, we'll return what we have
       Logging.severe(
           'Final track count: ${tracks.length}, has durations: $hasTrackDurations');
-
       // Add the tracks to the album
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
       result['collectionName'] = albumTitle;
       result['artistName'] = artistName;
-
       // Add artwork if available and not already in the album data
       if (data['images'] != null &&
           data['images'].isNotEmpty &&
@@ -1254,7 +1167,6 @@ class SearchService {
               album['artworkUrl100'].toString().isEmpty)) {
         result['artworkUrl100'] = data['images'][0]['uri'];
       }
-
       return result;
     } catch (e, stack) {
       Logging.severe('Error fetching Discogs album details', e, stack);
@@ -1267,18 +1179,14 @@ class SearchService {
       List<dynamic> tracklist, String releaseId, String defaultArtistName) {
     final tracks = <Map<String, dynamic>>[];
     int trackIndex = 0;
-
     for (var track in tracklist) {
       // Skip headings, indexes, etc.
       if (track['type_'] == 'heading' || track['type_'] == 'index') {
         continue;
       }
-
       trackIndex++;
-
       // Create a unique numeric track ID
       int trackId = int.parse(releaseId) * 1000 + trackIndex;
-
       // Extract track artist if available, or use album artist
       String trackArtist = defaultArtistName;
       if (track['artists'] != null &&
@@ -1286,7 +1194,6 @@ class SearchService {
           track['artists'].isNotEmpty) {
         trackArtist = track['artists'].map((a) => a['name']).join(', ');
       }
-
       // Parse duration - only if it actually exists
       int durationMs = 0;
       if (track['duration'] != null &&
@@ -1295,7 +1202,6 @@ class SearchService {
         Logging.severe(
             'Parsed track ${track['title']}: duration ${track['duration']} -> ${durationMs}ms');
       }
-
       tracks.add({
         'trackId': trackId,
         'trackName': track['title'] ?? 'Track $trackIndex',
@@ -1304,7 +1210,6 @@ class SearchService {
         'artistName': trackArtist,
       });
     }
-
     return tracks;
   }
 
@@ -1332,7 +1237,6 @@ class SearchService {
         tracksWithDurations++;
       }
     }
-
     return tracksWithDurations / tracks.length;
   }
 
@@ -1341,17 +1245,14 @@ class SearchService {
       {int limit = 10}) async {
     try {
       Logging.severe('Starting Bandcamp search with query: $query');
-
       // Check if this is a Bandcamp URL
       if (query.toLowerCase().contains('bandcamp.com')) {
         Logging.severe('Detected Bandcamp URL: $query');
-
         // Use the PlatformService.fetchBandcampAlbum method to get details
         final album = await PlatformService.fetchBandcampAlbum(query);
         if (album != null) {
           Logging.severe(
               'Successfully fetched Bandcamp album: ${album.name} by ${album.artist}');
-
           // Convert Album to the standard format expected by the app
           final result = {
             'id': album.id,
@@ -1375,12 +1276,10 @@ class SearchService {
                     })
                 .toList(),
           };
-
           return {
             'results': [result]
           };
         }
-
         // If direct fetch fails, return a placeholder that indicates we're trying
         return {
           'results': [
@@ -1395,7 +1294,6 @@ class SearchService {
           ]
         };
       }
-
       // Standard message for non-URL searches
       Logging.severe(
           'Bandcamp search requires a direct URL. Returning empty results.');
@@ -1416,22 +1314,16 @@ class SearchService {
       {int limit = 25}) async {
     try {
       Logging.severe('Starting Discogs search with query: $query');
-
       // Check if this is a URL
       if (query.toLowerCase().contains('discogs.com')) {
         Logging.severe('Detected Discogs URL in query: $query');
-
         // Extract ID and type from URL query
         final regExp = RegExp(r'/(master|release)/(\d+)');
         final match = regExp.firstMatch(query);
-
         if (match != null && match.groupCount >= 2) {
           final type = match.group(1);
           final id = match.group(2);
-
           Logging.severe('Detected Discogs $type ID: $id');
-
-          // Fetch basic information to show a proper preview
           try {
             // Use the Discogs API to get basic album details
             final apiUrl = 'https://api.discogs.com/${type}s/$id';
@@ -1443,41 +1335,32 @@ class SearchService {
                     'Discogs key=${ApiKeys.discogsConsumerKey}, secret=${ApiKeys.discogsConsumerSecret}',
               },
             );
-
             if (response.statusCode == 200) {
               final data = jsonDecode(response.body);
-
               // Extract basic info
               String title = data['title'] ?? 'Untitled Album';
               String artist = '';
-
               if (type == 'master') {
                 if (data['artists'] != null && data['artists'].isNotEmpty) {
                   artist = data['artists'][0]['name'] ?? '';
                 }
               } else {
-                // release
                 artist = data['artists_sort'] ?? '';
               }
-
               if (artist.isEmpty) {
                 artist = 'Unknown Artist';
               }
-
               // Get artwork if available
               String artworkUrl = '';
               if (data['images'] != null && data['images'].isNotEmpty) {
                 artworkUrl = data['images'][0]['uri'] ?? '';
               }
-
               // Get release year if available
               String year = '';
               if (data['year'] != null) {
                 year = data['year'].toString();
               }
-
               Logging.severe('Got Discogs album: $artist - $title ($year)');
-
               // Return the preview with actual data
               return {
                 'results': [
@@ -1498,30 +1381,23 @@ class SearchService {
           }
         }
       }
-
       // Continue with regular search if not a URL or URL parsing failed
       final List<Map<String, dynamic>> allResults = [];
-
       // APPROACH 1: First try to find the album directly
       final albumQuery = Uri.encodeComponent(query);
       final albumUrl = Uri.parse(
           'https://api.discogs.com/database/search?q=$albumQuery&type=master&per_page=20&key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}');
-
       Logging.severe('Discogs API album search URL: $albumUrl');
-
       final albumResponse = await http.get(
         albumUrl,
         headers: {
           'User-Agent': 'RateMe/1.0',
         },
       );
-
       if (albumResponse.statusCode == 200) {
         final albumData = jsonDecode(albumResponse.body);
         final albumResults = albumData['results'] as List? ?? [];
-
         Logging.severe('Discogs found ${albumResults.length} matching albums');
-
         // Process album results
         for (var result in albumResults) {
           if (result['type'] == 'master' || result['type'] == 'release') {
@@ -1529,7 +1405,6 @@ class SearchService {
             final id = result['id']?.toString() ?? '';
             final title = result['title'] ?? 'Unknown Album';
             final year = result['year']?.toString() ?? '';
-
             // Fix URL construction - always use full https://www.discogs.com URL
             String url;
             if (result['uri'] != null &&
@@ -1541,7 +1416,6 @@ class SearchService {
               url = 'https://www.discogs.com/${result['type']}/$id';
               Logging.severe('Constructed Discogs URL: $url');
             }
-
             // Extract artist from title (Discogs format is typically "Artist - Title")
             String artist = 'Unknown Artist';
             if (title.contains(' - ')) {
@@ -1550,7 +1424,6 @@ class SearchService {
                 artist = parts[0].trim();
                 // Use the part after the first " - " as the actual title
                 var actualTitle = parts.sublist(1).join(' - ').trim();
-
                 // Only add if we have valid data
                 if (id.isNotEmpty && actualTitle.isNotEmpty) {
                   allResults.add({
@@ -1566,7 +1439,6 @@ class SearchService {
                 continue;
               }
             }
-
             // If we couldn't split by " - ", just use the whole title
             if (id.isNotEmpty) {
               allResults.add({
@@ -1582,53 +1454,43 @@ class SearchService {
           }
         }
       }
-
       // APPROACH 2: If we didn't find enough results, try artist search
       if (allResults.length < 5) {
         // Try to find artist and their releases
         final artistQuery = Uri.encodeComponent(query);
         final artistUrl = Uri.parse(
             'https://api.discogs.com/database/search?q=$artistQuery&type=artist&per_page=5&key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}');
-
         Logging.severe('Discogs API artist search URL: $artistUrl');
-
         final artistResponse = await http.get(
           artistUrl,
           headers: {
             'User-Agent': 'RateMe/1.0',
           },
         );
-
         if (artistResponse.statusCode == 200) {
           final artistData = jsonDecode(artistResponse.body);
           final artistResults = artistData['results'] as List? ?? [];
-
           if (artistResults.isNotEmpty) {
             Logging.severe(
                 'Discogs found ${artistResults.length} matching artists');
-
             // Process first artist's releases
             for (int i = 0; i < math.min(2, artistResults.length); i++) {
               final artist = artistResults[i];
               final artistId = artist['id']?.toString();
-
               if (artistId != null) {
                 try {
                   // Get artist's releases
                   final releasesUrl = Uri.parse(
                       'https://api.discogs.com/artists/$artistId/releases?sort=year&sort_order=desc&per_page=20&key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}');
-
                   final releasesResponse = await http.get(
                     releasesUrl,
                     headers: {
                       'User-Agent': 'RateMe/1.0',
                     },
                   );
-
                   if (releasesResponse.statusCode == 200) {
                     final releasesData = jsonDecode(releasesResponse.body);
                     final releases = releasesData['releases'] as List? ?? [];
-
                     for (var release in releases) {
                       // Only consider proper albums (not appearances on compilations etc)
                       if (release['type'] == 'master' ||
@@ -1637,13 +1499,11 @@ class SearchService {
                         final title = release['title'] ?? 'Unknown Album';
                         final year = release['year']?.toString() ?? '';
                         final artistName = artist['title'] ?? 'Unknown Artist';
-
                         // Check for duplicates
                         bool isDuplicate = allResults.any((existing) {
                           return existing['collectionId'].toString() == id ||
                               existing['collectionName'] == title;
                         });
-
                         // Fix URL construction - always use full https://www.discogs.com URL
                         String url;
                         if (release['uri'] != null &&
@@ -1655,7 +1515,6 @@ class SearchService {
                           url =
                               'https://www.discogs.com/${release['type']}/$id';
                         }
-
                         if (!isDuplicate && id.isNotEmpty) {
                           allResults.add({
                             'collectionId': id,
@@ -1677,7 +1536,6 @@ class SearchService {
           }
         }
       }
-
       Logging.severe('Total Discogs results found: ${allResults.length}');
       return {'results': allResults};
     } catch (e, stack) {
@@ -1694,14 +1552,12 @@ class SearchService {
     sourceAlbum = sourceAlbum.isEmpty ? '' : sourceAlbum;
     targetArtist = targetArtist.isEmpty ? '' : targetArtist;
     targetAlbum = targetAlbum.isEmpty ? '' : targetAlbum;
-
     // Log inputs for debugging
     Logging.severe(
         'Comparing: "$sourceArtist - $sourceAlbum" with "$targetArtist - $targetAlbum"');
     // First, clean album names by removing EP/Single designations for direct comparison
     final cleanSourceAlbum = removeAlbumSuffixes(sourceAlbum);
     final cleanTargetAlbum = removeAlbumSuffixes(targetAlbum);
-
     // If clean versions match exactly, short-circuit with a high score (0.95)
     if (cleanSourceAlbum.toLowerCase() == cleanTargetAlbum.toLowerCase() &&
         _normalizeString(sourceArtist) == _normalizeString(targetArtist)) {
@@ -1709,13 +1565,11 @@ class SearchService {
           'Album names match after removing suffixes: $cleanSourceAlbum = $cleanTargetAlbum');
       return 0.95;
     }
-
     // Normalize strings for comparison (lowercase, remove special chars, trim)
     final normalizedSourceArtist = _normalizeString(sourceArtist);
     final normalizedSourceAlbum = _normalizeString(sourceAlbum);
     final normalizedTargetArtist = _normalizeString(targetArtist);
     final normalizedTargetAlbum = _normalizeString(targetAlbum);
-
     // Artist name matching (0.0 to 1.0)
     double artistScore = 0.0;
     if (normalizedSourceArtist == normalizedTargetArtist) {
@@ -1729,7 +1583,6 @@ class SearchService {
           normalizedSourceArtist.split(' ').where((w) => w.length > 2).toList();
       final targetWords =
           normalizedTargetArtist.split(' ').where((w) => w.length > 2).toList();
-
       // Count matching words
       int matchingWords = 0;
       for (var word in sourceWords) {
@@ -1738,7 +1591,6 @@ class SearchService {
           matchingWords++;
         }
       }
-
       if (matchingWords > 0) {
         // Partial word-level match
         artistScore = matchingWords /
@@ -1746,13 +1598,11 @@ class SearchService {
             0.5;
       }
     }
-
     // Album name matching (0.0 to 1.0)
     double albumScore = 0.0;
     // Use the already cleaned album names rather than applying the replacements again
     final normalizedCleanSourceAlbum = _normalizeString(cleanSourceAlbum);
     final normalizedCleanTargetAlbum = _normalizeString(cleanTargetAlbum);
-
     if (normalizedCleanSourceAlbum == normalizedCleanTargetAlbum) {
       albumScore = 1.0; // Exact match after removing EP/Single designations
       Logging.severe(
@@ -1768,14 +1618,11 @@ class SearchService {
           normalizedCleanSourceAlbum, normalizedCleanTargetAlbum);
       albumScore = similarity * 0.7; // Scale down a bit
     }
-
     // Combined score with higher weight on artist match (prevent wrong artist matches)
     final finalScore = (artistScore * 0.7) + (albumScore * 0.3);
-
     // Log the scoring components and final score
     Logging.severe(
         'Match scores: artist=$artistScore, album=$albumScore, combined=$finalScore');
-
     return finalScore;
   }
 
@@ -1791,7 +1638,6 @@ class SearchService {
       RegExp(r'\s*EP$', caseSensitive: false),
       RegExp(r'\s*Single$', caseSensitive: false),
     ];
-
     for (var regex in suffixRegexps) {
       if (regex.hasMatch(result)) {
         String beforeChange = result;
@@ -1799,23 +1645,18 @@ class SearchService {
         Logging.severe('Removed suffix from "$beforeChange" -> "$result"');
       }
     }
-
     return result;
   }
 
   /// String normalization helper
   static String _normalizeString(String input) {
     if (input.isEmpty) return '';
-
     // Convert to lowercase
     String result = input.toLowerCase();
-
     // Remove special characters but keep spaces
     result = result.replaceAll(RegExp(r'[^\w\s]'), '');
-
     // Remove extra whitespace
     result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
-
     return result;
   }
 
@@ -1827,7 +1668,6 @@ class SearchService {
     // Convert strings to word sets, filtering out very short words
     final set1 = str1.split(' ').where((word) => word.length > 2).toSet();
     final set2 = str2.split(' ').where((word) => word.length > 2).toSet();
-
     // Special case: if either set is empty after filtering
     if (set1.isEmpty || set2.isEmpty) {
       return str1.startsWith(str2) || str2.startsWith(str1) ? 0.5 : 0.0;
@@ -1836,10 +1676,8 @@ class SearchService {
     // Calculate intersection and union
     final intersection = set1.intersection(set2);
     final union = set1.union(set2);
-
     // Calculate Jaccard similarity
     final similarity = union.isEmpty ? 0.0 : intersection.length / union.length;
-
     return similarity;
   }
 
@@ -1848,15 +1686,12 @@ class SearchService {
     if (duration == null || duration.toString().trim().isEmpty) {
       return 0;
     }
-
     final durationStr = duration.toString().trim();
     Logging.severe('Parsing track duration: "$durationStr"');
-
     try {
       // Handle MM:SS format (e.g., "3:45")
       if (durationStr.contains(':')) {
         final parts = durationStr.split(':');
-
         // Handle HH:MM:SS format
         if (parts.length == 3) {
           final hours = int.tryParse(parts[0].trim()) ?? 0;
@@ -1867,7 +1702,6 @@ class SearchService {
               'Parsed HH:MM:SS format: ${hours}h:${minutes}m:${seconds}s = ${result}ms');
           return result;
         }
-
         // Handle MM:SS format
         else if (parts.length == 2) {
           final minutes = int.tryParse(parts[0].trim()) ?? 0;
@@ -1878,13 +1712,11 @@ class SearchService {
           return result;
         }
       }
-
       // Try to handle formats like "3.45" (3 min 45 sec)
       else if (durationStr.contains('.')) {
         final parts = durationStr.split('.');
         if (parts.length == 2) {
           final minutes = int.tryParse(parts[0].trim()) ?? 0;
-
           // Handle seconds expressed as decimal or as actual seconds
           int seconds;
           if (parts[1].length == 2) {
@@ -1895,14 +1727,12 @@ class SearchService {
             final decimal = double.tryParse("0.${parts[1]}") ?? 0.0;
             seconds = (decimal * 60).round();
           }
-
           final result = (minutes * 60 + seconds) * 1000;
           Logging.severe(
               'Parsed decimal format: ${minutes}m:${seconds}s = ${result}ms');
           return result;
         }
       }
-
       // Try to parse as seconds directly
       final secondsValue = double.tryParse(durationStr);
       if (secondsValue != null) {
@@ -1911,7 +1741,6 @@ class SearchService {
             'Parsed direct seconds format: ${secondsValue}s = ${result}ms');
         return result;
       }
-
       // Handle time formats with text like "3 min 45 sec" or "3:45 min"
       if (durationStr.toLowerCase().contains('min') ||
           durationStr.toLowerCase().contains('sec')) {
@@ -1929,30 +1758,24 @@ class SearchService {
             return result;
           }
         }
-
         // Handle "X min Y sec" format
         final minRegex = RegExp(r'(\d+)\s*min');
         final secRegex = RegExp(r'(\d+)\s*sec');
-
         int minutes = 0;
         int seconds = 0;
-
         final minMatch = minRegex.firstMatch(durationStr.toLowerCase());
         if (minMatch != null && minMatch.groupCount >= 1) {
           minutes = int.tryParse(minMatch.group(1)?.trim() ?? '0') ?? 0;
         }
-
         final secMatch = secRegex.firstMatch(durationStr.toLowerCase());
         if (secMatch != null && secMatch.groupCount >= 1) {
           seconds = int.tryParse(secMatch.group(1)?.trim() ?? '0') ?? 0;
         }
-
         final result = (minutes * 60 + seconds) * 1000;
         Logging.severe(
             'Parsed text format: ${minutes}m:${seconds}s = ${result}ms');
         return result;
       }
-
       // Special case for single digit like "3" - assume it's minutes
       if (durationStr.length <= 2 && int.tryParse(durationStr) != null) {
         final minutes = int.parse(durationStr);
@@ -1961,28 +1784,31 @@ class SearchService {
             'Parsed single digit as minutes: ${minutes}m = ${result}ms');
         return result;
       }
-
       Logging.severe('Could not parse duration format: "$durationStr"');
     } catch (e) {
       Logging.severe('Error parsing track duration: "$durationStr" - $e');
     }
-
     // If we got here, all parsing attempts failed
     return 0;
   }
 
   // Find the method that saves search queries
-
   // Replace it with this version that uses both SharedPreferences and database
+  Future<void> saveSearchQuery(String query, String platform) async {
+    try {
+      // Save to database
+      await SearchHistoryDb.saveQuery(query, platform);
+    } catch (e) {
+      Logging.severe('Error saving search query: $e');
+    }
+  }
 
   // Find the method that loads search history
   // Replace it with this version that tries SQLite first
-
   Future<List<String>> getSearchHistory() async {
     try {
       // 1. Try to get from SQLite first
       final dbHistory = await SearchHistoryDb.getSearchHistory();
-
       if (dbHistory.isNotEmpty) {
         // Convert from database format to string format
         return dbHistory.map((item) {
@@ -1992,10 +1818,8 @@ class SearchService {
           return '$query||||$platform||||$timestamp';
         }).toList();
       }
-
       // 2. Fall back to SharedPreferences if database is empty
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getStringList('search_history') ?? [];
+      return [];
     } catch (e) {
       Logging.severe('Error getting search history: $e');
       return [];
@@ -2004,17 +1828,23 @@ class SearchService {
 
   // Find the method that clears search history
   // Replace it with this version that clears from both places
-
   Future<void> clearSearchHistory() async {
     try {
-      // 1. Clear from SQLite
+      // Replace SharedPreferences with SearchHistoryDb
       await SearchHistoryDb.clearSearchHistory();
+    } catch (e, stack) {
+      Logging.severe('Error clearing search history', e, stack);
+    }
+  }
 
-      // 2. Clear from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('search_history');
-    } catch (e) {
-      Logging.severe('Error clearing search history: $e');
+  // Use database to get recent searches
+  Future<List<Map<String, dynamic>>> getRecentSearches() async {
+    try {
+      // Replace SharedPreferences with SearchHistoryDb
+      return await SearchHistoryDb.getSearchHistory(limit: 20);
+    } catch (e, stack) {
+      Logging.severe('Error getting recent searches', e, stack);
+      return [];
     }
   }
 }
