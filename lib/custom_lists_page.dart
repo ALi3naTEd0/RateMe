@@ -105,25 +105,71 @@ class _CustomListsPageState extends State<CustomListsPage> {
   }
 
   Future<void> _loadLists() async {
-    final savedLists = await DatabaseHelper.instance
-        .getAllCustomLists()
-        .then((lists) => lists.map((list) => jsonEncode(list)).toList());
-    final loadedLists = savedLists
-        .map((list) => CustomList.fromJson(jsonDecode(list)))
-        .toList();
-    if (mounted) {
+    try {
       setState(() {
-        lists = loadedLists;
-        // Clean all lists when loading
-        for (var list in lists) {
-          list.cleanupAlbumIds();
-        }
-        isLoading = false;
-
-        // Calculate pagination
-        totalPages = (lists.length / itemsPerPage).ceil();
-        _updateDisplayedLists();
+        isLoading = true;
       });
+
+      Logging.info('[LISTS] Loading custom lists');
+      final dbLists = await DatabaseHelper.instance.getAllCustomLists();
+
+      // Log summary instead of individual lists
+      Logging.info('[LISTS] Found ${dbLists.length} custom lists in database');
+
+      // Track total albums across all lists
+      int totalAlbums = 0;
+      int nonEmptyLists = 0;
+
+      for (int i = 0; i < dbLists.length; i++) {
+        final list = dbLists[i];
+        final listId = list['id'].toString();
+
+        // Get albums for this list - using getAlbumsInList instead of getAlbumsForList
+        final albums = await DatabaseHelper.instance.getAlbumsInList(listId);
+        totalAlbums += albums.length;
+
+        if (albums.isNotEmpty) {
+          nonEmptyLists++;
+        }
+
+        // Only log anomalies or when debugging
+        if (albums.isEmpty) {
+          Logging.debug('[LISTS] List "${list['name']}" has no albums');
+        }
+      }
+
+      // Log summary of all lists
+      Logging.info('[LISTS] Processed ${dbLists.length} lists: '
+          '$nonEmptyLists have albums, $totalAlbums total albums');
+
+      final savedLists = await DatabaseHelper.instance
+          .getAllCustomLists()
+          .then((lists) => lists.map((list) => jsonEncode(list)).toList());
+      final loadedLists = savedLists
+          .map((list) => CustomList.fromJson(jsonDecode(list)))
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          lists = loadedLists;
+          // Clean all lists when loading
+          for (var list in lists) {
+            list.cleanupAlbumIds();
+          }
+          isLoading = false;
+
+          // Calculate pagination
+          totalPages = (lists.length / itemsPerPage).ceil();
+          _updateDisplayedLists();
+        });
+      }
+    } catch (e, stack) {
+      Logging.error('[LISTS] Error loading custom lists', e, stack);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -517,8 +563,8 @@ class _CustomListsPageState extends State<CustomListsPage> {
             horizontal: 12, vertical: 2), // Reduced from 4 to 2
         dense: true, // Added dense property to make it more compact
         leading: Icon(
-          Icons.playlist_play,
-          size: 42, // Reduced from 48 to 42
+          Icons.playlist_play_rounded,
+          size: 42,
           color: Theme.of(context).colorScheme.secondary,
         ),
         title: Text(
@@ -628,28 +674,28 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     try {
       // Handle both string and int albumIds consistently
       final normalizedId = albumId.toString();
-      Logging.severe('Calculating rating for album ID: $normalizedId');
+      Logging.debug('[RATINGS] Calculating for album ID: $normalizedId');
 
       // Get ratings from UserData
       final List<Map<String, dynamic>> savedRatings =
           await UserData.getSavedAlbumRatings(normalizedId);
 
       if (savedRatings.isEmpty) {
-        Logging.severe('No ratings found for album ID: $normalizedId');
+        Logging.debug('[RATINGS] No ratings found for album ID: $normalizedId');
         return 0.0;
       }
 
-      Logging.severe(
-          'Found ${savedRatings.length} ratings for album $normalizedId');
+      Logging.debug(
+          '[RATINGS] Found ${savedRatings.length} ratings for album $normalizedId');
 
       // Filter non-zero ratings
       var validRatings = savedRatings
-          .where((r) => r['rating'] != null && r['rating'] > 0)
-          .map((r) => r['rating'].toDouble())
+          .where((r) => r['rating'] != null && (r['rating'] as num) > 0)
+          .map((r) => (r['rating'] as num).toDouble())
           .toList();
 
       if (validRatings.isEmpty) {
-        Logging.severe('No valid ratings found for album ID: $normalizedId');
+        Logging.debug('[RATINGS] No valid ratings for album ID: $normalizedId');
         return 0.0;
       }
 
@@ -657,12 +703,12 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
       double total = validRatings.reduce((a, b) => a + b);
       double average = total / validRatings.length;
 
-      Logging.severe(
-          'Album $normalizedId has average rating $average from ${validRatings.length} rated tracks');
+      Logging.info(
+          '[RATINGS] Album $normalizedId avg: ${average.toStringAsFixed(2)} from ${validRatings.length} tracks');
 
       return double.parse(average.toStringAsFixed(2));
     } catch (e, stack) {
-      Logging.severe('Error calculating album rating', e, stack);
+      Logging.error('[RATINGS] Error calculating album rating', e, stack);
       return 0.0;
     }
   }
@@ -1247,5 +1293,17 @@ Future<List<Map<String, dynamic>>> getListAlbumsFromDatabase(
   } catch (e, stack) {
     Logging.severe('Error loading albums for list from database', e, stack);
     return [];
+  }
+}
+
+// Add extension method to help with color values
+extension ColorWithValues on Color {
+  Color withValues({double? alpha}) {
+    return Color.fromARGB(
+      alpha != null ? (alpha * 255).round() : a.round(),
+      r.round(),
+      g.round(),
+      b.round(),
+    );
   }
 }

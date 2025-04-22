@@ -94,6 +94,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
       // Create a new list of albums with added ratings - mutable copy of query results
       final List<Map<String, dynamic>> albumsWithRatings = [];
+      int artworkUrlsFound = 0; // Counter for found artwork URLs
 
       // Calculate ratings for display
       for (var album in savedAlbums) {
@@ -150,9 +151,48 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             Logging.severe('No ratings found for album ID: $albumId');
           }
 
-          // Ensure artwork URL is preserved and logged
+          // FIXED: Try multiple locations for artwork URL to ensure proper logging
+          String artworkUrl = '';
+          // First, check artwork_url column
+          if (mutableAlbum['artwork_url'] != null &&
+              mutableAlbum['artwork_url'].toString().isNotEmpty) {
+            artworkUrl = mutableAlbum['artwork_url'].toString();
+          }
+          // Next, check artworkUrl field
+          else if (mutableAlbum['artworkUrl'] != null &&
+              mutableAlbum['artworkUrl'].toString().isNotEmpty) {
+            artworkUrl = mutableAlbum['artworkUrl'].toString();
+          }
+          // Finally, check artworkUrl100 field
+          else if (mutableAlbum['artworkUrl100'] != null &&
+              mutableAlbum['artworkUrl100'].toString().isNotEmpty) {
+            artworkUrl = mutableAlbum['artworkUrl100'].toString();
+          }
+          // Check data field if other methods failed
+          else if (mutableAlbum['data'] != null &&
+              mutableAlbum['data'].toString().isNotEmpty) {
+            try {
+              final albumData = jsonDecode(mutableAlbum['data'].toString());
+              if (albumData['artworkUrl'] != null) {
+                artworkUrl = albumData['artworkUrl'].toString();
+              } else if (albumData['artworkUrl100'] != null) {
+                artworkUrl = albumData['artworkUrl100'].toString();
+              }
+            } catch (e) {
+              // Ignore JSON parsing errors
+            }
+          }
+
+          // Log with the comprehensive check result
           Logging.severe(
-              'Album artwork URL: ${mutableAlbum['artworkUrl'] ?? mutableAlbum['artworkUrl100'] ?? 'missing'}');
+              'Album artwork URL: ${artworkUrl.isNotEmpty ? artworkUrl : "missing"}');
+
+          // Count found artwork URLs
+          if (artworkUrl.isNotEmpty) {
+            artworkUrlsFound++;
+            // Store the artwork URL in the album for UI use to avoid redundant lookups
+            mutableAlbum['_processed_artwork_url'] = artworkUrl;
+          }
 
           // Add to display list
           Logging.severe(
@@ -192,6 +232,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
       }
 
       Logging.severe('Loaded ${orderedAlbums.length} albums for display');
+      Logging.severe(
+          'Found $artworkUrlsFound artwork URLs out of ${savedAlbums.length} albums');
 
       if (mounted) {
         setState(() {
@@ -660,37 +702,34 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     // Use a simpler approach for getting the rating
     final averageRating = album['averageRating'] ?? 0.0;
 
-    // Extract artwork URL from album data JSON or from artwork_url field
-    String artworkUrl = ''; // First declaration is here
+    // Extract artwork URL - use the pre-processed version if available to avoid redundant logging
+    String artworkUrl = album['_processed_artwork_url'] ?? '';
 
-    // First try to get from artwork_url column directly
-    if (album['artwork_url'] != null &&
-        album['artwork_url'].toString().isNotEmpty) {
-      artworkUrl = album['artwork_url'].toString();
-      Logging.severe('Found artwork URL in artwork_url column: $artworkUrl');
-    }
-    // If empty, try extracting from album data
-    else {
-      try {
-        // Try parsing the 'data' field which contains the complete album JSON
-        final data = album['data'] as String?;
-        if (data != null && data.isNotEmpty) {
-          final albumData = jsonDecode(data);
-          if (albumData['artworkUrl'] != null) {
-            artworkUrl = albumData['artworkUrl']
-                .toString(); // Using the existing variable
-          } else if (albumData['artworkUrl100'] != null) {
-            artworkUrl = albumData['artworkUrl100'].toString().replaceAll(
-                '100x100', '600x600'); // Using the existing variable
+    // If we don't have a pre-processed URL (fallback), look it up but without logging
+    if (artworkUrl.isEmpty) {
+      // First try to get from artwork_url column directly
+      if (album['artwork_url'] != null &&
+          album['artwork_url'].toString().isNotEmpty) {
+        artworkUrl = album['artwork_url'].toString();
+      }
+      // If empty, try extracting from album data
+      else {
+        try {
+          // Try parsing the 'data' field which contains the complete album JSON
+          final data = album['data'] as String?;
+          if (data != null && data.isNotEmpty) {
+            final albumData = jsonDecode(data);
+            if (albumData['artworkUrl'] != null) {
+              artworkUrl = albumData['artworkUrl'].toString();
+            } else if (albumData['artworkUrl100'] != null) {
+              artworkUrl = albumData['artworkUrl100']
+                  .toString()
+                  .replaceAll('100x100', '600x600');
+            }
           }
+        } catch (e) {
+          // Silent error handling - no logging here to avoid duplicates
         }
-
-        // Log the source of the artwork URL
-        if (artworkUrl.isNotEmpty) {
-          Logging.severe('Found artwork URL from album data: $artworkUrl');
-        }
-      } catch (e) {
-        Logging.severe('Error extracting artwork URL: $e');
       }
     }
 
