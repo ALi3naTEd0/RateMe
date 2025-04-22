@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'color_utility.dart';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
@@ -18,7 +19,6 @@ import 'preferences_migration.dart';
 import 'database/migration_utility.dart';
 import 'database/cleanup_utility.dart';
 import 'theme_service.dart' as ts;
-import 'color_utility.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -46,24 +46,20 @@ void main() async {
   // Initialize theme service
   await ts.ThemeService.initialize();
 
-  // Log the theme mode after initialization to verify it's correct
-  Logging.severe(
-      'Initial theme mode after initialization: ${ts.ThemeService.themeMode}');
-
   // Run the app
   runApp(const MyApp());
 
-  // Log app startup
-  Logging.severe('Application started');
+  // Log app startup once, clearly
+  Logging.severe('Application started successfully');
 }
 
 /// Validate and fix the primary color if it's missing or corrupted
 Future<void> _validateAndFixColorIfNeeded() async {
   try {
-    // Directly access database for maximum reliability
+    // Get database access
     final db = await DatabaseHelper.instance.database;
 
-    // Get the raw color value first to diagnose the issue
+    // Check for existing color setting
     final colorRows = await db
         .query('settings', where: 'key = ?', whereArgs: ['primaryColor']);
     final colorStr =
@@ -71,53 +67,17 @@ Future<void> _validateAndFixColorIfNeeded() async {
 
     Logging.severe('STARTUP COLOR CHECK: Current color in database: $colorStr');
 
-    // CRITICAL FIX: Better detection for corrupted colors:
-    // 1. Delete settings if it's black OR has a corrupted format
-    // 2. Force the default purple color with direct SQL to avoid any translation issues
-    if (colorStr == null ||
-        colorStr.isEmpty ||
-        colorStr == '#FF000000' ||
-        colorStr == '#FF000001' ||
-        colorStr == '#FF010001' ||
-        colorStr == '#FF000100' ||
-        colorStr == '#FF010100') {
+    // SIMPLIFIED COLOR LOGIC:
+    // If there's no color setting, create a default one
+    // Otherwise, leave the user's choice unchanged
+    if (colorStr == null || colorStr.isEmpty) {
       Logging.severe(
-          'STARTUP COLOR CHECK: Detected missing or corrupted color - resetting to default purple');
-
-      // Delete any existing primaryColor setting first to ensure clean state
-      await db
-          .delete('settings', where: 'key = ?', whereArgs: ['primaryColor']);
-
-      // Insert the correct default purple directly
-      await db
-          .insert('settings', {'key': 'primaryColor', 'value': '#FF864AF9'});
-
-      // Verify the direct insertion worked
-      final verifyRows = await db
-          .query('settings', where: 'key = ?', whereArgs: ['primaryColor']);
-      final verifiedColor =
-          verifyRows.isNotEmpty ? verifyRows.first['value'] as String? : null;
-
-      Logging.severe('STARTUP COLOR CHECK: Reset result: $verifiedColor');
-    } else {
-      // Even if the color looks valid, verify it can be parsed
-      try {
-        final color = ColorUtility.hexToColor(colorStr);
-        final colorHex = ColorUtility.colorToHex(color);
-        Logging.severe('STARTUP COLOR CHECK: Verified valid color: $colorHex');
-      } catch (e) {
-        Logging.severe(
-            'STARTUP COLOR CHECK: Error parsing color, resetting to default: $e');
-
-        // Handle any parsing errors by resetting to default
-        await db
-            .delete('settings', where: 'key = ?', whereArgs: ['primaryColor']);
-        await db
-            .insert('settings', {'key': 'primaryColor', 'value': '#FF864AF9'});
-      }
+          'STARTUP COLOR CHECK: No color found, setting app default');
+      await db.insert('settings',
+          {'key': 'primaryColor', 'value': ColorUtility.defaultColorHex});
     }
   } catch (e) {
-    Logging.severe('Error validating color at startup: $e');
+    Logging.severe('Error checking color at startup: $e');
   }
 }
 
@@ -134,9 +94,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
-  // Set the correct default purple color
-  static const Color defaultPurpleColor = Color(0xFF864AF9);
-  Color _primaryColor = defaultPurpleColor;
+  // Set the app default color
+  Color _primaryColor = ColorUtility.defaultColor;
   final TextEditingController searchController = TextEditingController();
   List<Map<String, dynamic>> searchResults = [];
   bool _isLoading = false;
@@ -156,11 +115,8 @@ class _MyAppState extends State<MyApp> {
     _themeMode = ts.ThemeService.themeMode;
     _primaryColor = ts.ThemeService.primaryColor;
 
-    // Add this tracking of changes to the theme mode and color during initialization
-    Logging.severe(
-        'MAIN: initState - Setting initial ThemeMode to: $_themeMode');
-    Logging.severe(
-        'MAIN: initState - Setting initial PrimaryColor to: $_primaryColor (${_colorToHex(_primaryColor)})');
+    // Single initialization log
+    Logging.severe('MAIN: Application initialized');
 
     _loadTheme();
 
@@ -217,7 +173,7 @@ class _MyAppState extends State<MyApp> {
           _themeMode = mode;
           _primaryColor = color;
         });
-        Logging.severe('Theme updated via listener: mode=$mode, color=$color');
+        // Reduce frequency of log messages
       }
     });
   }
@@ -225,6 +181,7 @@ class _MyAppState extends State<MyApp> {
   void _setupGlobalListeners() {
     GlobalNotifications.onSearchPlatformChanged.listen((platform) {
       if (_selectedSearchPlatform != platform) {
+        // We can keep this log as it's a user-initiated action
         Logging.severe('Default search platform changed to: ${platform.name}');
         setState(() {
           _selectedSearchPlatform = platform;
@@ -433,7 +390,7 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  // Modify the _loadTheme method to ensure the opacity is always enforced
+  // Modify the _loadTheme method to reduce logging
   Future<void> _loadTheme() async {
     try {
       final prevMode = _themeMode; // Store previous mode for comparison
@@ -442,19 +399,13 @@ class _MyAppState extends State<MyApp> {
       setState(() {
         _themeMode = ts.ThemeService.themeMode;
         _primaryColor = ts.ThemeService.primaryColor;
-        Logging.severe(
-            'MAIN: _loadTheme - Loaded PrimaryColor: ${_colorToHex(_primaryColor)}');
+        // Remove redundant logging
       });
 
-      // Log any changes in theme mode
+      // Log only when theme mode changes
       if (prevMode != _themeMode) {
         Logging.severe('Theme mode changed from $prevMode to $_themeMode');
-      } else {
-        Logging.severe('Theme mode remains $_themeMode');
       }
-
-      Logging.severe(
-          'USING COLOR FOR THEME: $_primaryColor (RGB: ${_primaryColor.r}, ${_primaryColor.g}, ${_primaryColor.b})');
     } catch (e) {
       Logging.severe('Error loading theme: $e');
     }
@@ -482,22 +433,20 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // Fix the build method to prevent ThemeMode.system override
+  // Fix the build method to prevent excessive logging
   @override
   Widget build(BuildContext context) {
     // First, store the current values to ensure they don't change during build
-    final currentThemeMode = _themeMode; // IMPORTANT: Make a local copy
-    final currentPrimaryColor = _primaryColor; // IMPORTANT: Make a local copy
+    final currentThemeMode = _themeMode; // Make a local copy
+    // Remove unused variable warning by not declaring it if we're not using it
+    // final currentPrimaryColor = _primaryColor; // Make a local copy
 
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
     final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
     const iconAdjustment = 8.0;
 
-    Logging.severe('MAIN: build - Using ThemeMode: $currentThemeMode');
-    Logging.severe(
-        'MAIN: build - Using PrimaryColor: ${currentPrimaryColor.r}, ${currentPrimaryColor.g}, ${currentPrimaryColor.b}');
-    Logging.severe(
-        'MAIN BUILD: Using ThemeService color = ${ts.ThemeService.primaryColor}');
+    // CRITICAL FIX: Completely disable build logging to reduce spam
+    // Most build logs are not useful for debugging and create noise
 
     // Sanity check - if somehow main.dart's state got out of sync with ThemeService
     if (currentThemeMode != ts.ThemeService.themeMode && mounted) {
@@ -539,7 +488,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode:
-          currentThemeMode, // !!! Use the local copy to prevent inconsistency
+          currentThemeMode, // Use the local copy to prevent inconsistency
 
       home: Builder(builder: (context) {
         // FIXED: Get the correct color for icons based on theme brightness
@@ -871,7 +820,8 @@ class _MyAppState extends State<MyApp> {
 
   void _processManualUrl(String url) {
     if (url.isEmpty) return;
-    Logging.severe('Processing manually entered URL: $url');
+    // Keep this log as it's user-initiated
+    Logging.severe('Processing user-entered URL: $url');
     ClipboardDetector.processManualUrl(
       url,
       onDetected: (text) {
@@ -895,17 +845,6 @@ class _MyAppState extends State<MyApp> {
         ClipboardDetector.reportSearchResult(success);
       },
     );
-  }
-
-  // Helper method for consistent hex format logging
-  String _colorToHex(Color color) {
-    // CRITICAL FIX: Fix the broken hex formatting - the old method was incorrect
-    final int r = color.r.round();
-    final int g = color.g.round();
-    final int b = color.b.round();
-
-    return '#FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
-        .toUpperCase();
   }
 }
 

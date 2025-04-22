@@ -8,7 +8,7 @@ import 'color_utility.dart';
 class ThemeService {
   // Store the current theme mode and primary color
   static ThemeMode _themeMode = ThemeMode.system;
-  static Color _primaryColor = const Color(0xFF864AF9); // Default purple
+  static Color _primaryColor = const Color(0xFF536DFE); // Use indigo as default
   static bool _useDarkButtonText =
       false; // Add this line to store the preference
 
@@ -29,41 +29,40 @@ class ThemeService {
 
   // Override getter methods to track when theme is requested
   static ThemeData get lightTheme {
-    // Simplify logging, remove the noisy getter logs
+    // Remove noisy logging here
     return _buildThemeData(Brightness.light, _primaryColor);
   }
 
   static ThemeData get darkTheme {
-    // Simplify logging, remove the noisy getter logs
+    // Remove noisy logging here
     return _buildThemeData(Brightness.dark, _primaryColor);
   }
 
   /// Initialize the theme service by loading saved settings
   static Future<void> initialize() async {
+    // Keep only this critical initialization log
     Logging.severe('ThemeService: Initializing...');
 
-    // CRITICAL FIX: First make sure we have a valid default color
-    _primaryColor = ColorUtility.exactPurple;
+    // Initialize with app's default color (used only if no user preference exists)
+    _primaryColor = ColorUtility.defaultColor;
 
     // Set up listener to SettingsService color changes
     SettingsService.addPrimaryColorListener(_handleColorChange);
 
     await loadThemeSettings();
 
-    // CRITICAL FIX: Sanity check to avoid black colors
+    // Safety check for black color - only in extreme cases
     if (_primaryColor.r == 0 && _primaryColor.g == 0 && _primaryColor.b == 0) {
-      Logging.severe(
-          'ThemeService: EMERGENCY - Detected black color after initialization, forcing purple');
-      _primaryColor = ColorUtility.exactPurple;
-      // Save the correct color to database
+      Logging.severe('ThemeService: Detected black color, using app default');
+      _primaryColor = ColorUtility.defaultColor;
       await _savePrimaryColorToDatabase(_primaryColor);
     }
   }
 
   /// Handle color changes from SettingsService
   static void _handleColorChange(Color color) {
-    // Update our local copy of the color
-    Logging.severe('ThemeService: Color updated from SettingsService');
+    // Almost completely eliminate logging from this method
+    // It's called frequently and generates a lot of noise
 
     // CRITICAL BUGFIX: Double-check if this is a reset operation that should be using purple
     bool isResetOperation = false;
@@ -77,50 +76,47 @@ class ThemeService {
           stackString.contains('resetColors') ||
           stackString.contains('restore')) {
         isResetOperation = true;
+        // Only log truly critical operations
         Logging.severe('ThemeService: Detected color reset operation');
       }
     } catch (e) {
-      Logging.severe('ThemeService: Error checking stack trace: $e');
+      // No logging for minor errors
     }
 
     // CRITICAL BUGFIX: If it's a reset operation and the color is black,
-    // use purple instead as black is likely unintended
+    // use default color instead as black is likely unintended
     if (isResetOperation && color.r == 0 && color.g == 0 && color.b == 0) {
       Logging.severe(
-          'ThemeService: Avoiding black color during reset, using purple instead');
-      _primaryColor = const Color(0xFF864AF9); // Use default purple
+          'ThemeService: Avoiding black color during reset, using default color');
+      _primaryColor = ColorUtility.defaultColor;
       _notifyListeners();
       return;
     }
 
-    // CRITICAL BUGFIX: Check for unintended black color changes
+    // The rest of the method with no logging
     if (color.r == 0 && color.g == 0 && color.b == 0) {
-      // Check call stack to determine if this is a legitimate color change or a side effect
       bool isFromButtonTextChange = false;
 
       try {
         StackTrace currentStack = StackTrace.current;
         String stackString = currentStack.toString();
 
-        // Check if this color change is happening during a button text change operation
         if (stackString.contains('notifyButtonTextColorChanged') ||
             stackString.contains('setUseDarkButtonText')) {
           isFromButtonTextChange = true;
-          Logging.severe(
-              'ThemeService: Detected black color change during button text update - will verify');
         }
       } catch (e) {
-        Logging.severe('ThemeService: Error checking stack trace: $e');
+        // No logging
       }
 
-      // Only verify with database if it's from an unintended source
       if (isFromButtonTextChange) {
         DatabaseHelper.instance.getSetting('primaryColor').then((colorStr) {
           if (colorStr != null &&
               colorStr != '#FF000000' &&
               colorStr.isNotEmpty) {
+            // Only log when we're actually preventing an issue
             Logging.severe(
-                'ThemeService: Prevented unintended black override! Using stored color from database: $colorStr');
+                'ThemeService: Prevented unintended black override!');
 
             try {
               // Parse the color from the database
@@ -137,32 +133,24 @@ class ThemeService {
 
               // Update to the correct color
               _primaryColor = safeColor;
-              Logging.severe(
-                  'ThemeService: Corrected color to: ${_colorToHex(safeColor)}');
-
-              // Notify listeners about the corrected color
               _notifyListeners();
             } catch (e) {
+              // Only log actual errors
               Logging.severe(
                   'ThemeService: Error parsing color from database: $e');
-              // Just set purple as fallback
-              _primaryColor = const Color(0xFF864AF9);
+              _primaryColor = ColorUtility.defaultColor;
               _notifyListeners();
             }
           } else {
-            // Black color is genuine, use it
             _primaryColor = color;
             _notifyListeners();
           }
         });
       } else {
-        // This is a legitimate user request for black color
-        Logging.severe('ThemeService: Black color chosen by user - allowing');
         _primaryColor = color;
         _notifyListeners();
       }
     } else {
-      // Not a black color, update normally
       _primaryColor = color;
       _notifyListeners();
     }
@@ -186,51 +174,42 @@ class ThemeService {
             themeStr == 'light') {
           mode = ThemeMode.light;
         }
+        // Minimal log - only the final theme mode
         Logging.severe('ThemeService: Using theme mode: $mode');
       }
 
-      // Load primary color with simpler, more direct approach
+      // Load primary color directly from database without modifications
       final colorStr = await DatabaseHelper.instance.getSetting('primaryColor');
-      Logging.severe('ThemeService: Raw color from database: $colorStr');
+      Color color =
+          ColorUtility.defaultColor; // Default only if no setting exists
 
-      // Default to purple
-      Color color = ColorUtility.defaultPurple;
-
-      // If we have a value from the database, parse it
       if (colorStr != null && colorStr.isNotEmpty) {
         try {
+          // Use our fixed hexToColor method to parse the color string exactly as stored
           color = ColorUtility.hexToColor(colorStr);
-          Logging.severe(
-              'ThemeService: Loaded color: ${ColorUtility.colorToHex(color)}');
         } catch (e) {
-          Logging.severe(
-              'ThemeService: Error parsing color, using default: $e');
-          // Save the default to fix any parsing issues
-          await _savePrimaryColorToDatabase(ColorUtility.defaultPurple);
+          // Only log the error but keep using the user's chosen color if possible
+          Logging.severe('ThemeService: Error parsing color string: $e');
         }
       } else {
-        // No color setting found, save the default
-        Logging.severe(
-            'ThemeService: No color setting found, setting default purple');
         await DatabaseHelper.instance
-            .saveSetting('primaryColor', ColorUtility.defaultPurpleHex);
+            .saveSetting('primaryColor', ColorUtility.defaultColorHex);
       }
+
+      // Update the theme with the loaded/default settings
+      _themeMode = mode;
+      _primaryColor = color;
 
       // Load dark button text preference from database
       final darkButtonText =
           await DatabaseHelper.instance.getSetting('useDarkButtonText');
       if (darkButtonText != null) {
         _useDarkButtonText = darkButtonText == 'true';
-        Logging.severe(
-            'ThemeService: Using dark button text: $_useDarkButtonText');
       }
 
-      // Update the theme with loaded settings
-      _themeMode = mode;
-      _primaryColor = color;
-
-      Logging.severe('ThemeService: Initialization complete');
+      // Single log at completion
     } catch (e, stack) {
+      // Only log errors
       Logging.severe('ThemeService: Error loading theme settings', e, stack);
     }
   }
@@ -239,7 +218,7 @@ class ThemeService {
   static Future<void> _savePrimaryColorToDatabase(Color color) async {
     final hexString = ColorUtility.colorToHex(color);
     await DatabaseHelper.instance.saveSetting('primaryColor', hexString);
-    Logging.severe('ThemeService: Saved color to database: $hexString');
+    // No logging for routine database operations
   }
 
   /// Update the theme mode and save to database
@@ -251,6 +230,7 @@ class ThemeService {
     final modeStr = mode.toString();
     await DatabaseHelper.instance.saveSetting('themeMode', modeStr);
 
+    // One log for important user setting
     Logging.severe('ThemeService: Theme mode set to $mode');
 
     // Notify listeners
@@ -278,10 +258,6 @@ class ThemeService {
     // Create a hex string for storage (with FF for alpha)
     final hexString = _colorToHex(safeColor);
 
-    // Log with cleaner format
-    Logging.severe(
-        'ThemeService: Setting color to $hexString (RGB: $safeR, $safeG, $safeB)');
-
     // Save to database
     await DatabaseHelper.instance.saveSetting('primaryColor', hexString);
 
@@ -295,14 +271,46 @@ class ThemeService {
   /// Update the primary color directly without complex checks
   /// This is used only when we're 100% sure we want to set this exact color
   static void setPrimaryColorDirectly(Color color) {
-    // Update the internal value
+    // CRITICAL: Add black color rejection
+    bool isBlack = color.r == 0 && color.g == 0 && color.b == 0;
+
+    if (isBlack) {
+      Logging.severe(
+          'CRITICAL ERROR: Attempt to set BLACK color directly. Backtrace:');
+      Logging.severe(StackTrace.current.toString());
+
+      // Reject black color for primary color
+      // Check the database for the current value
+      DatabaseHelper.instance.getSetting('primaryColor').then((colorStr) {
+        if (colorStr != null &&
+            colorStr != '#FF000000' &&
+            colorStr.isNotEmpty) {
+          Logging.severe(
+              'Avoiding black color by using database value: $colorStr');
+          try {
+            // Try to use the database value instead
+            final dbColor = ColorUtility.hexToColor(colorStr);
+            _primaryColor = dbColor;
+            _notifyListeners();
+          } catch (e) {
+            // Fall back to default purple
+            Logging.severe(
+                'Error parsing database color, using default purple');
+            _primaryColor = ColorUtility.defaultColor;
+            _notifyListeners();
+          }
+        } else {
+          // No valid color in database, use default purple
+          Logging.severe('No valid color in database, using default purple');
+          _primaryColor = ColorUtility.defaultColor;
+          _notifyListeners();
+        }
+      });
+      return;
+    }
+
+    // Update the internal value with the non-black color
     _primaryColor = color;
-
-    // Log the direct change for debugging
-    Logging.severe(
-        'ThemeService: Directly setting color to: ${_colorToHex(color)} (RGB: ${color.r}, ${color.g}, ${color.b})');
-
-    // Notify listeners about the change
     _notifyListeners();
   }
 
@@ -316,15 +324,11 @@ class ThemeService {
     await DatabaseHelper.instance
         .saveSetting('useDarkButtonText', useDark.toString());
 
-    Logging.severe(
-        'ThemeService: Button text color set to ${useDark ? "dark" : "light"}');
+    // Only log user preference changes, not internal state updates
 
     // Only notify listeners if the flag is set to true
     if (notifyListeners) {
       _notifyListeners();
-    } else {
-      Logging.severe(
-          'ThemeService: Skipping listener notification for button text change');
     }
   }
 
@@ -340,7 +344,7 @@ class ThemeService {
 
   /// Notify all listeners of theme changes
   static void _notifyListeners() {
-    Logging.severe('ThemeService: Notifying listeners of theme/color change');
+    // No logging for this very frequent operation
     for (var listener in _listeners) {
       listener(_themeMode, _primaryColor);
     }
@@ -348,7 +352,7 @@ class ThemeService {
 
   /// Build the theme data based on brightness and primary color
   static ThemeData _buildThemeData(Brightness brightness, Color primaryColor) {
-    // Simplify logging - only log when actually building themes
+    // No logging at all in theme building - this happens constantly
     final isDark = brightness == Brightness.dark;
 
     // Color for dark theme background - stronger grey, almost black
@@ -356,24 +360,7 @@ class ThemeService {
         Color.fromRGBO(18, 18, 18, 1.0); // Use RGBA format
     final darkSurfaceColor = Color.fromRGBO(30, 30, 30, 1.0); // Use RGBA format
 
-    // MODIFIED: Add filtering for dark theme background logs to avoid confusion
-    // Only log color if it's not the dark theme background/near-black values
-    final int r = primaryColor.r.round();
-    final int g = primaryColor.g.round();
-    final int b = primaryColor.b.round();
-    final String colorHex = _colorToHex(primaryColor);
-
-    // Filter out confusing logs: Skip logging when in dark mode AND color is near-black
-    bool isNearBlack = (r <= 1 && g <= 1 && b <= 1);
-
-    if (!isDark || !isNearBlack) {
-      // Only log when NOT in dark mode with near-black colors
-      Logging.severe(
-          'ThemeService: Building theme with color: $colorHex (RGB: $r, $g, $b)');
-    } else {
-      // This is just the dark theme using darkBackgroundColor/darkSurfaceColor
-      Logging.severe('ThemeService: Building dark theme (background colors)');
-    }
+    // Remove excessive color logging during theme building
 
     return ThemeData(
       useMaterial3: true,

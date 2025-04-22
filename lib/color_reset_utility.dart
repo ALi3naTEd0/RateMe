@@ -3,6 +3,7 @@ import 'database/database_helper.dart';
 import 'logging.dart';
 import 'theme_service.dart' as ts;
 import 'color_utility.dart';
+import 'package:flutter/material.dart';
 
 /// Utility class to force reset theme color to default purple
 /// Use this as an emergency fix if colors are still not being stored correctly
@@ -13,12 +14,12 @@ class ColorResetUtility {
       Logging.severe('COLOR RESET: Emergency reset to default purple');
 
       // CRITICAL FIX: Use exactPurple to avoid floating point issues
-      final exactPurple = ColorUtility.exactPurple;
+      final exactPurple = ColorUtility.defaultColor;
 
       // Log RGB values with integer precision
-      final r = exactPurple.r.round();
-      final g = exactPurple.g.round();
-      final b = exactPurple.b.round();
+      final r = exactPurple.r;
+      final g = exactPurple.g;
+      final b = exactPurple.b;
 
       Logging.severe('COLOR RESET: Using exact RGB values: R=$r, G=$g, B=$b');
 
@@ -58,6 +59,24 @@ class ColorResetUtility {
     } catch (e, stack) {
       Logging.severe('COLOR RESET: Failed to reset color', e, stack);
       return false;
+    }
+  }
+
+  static Color getDefaultPurple() {
+    // Use ColorUtility.defaultColor instead of exactPurple
+    return ColorUtility.defaultColor;
+  }
+
+  static Future<void> resetToDefaultPurple() async {
+    try {
+      Logging.severe('COLOR RESET: Resetting to default purple color');
+
+      // Use ThemeService to update the color properly
+      await ts.ThemeService.setPrimaryColor(ColorUtility.defaultColor);
+
+      Logging.severe('COLOR RESET: Successfully reset to default purple');
+    } catch (e) {
+      Logging.severe('COLOR RESET: Failed to reset to default purple', e);
     }
   }
 

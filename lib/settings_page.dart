@@ -20,6 +20,7 @@ import 'backup_converter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'version_info.dart';
+import 'package:flutter/services.dart'; // Add this for TextInputFormatter
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -65,6 +66,8 @@ class _SettingsPageState extends State<SettingsPage> {
   static const Color defaultPurpleColor = Color(0xFF864AF9);
   late Color _primaryColor = defaultPurpleColor;
   late bool _useDarkButtonText = false; // Add this variable declaration
+
+  // Remove the unused _hexController field
 
   @override
   void initState() {
@@ -770,21 +773,48 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showColorPickerDialog() {
-    // Store original color for cancel
+    // CRITICAL FIX: Get the CURRENT color directly from the widget variable, not the state
     final originalColor = _primaryColor;
-    // Local state for the dialog
-    Color dialogColor = _primaryColor;
-    // Text controller for custom hex input
-    final hexController = TextEditingController(
-      text: ColorUtility.colorToHex(originalColor).substring(1),
-    );
 
-    // Log initial color values at dialog opening
-    Logging.severe('COLOR PICKER: Opening dialog with initial color: '
-        'RGB(${originalColor.r.round()}, ${originalColor.g.round()}, ${originalColor.b.round()}) - '
-        'HEX: ${ColorUtility.colorToHex(originalColor)}');
+    // CRITICAL FIX: Create a fresh, exact copy of the color using integer-based approach
+    final int alpha = 255; // Always use full opacity
+    // Use r, g, b properties with proper conversion to integers
+    final int red = (originalColor.r * 255).round();
+    final int green = (originalColor.g * 255).round();
+    final int blue = (originalColor.b * 255).round();
 
-    // CRITICAL DEBUG: Add decimal precision logging
+    // Create log showing exact values we're starting with
+    Logging.severe('COLOR PICKER: Starting with precise values: '
+        'RGB integers=($red, $green, $blue), '
+        'Float values=(${originalColor.r}, ${originalColor.g}, ${originalColor.b})');
+
+    // Create a new Color object from the integer RGB components
+    var dialogColor = Color.fromARGB(alpha, red, green, blue);
+
+    // Get proper hex string using exact integer values
+    final String properHex =
+        '#FF${red.toRadixString(16).padLeft(2, '0')}${green.toRadixString(16).padLeft(2, '0')}${blue.toRadixString(16).padLeft(2, '0')}'
+            .toUpperCase();
+
+    // Log only essential info without the confusing DEBUG prefix
+    Logging.severe(
+        'COLOR PICKER: Prepared color correctly: RGB($red, $green, $blue) - Hex: $properHex');
+
+    // Use the integer-based values for the hex string
+    final String rgbHexPart = "${red.toRadixString(16).padLeft(2, '0')}"
+            "${green.toRadixString(16).padLeft(2, '0')}"
+            "${blue.toRadixString(16).padLeft(2, '0')}"
+        .toUpperCase();
+
+    // Create controller for hex input with the correct RGB part
+    final TextEditingController hexController =
+        TextEditingController(text: rgbHexPart);
+
+    // Keep only essential logging - JUST ONE LINE IS ENOUGH
+    Logging.severe(
+        'COLOR PICKER: Opening color picker dialog with hex: #FF$rgbHexPart');
+
+    // We can still keep the raw floating point values debug log
     Logging.severe('COLOR PICKER: Raw floating point values - '
         'red=${originalColor.r}, green=${originalColor.g}, blue=${originalColor.b}');
 
@@ -806,7 +836,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           dialogColor = color;
                           // Update the hex text field when color changes
                           hexController.text =
-                              ColorUtility.colorToHex(color).substring(1);
+                              ColorUtility.colorToHex(color).substring(3);
                           setDialogState(() {}); // Update sample button
 
                           // DIAGNOSTICS: Log every color change during selection
@@ -819,13 +849,13 @@ class _SettingsPageState extends State<SettingsPage> {
                               'RawValues(${color.r}, ${color.g}, ${color.b}) → '
                               'IntRGB($r, $g, $b) → HEX: #FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}');
                         },
+                        // ...existing color picker properties...
                         width: 40,
                         height: 40,
                         borderRadius: 4,
                         spacing: 5,
                         runSpacing: 5,
                         wheelDiameter: 155,
-                        enableOpacity: false,
                         showMaterialName: true,
                         showColorName: true,
                         pickersEnabled: const <ColorPickerType, bool>{
@@ -835,46 +865,112 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                       ),
 
-                      // Add custom hex input field
+                      // Improved custom hex input field with better separation of alpha and RGB
                       const SizedBox(height: 16),
                       const Divider(),
+                      const Text("Hex Color Code (RGB):",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+
+                      // Use a Row with two text fields - one disabled for FF, one for RGB
                       Row(
                         children: [
-                          const Text('HEX: #'),
-                          const SizedBox(width: 8),
+                          // Non-editable alpha part
+                          Container(
+                            width: 50,
+                            height: 48, // Match height with the other field
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              // FIX: Replace deprecated withOpacity with withAlpha
+                              color: Theme.of(context)
+                                  .disabledColor
+                                  .withAlpha(25), // 0.1 opacity = ~25/255
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                bottomLeft: Radius.circular(4),
+                              ),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              '#FF',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+
+                          // Editable RGB part
                           Expanded(
                             child: TextField(
                               controller: hexController,
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 hintText: '864AF9',
-                                helperText: 'Enter 6-digit hex code',
-                                prefixStyle: TextStyle(
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                  fontWeight: FontWeight.bold,
+                                helperText: '',
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 0),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(4),
+                                    bottomRight: Radius.circular(4),
+                                  ),
+                                  borderSide: BorderSide(width: 1),
                                 ),
-                                isDense: true,
                               ),
+                              style: const TextStyle(
+                                letterSpacing: 1.2,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                              inputFormatters: [
+                                // Only allow hex characters
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9a-fA-F]')),
+                                // Force uppercase
+                                UpperCaseTextFormatter(),
+                              ],
                               maxLength: 6,
+                              buildCounter: (_,
+                                      {required currentLength,
+                                      required maxLength,
+                                      required isFocused}) =>
+                                  Text('$currentLength/$maxLength',
+                                      style: const TextStyle(fontSize: 12)),
                               onChanged: (value) {
-                                // Don't process incomplete input
-                                if (value.length != 6) return;
+                                // Process only if we have a complete 6-digit hex
+                                if (value.length == 6) {
+                                  try {
+                                    // CRITICAL FIX: Explicitly log and parse RGB components
+                                    Logging.severe(
+                                        'COLOR PICKER: Processing manual hex input: #$value');
 
-                                try {
-                                  // Try to parse the hex value
-                                  final colorValue =
-                                      int.parse('FF$value', radix: 16);
-                                  final newColor = Color(colorValue);
+                                    // Parse each component separately for maximum reliability
+                                    final int r = int.parse(
+                                        value.substring(0, 2),
+                                        radix: 16);
+                                    final int g = int.parse(
+                                        value.substring(2, 4),
+                                        radix: 16);
+                                    final int b = int.parse(
+                                        value.substring(4, 6),
+                                        radix: 16);
 
-                                  // Update the color picker and sample
-                                  dialogColor = newColor;
-                                  setDialogState(() {});
+                                    // Create color with full alpha
+                                    final newColor =
+                                        Color.fromARGB(255, r, g, b);
 
-                                  Logging.severe(
-                                      'COLOR PICKER: Manual hex input: #$value → ${ColorUtility.colorToHex(newColor)}');
-                                } catch (e) {
-                                  Logging.severe(
-                                      'COLOR PICKER: Invalid hex input: $value, error: $e');
+                                    // Log successful creation and update UI
+                                    Logging.severe(
+                                        'COLOR PICKER: Manual hex processed: #$value → RGB($r,$g,$b)');
+                                    dialogColor = newColor;
+                                    setDialogState(() {});
+                                  } catch (e) {
+                                    Logging.severe(
+                                        'COLOR PICKER: Invalid hex input: $value, error: $e');
+                                  }
                                 }
                               },
                             ),
@@ -882,7 +978,20 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
 
-                      // Add a preview section
+                      // Add a note about the fixed alpha channel
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          "Alpha channel (FF) is fixed for full opacity",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+
+                      // Preview section
                       const SizedBox(height: 16),
                       const Text('Preview:'),
                       const SizedBox(height: 8),
@@ -921,7 +1030,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       // DIAGNOSTICS: Log cancel operation
                       Logging.severe(
                           'COLOR PICKER: Canceled - restoring original color: '
-                          'RGB(${originalColor.r.round()}, ${originalColor.g.round()}, ${originalColor.b.round()}) - '
+                          'RGB(${originalColor.r}, ${originalColor.g}, ${originalColor.b}) - '
                           'HEX: ${ColorUtility.colorToHex(originalColor)}');
 
                       // Cancel - restore the original color
@@ -939,13 +1048,29 @@ class _SettingsPageState extends State<SettingsPage> {
                       // Try to get color from hex input first in case it was manually entered
                       try {
                         if (hexController.text.length == 6) {
-                          final colorValue =
-                              int.parse('FF${hexController.text}', radix: 16);
-                          dialogColor = Color(colorValue);
+                          // CRITICAL FIX: Always add FF prefix for alpha channel
+                          final String hexValue = hexController.text;
+                          Logging.severe(
+                              'COLOR PICKER: Processing final hex: $hexValue');
+
+                          // Parse each component separately for reliability
+                          final int r =
+                              int.parse(hexValue.substring(0, 2), radix: 16);
+                          final int g =
+                              int.parse(hexValue.substring(2, 4), radix: 16);
+                          final int b =
+                              int.parse(hexValue.substring(4, 6), radix: 16);
+
+                          // Create color with full alpha and assign it to dialogColor
+                          dialogColor = Color.fromARGB(255, r, g, b);
+
+                          // Log the color values for diagnostics
+                          Logging.severe(
+                              'COLOR PICKER: Manual hex parsed: #$hexValue → RGB($r,$g,$b)');
                         }
                       } catch (e) {
                         Logging.severe(
-                            'COLOR PICKER: Error parsing final hex input: ${hexController.text}, error: $e');
+                            'COLOR PICKER: Error parsing final hex: ${hexController.text}, error: $e');
                       }
 
                       // CRITICAL FIX: Use the correct float to int conversion here!
@@ -954,8 +1079,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       final int r = (dialogColor.r * 255).round();
                       final int g = (dialogColor.g * 255).round();
                       final int b = (dialogColor.b * 255).round();
-
-                      // ...rest of existing save code...
 
                       // DIAGNOSTICS: Log pre-safety check values with raw floating point values
                       Logging.severe(
@@ -1902,9 +2025,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
       // Create the correct purple color directly
       final Color correctPurpleColor = const Color(0xFF864AF9);
-      final int r = 134;
-      final int g = 74;
-      final int b = 249;
+      // Calculate integer RGB values from the Color object
+      final int r = (correctPurpleColor.r * 255).round();
+      final int g = (correctPurpleColor.g * 255).round();
+      final int b = (correctPurpleColor.b * 255).round();
 
       // First update the UI state for immediate feedback
       setState(() {
@@ -1929,10 +2053,14 @@ class _SettingsPageState extends State<SettingsPage> {
       await DatabaseHelper.instance.saveSetting('useDarkButtonText', 'false');
 
       // Ensure ThemeService gets the direct update with a fresh color instance
+      // IMPORTANT: Create a completely new color instance with explicit integer values
       final freshPurpleColor = Color.fromARGB(255, r, g, b);
+
+      // Notify UI about the color change with the fresh color instance - directly use the service
       ts.ThemeService.setPrimaryColorDirectly(freshPurpleColor);
 
-      // Notify UI about the color change with the fresh color instance
+      // Only after the ThemeService has been updated, notify SettingsService
+      // This changes the order of operations to avoid race conditions
       SettingsService.notifyColorChangeOnly(freshPurpleColor);
 
       // Notify about button text color change
@@ -1963,5 +2091,17 @@ extension ColorExtension on Color {
     final bHex = b.round().toRadixString(16).padLeft(2, '0');
 
     return '$aHex$rHex$gHex$bHex';
+  }
+}
+
+// Add this formatter to force uppercase letters for hex input
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
   }
 }

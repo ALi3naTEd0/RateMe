@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized theme management with reactive updates across the app
 - Support for dynamic theme and color changes without app restart
 - Fixed critical color corruption issues with proper color value handling
+- Fixed hex color representation issues ensuring consistent RGB to hex conversion
+- Fixed color picker issues with direct integer-based RGB handling
 - Support for dark mode, light mode and system default with seamless transitions
 - Consistent 85% width design pattern across all UI components
 
@@ -75,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Critical issue with color picker not displaying correct hex values for selected colors
+- Fixed RGB to hex conversion ensuring exact values are preserved across the application
+- Fixed variable usage in color handling to prevent duplicate definitions
 - Critical issue with Bandcamp albums not storing track information properly
 - Improved metadata extraction for albums with multiple track data sources
 - Fixed track persistence for albums from all supported platforms

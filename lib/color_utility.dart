@@ -1,11 +1,61 @@
 import 'package:flutter/material.dart';
+import 'logging.dart';
 
 /// Comprehensive utility class for color operations in the app
 class ColorUtility {
-  // Standard app colors
-  static const Color defaultPurple = Color(0xFF864AF9);
-  static const Color exactPurple = Color(0xFF864AF9);
-  static const String defaultPurpleHex = '#FF864AF9';
+  // Default app color - ONLY used when database has no color setting
+  static const Color defaultColor = Color(0xFF864AF9); // Default purple
+  static const String defaultColorHex = '#FF864AF9';
+
+  /// Convert a hex string to Color - CRITICAL METHOD THAT MUST WORK CORRECTLY
+  static Color hexToColor(String hexString) {
+    // Guard against empty string
+    if (hexString.isEmpty) {
+      Logging.severe('COLOR UTILITY: Empty hex string received');
+      return defaultColor;
+    }
+
+    // Basic validation - should be in format #FFRRGGBB or FFRRGGBB
+    String normalizedHex = hexString;
+
+    // Remove # if present
+    if (normalizedHex.startsWith('#')) {
+      normalizedHex = normalizedHex.substring(1);
+    }
+
+    // Add alpha if needed
+    if (normalizedHex.length == 6) {
+      normalizedHex = 'FF$normalizedHex';
+    }
+
+    // CRITICAL FIX: Manual parsing of the hex components
+    // This avoids any issues with int.parse() on the full string
+    try {
+      if (normalizedHex.length == 8) {
+        // Parse each component separately
+        final int a = int.parse(normalizedHex.substring(0, 2), radix: 16);
+        final int r = int.parse(normalizedHex.substring(2, 4), radix: 16);
+        final int g = int.parse(normalizedHex.substring(4, 6), radix: 16);
+        final int b = int.parse(normalizedHex.substring(6, 8), radix: 16);
+
+        // Remove this verbose log that runs on every color conversion
+        // Logging.severe('COLOR UTILITY: Successfully parsed $hexString to ARGB: $a,$r,$g,$b');
+        return Color.fromARGB(a, r, g, b);
+      }
+    } catch (e) {
+      Logging.severe('COLOR UTILITY: Error with component parsing: $e');
+    }
+
+    // Fallback to original method only if component parsing fails
+    try {
+      final int value = int.parse(normalizedHex, radix: 16);
+      return Color(value);
+    } catch (e) {
+      Logging.severe(
+          'COLOR UTILITY: Critical parsing error for $hexString: $e');
+      return defaultColor;
+    }
+  }
 
   /// Convert a Color to RGB string format
   static String colorToRgbString(Color color) {
@@ -31,39 +81,6 @@ class ColorUtility {
     // Format with proper padding and uppercase for consistency
     return '#FF${safeR.toRadixString(16).padLeft(2, '0')}${safeG.toRadixString(16).padLeft(2, '0')}${safeB.toRadixString(16).padLeft(2, '0')}'
         .toUpperCase();
-  }
-
-  /// Convert a hex string to Color with proper error handling
-  static Color hexToColor(String hexString) {
-    if (hexString.isEmpty) {
-      return defaultPurple;
-    }
-
-    // Remove # if present
-    final String processedHex =
-        hexString.startsWith('#') ? hexString.substring(1) : hexString;
-
-    // Handle different hex formats
-    String normalizedHex;
-    if (processedHex.length == 6) {
-      // Add alpha channel if missing
-      normalizedHex = 'FF$processedHex';
-    } else if (processedHex.length == 8) {
-      // Force full opacity for consistency
-      normalizedHex = 'FF${processedHex.substring(2)}';
-    } else {
-      // Invalid format, return default
-      return defaultPurple;
-    }
-
-    // Parse and return the color
-    try {
-      final int colorValue = int.parse(normalizedHex, radix: 16);
-      return Color(colorValue);
-    } catch (e) {
-      // Return default on parsing error
-      return defaultPurple;
-    }
   }
 
   /// Create a Color from RGB components

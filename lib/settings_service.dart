@@ -73,16 +73,26 @@ class SettingsService {
 
   // Add a new method to notify only color changes without affecting theme mode
   static void notifyColorChangeOnly(Color color) {
-    // Ensure we're working with clean integer RGB values
-    final int r = color.r.round();
-    final int g = color.g.round();
-    final int b = color.b.round();
+    // Replace with simpler, correct integer-based logging using r, g, b instead of red, green, blue
+    final int red = (color.r * 255).round();
+    final int green = (color.g * 255).round();
+    final int blue = (color.b * 255).round();
+
+    // CRITICAL BUG FIX: Generate the correct hex string explicitly here rather than using ColorUtility
+    // This avoids the mismatch between RGB values and Hex value in logs
+    final String correctHex =
+        '#FF${red.toRadixString(16).padLeft(2, '0')}${green.toRadixString(16).padLeft(2, '0')}${blue.toRadixString(16).padLeft(2, '0')}'
+            .toUpperCase();
+
+    // Only log significant information with correct values - now using our explicitly calculated hex
+    Logging.severe(
+        'SettingsService: Primary color changed to RGB($red,$green,$blue) - Hex: $correctHex');
 
     // FIX: Check for very small values that should be zero
-    // This prevents the FF000101 issue
-    final int safeR = r < 3 ? 0 : r;
-    final int safeG = g < 3 ? 0 : g;
-    final int safeB = b < 3 ? 0 : b;
+    // Using the variables we already defined above
+    final int safeR = red < 3 ? 0 : red;
+    final int safeG = green < 3 ? 0 : green;
+    final int safeB = blue < 3 ? 0 : blue;
 
     // Create a clean color with exact integer RGB values
     final Color safeColor = Color.fromARGB(255, safeR, safeG, safeB);
@@ -91,10 +101,6 @@ class SettingsService {
     final String colorHex =
         '#FF${safeR.toRadixString(16).padLeft(2, '0')}${safeG.toRadixString(16).padLeft(2, '0')}${safeB.toRadixString(16).padLeft(2, '0')}'
             .toUpperCase();
-
-    // EMERGENCY DEBUG: Log the color values clearly to identify what's happening
-    Logging.severe(
-        'SettingsService: Color change - Raw RGB($r,$g,$b) → Safe RGB($safeR,$safeG,$safeB) → Hex: $colorHex');
 
     // CRITICAL BUGFIX: Look at the current stack trace to determine if this is a reset operation
     // from _resetColorsToDefault() in settings_page.dart
@@ -116,7 +122,7 @@ class SettingsService {
 
     // FIXED: If this is a purple reset or the color is purple, always allow it
     final isPurple =
-        (r == 134 && g == 74 && b == 249) || colorHex == '#FF864AF9';
+        (red == 134 && green == 74 && blue == 249) || colorHex == '#FF864AF9';
 
     if (isPurple) {
       Logging.severe(
@@ -203,7 +209,7 @@ class SettingsService {
   static void _continueWithColorChange(Color safeColor, String colorHex) {
     // EMERGENCY DEBUG: Add explicit log of the exact color hex being saved to database
     Logging.severe(
-        'SettingsService: SAVING COLOR TO DATABASE: $colorHex, RGB: ${safeColor.r.round()}, ${safeColor.g.round()}, ${safeColor.b.round()}');
+        'SettingsService: SAVING COLOR TO DATABASE: $colorHex, RGB: ${(safeColor.r * 255).round()}, ${(safeColor.g * 255).round()}, ${(safeColor.b * 255).round()}');
 
     // Notify color listeners with the safe color
     for (final listener in _colorListeners) {
@@ -462,9 +468,9 @@ class SettingsService {
 extension ColorToHex on Color {
   String toHexString() {
     // Only use integer rounding at core color serialization points
-    final int r = this.r.round();
-    final int g = this.g.round();
-    final int b = this.b.round();
+    final int r = (this.r * 255).round();
+    final int g = (this.g * 255).round();
+    final int b = (this.b * 255).round();
 
     // FIX: Check for very small values that should be zero
     final int safeR = r < 3 ? 0 : r;
