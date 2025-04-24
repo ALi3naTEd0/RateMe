@@ -177,7 +177,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better album matching algorithms for cross-platform compatibility
 - Optimized search queries with improved platform handling
 
-## [1.1.0-4] - 2023-10-31
+## [1.1.0-4] - 2025-04-02
 
 ### Added
 - Deezer album URL detection in clipboard
@@ -195,6 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New skeleton loading screens for improved UX during content loading
 
 ### Fixed
+- Fixed Deezer track handling, ratings persistence and album artwork display
+- Fixed database timestamp constraints for ratings across all platforms
 - Fixed track ID handling with multiple fallback mechanisms for consistent string IDs
 - Fixed album deletion cascading to custom lists
 - Fixed custom list content synchronization on album deletion
@@ -203,11 +205,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed database schema migration and backward compatibility issues
 - Fixed data integrity issues when accessing album artwork
 - Fixed non-null constraint error on ratings timestamp
-- Fixed album ratings persistence and display for all supported platforms
+- Fixed album ratings persistence and display for all supported platforms (iTunes, Bandcamp, Spotify, Deezer)
 - Improved track loading reliability across different music platforms
 - Fixed issues with Spotify album tracks not displaying properly
+- Fixed issues with Deezer track ratings not being saved correctly
+- Fixed inconsistent handling of track IDs across different music platforms
 
 ### Changed
+- Reorganized Settings page with grouped options for database management
 - Enhanced custom lists management with SQLite backend
 - UI/UX Improvement: Applied consistent 85% width layout to all screens
 - Refactored entire app from BuildContext-based navigation to GlobalKey approach
@@ -229,61 +234,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created migration utilities for safe data transition
 - Optimized database queries with prepared statements
 
-## [1.1.0-3] - 2023-10-25
+## [1.1.0-3] - 2025-03-30
 
 ### Added
-- Comprehensive SQLite database implementation for all app data
-- Migration utility to transition from SharedPreferences to SQLite
-- Migration progress UI with detailed statistics
-- Database helper class with extensive error handling
-- Support for backup/restore in new database format
-- Track ID consistency layer for cross-platform compatibility
+- Deezer album URL detection in clipboard
+- Multi-platform consistency for album ratings (iTunes, Bandcamp, Spotify, Deezer)
+- Implemented SQLite database with migration from SharedPreferences
+- Created unified data models for albums, tracks, ratings, lists
+- Added database maintenance tools (vacuum, integrity check)
+- Added schema detection and column mapping for backward compatibility
+- Added transaction support for batch operations
+- Improved error handling and debug logging for database operations
+- Added database backup/restore functionality with enhanced format
+- Support for Spotify URLs in clipboard detection
+- Platform icons for better visual identification of music sources
+- Standardized UI component sizes for rating boxes and list icons to 48x48px
+- New skeleton loading screens for improved UX during content loading
 
 ### Fixed
-- Fixed inconsistent behavior when retrieving album artwork
-- Improved error handling for missing track information
-- Fixed crashes when loading albums with inconsistent track data
-- Better handling of non-standard API responses from music platforms
+- Fixed Deezer track handling, ratings persistence and album artwork display
+- Fixed database timestamp constraints for ratings across all platforms
+- Fixed track ID handling with multiple fallback mechanisms for consistent string IDs
+- Fixed album deletion cascading to custom lists
+- Fixed custom list content synchronization on album deletion
+- Fixed ratings not being calculated correctly in some cases
+- Fixed album artwork display inconsistencies across the app
+- Fixed database schema migration and backward compatibility issues
+- Fixed data integrity issues when accessing album artwork
+- Fixed non-null constraint error on ratings timestamp
+- Fixed album ratings persistence and display for all supported platforms (iTunes, Bandcamp, Spotify, Deezer)
+- Improved track loading reliability across different music platforms
+- Fixed issues with Spotify album tracks not displaying properly
+- Fixed issues with Deezer track ratings not being saved correctly
+- Fixed inconsistent handling of track IDs across different music platforms
 
 ### Changed
-- Enhanced data model with more consistent field naming
-- Improved album detail page loading performance
-- Better album rating consistency across platforms
+- Reorganized Settings page with grouped options for database management
+- Enhanced custom lists management with SQLite backend
+- UI/UX Improvement: Applied consistent 85% width layout to all screens
+- Refactored entire app from BuildContext-based navigation to GlobalKey approach
+- Added tooltips for track names that display full title on hover
+- Improved responsive design for various screen sizes
+- Improved dialog layout and sizing consistency across the app
+- Added checkbox-based list selection for better list management UX
+- Enhanced database schema validation
+- Improved rating error handling with multiple fallback mechanisms
 
-## [1.1.0-2] - 2023-10-20
+### Technical
+- Reduced context-dependent code for better maintainability
+- Implemented consistent navigation pattern using GlobalKeys
+- Improved error logging throughout the application
+- Optimized performance with const constructors where appropriate
+- Better separation of UI and business logic
+- Implemented proper transaction support for database operations
+- Added database integrity checks and repair functionality
+- Created migration utilities for safe data transition
+- Optimized database queries with prepared statements
 
-### Added
-- Enhanced search capabilities for Spotify albums
-- Added dedicated Spotify authentication flow
-- Improved album match detection between platforms
-
-### Fixed
-- Fixed platform icon display issues in settings
-- Better error handling for API failures
-- Corrected track filtering to exclude videos and other non-music content
-
-### Changed
-- Improved clipboard detection for URLs from different music platforms
-- Enhanced search result ranking algorithm
-
-## [1.1.0-1] - 2023-10-19
-
-### Added
-- Initial support for Deezer platform integration
-- Cross-platform album matching capability
-- Platform icons in search results
-- Expanded platform selection in search interface
-
-### Fixed
-- Fixed shared preferences persistence issues
-- Better error handling for network failures
-- Improved album artwork resolution selection
-
-### Changed
-- Reorganized search service to better handle multiple platforms
-- Enhanced platform detection from URLs
-
-## [1.0.4-4] - 2023-10-15
+## [1.0.4-4] - 2025-03-07
 
 ### Changed
 - Changed project license from GPL-3.0 to MIT
@@ -296,6 +304,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved album search results relevance
 - Reduced album load time by optimizing database queries
 - Updated footer with version links
+- Updated documentation links for consistent file naming
+- Improved Linux artifacts naming consistency
+- Improved version management and documentation
 
 ### Added 
 - Flatpak package support for Linux
@@ -306,6 +317,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bandcamp album support
 - User-adjustable primary color option in settings
 - Full album export and import
+- Enhanced album sharing functionality
 
 ### Fixed
 - Fixed Android app not launching on some devices
@@ -322,142 +334,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed album order persistence when manually reordering
 - Fixed inconsistent dark mode text colors on buttons
 - Fixed clipboard detection for URLs with query parameters
-
-## [1.0.4-3] - 2025-07-15
-
-### Added
-- Flatpak support for Linux
-- Enhanced album sharing functionality
-
-### Fixed
-- Fixed Android app not launching on some devices
-- Fixed track filtering to exclude videos from iTunes results
-- Fixed portable Windows package structure with data directory
-- Improved version management and documentation
-- Fixed release workflow for proper version propagation
 - Issues with Windows installer
 - UI loading time
-
-## [1.0.4-2] - 2025-07-10
-
-### Fixed
-- Fixed portable Windows package structure
-- Updated documentation and downloads layout
-- Simplified Linux artifacts (single tarball)
-
-## [1.0.4-1] - 2025-02-29
-
-### Fixed
 - Fixed track count inconsistency by properly filtering video tracks
 - Corrected track saving in custom lists and saved albums
 - Ensured consistent track filtering across all album views
 - Fixed track data persistence when saving albums
+- Updated documentation and downloads layout
+- Simplified Linux artifacts (single tarball)
 
-## [1.0.3] - 2025-03-15
+## [1.0.3-1] - 2025-02-28
 
 ### Added
 - SQLite database migration for better performance
 - Album import from JSON files
 - Custom list management
+- Centralized theme system for better consistency across the app
+- Improved slider contrast in dark mode with purple background and white text
 
 ### Fixed
 - Fixed duplicate albums in search results
 - Fixed rating slider inconsistencies
+- Fixed custom lists reordering persistence
+- Updated URL launching implementation on Linux platforms to fix opening links
+- Improved cross-platform compatibility for file operations
 
 ### Changed
 - Improved album detail page layout
 - Enhanced error handling and logging
-
-## [1.0.3-1] - 2025-02-28
-
-### Added
-- Implement centralized theme system for better consistency across the app
-- Improve slider contrast in dark mode with purple background and white text
-
-### Fixed
-- Fix custom lists reordering persistence
-- Update URL launching implementation on Linux platforms to fix opening links
-- Improve cross-platform compatibility for file operations
-
-### Changed
-- Translate remaining Spanish comments to English
-- Clean up Android builds naming format
-- Update documentation and build workflows
-- Improve performance of lists rendering
-- Enhance dark mode appearance
+- Translated remaining Spanish comments to English
+- Cleaned up Android builds naming format
+- Updated documentation and build workflows
+- Improved performance of lists rendering
+- Enhanced dark mode appearance
 - Standardized options button icon from more_vert to settings across all screens
 - Improved options dialog consistency by removing redundant settings option
 - Enhanced visual consistency in options menus throughout the app
 
-## [1.0.2] - 2025-03-08
+## [1.0.2-1] - 2025-02-26
 
 ### Added
 - Dark mode support
 - Album rating sharing via image export
 - Pull-to-refresh in album lists
+- Clickable version footer for better discoverability
+- Improved version display in About dialog
 
 ### Fixed
 - Fixed memory leak in album list view
 
-## [1.0.2-1] - 2024-05-01
+### Changed
+- Updated versionCode to 3 and versionName to 1.0.2
+- Ensured smooth app updates on Android devices
+
+## [1.0.0-1] - 2025-02-18
+
+### Initial Stable Release
+
+A comprehensive music rating app with multi-platform support and features:
+
+#### Core Features
+- Album search via iTunes API and Bandcamp integration
+- Track-by-track rating system (0-10)
+- Custom album collections and list management
+- Light/Dark theme support
+- Backup and restore functionality
+- RateYourMusic integration
+
+#### Platform Support
+- Windows: Installer and portable versions
+- macOS: DMG with Gatekeeper bypass support
+- Linux: AppImage, DEB, RPM packages
+- Android: Universal and architecture-specific APKs
+
+#### UI/UX Improvements
+- Optimized DataTable layout for track listings
+- Responsive design for all screen sizes
+- Improved rating slider interaction
+- Consistent layout across platforms
+
+#### Data Management
+- JSON-based import/export system
+- Individual album data sharing
+- Collection backup functionality
+- Custom lists with drag-and-drop support
+
+#### Image Sharing
+- High-quality album rating screenshots
+- Collection sharing capabilities
+- Proper MediaScanner integration on Android
+- Save to Downloads or share directly
+
+#### Technical Enhancements
+- Efficient JSON-LD parsing for Bandcamp
+- Improved data persistence layer
+- Better error handling and logging
+- Platform-specific optimizations
+
+## [0.0.9-6] - 2024-09-01
 
 ### Added
-- New footer with version information
-- Clickable version to display about dialog
+- Android support
+- Mobile-friendly UI adjustments
+- Responsive design for different screen sizes
+- Touch-optimized controls for rating
+- Android-specific file storage implementation
+- Permission handling for Android
 
 ### Fixed
-- Improved error handling for URL launching
-- Fixed rating consistency between sessions
+- UI scaling issues on smaller screens
+- Navigation issues on mobile devices
+- Album artwork loading on Android
 
-### Changed
-- Updated dependencies to latest versions
-- Improved UI responsiveness
-
-## [1.1.0] - 2023-06-18
-- Added album rating persistence
-- Added track ratings
-- Added track listing display
-- Fixed UI issues on smaller screens
-
-## [1.0.1] - 2025-03-01
+## [0.0.9-5] - 2024-06-16
 
 ### Added
-- Initial release with basic functionality
-- iTunes and Spotify album support
-- Track-by-track rating system
-- Saved albums management
-
-## [1.0.1-1] - 2024-04-27
-
-### Added
-- Custom lists feature for organizing albums
-- Export and import albums functionality
-- Share ratings as image
+- Bandcamp album support
+- Web scraper for Bandcamp album data
+- Track parsing from Bandcamp pages
+- Improved album artwork resolution from Bandcamp
 
 ### Fixed
-- Bandcamp parsing edge cases
-- Album duplication issues
+- Improved error handling for network requests
+- Better handling of album data variations
 
-### Changed
-- Improved search functionality
-- Enhanced UI for smaller screens
-
-## [1.0.0] - 2024-12-01
+## [0.0.9-4] - 2024-06-09
 
 ### Added
-- Initial release
-- Apple Music album search
-- Track-by-track rating system
-- Album average calculation
-- Basic data export/import
-
-## [1.0.0-1] - 2024-04-15
-
-Initial release
-
-### Features
-- Search and browse albums from iTunes and Bandcamp
-- Rate albums and individual tracks
-- Save ratings locally
-- Dark mode support
-- Import/export backup functionality
+- Windows only for now
+- Initial application structure
+- Basic iTunes API integration
+- Simple album search capability
+- Minimal rating system
+- Local storage of ratings
