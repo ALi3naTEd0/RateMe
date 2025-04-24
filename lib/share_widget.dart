@@ -193,11 +193,6 @@ class ShareWidgetState extends State<ShareWidget> {
           ],
         ),
         const Divider(height: 32),
-        // Add debug information
-        Text(
-          "Tracks: ${widget.tracks?.length ?? 0}, ID type: ${widget.tracks?.isNotEmpty == true ? widget.tracks!.first.id.runtimeType : 'unknown'}",
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
-        ),
 
         // Track list with improved error handling
         ...widget.tracks?.map((track) {
