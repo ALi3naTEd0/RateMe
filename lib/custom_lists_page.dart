@@ -853,7 +853,10 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         MaterialPageRoute(
           builder: (_) => SavedAlbumPage(albumId: albumId),
         ),
-      );
+      ).then((_) {
+        // Reload album data when returning from SavedAlbumPage
+        _loadAlbums();
+      });
     } else {
       // Optionally show an error if albumId is missing
       ScaffoldMessenger.of(context).showSnackBar(
