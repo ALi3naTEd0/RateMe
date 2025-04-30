@@ -1,4 +1,4 @@
-# Maintainer: ALi3naTEd0 <eduardo.fortuny@outlook.com>
+# Maintainer: ALi3naTEd0 <ali3nated0@protonmail.com>
 pkgname=rateme
 pkgver=1.1.1
 pkgrel=1
@@ -26,7 +26,7 @@ makedepends=(
     'ninja'
     'patchelf'
 )
-# Add options to prevent including api_keys.dart in the package source
+# Remove options related to api_keys.dart protection
 options=('!strip' '!debug' '!lto' 'staticlibs')
 source=("git+$url.git#branch=main")
 sha256sums=('SKIP')
@@ -42,66 +42,7 @@ prepare() {
     
     flutter clean
     
-    # Decode the API keys at build time
-    SPOTIFY_CLIENT_ID=$(echo 'MWRkZjIwMjFlZTM4NGZhODhiOTJmMGVkOTdkZTY4MDI=' | base64 -d)
-    SPOTIFY_CLIENT_SECRET=$(echo 'ZjI4YzdmZWQ1Nzk0NDk3ODlkMjdjZTM4YWJjMTJjMzk=' | base64 -d)
-    DISCOGS_CONSUMER_KEY=$(echo 'amZkZHNmUWt5dUNjd0V5am5zd2s=' | base64 -d)
-    DISCOGS_CONSUMER_SECRET=$(echo 'bkFMb1NtRHdLbm9CT1RKRHhnT1NQU2JPa2tXRlN2RVk=' | base64 -d)
-    
-    # Create api_keys.dart with pre-decoded keys
-    mkdir -p lib
-    cat > lib/api_keys.dart << EOF
-import 'dart:convert';
-
-class ApiKeys {
-  // Spotify API keys - Pre-decoded for constant usage
-  static const String spotifyClientId = '$SPOTIFY_CLIENT_ID';
-  static const String spotifyClientSecret = '$SPOTIFY_CLIENT_SECRET';
-  
-  // Discogs API keys - Pre-decoded for constant usage
-  static const String discogsConsumerKey = '$DISCOGS_CONSUMER_KEY';
-  static const String discogsConsumerSecret = '$DISCOGS_CONSUMER_SECRET';
-  
-  // Method to get Spotify auth token
-  static String getSpotifyToken() {
-    return base64.encode(utf8.encode('\$spotifyClientId:\$spotifyClientSecret'));
-  }
-  
-  // API request timeout durations (in seconds)
-  static const int defaultRequestTimeout = 30;
-  static const int longRequestTimeout = 60;
-  
-  // Fallback API servers/endpoints
-  static const List<String> spotifyApiServers = [
-    'https://api.spotify.com/v1/',
-    'https://api-partner.spotify.com/v1/',
-  ];
-  
-  // Rate limiting configuration
-  static const int maxRequestsPerMinute = 120;
-  static const int cooldownPeriodSeconds = 60;
-  
-  // Retry configuration
-  static const int maxRetries = 3;
-  static const int retryDelaySeconds = 2;
-  
-  // Cache configuration
-  static const bool enableResponseCaching = true;
-  static const int defaultCacheExpiryMinutes = 60;
-}
-
-class ApiEndpoints {
-  // Spotify endpoints
-  static const String spotifyAlbumSearch = 'search';
-  static const String spotifyAlbumDetails = 'albums';
-  static const String spotifyArtistDetails = 'artists';
-  
-  // Discogs endpoints
-  static const String discogsSearch = 'database/search';
-  static const String discogsMaster = 'masters';
-  static const String discogsRelease = 'releases';
-}
-EOF
+    # Remove API keys generation - now handled by user input in the app
 }
 
 build() {
