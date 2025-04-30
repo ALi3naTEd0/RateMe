@@ -4,13 +4,22 @@ import 'package:html/parser.dart' show parse;
 import 'package:intl/intl.dart';
 import 'album_model.dart';
 import 'logging.dart';
-import 'api_keys.dart'; // Add this import
+import 'api_keys.dart';
 import 'search_service.dart';
 import 'database/database_helper.dart';
+import 'package:rateme/platforms/platform_service_base.dart';
+import 'package:rateme/platforms/platform_service_factory.dart';
 
-/// Service to handle interactions with different music platforms
+/// This class is used to interact with various music platforms.
 class PlatformService {
-  // Add Spotify API constants
+  // Define platform constants using lowerCamelCase as recommended
+  static const String platformSpotify = 'spotify';
+  static const String platformAppleMusic = 'apple_music';
+  static const String platformDiscogs = 'discogs';
+  static const String platformDeezer = 'deezer';
+  static const String platformBandcamp = 'bandcamp';
+
+  // Define Spotify endpoints
   static const String _spotifyTokenEndpoint =
       'https://accounts.spotify.com/api/token';
   static const String _spotifySearchEndpoint =
@@ -18,17 +27,34 @@ class PlatformService {
   static const String _spotifyAlbumEndpoint =
       'https://api.spotify.com/v1/albums';
 
-  // Update to use the imported API keys from api_keys.dart
-  static const String _spotifyClientId = ApiKeys.spotifyClientId;
-  static const String _spotifyClientSecret = ApiKeys.spotifyClientSecret;
-
-  // Token storage keys
-  static const String _spotifyTokenKey = 'spotify_access_token';
-  static const String _spotifyTokenExpiryKey = 'spotify_token_expiry';
-
-  // Add Deezer API endpoints
+  // Define Deezer endpoints
   static const String _deezerSearchEndpoint = 'https://api.deezer.com/search';
   static const String _deezerAlbumEndpoint = 'https://api.deezer.com/album';
+
+  // Spotify token storage keys
+  static const String _spotifyTokenKey = 'spotify_token';
+  static const String _spotifyTokenExpiryKey = 'spotify_token_expiry';
+
+  // Create a factory for getting platform-specific services
+  final _factory = PlatformServiceFactory();
+
+  // Private constructor
+  PlatformService._();
+
+  // Singleton instance
+  static final PlatformService _instance = PlatformService._();
+
+  // Add the missing instance getter that was referenced
+  static PlatformService get instance => _instance;
+
+  // Get Spotify API credentials
+  Future<String?> getSpotifyClientId() async {
+    return await ApiKeys.spotifyClientId;
+  }
+
+  Future<String?> getSpotifyClientSecret() async {
+    return await ApiKeys.spotifyClientSecret;
+  }
 
   /// Detect platform from URL or search term
   static String detectPlatform(String input) {
@@ -108,8 +134,8 @@ class PlatformService {
       Logging.severe('Requesting new Spotify token');
 
       // Get new token
-      final basicAuth =
-          base64Encode(utf8.encode('$_spotifyClientId:$_spotifyClientSecret'));
+      final basicAuth = base64Encode(utf8.encode(
+          '${await PlatformService.instance.getSpotifyClientId()}:${await PlatformService.instance.getSpotifyClientSecret()}'));
       final response = await http.post(
         Uri.parse(_spotifyTokenEndpoint),
         headers: {
@@ -1117,5 +1143,13 @@ class PlatformService {
       default:
         return platformName;
     }
+  }
+
+  /// Get a music service for a specific platform
+  PlatformServiceBase? getService(String platform) {
+    if (_factory.isPlatformSupported(platform)) {
+      return _factory.getService(platform);
+    }
+    return null;
   }
 }

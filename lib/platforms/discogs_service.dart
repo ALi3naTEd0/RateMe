@@ -21,9 +21,17 @@ class DiscogsService extends PlatformServiceBase {
     try {
       Logging.severe('Fetching first release for master ID: $masterId');
 
+      final key = await ApiKeys.discogsConsumerKey;
+      final secret = await ApiKeys.discogsConsumerSecret;
+
+      if (key == null || secret == null) {
+        Logging.severe('Discogs API credentials not configured');
+        return null;
+      }
+
       final versionsUrl = '$_baseUrl/masters/$masterId/versions';
-      final versionsResponse = await http.get(Uri.parse(
-          '$versionsUrl?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}'));
+      final versionsResponse =
+          await http.get(Uri.parse('$versionsUrl?key=$key&secret=$secret'));
 
       if (versionsResponse.statusCode == 200) {
         final versionsData = jsonDecode(versionsResponse.body);
@@ -553,16 +561,25 @@ class DiscogsService extends PlatformServiceBase {
     try {
       Logging.severe('Searching for Discogs URL: "$albumName" by "$artist"');
 
+      // Get API keys
+      final key = await ApiKeys.discogsConsumerKey;
+      final secret = await ApiKeys.discogsConsumerSecret;
+
+      if (key == null || secret == null) {
+        Logging.severe('Discogs API credentials not configured');
+        return null;
+      }
+
       // Normalize names for better matching
       final normalizedArtist = normalizeForComparison(artist);
       final normalizedAlbum = normalizeForComparison(albumName);
 
-      // Construct search query
+      // FIX: Use the actual string values of the keys instead of the Future objects
       final query = Uri.encodeComponent('$artist $albumName');
       final url = Uri.parse(
           '$_baseUrl/database/search?q=$query&type=release,master&per_page=20'
-          '&key=${ApiKeys.discogsConsumerKey}'
-          '&secret=${ApiKeys.discogsConsumerSecret}');
+          '&key=$key'
+          '&secret=$secret');
 
       final response = await http.get(url);
 
@@ -640,6 +657,16 @@ class DiscogsService extends PlatformServiceBase {
   @override
   Future<bool> verifyAlbumExists(String artist, String albumName) async {
     try {
+      // Get API keys
+      final key = await ApiKeys.discogsConsumerKey;
+      final secret = await ApiKeys.discogsConsumerSecret;
+
+      if (key == null || secret == null) {
+        Logging.severe('Discogs API credentials not configured');
+        return false;
+      }
+
+      // FIX: Use the actual string values of the keys instead of the Future objects
       // Similar implementation to findAlbumUrl, but just return true/false
       final normalizedArtist = normalizeForComparison(artist);
       final normalizedAlbum = normalizeForComparison(albumName);
@@ -647,8 +674,8 @@ class DiscogsService extends PlatformServiceBase {
       final query = Uri.encodeComponent('$artist $albumName');
       final url = Uri.parse(
           '$_baseUrl/database/search?q=$query&type=release&per_page=10'
-          '&key=${ApiKeys.discogsConsumerKey}'
-          '&secret=${ApiKeys.discogsConsumerSecret}');
+          '&key=$key'
+          '&secret=$secret');
 
       final response = await http.get(url);
 
@@ -863,8 +890,17 @@ class DiscogsService extends PlatformServiceBase {
 
       // Direct API lookup for non-master URLs or if master handling failed
       String apiUrl = '$_baseUrl/$type/$id';
-      apiUrl +=
-          '?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}';
+
+      // Get API keys
+      final key = await ApiKeys.discogsConsumerKey;
+      final secret = await ApiKeys.discogsConsumerSecret;
+
+      if (key == null || secret == null) {
+        Logging.severe('Discogs API credentials not configured');
+        return null;
+      }
+
+      apiUrl += '?key=$key&secret=$secret';
 
       Logging.severe('DIRECT API CALL: $apiUrl');
       final response = await http.get(Uri.parse(apiUrl));
@@ -1505,12 +1541,21 @@ class DiscogsService extends PlatformServiceBase {
       // If no platform match in our database, try finding one via the album info
       if (type == 'master') {
         try {
+          // Get API keys
+          final key = await ApiKeys.discogsConsumerKey;
+          final secret = await ApiKeys.discogsConsumerSecret;
+
+          if (key == null || secret == null) {
+            Logging.severe('Discogs API credentials not configured');
+            return null;
+          }
+
           // Try to get basic album details to search other platforms
           final masterUrl = '$_baseUrl/masters/$id';
           Logging.severe('FETCHING MASTER INFO: $masterUrl');
 
-          final response = await http.get(Uri.parse(
-              '$masterUrl?key=${ApiKeys.discogsConsumerKey}&secret=${ApiKeys.discogsConsumerSecret}'));
+          final response =
+              await http.get(Uri.parse('$masterUrl?key=$key&secret=$secret'));
 
           if (response.statusCode == 200) {
             final masterData = jsonDecode(response.body);

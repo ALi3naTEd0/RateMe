@@ -462,6 +462,62 @@ class SettingsService {
       return null;
     }
   }
+
+  // Add a method to preload essential UI settings
+  static Future<void> preloadEssentialSettings() async {
+    if (_preloadComplete) return;
+
+    try {
+      // Load primary color
+      final colorString =
+          await DatabaseHelper.instance.getSetting('primaryColor');
+      if (colorString != null && colorString.isNotEmpty) {
+        try {
+          if (colorString.startsWith('#')) {
+            String hexColor = colorString.substring(1);
+            // Ensure we have an 8-digit ARGB hex
+            if (hexColor.length == 6) {
+              hexColor = 'FF$hexColor';
+            } else if (hexColor.length == 8) {
+              // Force full opacity
+              hexColor = 'FF${hexColor.substring(2)}';
+            }
+
+            final colorValue = int.parse(hexColor, radix: 16);
+            _cachedPrimaryColor = Color(colorValue);
+            Logging.severe('Preloaded primary color: $colorString');
+          }
+        } catch (e) {
+          Logging.severe('Error parsing preloaded color: $e');
+          _cachedPrimaryColor = const Color(0xFF864AF9); // Default purple
+        }
+      } else {
+        _cachedPrimaryColor = const Color(0xFF864AF9); // Default purple
+      }
+
+      // Load dark button text preference
+      final darkButtonText =
+          await DatabaseHelper.instance.getSetting('useDarkButtonText');
+      _cachedUseDarkButtonText = darkButtonText == 'true';
+
+      _preloadComplete = true;
+    } catch (e) {
+      Logging.severe('Error preloading essential settings: $e');
+      // Set defaults if preload fails
+      _cachedPrimaryColor = const Color(0xFF864AF9);
+      _cachedUseDarkButtonText = false;
+    }
+  }
+
+  // Add getters for cached settings
+  static Color get primaryColor =>
+      _cachedPrimaryColor ?? const Color(0xFF864AF9);
+  static bool get useDarkButtonText => _cachedUseDarkButtonText ?? false;
+
+  // Cache for frequently accessed settings
+  static Color? _cachedPrimaryColor;
+  static bool? _cachedUseDarkButtonText;
+  static bool _preloadComplete = false;
 }
 
 // Fix the toHexString extension method to correctly format hex values

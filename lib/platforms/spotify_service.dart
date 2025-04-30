@@ -174,7 +174,7 @@ class SpotifyService extends PlatformServiceBase {
 
       // Get new token
       final credentials =
-          '${ApiKeys.spotifyClientId}:${ApiKeys.spotifyClientSecret}';
+          '${await ApiKeys.spotifyClientId}:${await ApiKeys.spotifyClientSecret}';
       final basicAuth = base64Encode(utf8.encode(credentials));
 
       final response = await http.post(
@@ -209,6 +209,43 @@ class SpotifyService extends PlatformServiceBase {
     }
   }
 
+  Future<String> _fetchAuthToken() async {
+    try {
+      final clientId = await ApiKeys.spotifyClientId;
+      final clientSecret = await ApiKeys.spotifyClientSecret;
+
+      if (clientId == null || clientSecret == null) {
+        Logging.severe('Spotify API credentials not configured');
+        return '';
+      }
+
+      // Base64 encode the client ID and secret
+      final bytes = utf8.encode('$clientId:$clientSecret');
+      final authHeader = base64.encode(bytes);
+
+      // Request token
+      final response = await http.post(
+        Uri.parse('https://accounts.spotify.com/api/token'),
+        headers: {
+          'Authorization': 'Basic $authHeader',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {'grant_type': 'client_credentials'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['access_token'];
+      } else {
+        Logging.severe('Failed to get Spotify token: ${response.statusCode}');
+        return '';
+      }
+    } catch (e, stack) {
+      Logging.severe('Error getting Spotify auth token', e, stack);
+      return '';
+    }
+  }
+
   @override
   Future<Map<String, dynamic>?> fetchAlbumDetails(String url) async {
     try {
@@ -233,7 +270,7 @@ class SpotifyService extends PlatformServiceBase {
       final tokenResponse = await http.post(
         Uri.parse('https://accounts.spotify.com/api/token'),
         headers: {
-          'Authorization': 'Basic ${ApiKeys.getSpotifyToken()}',
+          'Authorization': 'Basic ${await _fetchAuthToken()}',
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: {

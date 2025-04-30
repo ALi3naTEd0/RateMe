@@ -15,69 +15,62 @@ import 'database/database_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'global_notifications.dart';
 import 'clipboard_detector.dart';
-import 'preferences_migration.dart';
-import 'database/migration_utility.dart';
 import 'database/cleanup_utility.dart';
 import 'theme_service.dart' as ts;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 
-void main() async {
-  // Ensure Flutter is initialized
+Future<void> main() async {
+  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize logging
-  Logging.initialize();
+  // Initialize database factory based on platform
+  // This must be done BEFORE any database access
+  await _initializeDatabaseFactory();
 
-  // Initialize the database first
-  await DatabaseHelper.initialize();
+  // Initialize database after factory setup
+  await DatabaseHelper.instance.database;
 
-  // CRITICAL FIX: Check if color is corrupted on startup and fix it
-  await _validateAndFixColorIfNeeded();
+  // Use the integrated ThemeService preloader instead of separate PreloadService
+  await ts.ThemeService.preloadEssentialSettings();
 
-  // Check if migration is needed
-  final migrationCompleted = await MigrationUtility.isMigrationCompleted();
-  if (!migrationCompleted) {
-    Logging.severe(
-        'Database migration not completed. User can run from Settings.');
-  }
-
-  // Migrate any remaining preferences
-  await PreferencesMigration.migrateRemainingPreferences();
-
-  // Initialize theme service
-  await ts.ThemeService.initialize();
-
-  // Run the app
+  // Continue with app initialization
   runApp(const MyApp());
-
-  // Log app startup once, clearly
-  Logging.severe('Application started successfully');
 }
 
-/// Validate and fix the primary color if it's missing or corrupted
-Future<void> _validateAndFixColorIfNeeded() async {
+/// Initialize the appropriate database factory based on platform
+Future<void> _initializeDatabaseFactory() async {
+  // Log that we're initializing database factory
+  Logging.severe('Initializing database factory for current platform');
+
   try {
-    // Get database access
-    final db = await DatabaseHelper.instance.database;
-
-    // Check for existing color setting
-    final colorRows = await db
-        .query('settings', where: 'key = ?', whereArgs: ['primaryColor']);
-    final colorStr =
-        colorRows.isNotEmpty ? colorRows.first['value'] as String? : null;
-
-    Logging.severe('STARTUP COLOR CHECK: Current color in database: $colorStr');
-
-    // SIMPLIFIED COLOR LOGIC:
-    // If there's no color setting, create a default one
-    // Otherwise, leave the user's choice unchanged
-    if (colorStr == null || colorStr.isEmpty) {
-      Logging.severe(
-          'STARTUP COLOR CHECK: No color found, setting app default');
-      await db.insert('settings',
-          {'key': 'primaryColor', 'value': ColorUtility.defaultColorHex});
+    // For desktop platforms and non-Android/iOS, use FFI
+    if (kIsWeb) {
+      // Web has its own initialization in sqflite package
+      Logging.severe('Web platform detected, using default factory');
+    } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      // Initialize FFI for desktop platforms
+      Logging.severe('Desktop platform detected, using FFI database factory');
+      // Initialize FFI
+      sqfliteFfiInit();
+      // Set global factory
+      databaseFactory = databaseFactoryFfi;
+    } else {
+      // Android/iOS use the regular factory which is already set up
+      Logging.severe('Mobile platform detected, using default factory');
     }
   } catch (e) {
-    Logging.severe('Error checking color at startup: $e');
+    Logging.severe('Error initializing database factory: $e');
+    // In case of failure, try to use FFI as a fallback
+    try {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      Logging.severe('Falling back to FFI database factory after error');
+    } catch (fallbackError) {
+      Logging.severe(
+          'Critical error: Failed to initialize any database factory: $fallbackError');
+    }
   }
 }
 
@@ -127,11 +120,13 @@ class _MyAppState extends State<MyApp> {
     _startClipboardDetection();
     _loadSearchPlatform();
     _setupGlobalListeners();
+
     if (widget.showMigrationPrompt) {
       Future.delayed(const Duration(seconds: 2), () {
         _showMigrationPrompt();
       });
     }
+
     _setupNotificationListener();
 
     // Register for theme changes
@@ -225,23 +220,6 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  void _updateTheme(ThemeMode mode) {
-    ts.ThemeService.setThemeMode(mode);
-    setState(() {
-      _themeMode = mode;
-    });
-  }
-
-  void _updatePrimaryColor(Color color) {
-    // Set ThemeService color first
-    ts.ThemeService.setPrimaryColor(color);
-
-    // Then update the local state variable
-    setState(() {
-      _primaryColor = color;
-    });
-  }
-
   Future<void> _loadSearchPlatform() async {
     try {
       final db = DatabaseHelper.instance;
@@ -262,6 +240,23 @@ class _MyAppState extends State<MyApp> {
     } catch (e) {
       Logging.severe('Error loading search platform', e);
     }
+  }
+
+  void _updateTheme(ThemeMode mode) {
+    ts.ThemeService.setThemeMode(mode);
+    setState(() {
+      _themeMode = mode;
+    });
+  }
+
+  void _updatePrimaryColor(Color color) {
+    // Set ThemeService color first
+    ts.ThemeService.setPrimaryColor(color);
+
+    // Then update the local state variable
+    setState(() {
+      _primaryColor = color;
+    });
   }
 
   void _updateSearchPlatform(SearchPlatform platform) async {
@@ -370,7 +365,6 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // Modify the setupNotificationListener method to preserve theme mode
   void _setupNotificationListener() {
     SettingsService.addThemeListener((mode, color) {
       if (mounted) {
@@ -390,7 +384,6 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  // Modify the _loadTheme method to reduce logging
   Future<void> _loadTheme() async {
     try {
       final prevMode = _themeMode; // Store previous mode for comparison
@@ -418,7 +411,6 @@ class _MyAppState extends State<MyApp> {
     searchController.dispose();
     _debounce?.cancel();
     GlobalNotifications.dispose();
-
     ts.ThemeService.removeListener(_themeListener);
 
     super.dispose();
@@ -433,7 +425,6 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // Fix the build method to prevent excessive logging
   @override
   Widget build(BuildContext context) {
     // First, store the current values to ensure they don't change during build
@@ -465,7 +456,6 @@ class _MyAppState extends State<MyApp> {
       scaffoldMessengerKey: scaffoldMessengerKey,
       title: 'RateMe!',
       debugShowCheckedModeBanner: false,
-
       // CRITICAL: Use currentThemeMode instead of _themeMode to prevent changes during build
       theme: ts.ThemeService.lightTheme.copyWith(
         snackBarTheme: SnackBarThemeData(

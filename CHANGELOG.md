@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consistent 85% width design pattern across all UI components
 
 ### Added
+- Secure user-provided API key support for Spotify and Discogs services
+- Dedicated API key management section in the Settings page
+- Automatic API key validation for Spotify credentials
+- Detailed API setup instructions with step-by-step guidance
+- Clear status indicators showing connected API services
+- Helpful context for why certain services require API keys
+- Direct links to developer portals for obtaining API credentials
 - Complete migration from SharedPreferences to SQLite database for all settings and user data
 - Reliable track data persistence for all platforms (iTunes/Apple Music, Spotify, Deezer, Discogs, Bandcamp)
 - Fixed Bandcamp album metadata storage with proper track information preservation
@@ -77,6 +84,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Fixed Spotify and Discogs search results showing only when API keys are provided
+- Enhanced API key persistence using secure database storage
+- Fixed platform-specific search behavior when API keys are missing
+- Improved error handling for failed API authentication attempts
+- Fixed user-facing API documentation links
 - Improved log management with reduced verbosity and better organization
 - Fixed redundant artwork URL logging during album display
 - Optimized logging for better debug experience and reduced noise
@@ -105,6 +117,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved state handling for asynchronous operations
 
 ### Changed
+- Redesigned API key management interface with platform-specific sections
+- Improved API configuration UX with connection status indicators and help resources
+- Redesigned Settings screen with dedicated API management section
+- Enhanced search results to indicate when results are limited due to missing API keys
 - Enhanced log output with clearer summaries of loaded data
 - Improved logging organization with proper counter-based summaries
 - Reduced verbose logging for frequent operations to improve performance
@@ -138,6 +154,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved track name storage and retrieval from database
 
 ### Technical
+- Implemented secure API key storage in SQLite database
+- Created centralized ApiKeys and ApiKeyManager classes for better credential management
+- Added API key validation system with proper error handling
+- Added conditional search behavior based on available credentials
+- Implemented platform-specific configuration UI components
+- Enhanced service factory to handle authentication failures gracefully
 - Added artwork URL caching during album processing for better performance
 - Implemented efficient artwork URL extraction across multiple data source formats
 - Added data summary logging for better troubleshooting

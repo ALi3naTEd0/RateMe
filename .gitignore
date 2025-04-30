@@ -95,9 +95,6 @@ result-*
 /ios/Pods/
 .ios/
 
-# API Keys
-lib/api_keys.dart
-
 # Temporary and backup files
 *.tmp
 *.bak

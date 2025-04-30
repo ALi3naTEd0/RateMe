@@ -12,6 +12,9 @@ class ThemeService {
   static bool _useDarkButtonText =
       false; // Add this line to store the preference
 
+  // Preload tracking
+  static bool _preloadComplete = false;
+
   // Store listeners that will be notified when the theme changes
   static final List<Function(ThemeMode, Color)> _listeners = [];
 
@@ -57,6 +60,78 @@ class ThemeService {
       _primaryColor = ColorUtility.defaultColor;
       await _savePrimaryColorToDatabase(_primaryColor);
     }
+  }
+
+  /// Preload essential theme settings before UI rendering
+  /// This is key to preventing the "flash of default color" issue
+  static Future<void> preloadEssentialSettings() async {
+    if (_preloadComplete) return;
+
+    Logging.severe('ThemeService: Preloading essential settings');
+
+    try {
+      // Load primary color directly from database
+      final colorString =
+          await DatabaseHelper.instance.getSetting('primaryColor');
+
+      if (colorString != null && colorString.isNotEmpty) {
+        try {
+          if (colorString.startsWith('#')) {
+            String hexColor = colorString.substring(1);
+
+            // Ensure we have an 8-digit ARGB hex
+            if (hexColor.length == 6) {
+              hexColor = 'FF$hexColor';
+            } else if (hexColor.length == 8) {
+              // Force full opacity
+              hexColor = 'FF${hexColor.substring(2)}';
+            }
+
+            final colorValue = int.parse(hexColor, radix: 16);
+            _primaryColor = Color(colorValue);
+            Logging.severe(
+                'ThemeService: Preloaded primary color: $colorString');
+          }
+        } catch (e) {
+          Logging.severe('ThemeService: Error parsing preloaded color: $e');
+          _primaryColor = ColorUtility.defaultColor;
+        }
+      }
+
+      // Load theme mode
+      final themeStr = await DatabaseHelper.instance.getSetting('themeMode');
+      ThemeMode mode = ThemeMode.system;
+
+      if (themeStr != null && themeStr.isNotEmpty) {
+        if (themeStr == 'ThemeMode.dark' ||
+            themeStr == '2' ||
+            themeStr == 'dark') {
+          mode = ThemeMode.dark;
+        } else if (themeStr == 'ThemeMode.light' ||
+            themeStr == '1' ||
+            themeStr == 'light') {
+          mode = ThemeMode.light;
+        }
+      }
+
+      _themeMode = mode;
+
+      // Load dark button text setting
+      final darkButtonText =
+          await DatabaseHelper.instance.getSetting('useDarkButtonText');
+      _useDarkButtonText = darkButtonText == 'true';
+
+      _preloadComplete = true;
+      Logging.severe('ThemeService: Preload complete');
+    } catch (e) {
+      Logging.severe('ThemeService: Error during preload: $e');
+      // Use defaults if preload fails
+    }
+  }
+
+  /// Check if preload is complete
+  static bool isPreloadComplete() {
+    return _preloadComplete;
   }
 
   /// Handle color changes from SettingsService

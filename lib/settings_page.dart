@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:rateme/global_notifications.dart';
+import 'api_keys.dart';
 import 'color_utility.dart';
+import 'database/api_key_manager.dart';
 import 'database/cleanup_utility.dart';
 import 'database/database_helper.dart';
 import 'database/json_fixer.dart';
@@ -74,6 +76,12 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     pickerColor = widget.currentPrimaryColor;
     textColor = defaultTextColor;
+
+    // Use cached values if available
+    _primaryColor = SettingsService.primaryColor;
+    _useDarkButtonText = SettingsService.useDarkButtonText;
+
+    // Still load settings to ensure everything is up to date
     _loadSettings();
     _checkDatabaseSize();
     _loadPreferences();
@@ -1479,6 +1487,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ),
 
+                            // API Keys Section
+                            _buildApiKeysSection(),
+
                             // Data Management Section
                             Card(
                               margin: const EdgeInsets.all(8),
@@ -1680,8 +1691,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                     },
                                   ),
                                   ListTile(
-                                    leading: const Icon(Icons
-                                        .downloading), // A cloud sync icon representing updating from cloud service
+                                    leading: SvgPicture.asset(
+                                      'lib/icons/bandcamp.svg',
+                                      width: 24,
+                                      height: 24,
+                                      colorFilter: ColorFilter.mode(
+                                        Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.white
+                                            : Colors.black,
+                                        BlendMode.srcIn,
+                                      ),
+                                    ),
                                     title: const Text('Update Bandcamp Albums'),
                                     subtitle: const Text(
                                         'Refresh track data for Bandcamp albums'),
@@ -2078,6 +2099,530 @@ class _SettingsPageState extends State<SettingsPage> {
         _showSnackBar('Error restoring default colors: $e');
       }
     }
+  }
+
+  // Add this new section to your settings page build method
+  Widget _buildApiKeysSection() {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.vpn_key, size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'API Keys',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Configure API keys for external services',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
+                  width: 0.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Rate Me! works with Apple Music and Deezer without requiring any configuration.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'To use Spotify or Discogs, you need to provide your own API credentials. Without these keys, features like platform matching will only work with Apple Music and Deezer.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'How to set up API keys:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            '1. Register/login at the service\'s developer portal',
+                            style: TextStyle(fontSize: 13)),
+                        Text('2. Create a new application',
+                            style: TextStyle(fontSize: 13)),
+                        Text('3. Name your app (e.g., "Rate Me!")',
+                            style: TextStyle(fontSize: 13)),
+                        Text('4. Copy the provided credentials',
+                            style: TextStyle(fontSize: 13)),
+                        Text('5. Paste them in the fields below',
+                            style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'The app will guide you to the correct developer websites when you click on each service below.',
+                    style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                  ),
+                  SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Need more info?',
+                        style: TextStyle(
+                            fontSize: 13, fontStyle: FontStyle.italic),
+                      ),
+                      SizedBox(width: 4),
+                      Material(
+                        color: Colors.transparent,
+                        shape: CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.help_outline,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          constraints:
+                              BoxConstraints(minWidth: 36, minHeight: 36),
+                          padding: EdgeInsets.zero,
+                          tooltip: 'More information about API keys',
+                          onPressed: () => _showApiKeysInfoDialog(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            FutureBuilder<String?>(
+                future: ApiKeys.spotifyClientId,
+                builder: (context, snapshot) {
+                  final hasKeys = snapshot.hasData &&
+                      snapshot.data != null &&
+                      snapshot.data!.isNotEmpty;
+                  return ListTile(
+                    leading: SvgPicture.asset(
+                      'lib/icons/spotify.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.black,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    title: Text('Spotify API Keys'),
+                    subtitle: Text(
+                        hasKeys ? 'Connected' : 'Required for Spotify search'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasKeys)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 18,
+                            ),
+                          ),
+                        Icon(Icons.keyboard_arrow_right),
+                      ],
+                    ),
+                    onTap: () => _showSpotifyApiKeyDialog(),
+                  );
+                }),
+            Divider(),
+            FutureBuilder<String?>(
+                future: ApiKeys.discogsConsumerKey,
+                builder: (context, snapshot) {
+                  final hasKeys = snapshot.hasData &&
+                      snapshot.data != null &&
+                      snapshot.data!.isNotEmpty;
+                  return ListTile(
+                    leading: SvgPicture.asset(
+                      'lib/icons/discogs.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.black,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    title: Text('Discogs API Keys'),
+                    subtitle: Text(
+                        hasKeys ? 'Connected' : 'Required for Discogs search'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasKeys)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 18,
+                            ),
+                          ),
+                        Icon(Icons.keyboard_arrow_right),
+                      ],
+                    ),
+                    onTap: () => _showDiscogsApiKeyDialog(),
+                  );
+                }),
+            Divider(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Update your existing dialogs to refresh UI after saving keys
+  Future<void> _showSpotifyApiKeyDialog() async {
+    String? clientId = await ApiKeys.spotifyClientId;
+    String? clientSecret = await ApiKeys.spotifyClientSecret;
+
+    if (!mounted) return;
+
+    final clientIdController = TextEditingController(text: clientId);
+    final clientSecretController = TextEditingController(text: clientSecret);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Spotify API Keys'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Get your Spotify API keys from the Spotify Developer Dashboard:',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () =>
+                    _launchUrl('https://developer.spotify.com/dashboard/'),
+                child: Text(
+                  'developer.spotify.com/dashboard',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: clientIdController,
+                decoration: InputDecoration(
+                  labelText: 'Client ID',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: clientSecretController,
+                decoration: InputDecoration(
+                  labelText: 'Client Secret',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true, // Hide the secret
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final id = clientIdController.text.trim();
+              final secret = clientSecretController.text.trim();
+
+              if (id.isEmpty && secret.isEmpty) {
+                // Remove keys if both are empty
+                await ApiKeyManager.instance.deleteApiKey('spotify');
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Spotify API keys removed')),
+                );
+                Navigator.of(context).pop();
+                return;
+              }
+
+              if (id.isEmpty || secret.isEmpty) {
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Please enter both Client ID and Client Secret')),
+                );
+                return;
+              }
+
+              // Test the credentials
+              final isValid = await ApiKeys.testSpotifyCredentials(id, secret);
+
+              if (!mounted) return;
+
+              if (isValid) {
+                // Save the valid credentials
+                await ApiKeys.saveSpotifyKeys(id, secret);
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text('Spotify API keys verified and saved')),
+                );
+                Navigator.of(context).pop();
+              } else {
+                if (!mounted) return;
+
+                // Show error but don't dismiss dialog
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Invalid Spotify credentials. Please check and try again.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    // After saving keys, refresh the state to update status indicators
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _showDiscogsApiKeyDialog() async {
+    String? consumerKey = await ApiKeys.discogsConsumerKey;
+    String? consumerSecret = await ApiKeys.discogsConsumerSecret;
+
+    if (!mounted) return;
+
+    final consumerKeyController = TextEditingController(text: consumerKey);
+    final consumerSecretController =
+        TextEditingController(text: consumerSecret);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setDialogState) => AlertDialog(
+          title: Text('Discogs API Keys'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Get your Discogs API keys from your Discogs Developer Settings:',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () =>
+                      _launchUrl('https://www.discogs.com/settings/developers'),
+                  child: Text(
+                    'discogs.com/settings/developers',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: consumerKeyController,
+                  decoration: InputDecoration(
+                    labelText: 'Consumer Key',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: consumerSecretController,
+                  decoration: InputDecoration(
+                    labelText: 'Consumer Secret',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final key = consumerKeyController.text.trim();
+                final secret = consumerSecretController.text.trim();
+
+                if (key.isNotEmpty && secret.isNotEmpty) {
+                  await ApiKeys.saveDiscogsKeys(key, secret);
+
+                  if (!mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Discogs API keys saved')),
+                  );
+                } else if (key.isEmpty && secret.isEmpty) {
+                  // Remove keys if both are empty
+                  await ApiKeyManager.instance.deleteApiKey('discogs');
+
+                  if (!mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Discogs API keys removed')),
+                  );
+                } else {
+                  if (!mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            'Please enter both Consumer Key and Consumer Secret')),
+                  );
+                  return;
+                }
+
+                if (!mounted) return;
+
+                Navigator.of(context).pop();
+              },
+              child: Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // After saving keys, refresh the state to update status indicators
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _launchUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      await launchUrl(uri);
+    } catch (e) {
+      Logging.severe('Error launching URL: $e');
+    }
+  }
+
+  void _showApiKeysInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('About API Keys', textAlign: TextAlign.center),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Why do I need API keys?',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Different music services have different approaches to API access:',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 12),
+
+              // Apple Music & Deezer
+              Text('Apple Music & Deezer:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Padding(
+                padding:
+                    const EdgeInsets.only(left: 12.0, top: 4.0, bottom: 8.0),
+                child: Text(
+                  '• Provide public APIs that don\'t require authentication\n'
+                  '• Allow reasonable usage without registration or API keys\n'
+                  '• Work out-of-the-box in Rate Me!',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+
+              // Spotify & Discogs
+              Text('Spotify & Discogs:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Padding(
+                padding:
+                    const EdgeInsets.only(left: 12.0, top: 4.0, bottom: 8.0),
+                child: Text(
+                  '• Require developer registration\n'
+                  '• Need API keys for all operations\n'
+                  '• Provide more functionality but require setup',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+
+              Divider(),
+              SizedBox(height: 8),
+              Text(
+                'Setting up keys is simple and free. The app will guide you to the correct developer websites when you click on each service.',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Features like platform matching (finding the same album on different services) work best when you have all services configured.',
+                style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
