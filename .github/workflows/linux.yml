@@ -51,16 +51,6 @@ jobs:
           restore-keys: |
             pub-dependencies-linux-${{ runner.os }}-
 
-      - name: Generate API Keys File
-        run: |
-          # Use the create_api_keys.sh script for consistency
-          chmod +x installers/create_api_keys.sh
-          SPOTIFY_CLIENT_ID='${{ secrets.SPOTIFY_CLIENT_ID }}' \
-          SPOTIFY_CLIENT_SECRET='${{ secrets.SPOTIFY_CLIENT_SECRET }}' \
-          DISCOGS_CONSUMER_KEY='${{ secrets.DISCOGS_CONSUMER_KEY }}' \
-          DISCOGS_CONSUMER_SECRET='${{ secrets.DISCOGS_CONSUMER_SECRET }}' \
-          ./installers/create_api_keys.sh
-
       # Install dependencies first to improve build performance
       - name: Install Flutter dependencies
         run: flutter pub get

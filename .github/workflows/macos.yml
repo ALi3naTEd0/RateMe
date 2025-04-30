@@ -52,16 +52,9 @@ jobs:
           mkdir -p assets
           curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
 
-      - name: Generate API Keys File
+      # Keep the app icon generation part
+      - name: Generate App Icons
         run: |
-          # Use the create_api_keys.sh script for consistency
-          chmod +x installers/create_api_keys.sh
-          SPOTIFY_CLIENT_ID='${{ secrets.SPOTIFY_CLIENT_ID }}' \
-          SPOTIFY_CLIENT_SECRET='${{ secrets.SPOTIFY_CLIENT_SECRET }}' \
-          DISCOGS_CONSUMER_KEY='${{ secrets.DISCOGS_CONSUMER_KEY }}' \
-          DISCOGS_CONSUMER_SECRET='${{ secrets.DISCOGS_CONSUMER_SECRET }}' \
-          ./installers/create_api_keys.sh
-          
           # Generate app icons using magick instead of convert
           cd macos/Runner/Assets.xcassets/AppIcon.appiconset
           ls -la ../../../../assets/  # Debug: check if file exists
