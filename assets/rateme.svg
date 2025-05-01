@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle without white border -->
+  <circle cx="256" cy="256" r="246"
+        fill="#864AF9"/>
+  
+  <!-- Main content group - improved centering and sizing -->
+  <g>
+    <!-- Stylized "RM" text with improved alignment and size -->
+    <g fill="#FFFFFF" transform="translate(50, 80) scale(.7)">
+      <!-- R -->
+      <path d="M65 130 L65 380 L125 380 L125 265 L155 265 L195 380 L260 380 L210 250
+               C235 240 255 215 255 180 C255 145 225 120 185 120 L65 120 Z
+               M125 170 L125 220 L165 220 C180 220 195 205 195 195 C195 180 180 170 165 170 L125 170 Z" />
+      <!-- M -->
+      <path d="M280 130 L280 380 L330 380 L330 210 L370 320 L410 210 L410 380 L460 380 L460 130 
+               L400 130 L370 230 L340 130 L280 130 Z" />
+      <!-- Proper 5-point star, centered, visually balanced, inside the "R" bowl -->
+      <g transform="translate(155,200) scale(2.5)">
+        <polygon 
+          points="0,-20 5.88,-6.18 19.02,-6.18 8.09,2.36 11.76,15.28 0,7.24 -11.76,15.28 -8.09,2.36 -19.02,-6.18 -5.88,-6.18"
+          fill="#864AF9" stroke="#FFFFFF" stroke-width="2"/>
+      </g>
+    </g>
+    <!-- Exclamation mark (vertical bar + square), same scale and aligned with RM -->
+    <g fill="#FFFFFF" transform="translate(-80, 40) scale(1.0)">
+      <!-- Vertical bar -->
+      <rect x="470" y="130" width="30" height="130" />
+      <!-- Square as the dot of the exclamation mark, matching the bar width -->
+      <rect x="470" y="275" width="30" height="30" fill="#FFFFFF"/>
+    </g>
+  </g>
+</svg>
