@@ -509,7 +509,7 @@ class SettingsService {
     }
   }
 
-  // Add getters for cached settings
+  // Add getters for cached settings that don't conflict with the static ones
   static Color get primaryColor =>
       _cachedPrimaryColor ?? const Color(0xFF864AF9);
   static bool get useDarkButtonText => _cachedUseDarkButtonText ?? false;
@@ -518,6 +518,31 @@ class SettingsService {
   static Color? _cachedPrimaryColor;
   static bool? _cachedUseDarkButtonText;
   static bool _preloadComplete = false;
+
+  // Add initialization methods used by preload service
+  static void initializePrimaryColor(Color color) {
+    _cachedPrimaryColor = color;
+
+    // Fix incorrect log by using proper RGB values from the color
+    final int r = (color.r * 255).round();
+    final int g = (color.g * 255).round();
+    final int b = (color.b * 255).round();
+
+    final String colorHex =
+        '#FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
+            .toUpperCase();
+
+    Logging.severe(
+        'SettingsService: Color initialized to $colorHex (RGB: $r,$g,$b)');
+
+    // The rest is fine - this call triggers the real color change notification
+    notifyColorChangeOnly(color); // Notify listeners but don't save to DB
+  }
+
+  static void initializeButtonTextColor(bool useDark) {
+    _cachedUseDarkButtonText = useDark;
+    Logging.severe('SettingsService: Dark button text initialized to $useDark');
+  }
 }
 
 // Fix the toHexString extension method to correctly format hex values

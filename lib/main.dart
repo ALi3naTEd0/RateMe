@@ -20,6 +20,7 @@ import 'theme_service.dart' as ts;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
+import 'preload_service.dart';
 
 Future<void> main() async {
   // Ensure Flutter binding is initialized
@@ -31,6 +32,9 @@ Future<void> main() async {
 
   // Initialize database after factory setup
   await DatabaseHelper.instance.database;
+
+  // Preload critical settings BEFORE app starts
+  await PreloadService.preloadSettings();
 
   // Use the integrated ThemeService preloader instead of separate PreloadService
   await ts.ThemeService.preloadEssentialSettings();

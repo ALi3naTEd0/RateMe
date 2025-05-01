@@ -844,7 +844,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           dialogColor = color;
                           // Update the hex text field when color changes
                           hexController.text =
-                              ColorUtility.colorToHex(color).substring(3);
+                              "${(color.r * 255).round().toRadixString(16).padLeft(2, '0')}${(color.g * 255).round().toRadixString(16).padLeft(2, '0')}${(color.b * 255).round().toRadixString(16).padLeft(2, '0').toUpperCase()}";
                           setDialogState(() {}); // Update sample button
 
                           // DIAGNOSTICS: Log every color change during selection
