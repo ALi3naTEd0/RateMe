@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1-1] - 2025-05-01
+
 ### Major Database Migration & Persistence Overhaul
 - Complete rewrite of app's core data persistence from SharedPreferences to SQLite
 - New database architecture providing better performance, reliability and data integrity
