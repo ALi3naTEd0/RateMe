@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### New Logo Implementation Across All Platforms
+- Designed and implemented a new modern logo for better brand identity
+- Created optimized logo assets for all supported platforms (Android, iOS, Windows, macOS, Linux)
+- Implemented adaptive icon support for Android with proper foreground/background layers
+- Added high-resolution icons for desktop platforms with proper scaling
+- Updated app icon in package manifests for all platforms
+- Ensured proper icon display in OS task managers and app launchers
+- Optimized SVG source files for better scaling and rendering
+- Created platform-specific variants to match OS design guidelines
+
 ### Major Database Migration & Persistence Overhaul
 - Complete rewrite of app's core data persistence from SharedPreferences to SQLite
 - New database architecture providing better performance, reliability and data integrity
@@ -26,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed color picker issues with direct integer-based RGB handling
 - Support for dark mode, light mode and system default with seamless transitions
 - Consistent 85% width design pattern across all UI components
+- Fixed black color issue on Android devices with proper "safe black" implementation
+- Eliminated flashing of default purple color during app startup with theme preloading
+- Proper color persistence across app restarts
 
 ### Added
 - Secure user-provided API key support for Spotify and Discogs services

@@ -133,11 +133,20 @@ class DatabaseHelper {
         // Remove the unsupported queryTimeoutDuration parameter
       );
 
+      try {
+        // Try to set WAL mode using rawQuery instead of execute for better Android compatibility
+        await db.rawQuery('PRAGMA journal_mode = WAL');
+        Logging.severe('Successfully set WAL journal mode');
+      } catch (e) {
+        // If setting WAL fails, log it but continue (don't crash)
+        Logging.severe(
+            'Failed to set WAL journal mode: $e (continuing anyway)');
+      }
+
       // Update schema directly with the db instance
       await _updateDatabaseSchemaInternal(db);
 
       // Set pragmas for better performance and stability
-      await db.execute('PRAGMA journal_mode = WAL;');
       await db.execute('PRAGMA synchronous = NORMAL;');
       await db.execute('PRAGMA cache_size = 1000;');
       await db.execute('PRAGMA temp_store = MEMORY;');

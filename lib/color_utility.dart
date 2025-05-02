@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'logging.dart';
+import 'dart:io' show Platform;
 
 /// Comprehensive utility class for color operations in the app
 class ColorUtility {
   // Default app color - ONLY used when database has no color setting
   static const Color defaultColor = Color(0xFF864AF9); // Default purple
   static const String defaultColorHex = '#FF864AF9';
+
+  // "Safe black" is a very dark grey that looks like black but avoids Android UI issues
+  static const Color safeBlack = Color(0xFF010101);
+  static const String safeBlackHex = '#FF010101';
 
   /// Convert a hex string to Color - CRITICAL METHOD THAT MUST WORK CORRECTLY
   static Color hexToColor(String hexString) {
@@ -28,8 +33,9 @@ class ColorUtility {
       normalizedHex = 'FF$normalizedHex';
     }
 
+    Color resultColor;
+
     // CRITICAL FIX: Manual parsing of the hex components
-    // This avoids any issues with int.parse() on the full string
     try {
       if (normalizedHex.length == 8) {
         // Parse each component separately
@@ -38,23 +44,47 @@ class ColorUtility {
         final int g = int.parse(normalizedHex.substring(4, 6), radix: 16);
         final int b = int.parse(normalizedHex.substring(6, 8), radix: 16);
 
-        // Remove this verbose log that runs on every color conversion
-        // Logging.severe('COLOR UTILITY: Successfully parsed $hexString to ARGB: $a,$r,$g,$b');
-        return Color.fromARGB(a, r, g, b);
+        // PLATFORM-SPECIFIC FIX: If on Android and this is pure black (#FF000000),
+        // use "safe black" (#FF010101) instead which appears virtually identical
+        if (Platform.isAndroid && r == 0 && g == 0 && b == 0) {
+          Logging.severe(
+              'COLOR UTILITY: Converting pure black to safe black on Android');
+          resultColor = safeBlack;
+        } else {
+          resultColor = Color.fromARGB(a, r, g, b);
+        }
+      } else {
+        // Fallback for invalid formats
+        throw FormatException('Invalid hex color format');
       }
     } catch (e) {
       Logging.severe('COLOR UTILITY: Error with component parsing: $e');
+
+      // Fallback to original method only if component parsing fails
+      try {
+        final int value = int.parse(normalizedHex, radix: 16);
+        resultColor = Color(value);
+
+        // PLATFORM-SPECIFIC FIX: If on Android and this is pure black (#FF000000),
+        // use "safe black" (#FF010101) instead which appears virtually identical
+        // Fix: Replace deprecated .value with individual component checks
+        if (Platform.isAndroid &&
+            resultColor.r == 0 &&
+            resultColor.g == 0 &&
+            resultColor.b == 0 &&
+            resultColor.a == 255) {
+          Logging.severe(
+              'COLOR UTILITY: Converting pure black to safe black on Android (fallback)');
+          resultColor = safeBlack;
+        }
+      } catch (e) {
+        Logging.severe(
+            'COLOR UTILITY: Critical parsing error for $hexString: $e');
+        return defaultColor;
+      }
     }
 
-    // Fallback to original method only if component parsing fails
-    try {
-      final int value = int.parse(normalizedHex, radix: 16);
-      return Color(value);
-    } catch (e) {
-      Logging.severe(
-          'COLOR UTILITY: Critical parsing error for $hexString: $e');
-      return defaultColor;
-    }
+    return resultColor;
   }
 
   /// Convert a Color to RGB string format
@@ -73,13 +103,8 @@ class ColorUtility {
     final int g = color.g.round();
     final int b = color.b.round();
 
-    // Apply safety check for very small values that should be zero
-    final int safeR = r < 3 ? 0 : r;
-    final int safeG = g < 3 ? 0 : g;
-    final int safeB = b < 3 ? 0 : b;
-
     // Format with proper padding and uppercase for consistency
-    return '#FF${safeR.toRadixString(16).padLeft(2, '0')}${safeG.toRadixString(16).padLeft(2, '0')}${safeB.toRadixString(16).padLeft(2, '0')}'
+    return '#FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
         .toUpperCase();
   }
 

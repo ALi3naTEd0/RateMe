@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform; // Add Platform import
+import 'color_utility.dart';
 import 'database/database_helper.dart';
 import 'logging.dart';
 import 'theme_service.dart' as ts;
@@ -17,6 +19,11 @@ class SettingsService {
 
   // Has the service been initialized?
   bool _initialized = false;
+
+  // Add the missing static variables - making _settings final as recommended
+  // Remove unused _isInitialized field
+  static final Map<String, String> _settings = {};
+  // Remove _primaryColor since it's unused and duplicates functionality in ThemeService
 
   // Add a static list of callbacks for theme changes
   static final List<Function(ThemeMode, Color)> _themeListeners = [];
@@ -542,6 +549,96 @@ class SettingsService {
   static void initializeButtonTextColor(bool useDark) {
     _cachedUseDarkButtonText = useDark;
     Logging.severe('SettingsService: Dark button text initialized to $useDark');
+  }
+
+  /// Load all settings from the database
+  static Future<void> loadSettings() async {
+    try {
+      Logging.severe('Loading settings from database');
+      // Use the _initialized variable from the instance instead of the static _isInitialized
+
+      // Get database instance
+      final db = await DatabaseHelper.instance.database;
+
+      // Query all settings
+      final settingsList = await db.query('settings');
+
+      // Process each setting
+      for (var setting in settingsList) {
+        final key = setting['key'] as String;
+        final value = setting['value'] as String;
+
+        // Add log for primary color
+        if (key == 'primaryColor') {
+          Logging.severe('Loaded setting: primaryColor = $value');
+
+          // CRITICAL FIX: Don't convert to black during loading
+          try {
+            final color = ColorUtility.hexToColor(value);
+            _settings[key] = value;
+            // Don't trigger color change when loading from database
+            // This prevents the unintended conversion to black
+
+            // Use ThemeService to set the primary color directly rather than _primaryColor
+            ts.ThemeService.setPrimaryColorDirectly(color);
+            continue;
+          } catch (e) {
+            Logging.severe('Error parsing color: $e');
+          }
+        }
+
+        _settings[key] = value;
+      }
+
+      // Log loaded settings
+      Logging.severe('Settings loaded successfully');
+
+      // CRITICAL FIX: Don't save settings right after loading them!
+      // This was causing the color to be overwritten with black
+    } catch (e, stack) {
+      Logging.severe('Error loading settings from database', e, stack);
+    }
+  }
+
+  /// Save primary color - renamed to avoid conflict with instance method
+  static Future<void> saveStaticPrimaryColor(Color color) async {
+    // CRITICAL FIX: Prevent saving pure black on Android
+    if (Platform.isAndroid && color.r == 0 && color.g == 0 && color.b == 0) {
+      Logging.severe(
+          'SettingsService: Preventing pure black on Android, using safe black instead');
+      color = ColorUtility.safeBlack;
+    }
+
+    // Convert color to hex string
+    final String colorHex = ColorUtility.colorToHex(color);
+
+    // Save to database using static method
+    await DatabaseHelper.instance.saveSetting('primaryColor', colorHex);
+
+    // Update local settings map
+    _settings['primaryColor'] = colorHex;
+
+    // Log the saved color
+    Logging.severe(
+        'SettingsService: Primary color saved: $colorHex (RGB: ${color.r}, ${color.g}, ${color.b})');
+
+    // Notify listeners
+    notifyColorChanged(color);
+  }
+
+  /// Notify color change
+  static void notifyColorChanged(Color color) {
+    // CRITICAL FIX: Don't accept black colors from notifications
+    if (color.r == 0 && color.g == 0 && color.b == 0 && Platform.isAndroid) {
+      Logging.severe(
+          'SettingsService: Prevented changing to black in notification');
+      return;
+    }
+
+    // Notify all listeners
+    for (var listener in _colorListeners) {
+      listener(color);
+    }
   }
 }
 

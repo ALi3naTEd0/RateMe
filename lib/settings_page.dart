@@ -1072,6 +1072,14 @@ class _SettingsPageState extends State<SettingsPage> {
                           // Create color with full alpha and assign it to dialogColor
                           dialogColor = Color.fromARGB(255, r, g, b);
 
+                          // PLATFORM SAFETY: Verify this is not black (0,0,0)
+                          // If all components are near-zero, use default purple instead
+                          if (r < 3 && g < 3 && b < 3) {
+                            Logging.severe(
+                                'COLOR PICKER: Near-black color detected, using default purple');
+                            dialogColor = ColorUtility.defaultColor;
+                          }
+
                           // Log the color values for diagnostics
                           Logging.severe(
                               'COLOR PICKER: Manual hex parsed: #$hexValue → RGB($r,$g,$b)');
@@ -1088,9 +1096,35 @@ class _SettingsPageState extends State<SettingsPage> {
                       final int g = (dialogColor.g * 255).round();
                       final int b = (dialogColor.b * 255).round();
 
-                      // DIAGNOSTICS: Log pre-safety check values with raw floating point values
-                      Logging.severe(
-                          'COLOR PICKER: Selected color - Raw(${dialogColor.r}, ${dialogColor.g}, ${dialogColor.b}) → RGB($r, $g, $b)');
+                      // PLATFORM SAFETY: After all calculations, verify we're not using pure black
+                      if (r < 3 && g < 3 && b < 3) {
+                        Logging.severe(
+                            'COLOR PICKER: Black color detected in final values, using default purple');
+                        final defaultPurple = ColorUtility.defaultColor;
+                        final safeR = defaultPurple.r.round();
+                        final safeG = defaultPurple.g.round();
+                        final safeB = defaultPurple.b.round();
+
+                        // Use safe values with proper RGB conversion
+                        final safeColor =
+                            Color.fromARGB(255, safeR, safeG, safeB);
+                        setState(() {
+                          _primaryColor = safeColor;
+                        });
+                        ts.ThemeService.setPrimaryColorDirectly(safeColor);
+
+                        // Create hex string for storage
+                        final storageHex =
+                            '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
+                                    '${safeG.toRadixString(16).padLeft(2, '0')}'
+                                    '${safeB.toRadixString(16).padLeft(2, '0')}'
+                                .toUpperCase();
+
+                        DatabaseHelper.instance
+                            .saveSetting('primaryColor', storageHex);
+                        Navigator.of(context).pop();
+                        return;
+                      }
 
                       // CRITICAL FIX: Add extra safeguards against very small values
                       final int safeR = r < 3 ? 0 : r;
@@ -1431,11 +1465,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                     const SizedBox(height: 16),
 
                                     // Default search platform dropdown
-                                    Row(
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Default Search Platform:'),
-                                        const Spacer(),
+                                        const Text('Default Search Platform:',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 8),
                                         DropdownButton<SearchPlatform>(
+                                          isExpanded:
+                                              true, // Make dropdown expand to fill width
                                           value: _defaultSearchPlatform,
                                           underline: Container(),
                                           onChanged:
@@ -1480,6 +1520,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                             );
                                           }).toList(),
                                         ),
+                                        const SizedBox(
+                                            height: 8), // Add bottom spacing
                                       ],
                                     ),
                                   ],

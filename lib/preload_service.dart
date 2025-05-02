@@ -1,69 +1,75 @@
 import 'package:flutter/material.dart';
-import 'settings_service.dart';
-import 'database/database_helper.dart';
 import 'logging.dart';
-import 'theme_service.dart' as ts;
+import 'theme_service.dart';
+import 'color_utility.dart';
+import 'database/database_helper.dart';
+import 'dart:io' show Platform;
 
-/// Service responsible for preloading essential application data
+/// Service to preload essential settings before UI rendering
 class PreloadService {
-  static bool _isPreloaded = false;
+  static bool _isPreloadComplete = false;
+  static Color? _cachedPrimaryColor;
 
-  // Add a getter to check if preloading is complete
-  static bool get isPreloaded => _isPreloaded;
+  /// Get the cached primary color after preload
+  static Color get primaryColor {
+    // CRITICAL FIX: Use safe default if no color loaded yet
+    return _cachedPrimaryColor ?? ColorUtility.defaultColor;
+  }
 
-  static Future<void> preloadSettings() async {
+  /// Check if preload is complete
+  static bool get isPreloadComplete => _isPreloadComplete;
+
+  /// Preload essential settings (theme color, etc.) before UI rendering
+  static Future<void> preloadEssentialSettings() async {
+    if (_isPreloadComplete) return;
+
+    Logging.severe('PRELOAD: Starting essential settings preload');
+
     try {
-      if (_isPreloaded) {
-        return; // Don't reload if already loaded
-      }
+      // First, initialize database
+      await DatabaseHelper.initialize();
 
-      Logging.severe('PreloadService: Starting preload of critical settings');
-
-      // Load primary color from database first to avoid UI flash
-      final colorString =
+      // Check if there's a saved primary color
+      final String? colorStr =
           await DatabaseHelper.instance.getSetting('primaryColor');
-      if (colorString != null && colorString.isNotEmpty) {
-        try {
-          if (colorString.startsWith('#')) {
-            String hexColor = colorString.substring(1);
 
-            // Ensure we have an 8-digit ARGB hex
-            if (hexColor.length == 6) {
-              hexColor = 'FF$hexColor';
-            } else if (hexColor.length == 8) {
-              // Force full opacity
-              hexColor = 'FF${hexColor.substring(2)}';
-            }
+      if (colorStr != null && colorStr.isNotEmpty) {
+        Logging.severe('PRELOAD: Found color setting: $colorStr');
 
-            // Parse the hex string to int and create color
-            final colorValue = int.parse(hexColor, radix: 16);
-            final Color parsedColor = Color(colorValue);
-
-            // Initialize BOTH services with the same color instance
-            SettingsService.initializePrimaryColor(parsedColor);
-            ts.ThemeService.setPrimaryColorDirectly(parsedColor);
-
-            Logging.severe(
-                'PreloadService: Successfully preloaded primary color: $colorString (RGB: ${parsedColor.r}, ${parsedColor.g}, ${parsedColor.b})');
-          }
-        } catch (e) {
-          Logging.severe('PreloadService: Error parsing color: $e');
+        // CRITICAL FIX: Check for black and convert if on Android
+        if (colorStr == '#FF000000' && Platform.isAndroid) {
+          Logging.severe('PRELOAD: Converting black to safe black on Android');
+          _cachedPrimaryColor = ColorUtility.safeBlack;
+        } else {
+          // Parse color from hex string using our utility
+          _cachedPrimaryColor = ColorUtility.hexToColor(colorStr);
         }
+
+        Logging.severe(
+            'PRELOAD: Cached primary color: ${ColorUtility.colorToRgbString(_cachedPrimaryColor!)}');
+      } else {
+        Logging.severe('PRELOAD: No color setting found, using default purple');
+        _cachedPrimaryColor = ColorUtility.defaultColor;
       }
 
-      // Preload dark button text setting
-      final darkButtonText =
-          await DatabaseHelper.instance.getSetting('useDarkButtonText');
-      final bool useDarkText = darkButtonText == 'true';
-      SettingsService.initializeButtonTextColor(useDarkText);
+      // Also initialize ThemeService with our cached color
+      await ThemeService.preloadEssentialSettings();
+      ThemeService.setPrimaryColorDirectly(_cachedPrimaryColor!);
 
-      // Fix: Use the correct method name in ThemeService
-      ts.ThemeService.setUseDarkButtonText(useDarkText);
-
-      _isPreloaded = true;
-      Logging.severe('PreloadService: Preload completed');
-    } catch (e) {
-      Logging.severe('PreloadService: Error during preload', e);
+      _isPreloadComplete = true;
+      Logging.severe('PRELOAD: Essential settings preloaded successfully');
+    } catch (e, stack) {
+      Logging.severe('PRELOAD: Error preloading essential settings', e, stack);
+      // If there's an error, use default color
+      _cachedPrimaryColor = ColorUtility.defaultColor;
     }
+  }
+
+  /// Reset to factory defaults
+  static Future<void> resetToDefaults() async {
+    Logging.severe('PRELOAD: Resetting to default settings');
+    _cachedPrimaryColor = ColorUtility.defaultColor;
+    await ThemeService.setPrimaryColor(ColorUtility.defaultColor);
+    _isPreloadComplete = false;
   }
 }

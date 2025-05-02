@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'color_utility.dart';
+import 'database/api_key_manager.dart';
 import 'saved_ratings_page.dart';
 import 'logging.dart';
 import 'details_page.dart';
@@ -23,24 +24,50 @@ import 'package:flutter/foundation.dart';
 import 'preload_service.dart';
 
 Future<void> main() async {
-  // Ensure Flutter binding is initialized
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    // Initialize Flutter binding
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize database factory based on platform
-  // This must be done BEFORE any database access
-  await _initializeDatabaseFactory();
+    // Initialize database factory
+    await _initializeDatabaseFactory();
 
-  // Initialize database after factory setup
-  await DatabaseHelper.instance.database;
+    // Initialize logging first
+    Logging.initialize();
+    Logging.severe('===== Logging system initialized =====');
 
-  // Preload critical settings BEFORE app starts
-  await PreloadService.preloadSettings();
+    // CRITICAL FIX: Preload theme settings before building the UI
+    await PreloadService.preloadEssentialSettings();
 
-  // Use the integrated ThemeService preloader instead of separate PreloadService
-  await ts.ThemeService.preloadEssentialSettings();
+    // Get the preloaded color for the initial UI render
+    Color initialThemeColor = PreloadService.primaryColor;
 
-  // Continue with app initialization
-  runApp(const MyApp());
+    runApp(MyApp(initialColor: initialThemeColor));
+
+    // Initialize services
+    await ApiKeyManager.instance.initialize();
+    await DatabaseHelper.initialize();
+    await ts.ThemeService.initialize();
+
+    // Start clipboard listener
+    ClipboardDetector.startClipboardListener(
+      onDetected: (url) {
+        // Handle URL detection
+      },
+      onSnackBarMessage: (message) {
+        // Show message
+      },
+      onUrlDetected: (url, query) {
+        // Handle URL with query
+      },
+      onSearchCompleted: (success) {
+        // Handle search completion
+      },
+    );
+
+    Logging.severe('MAIN: Application initialized');
+  } catch (e, stack) {
+    Logging.severe('MAIN: Error initializing application', e, stack);
+  }
 }
 
 /// Initialize the appropriate database factory based on platform
@@ -80,9 +107,12 @@ Future<void> _initializeDatabaseFactory() async {
 
 class MyApp extends StatefulWidget {
   final bool showMigrationPrompt;
+  final Color initialColor;
+
   const MyApp({
     super.key,
     this.showMigrationPrompt = false,
+    required this.initialColor,
   });
 
   @override
@@ -110,7 +140,7 @@ class _MyAppState extends State<MyApp> {
 
     // Fix: Set ThemeMode and Color directly from ThemeService right at initState
     _themeMode = ts.ThemeService.themeMode;
-    _primaryColor = ts.ThemeService.primaryColor;
+    _primaryColor = widget.initialColor;
 
     // Single initialization log
     Logging.severe('MAIN: Application initialized');

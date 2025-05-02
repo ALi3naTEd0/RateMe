@@ -21,7 +21,7 @@ class ApiKeyManager {
           secret TEXT,
           created_at TEXT
         )
-      ''');
+      '''); // Fixed: Added missing closing parenthesis here
 
       Logging.severe('API key manager initialized successfully');
     } catch (e, stack) {

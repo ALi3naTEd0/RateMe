@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'database/database_helper.dart';
 import 'logging.dart';
 import 'settings_service.dart'; // Add this import
 import 'color_utility.dart';
+import 'dart:io' show Platform;
 
 /// A clean, straightforward service to manage application themes
 class ThemeService {
@@ -314,6 +317,17 @@ class ThemeService {
 
   /// Update the primary color and save to database
   static Future<void> setPrimaryColor(Color color) async {
+    // CRITICAL FIX: Prevent saving pure black on Android
+    if (Platform.isAndroid &&
+        color.r == 0 &&
+        color.g == 0 &&
+        color.b == 0 &&
+        color.a == 255) {
+      Logging.severe(
+          'ThemeService: Preventing pure black on Android, using safe black instead');
+      color = ColorUtility.safeBlack; // Use safe black from ColorUtility
+    }
+
     // Ensure we're working with integer RGB values at storage boundaries only
     final int r = color.r.round();
     final int g = color.g.round();
@@ -331,7 +345,7 @@ class ThemeService {
     _primaryColor = safeColor;
 
     // Create a hex string for storage (with FF for alpha)
-    final hexString = _colorToHex(safeColor);
+    final hexString = ColorUtility.colorToHex(safeColor);
 
     // Save to database
     await DatabaseHelper.instance.saveSetting('primaryColor', hexString);
@@ -507,11 +521,6 @@ class ThemeService {
         ),
       ),
     );
-  }
-
-  // Helper method to convert Color to hex string for consistent logging
-  static String _colorToHex(Color color) {
-    return ColorUtility.colorToHex(color);
   }
 
   /// Helper function to determine if white or black text should be used on a background color
