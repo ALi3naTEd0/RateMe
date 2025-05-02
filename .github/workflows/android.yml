@@ -69,8 +69,8 @@ jobs:
       - name: Download Icons
         run: |
           mkdir -p assets
-          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
-          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/rateme/assets/rateme.png
+          curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
+          curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
 
       # Get dependencies before building
       - name: Install Flutter dependencies
