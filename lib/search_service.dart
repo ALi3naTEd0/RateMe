@@ -623,7 +623,59 @@ class SearchService {
       // Check if the query is a Deezer URL
       if (query.toLowerCase().contains('deezer.com') &&
           query.toLowerCase().contains('/album/')) {
-        // ... existing URL handling code ...
+        Logging.severe('Detected Deezer album URL: $query');
+        // Extract the album ID from the URL
+        final regExp = RegExp(r'/album/(\d+)');
+        final match = regExp.firstMatch(query);
+        if (match != null && match.groupCount >= 1) {
+          final albumId = match.group(1);
+          Logging.severe('Extracted Deezer album ID from URL: $albumId');
+          // Get album details
+          final albumDetailsUrl =
+              Uri.parse('https://api.deezer.com/album/$albumId');
+          final albumResponse = await http.get(albumDetailsUrl);
+          if (albumResponse.statusCode == 200) {
+            final albumData = jsonDecode(albumResponse.body);
+            // Create a preview of the album with basic info
+            final album = {
+              'id': albumData['id'],
+              'collectionId': albumData['id'],
+              'name': albumData['title'],
+              'collectionName': albumData['title'],
+              'artist': albumData['artist']?['name'] ?? 'Unknown Artist',
+              'artistName': albumData['artist']?['name'] ?? 'Unknown Artist',
+              'artworkUrl':
+                  albumData['cover_big'] ?? albumData['cover_medium'] ?? '',
+              'artworkUrl100': albumData['cover_medium'] ?? '',
+              'url': query,
+              'platform': 'deezer',
+              'releaseDate': albumData['release_date'],
+              'requiresFullFetch': true // Flag to get full track details later
+            };
+            // Return the single album
+            Logging.severe(
+                'Found Deezer album from URL: ${album['name']} by ${album['artist']}');
+            return {
+              'results': [album]
+            };
+          } else {
+            Logging.severe('Deezer API error: ${albumResponse.statusCode}');
+          }
+        }
+        // If we couldn't parse the URL properly, return a generic placeholder
+        return {
+          'results': [
+            {
+              'collectionId': DateTime.now().millisecondsSinceEpoch,
+              'collectionName': 'Deezer Album',
+              'artistName': 'Loading details...',
+              'artworkUrl100': '',
+              'url': query,
+              'platform': 'deezer',
+              'requiresFullFetch': true
+            }
+          ]
+        };
       }
 
       // Standard search for non-URL queries
