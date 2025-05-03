@@ -41,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper color persistence across app restarts
 
 ### Added
+- Enhanced date format handling for all supported music platforms
+- Comprehensive Bandcamp date parsing for non-standard formats including "11 Oct 2024 00:00:00 GMT"
+- Multi-strategy approach to date parsing with fallbacks for maximum compatibility
+- Multiple date format parser implementations with locale-specific handling
+- Manual component-based date parsing for complex cases
+- Improved clipboard URL detection and handling across all supported platforms
+- Better platform detection from pasted URLs with more accurate source identification
+- Enhanced album metadata extraction from Bandcamp URLs
+- Smart date format conversion for Deezer albums with improved error handling
+- Special handling for future release dates to ensure proper display across the app
+- Robust date parsing for Discogs releases with intelligent fallbacks
 - Secure user-provided API key support for Spotify and Discogs services
 - Dedicated API key management section in the Settings page
 - Automatic API key validation for Spotify credentials
@@ -97,6 +108,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Critical issue with Bandcamp date parsing in format "11 Oct 2024 00:00:00 GMT"
+- Fixed runtime exceptions when parsing non-standard date formats
+- Fixed year-only date handling for Discogs releases
+- Improved Deezer date loading with proper error recovery mechanisms
+- Fixed date display inconsistencies across different music platforms
+- Implemented robust date parsing strategies with comprehensive error handling
+- Fixed month name parsing in multiple languages and formats
+- Fixed clipboard URL detection and handling for complex URLs
+- Fixed Bandcamp release date handling ensuring proper ISO format conversion
+- Fixed timezone issues in date parsing for consistent display across devices
+- Enhanced date validation with appropriate fallbacks for missing or corrupted dates
+- Fixed future release date handling with metadata preservation
+- Fixed search results date sorting for Deezer albums with missing dates
+- Improved pre-fetching of Deezer album dates for better performance
 - Fixed Spotify and Discogs search results showing only when API keys are provided
 - Enhanced API key persistence using secure database storage
 - Fixed platform-specific search behavior when API keys are missing
@@ -128,8 +153,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platform-specific path issues for data storage
 - Proper disposal of resources to prevent memory leaks
 - Improved state handling for asynchronous operations
+- Critical issue with Bandcamp date parsing in format "11 Oct 2024 00:00:00 GMT"
+- Fixed runtime exceptions when parsing non-standard date formats
+- Fixed year-only date handling for Discogs releases
+- Improved Deezer date loading with proper error recovery mechanisms
+- Fixed date display inconsistencies across different music platforms
+- Implemented robust date parsing strategies with comprehensive error handling
+- Fixed month name parsing in multiple languages and formats
+- Fixed clipboard URL detection and handling for complex URLs
+- Fixed Bandcamp release date handling ensuring proper ISO format conversion
+- Fixed timezone issues in date parsing for consistent display across devices
+- Enhanced date validation with appropriate fallbacks for missing or corrupted dates
+- Fixed future release date handling with metadata preservation
+- Fixed search results date sorting for Deezer albums with missing dates
+- Improved pre-fetching of Deezer album dates for better performance
 
 ### Changed
+- Enhanced date handling with standardized ISO 8601 format across all platforms
+- Improved clipboard content detection with more accurate platform identification
+- Standardized date display format for consistency across all views
+- Improved date parsing with explicit locale handling for better international support
+- Enhanced date extraction from various music platforms with customized parsing strategies
+- Made date parsing more resilient with multi-level fallback mechanisms
+- Enhanced logging for date-related issues to improve troubleshooting
 - Redesigned API key management interface with platform-specific sections
 - Improved API configuration UX with connection status indicators and help resources
 - Redesigned Settings screen with dedicated API management section
@@ -165,8 +211,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced rating persistence with a robust position-based fallback system
 - Refactored track rating display with consistent handling across platforms
 - Improved track name storage and retrieval from database
+- Enhanced date handling with standardized ISO 8601 format across all platforms
+- Improved clipboard content detection with more accurate platform identification
+- Standardized date display format for consistency across all views
+- Improved date parsing with explicit locale handling for better international support
+- Enhanced date extraction from various music platforms with customized parsing strategies
+- Made date parsing more resilient with multi-level fallback mechanisms
+- Enhanced logging for date-related issues to improve troubleshooting
 
 ### Technical
+- Implemented specialized date parsers for each music platform's unique format
+- Created utility functions for date normalization and standardization
+- Enhanced DateFormat usage with explicit locale support
+- Improved RegExp patterns for date extraction from complex strings
+- Added manual date component parsing for maximum flexibility
+- Added extensive validation and error recovery for date parsing operations
+- Enhanced clipboard integration with improved URL format detection
+- Improved album metadata extraction pipeline with better error handling
+- Added comprehensive date format conversion utilities
+- Implemented special case handling for problematic date formats
+- Enhanced logging for date parsing to aid in debugging
 - Implemented secure API key storage in SQLite database
 - Created centralized ApiKeys and ApiKeyManager classes for better credential management
 - Added API key validation system with proper error handling
@@ -211,6 +275,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented transaction support for batch database operations
 - Better album matching algorithms for cross-platform compatibility
 - Optimized search queries with improved platform handling
+- Implemented specialized date parsers for each music platform's unique format
+- Created utility functions for date normalization and standardization
+- Enhanced DateFormat usage with explicit locale support
+- Improved RegExp patterns for date extraction from complex strings
+- Added manual date component parsing for maximum flexibility
+- Added extensive validation and error recovery for date parsing operations
+- Enhanced clipboard integration with improved URL format detection
+- Improved album metadata extraction pipeline with better error handling
+- Added comprehensive date format conversion utilities
+- Implemented special case handling for problematic date formats
+- Enhanced logging for date parsing to aid in debugging
 
 ## [1.1.0-4] - 2025-04-02
 

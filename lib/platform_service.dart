@@ -53,6 +53,7 @@ class PlatformService {
   }
 
   Future<String?> getSpotifyClientSecret() async {
+    // Fix: spotifyClientSecret is a getter (property), not a method, so shouldn't have parentheses
     return await ApiKeys.spotifyClientSecret;
   }
 
@@ -912,17 +913,63 @@ class PlatformService {
       try {
         Logging.severe(
             'BANDCAMP: Parsing release date from: ${ldJson['datePublished']}');
-        releaseDate = DateFormat("d MMMM yyyy HH:mm:ss 'GMT'")
-            .parse(ldJson['datePublished']);
-      } catch (e) {
+
+        // Use a more flexible date format that properly matches "11 Oct 2024 00:00:00 GMT"
+        // The key issue is using "d" for day and "MMM" for abbreviated month name
+        final dateStr = ldJson['datePublished'];
+
+        // First try with the exact format that matches "11 Oct 2024 00:00:00 GMT"
         try {
           releaseDate =
-              DateTime.parse(ldJson['datePublished'].replaceAll(' GMT', 'Z'));
-        } catch (e) {
-          Logging.severe(
-              'BANDCAMP: Using fallback date due to parsing error: $e');
-          releaseDate = DateTime.now();
+              DateFormat("d MMM yyyy HH:mm:ss 'GMT'", 'en_US').parse(dateStr);
+          Logging.severe('BANDCAMP: Successfully parsed date: $releaseDate');
+        } catch (formatError) {
+          // If that fails, try with explicit locale
+          try {
+            releaseDate = DateFormat("d MMMM yyyy HH:mm:ss 'GMT'", 'en_US')
+                .parse(dateStr);
+            Logging.severe(
+                'BANDCAMP: Successfully parsed date (fallback format): $releaseDate');
+          } catch (fullNameError) {
+            // Try to handle various date formats by manually parsing
+            if (dateStr.contains('GMT')) {
+              // Extract components from formats like "11 Oct 2024 00:00:00 GMT"
+              final parts = dateStr.split(' ');
+              if (parts.length >= 3) {
+                final day = int.tryParse(parts[0]) ?? 1;
+                final monthMap = {
+                  'Jan': 1,
+                  'Feb': 2,
+                  'Mar': 3,
+                  'Apr': 4,
+                  'May': 5,
+                  'Jun': 6,
+                  'Jul': 7,
+                  'Aug': 8,
+                  'Sep': 9,
+                  'Oct': 10,
+                  'Nov': 11,
+                  'Dec': 12
+                };
+                final month = monthMap[parts[1]] ?? 1;
+                final year = int.tryParse(parts[2]) ?? 2000;
+
+                // Create date from components
+                releaseDate = DateTime.utc(year, month, day);
+                Logging.severe('BANDCAMP: Manually parsed date: $releaseDate');
+              } else {
+                throw Exception('Invalid date format');
+              }
+            } else {
+              // Try ISO format as last resort
+              releaseDate = DateTime.parse(dateStr.replaceAll(' GMT', 'Z'));
+            }
+          }
         }
+      } catch (e) {
+        Logging.severe(
+            'BANDCAMP: Using fallback date due to parsing error: $e');
+        releaseDate = DateTime.now(); // Using now() as fallback
       }
 
       // Extract album ID with consistent generation
