@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1-1] - 2025-05-02
-
 ### New Logo Implementation Across All Platforms
 - Designed and implemented a new modern logo for better brand identity
 - Created optimized logo assets for all supported platforms (Android, iOS, Windows, macOS, Linux)
