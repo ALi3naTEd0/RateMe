@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart'; // Import for potential date formatting needs
+import '../logging.dart'; // Import logging
 
 /// Unified album model
 class Album {
@@ -56,20 +58,60 @@ class Album {
       }
     }
 
-    // Parse release date with better error handling
+    // Parse release date with better handling for null values and "unknown" marker
     DateTime releaseDate;
+    final rawDate = json['releaseDate'];
+    final isDateLoading = json['dateLoading'] == true;
+
+    Logging.severe(
+        'Album.fromJson: Parsing releaseDate field: $rawDate (loading: $isDateLoading)');
+
     try {
-      if (json['releaseDate'] is String) {
-        releaseDate = DateTime.parse(json['releaseDate']);
-      } else if (json['releaseDate'] is DateTime) {
-        releaseDate = json['releaseDate'];
-      } else {
-        releaseDate = DateTime.now();
+      // If date is still loading or missing or explicitly marked as unknown, use a sensible fallback date
+      if (isDateLoading ||
+          rawDate == null ||
+          rawDate == 'unknown' ||
+          (rawDate is String && rawDate.isEmpty)) {
+        // For unknown dates, use a clearly visible placeholder date rather than today
+        // January 1, 2000 is a neutral, recognizable date that won't be confused with a real release
+        releaseDate = DateTime(2000, 1, 1);
+        Logging.severe(
+            'Album.fromJson: Date unknown or missing, using placeholder date');
       }
-    } catch (e) {
-      debugPrint('Error parsing release date: $e');
-      releaseDate = DateTime.now();
+      // Normal date parsing for all other cases
+      else if (rawDate is String) {
+        // Handle YYYY-MM-DD format directly
+        if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(rawDate)) {
+          releaseDate = DateTime.parse(rawDate);
+        }
+        // Handle full ISO format
+        else if (DateTime.tryParse(rawDate) != null) {
+          releaseDate = DateTime.parse(rawDate);
+        }
+        // Handle potential year-only format (e.g., from Discogs search)
+        else if (RegExp(r'^\d{4}$').hasMatch(rawDate)) {
+          releaseDate = DateTime.parse('$rawDate-01-01'); // Default to Jan 1st
+        } else {
+          Logging.severe(
+              'Album.fromJson: Unknown date string format "$rawDate", falling back.');
+          releaseDate = DateTime.now(); // Fallback for unknown string formats
+        }
+      } else if (rawDate is DateTime) {
+        releaseDate = rawDate; // Already a DateTime object
+      } else {
+        Logging.severe(
+            'Album.fromJson: releaseDate field has unexpected type, falling back.');
+        releaseDate = DateTime.now(); // Fallback for wrong type
+      }
+    } catch (e, stack) {
+      Logging.severe(
+          'Album.fromJson: Error parsing release date "$rawDate"', e, stack);
+      // Use placeholder date on errors too
+      releaseDate = DateTime(2000, 1, 1);
     }
+
+    Logging.severe(
+        'Album.fromJson: Final parsed releaseDate: ${DateFormat('yyyy-MM-dd').format(releaseDate)}');
 
     // Ensure artwork URL is properly handled
     String artworkUrl = '';
@@ -85,11 +127,14 @@ class Album {
     }
 
     return Album(
-      id: albumId ?? 0,
+      id: albumId ??
+          DateTime.now().millisecondsSinceEpoch, // Use timestamp as fallback ID
       name: json['name'] ?? json['collectionName'] ?? 'Unknown Album',
       artist: json['artist'] ?? json['artistName'] ?? 'Unknown Artist',
       artworkUrl: artworkUrl,
-      url: json['url'] ?? '',
+      url: json['url'] ??
+          json['collectionViewUrl'] ??
+          '', // Added collectionViewUrl fallback
       platform: json['platform'] ?? 'unknown',
       releaseDate: releaseDate,
       metadata: json['metadata'] ??
@@ -127,22 +172,41 @@ class Album {
       }
     }
 
-    // Parse release date with better error handling
+    // Parse release date with better error handling and logging
     DateTime releaseDate;
+    final rawDate = legacy['releaseDate'];
+    Logging.severe(
+        'Album.fromLegacy: Parsing releaseDate field: $rawDate (type: ${rawDate?.runtimeType})'); // Log raw date
     try {
-      if (legacy['releaseDate'] != null) {
-        if (legacy['releaseDate'] is String) {
-          releaseDate = DateTime.parse(legacy['releaseDate']);
+      if (rawDate != null && rawDate is String && rawDate.isNotEmpty) {
+        // Handle YYYY-MM-DD format directly
+        if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(rawDate)) {
+          releaseDate = DateTime.parse(rawDate);
+        }
+        // Handle full ISO format
+        else if (DateTime.tryParse(rawDate) != null) {
+          releaseDate = DateTime.parse(rawDate);
+        }
+        // Handle potential year-only format (e.g., from Discogs search)
+        else if (RegExp(r'^\d{4}$').hasMatch(rawDate)) {
+          releaseDate = DateTime.parse('$rawDate-01-01'); // Default to Jan 1st
         } else {
-          releaseDate = DateTime.now();
+          Logging.severe(
+              'Album.fromLegacy: Unknown date string format "$rawDate", falling back.');
+          releaseDate = DateTime.now(); // Fallback for unknown string formats
         }
       } else {
-        releaseDate = DateTime.now();
+        Logging.severe(
+            'Album.fromLegacy: releaseDate field is null, empty, or wrong type, falling back.');
+        releaseDate = DateTime.now(); // Fallback for null or wrong type
       }
-    } catch (e) {
-      debugPrint('Error parsing legacy release date: $e');
-      releaseDate = DateTime.now();
+    } catch (e, stack) {
+      Logging.severe(
+          'Album.fromLegacy: Error parsing release date "$rawDate"', e, stack);
+      releaseDate = DateTime.now(); // Fallback on any parsing error
     }
+    Logging.severe(
+        'Album.fromLegacy: Parsed releaseDate: ${DateFormat('yyyy-MM-dd').format(releaseDate)}'); // Log parsed date
 
     // Determine platform - have better detection
     String platform = legacy['platform']?.toString() ?? 'unknown';

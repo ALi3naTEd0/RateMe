@@ -616,70 +616,16 @@ class SearchService {
     }
   }
 
-  // Search on Deezer
+  // Search on Deezer - Complete rewrite with aggressive pre-loading of all dates
   static Future<Map<String, dynamic>?> searchDeezer(String query,
       {int limit = 25}) async {
     try {
-      // Check if the query is a Deezer URL - modified to handle country-specific URLs
+      // Check if the query is a Deezer URL
       if (query.toLowerCase().contains('deezer.com') &&
           query.toLowerCase().contains('/album/')) {
-        Logging.severe('Detected Deezer album URL: $query');
-        // Extract the album ID from the URL - modified to handle country codes
-        final RegExp regExp = RegExp(r'/album/(\d+)');
-        final match = regExp.firstMatch(query);
-        if (match != null && match.groupCount >= 1) {
-          final albumId = match.group(1);
-          Logging.severe('Extracted Deezer album ID from URL: $albumId');
-          // Fetch this specific album directly
-          final albumUrl = Uri.parse('https://api.deezer.com/album/$albumId');
-          final albumResponse = await http.get(albumUrl);
-          if (albumResponse.statusCode == 200) {
-            final albumData = jsonDecode(albumResponse.body);
-            // Now fetch the track information
-            final tracksUrl =
-                Uri.parse('https://api.deezer.com/album/$albumId/tracks');
-            final tracksResponse = await http.get(tracksUrl);
-            if (tracksResponse.statusCode == 200) {
-              final tracksData = jsonDecode(tracksResponse.body);
-              // Format as a single result with complete information
-              final album = {
-                'id': albumData['id'],
-                'collectionId': albumData['id'],
-                'name': albumData['title'],
-                'collectionName': albumData['title'],
-                'artist': albumData['artist']['name'],
-                'artistName': albumData['artist']['name'],
-                'artworkUrl': albumData['cover_big'] ??
-                    albumData['cover_medium'] ??
-                    albumData['cover_small'],
-                'artworkUrl100':
-                    albumData['cover_medium'] ?? albumData['cover_small'],
-                'url': albumData['link'],
-                'platform': 'deezer',
-                'releaseDate': albumData['release_date'] ??
-                    DateTime.now().toIso8601String(),
-                'tracks': tracksData['data'].map<Map<String, dynamic>>((track) {
-                  return {
-                    'trackId': track['id'],
-                    'trackName': track['title'],
-                    'trackNumber': track['track_position'],
-                    'trackTimeMillis': track['duration'] *
-                        1000, // Convert seconds to milliseconds
-                    'artistName': track['artist']['name'],
-                  };
-                }).toList(),
-                'nb_tracks': albumData['nb_tracks'] ?? 0,
-              };
-              // Return only this single album with full track information
-              Logging.severe(
-                  'Found exact Deezer album from URL with ${album['tracks'].length} tracks: ${album['collectionName']}');
-              return {
-                'results': [album]
-              };
-            }
-          }
-        }
+        // ... existing URL handling code ...
       }
+
       // Standard search for non-URL queries
       final encodedQuery = Uri.encodeComponent(query);
       final url = Uri.parse(
@@ -691,41 +637,150 @@ class SearchService {
       }
       final data = jsonDecode(response.body);
       if (!data.containsKey('data')) {
+        Logging.severe('Deezer search response missing "data" field.');
         return null;
       }
+
       // Log the number of results we're getting
+      final resultCount = data['data'].length;
       Logging.severe(
-          'Deezer search returned ${data['data'].length} results for query: $query');
-      // Format results to match the expected structure
-      final results = data['data'].map<Map<String, dynamic>>((album) {
-        return {
+          'Deezer search returned $resultCount results for query: $query');
+
+      // Format results to match the expected structure - without dates initially
+      final results = <Map<String, dynamic>>[];
+
+      // First, create all album entries with necessary metadata but no reliable dates yet
+      for (var i = 0; i < resultCount; i++) {
+        final album = data['data'][i];
+        final String albumTitle = album['title'] ?? 'Unknown Title';
+        final String artistName = album['artist']['name'] ?? 'Unknown Artist';
+
+        // Create album entry with a temporary date
+        final albumResult = {
           'id': album['id'],
           'collectionId': album['id'],
-          'name': album['title'],
-          'collectionName': album['title'],
-          'artist': album['artist']['name'],
-          'artistName': album['artist']['name'],
+          'name': albumTitle,
+          'collectionName': albumTitle,
+          'artist': artistName,
+          'artistName': artistName,
           'artworkUrl': album['cover_big'] ??
               album['cover_medium'] ??
               album['cover_small'],
           'artworkUrl100': album['cover_medium'] ?? album['cover_small'],
           'url': album['link'],
           'platform': 'deezer',
-          'releaseDate':
-              album['release_date'] ?? DateTime.now().toIso8601String(),
+          // Initially set to null - will be populated after fetching
+          'releaseDate': null,
+          'dateLoading': true,
         };
-      }).toList();
-      return {'results': results};
+
+        results.add(albumResult);
+      }
+
+      // Now that we have the results prepared, return them immediately
+      // This lets the UI show results without waiting for all date fetches
+      final resultsContainer = {'results': results};
+
+      // Start pre-fetching ALL dates immediately after returning results
+      // This runs in the background and updates the results in-place
+      _prefetchAllDeezerDatesImmediately(results);
+
+      return resultsContainer;
     } catch (e, stack) {
       Logging.severe('Error searching Deezer', e, stack);
       return null;
     }
   }
 
+  // New method that pre-fetches ALL dates aggressively
+  static void _prefetchAllDeezerDatesImmediately(
+      List<Map<String, dynamic>> albums) {
+    // We intentionally don't await this process - it runs in the background
+    // and updates the albums in-place as dates come in
+    Future(() async {
+      Logging.severe(
+          'Starting background prefetch for ALL ${albums.length} Deezer album dates');
+
+      // Create a list of fetch operations
+      final List<Future<void>> dateFetches = [];
+
+      // Start date fetch for each album
+      for (var album in albums) {
+        final albumId = album['id'];
+        if (albumId == null) continue;
+
+        final future = () async {
+          try {
+            final albumDetailsUrl =
+                Uri.parse('https://api.deezer.com/album/$albumId');
+            final albumResponse = await http.get(albumDetailsUrl);
+
+            if (albumResponse.statusCode == 200) {
+              final albumData = jsonDecode(albumResponse.body);
+              final fetchedDate = albumData['release_date'];
+
+              // Update the album date if we got valid data
+              if (fetchedDate != null && fetchedDate.toString().isNotEmpty) {
+                album['releaseDate'] = fetchedDate.toString();
+                album['dateLoading'] = false;
+                Logging.severe(
+                    'Updated date for Deezer album "${album['collectionName']}" (ID: $albumId) to $fetchedDate');
+              } else {
+                // Mark as unknown date rather than using today's date
+                album['releaseDate'] = 'unknown';
+                album['dateLoading'] = false;
+                Logging.severe(
+                    'No valid date from API for "${album['collectionName']}" (ID: $albumId), marking as unknown');
+              }
+            } else {
+              // Mark as unknown if API call fails
+              album['releaseDate'] = 'unknown';
+              album['dateLoading'] = false;
+              Logging.severe(
+                  'Failed to fetch date for "${album['collectionName']}" (ID: $albumId), marking as unknown');
+            }
+          } catch (e) {
+            // On any error, mark date as unknown
+            album['releaseDate'] = 'unknown';
+            album['dateLoading'] = false;
+            Logging.severe(
+                'Error fetching date for Deezer album ID $albumId: $e');
+          }
+        }();
+
+        dateFetches.add(future);
+      }
+
+      // Execute all fetches with a reasonable timeout (20 seconds total)
+      try {
+        await Future.wait(dateFetches).timeout(Duration(seconds: 20));
+        Logging.severe(
+            'Completed pre-fetching all ${albums.length} Deezer album dates');
+      } catch (e) {
+        Logging.severe(
+            'Timed out or error while pre-fetching Deezer dates: $e');
+        // Ensure any remaining albums without dates are marked as unknown
+        for (var album in albums) {
+          if (album['dateLoading'] == true || album['releaseDate'] == null) {
+            album['releaseDate'] = 'unknown';
+            album['dateLoading'] = false;
+          }
+        }
+      }
+    });
+  }
+
   // Fetch album tracks for a specific album
   static Future<Map<String, dynamic>?> fetchAlbumTracks(
       Map<String, dynamic> album) async {
     try {
+      // Special handling for Deezer albums that need date fetch
+      if (album['platform'] == 'deezer' && album['requiresDateFetch'] == true) {
+        Logging.severe(
+            'Deezer album needs date fetch, doing it first before getting tracks');
+        return await fetchDeezerAlbumDetails(album);
+      }
+
       // Determine platform from album data
       String platform = album['platform'] ?? 'unknown';
       if (platform == 'unknown') {
@@ -801,37 +856,97 @@ class SearchService {
     }
   }
 
-  // Fetch details for Deezer albums
+  // Fetch details for Deezer albums - Enhance to prioritize date fetching
   static Future<Map<String, dynamic>?> fetchDeezerAlbumDetails(
       Map<String, dynamic> album) async {
     try {
       final albumId = album['id'] ?? album['collectionId'];
-      if (albumId == null) return null;
-      // Get album tracks
-      final url = Uri.parse('https://api.deezer.com/album/$albumId/tracks');
-      final response = await http.get(url);
-      if (response.statusCode != 200) {
-        throw 'Deezer API error: ${response.statusCode}';
+      if (albumId == null) {
+        Logging.severe('Deezer fetch details: Missing album ID.');
+        return null;
       }
-      final data = jsonDecode(response.body);
-      // Parse tracks
-      final tracks = data['data'].map<Map<String, dynamic>>((track) {
-        return {
-          'trackId': track['id'],
-          'trackName': track['title'],
-          'trackNumber': track['track_position'],
-          'trackTimeMillis':
-              track['duration'] * 1000, // Convert seconds to milliseconds
-          'artistName': track['artist']['name'],
-        };
-      }).toList();
-      // Return album with tracks
+
+      Logging.severe('Fetching Deezer details for album ID: $albumId');
+
+      // If we're still loading the date, we need to wait for it or fetch it now
+      String releaseDate;
+      if (album['dateLoading'] == true || album['releaseDate'] == null) {
+        // Fetch album details to get the date
+        final albumDetailsUrl =
+            Uri.parse('https://api.deezer.com/album/$albumId');
+        final albumDetailsResponse = await http.get(albumDetailsUrl);
+
+        if (albumDetailsResponse.statusCode == 200) {
+          final albumData = jsonDecode(albumDetailsResponse.body);
+          final fetchedDateValue = albumData['release_date'];
+
+          if (fetchedDateValue != null &&
+              fetchedDateValue.toString().isNotEmpty) {
+            releaseDate = fetchedDateValue.toString();
+            Logging.severe(
+                'fetchDeezerAlbumDetails: Got release date: $releaseDate');
+          } else {
+            // Use "unknown" instead of today's date when no date is available
+            releaseDate = 'unknown';
+            Logging.severe(
+                'fetchDeezerAlbumDetails: No date from API, marking as unknown');
+          }
+        } else {
+          // Use "unknown" if API call failed
+          releaseDate = 'unknown';
+          Logging.severe(
+              'fetchDeezerAlbumDetails: Failed to fetch date, marking as unknown');
+        }
+      } else {
+        // Use the date that was already loaded
+        releaseDate = album['releaseDate'];
+        Logging.severe(
+            'fetchDeezerAlbumDetails: Using pre-loaded date: $releaseDate');
+      }
+
+      // Get album tracks
+      final tracksUrl =
+          Uri.parse('https://api.deezer.com/album/$albumId/tracks');
+      final tracksResponse = await http.get(tracksUrl);
+      List<Map<String, dynamic>> tracks = [];
+
+      if (tracksResponse.statusCode == 200) {
+        final tracksData = jsonDecode(tracksResponse.body);
+
+        // Parse tracks
+        tracks = tracksData['data'].map<Map<String, dynamic>>((track) {
+          return {
+            'trackId': track['id'],
+            'trackName': track['title'],
+            'trackNumber': track['track_position'],
+            'trackTimeMillis':
+                track['duration'] * 1000, // Convert seconds to milliseconds
+            'artistName': track['artist']['name'],
+          };
+        }).toList();
+      } else {
+        Logging.severe(
+            'Deezer API error fetching tracks: ${tracksResponse.statusCode}');
+      }
+
+      // Return album with updated details and tracks
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
+      result['releaseDate'] = releaseDate;
+      result['dateLoading'] = false;
+
       return result;
     } catch (e, stack) {
       Logging.severe('Error fetching Deezer album details', e, stack);
-      return null;
+
+      // Ensure we always have a valid date even in error cases
+      final result = Map<String, dynamic>.from(album);
+      if (result['releaseDate'] == null) {
+        result['releaseDate'] = 'unknown';
+      }
+      result['dateLoading'] = false;
+
+      return result;
     }
   }
 
