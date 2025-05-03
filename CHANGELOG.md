@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper color persistence across app restarts
 
 ### Added
+- Fixed Discogs track duration fetching with intelligent version selection
+- Enhanced date extraction algorithms for all supported music platforms
+- Improved Discogs date parsing with background prefetching for search results
 - Enhanced date format handling for all supported music platforms
 - Comprehensive Bandcamp date parsing for non-standard formats including "11 Oct 2024 00:00:00 GMT"
 - Multi-strategy approach to date parsing with fallbacks for maximum compatibility
@@ -108,6 +111,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Fixed Discogs album URL detection and metadata extraction
+- Improved Discogs version selection logic to find best release dates
+- Fixed master/release relationship handling for Discogs albums
+- Enhanced release date processing with multi-attempt parsing strategies
 - Critical issue with Bandcamp date parsing in format "11 Oct 2024 00:00:00 GMT"
 - Fixed runtime exceptions when parsing non-standard date formats
 - Fixed year-only date handling for Discogs releases
@@ -153,22 +160,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platform-specific path issues for data storage
 - Proper disposal of resources to prevent memory leaks
 - Improved state handling for asynchronous operations
-- Critical issue with Bandcamp date parsing in format "11 Oct 2024 00:00:00 GMT"
-- Fixed runtime exceptions when parsing non-standard date formats
-- Fixed year-only date handling for Discogs releases
-- Improved Deezer date loading with proper error recovery mechanisms
-- Fixed date display inconsistencies across different music platforms
-- Implemented robust date parsing strategies with comprehensive error handling
-- Fixed month name parsing in multiple languages and formats
-- Fixed clipboard URL detection and handling for complex URLs
-- Fixed Bandcamp release date handling ensuring proper ISO format conversion
-- Fixed timezone issues in date parsing for consistent display across devices
-- Enhanced date validation with appropriate fallbacks for missing or corrupted dates
-- Fixed future release date handling with metadata preservation
-- Fixed search results date sorting for Deezer albums with missing dates
-- Improved pre-fetching of Deezer album dates for better performance
 
 ### Changed
+- Enhanced Discogs integration with improved master/release version selection
+- Better handling of albums with missing track durations across all platforms
 - Enhanced date handling with standardized ISO 8601 format across all platforms
 - Improved clipboard content detection with more accurate platform identification
 - Standardized date display format for consistency across all views
@@ -220,6 +215,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced logging for date-related issues to improve troubleshooting
 
 ### Technical
+- Implemented intelligent Discogs version scoring system based on release formats and countries
+- Created specialized date parsers for each music platform's unique format
+- Created multi-pass approach to finding accurate Discogs dates from related releases
+- Enhanced date fallback mechanism with consistent default values
 - Implemented specialized date parsers for each music platform's unique format
 - Created utility functions for date normalization and standardization
 - Enhanced DateFormat usage with explicit locale support
