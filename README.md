@@ -10,7 +10,7 @@
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
 
 <a href="https://discord.gg/kFGQckFz">
-  <img src="https://img.shields.io/discord/1234567890?color=5865F2&logo=discord&logoColor=white&label=Join%20Discord" alt="Discord Server">
+  <img src="https://img.shields.io/badge/Discord-Join%20Chat-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord Server">
 </a>
 
 </div>
