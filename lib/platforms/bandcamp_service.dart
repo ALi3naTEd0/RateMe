@@ -250,7 +250,7 @@ class BandcampService extends PlatformServiceBase {
       }
       return 0;
     } catch (e) {
-      Logging.severe('Error parsing time string: $timeString - $e');
+      Logging.severe('Error parsing time string: $e');
       return 0;
     }
   }
@@ -276,6 +276,10 @@ class BandcampService extends PlatformServiceBase {
               final artistName = (jsonLd['byArtist'] is Map)
                   ? (jsonLd['byArtist']['name'] ?? '')
                   : '';
+
+              Logging.severe(
+                  'BANDCAMP: Extracted title: "$albumTitle" and artist: "$artistName"');
+
               // Artwork: try image from albumRelease, fallback to top-level
               String artworkUrl = '';
               if (jsonLd['albumRelease'] is List &&
@@ -294,6 +298,11 @@ class BandcampService extends PlatformServiceBase {
                   jsonLd['track']['@type'] == 'ItemList' &&
                   jsonLd['track']['itemListElement'] is List) {
                 final itemList = jsonLd['track']['itemListElement'];
+
+                // Log only the number of tracks, not every single one
+                Logging.severe(
+                    'BANDCAMP: Processing ${itemList.length} tracks');
+
                 int pos = 1;
                 for (final item in itemList) {
                   if (item is Map && item['item'] is Map) {
@@ -320,7 +329,8 @@ class BandcampService extends PlatformServiceBase {
                     final duration = trackObj['duration'];
                     int durationMs = 0;
                     if (duration != null) {
-                      durationMs = _parseIso8601DurationToMillis(duration);
+                      durationMs = _parseIso8601DurationToMillis(duration,
+                          logOutput: false); // Add logOutput param
                     }
                     tracks.add({
                       'trackId': trackId,
@@ -328,29 +338,16 @@ class BandcampService extends PlatformServiceBase {
                       'trackNumber': pos,
                       'trackTimeMillis': durationMs,
                     });
+
+                    // Remove individual track logging - too noisy
                     pos++;
                   }
                 }
               }
-              // Fallback: legacy "track": [ ... ]
-              else if (jsonLd['track'] is List) {
-                int pos = 1;
-                for (final t in jsonLd['track']) {
-                  if (t == null) continue;
-                  tracks.add({
-                    'trackId': t['url'] ?? pos.toString(),
-                    'trackName': t['name'] ?? 'Track $pos',
-                    'trackNumber': pos,
-                    'trackTimeMillis': (t['duration'] != null)
-                        ? _parseIso8601DurationToMillis(t['duration'])
-                        : 0,
-                  });
-                  pos++;
-                }
-              }
 
-              // Fallback: if no tracks found, try to extract from TralbumData or return null
-              if (tracks.isEmpty) return null;
+              // After processing all tracks, log summary
+              Logging.severe(
+                  'BANDCAMP: Created album object with ${tracks.length} tracks');
 
               return {
                 'id': '', // Not available in JSON-LD
@@ -705,7 +702,7 @@ class BandcampService extends PlatformServiceBase {
   }
 
   // Helper to parse ISO 8601 duration (e.g. PT3M45S or P00H05M34S)
-  int _parseIso8601DurationToMillis(String? duration) {
+  int _parseIso8601DurationToMillis(String? duration, {bool logOutput = true}) {
     if (duration == null) return 0;
 
     try {
@@ -742,9 +739,17 @@ class BandcampService extends PlatformServiceBase {
       final minutes = int.tryParse(match.group(2) ?? '0') ?? 0;
       final seconds = int.tryParse(match.group(3) ?? '0') ?? 0;
 
-      return ((hours * 3600) + (minutes * 60) + seconds) * 1000;
+      // Calculate milliseconds
+      final milliseconds = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
+
+      // Only log if explicitly requested
+      if (logOutput) {
+        Logging.severe('Parsed duration $duration to $milliseconds ms');
+      }
+
+      return milliseconds;
     } catch (e) {
-      Logging.severe('Error parsing ISO 8601 duration: $duration - $e');
+      Logging.severe('Error parsing ISO 8601 duration: $e');
       return 0;
     }
   }

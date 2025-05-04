@@ -865,7 +865,16 @@ class PlatformService {
   static Future<Album?> fetchBandcampAlbum(String url) async {
     try {
       Logging.severe('BANDCAMP: Starting album fetch for URL: $url');
-      final response = await http.get(Uri.parse(url));
+
+      // FIX: Ensure URL has a proper protocol prefix
+      String fixedUrl = url;
+      if (!fixedUrl.startsWith('http://') && !fixedUrl.startsWith('https://')) {
+        fixedUrl = 'https://$fixedUrl';
+        Logging.severe('BANDCAMP: Added https:// prefix to URL: $fixedUrl');
+      }
+
+      // Fetch the album page
+      final response = await http.get(Uri.parse(fixedUrl));
       if (response.statusCode != 200) {
         throw Exception('Failed to load Bandcamp album');
       }

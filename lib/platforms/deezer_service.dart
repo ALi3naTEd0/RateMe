@@ -55,7 +55,13 @@ class DeezerService extends PlatformServiceBase {
         final query = Uri.encodeComponent('artist:"$artist" album:"$variant"');
         final url = Uri.parse('$_baseUrl/search/album?q=$query&limit=10');
 
-        Logging.severe('Deezer variant query for "$variant": $url');
+        // Don't log every variant - reduce log noise
+        if (variant != albumName) {
+          // Only log non-default variants
+          Logging.severe(
+              'Deezer: Using alternate album name variant "$variant"');
+        }
+
         final response = await http.get(url);
 
         if (response.statusCode == 200) {
@@ -90,9 +96,14 @@ class DeezerService extends PlatformServiceBase {
                   'album: ${albumScore.toStringAsFixed(2)}, '
                   'combined: ${combinedScore.toStringAsFixed(2)}');
 
-              // If good match, return it
-              if ((combinedScore > 0.65) ||
-                  (artistScore > 0.8 && albumScore > 0.4)) {
+              // IMPORTANT: Increase the threshold from 0.65 to 0.75
+              // Also require both artist AND album to be decent matches (not just OR)
+              // Change from: if ((combinedScore > 0.65) || (artistScore > 0.8 && albumScore > 0.4))
+              if ((artistScore > 0.8 &&
+                      albumScore >
+                          0.6) || // Good artist match AND reasonable album match
+                  (combinedScore > 0.75)) {
+                // Or really good combined score
                 final albumId = album['id'];
                 final albumUrl = 'https://www.deezer.com/album/$albumId';
                 Logging.severe(
@@ -109,7 +120,7 @@ class DeezerService extends PlatformServiceBase {
       final broadUrl =
           Uri.parse('$_baseUrl/search/album?q=$broadQuery&limit=10');
 
-      Logging.severe('Broad Deezer search: $broadUrl');
+      Logging.severe('Deezer: Using broad search as fallback');
       final broadResponse = await http.get(broadUrl);
 
       if (broadResponse.statusCode == 200) {
@@ -141,8 +152,13 @@ class DeezerService extends PlatformServiceBase {
                 'album: ${albumScore.toStringAsFixed(2)}, '
                 'combined: ${combinedScore.toStringAsFixed(2)}');
 
-            if ((combinedScore > 0.65) ||
-                (artistScore > 0.8 && albumScore > 0.4)) {
+            // IMPORTANT: Apply the same stricter threshold here too
+            // Change from: if ((combinedScore > 0.65) || (artistScore > 0.8 && albumScore > 0.4))
+            if ((artistScore > 0.8 &&
+                    albumScore >
+                        0.6) || // Good artist match AND reasonable album match
+                (combinedScore > 0.75)) {
+              // Or really good combined score
               final albumId = album['id'];
               final albumUrl = 'https://www.deezer.com/album/$albumId';
               Logging.severe('Deezer match found from broad search: $albumUrl');
@@ -167,14 +183,13 @@ class DeezerService extends PlatformServiceBase {
       final normalizedArtist = normalizeForComparison(artist);
       final normalizedAlbum = normalizeForComparison(albumName);
 
-      Logging.severe(
-          'Looking for Deezer album: "$normalizedAlbum" by "$normalizedArtist"');
+      // Reduce log verbosity - only one log needed here
+      Logging.severe('Verifying Deezer album: "$albumName" by "$artist"');
 
       // Try the more specific query first
       final query1 = Uri.encodeComponent(
           'artist:"$normalizedArtist" album:"$normalizedAlbum"');
       final url1 = Uri.parse('$_baseUrl/search/album?q=$query1&limit=10');
-      Logging.severe('Deezer verification query 1: $url1');
       final response1 = await http.get(url1);
 
       if (response1.statusCode == 200) {
@@ -208,7 +223,6 @@ class DeezerService extends PlatformServiceBase {
       // If first query fails, try broader search
       final query2 = Uri.encodeComponent('$normalizedArtist $normalizedAlbum');
       final url2 = Uri.parse('$_baseUrl/search/album?q=$query2&limit=10');
-      Logging.severe('Deezer verification query 2: $url2');
       final response2 = await http.get(url2);
 
       if (response2.statusCode == 200) {

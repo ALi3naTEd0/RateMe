@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:rateme/api_keys.dart';
 import '../logging.dart';
@@ -19,20 +20,81 @@ class DiscogsService extends PlatformServiceBase {
     try {
       Logging.severe('Discogs: Searching for "$albumName" by "$artist"');
 
-      // Normalize artist name by removing suffix like "Artist (5)"
-      final normalizedArtist =
-          normalizeForComparison(artist.replaceAll(RegExp(r'\s*\(\d+\)$'), ''));
+      // Clean artist name by removing suffix like "Artist (5)"
+      final cleanArtist = artist.replaceAll(RegExp(r'\s*\(\d+\)$'), '');
+
+      // Normalize names for better matching
+      final normalizedArtist = normalizeForComparison(cleanArtist);
       final normalizedAlbum = normalizeForComparison(albumName);
 
-      // Log the normalized values to debug
-      Logging.severe(
-          'Discogs normalized search: artist="$normalizedArtist", album="$normalizedAlbum"');
+      // Single log for normalized terms
+      Logging.severe('Discogs: Using normalized search terms');
 
-      // Construct search query
-      final query = Uri.encodeComponent('$normalizedArtist $normalizedAlbum');
-      final url = Uri.parse('$_baseUrl/database/search?q=$query&type=release');
+      // NEW: Check if the artist name contains spaces between individual letters (like "E L U C I D")
+      bool isSpacedLetterFormat = _isSpacedLetterFormat(artist);
 
-      Logging.severe('Discogs search query: $url');
+      // Try with condensed artist name first for spaced letter artists
+      if (isSpacedLetterFormat) {
+        // NEW: For artists with spaced letters format, also create a version without spaces
+        final noSpacesArtist = cleanArtist.replaceAll(' ', '');
+        Logging.severe(
+            'Discogs: Artist appears to have spaced letters format. Using both "$cleanArtist" and "$noSpacesArtist" for search');
+
+        // Try first with the condensed version (no spaces)
+        final condensedQuery =
+            Uri.encodeComponent('"$noSpacesArtist" "$albumName"');
+        final condensedUrl = Uri.parse(
+            '$_baseUrl/database/search?q=$condensedQuery&type=release&per_page=50');
+
+        Logging.severe('Discogs condensed search query: $condensedUrl');
+
+        // Attempt search with condensed artist name
+        final apiCredentials = await _getDiscogsCredentials();
+        if (apiCredentials != null) {
+          final response = await http.get(condensedUrl, headers: {
+            'Authorization':
+                'Discogs key=${apiCredentials['key']}, secret=${apiCredentials['secret']}'
+          });
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            final results = data['results'] as List<dynamic>? ?? [];
+
+            if (results.isNotEmpty) {
+              Logging.severe(
+                  'Found ${results.length} Discogs results for condensed search');
+
+              // Process these results first - they might be better matches
+              final String? matchUrl = _processSearchResults(results,
+                  noSpacesArtist, albumName, normalizedArtist, normalizedAlbum);
+
+              if (matchUrl != null) {
+                Logging.severe(
+                    'Found match using condensed artist name: $matchUrl');
+                return matchUrl;
+              }
+            }
+          }
+        }
+      }
+
+      // Continue with regular search patterns - original approach
+
+      // APPROACH 1: Try a more specific search format with quotes to get precise matches
+      final exactQuery = Uri.encodeComponent('"$cleanArtist" "$albumName"');
+      final exactUrl = Uri.parse(
+          '$_baseUrl/database/search?q=$exactQuery&type=release&per_page=50');
+
+      // APPROACH 2: Try a general search as fallback
+      final generalQuery = Uri.encodeComponent('$cleanArtist $albumName');
+      final generalUrl = Uri.parse(
+          '$_baseUrl/database/search?q=$generalQuery&type=release&per_page=100');
+
+      // Define search approaches to try in order
+      final searchApproaches = [
+        {'url': exactUrl, 'description': 'exact quoted search'},
+        {'url': generalUrl, 'description': 'general search'},
+      ];
 
       // Get API credentials
       final apiCredentials = await _getDiscogsCredentials();
@@ -41,77 +103,227 @@ class DiscogsService extends PlatformServiceBase {
         return null;
       }
 
-      final response = await http.get(url, headers: {
-        'Authorization':
-            'Discogs key=${apiCredentials['key']}, secret=${apiCredentials['secret']}'
-      });
+      // Try each search approach until we find a good match
+      for (final approach in searchApproaches) {
+        final searchUrl = approach['url'] as Uri;
+        final description = approach['description'];
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final results = data['results'] as List<dynamic>? ?? [];
+        // Simplify URL logging - don't include the full URL
+        Logging.severe('Discogs: Trying $description strategy');
 
-        if (results.isNotEmpty) {
-          Logging.severe('Found ${results.length} Discogs results');
+        final response = await http.get(searchUrl, headers: {
+          'Authorization':
+              'Discogs key=${apiCredentials['key']}, secret=${apiCredentials['secret']}'
+        });
 
-          // Look for a good match
-          for (var release in results) {
-            final resultTitle = release['title']?.toString() ?? '';
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final results = data['results'] as List<dynamic>? ?? [];
 
-            // Extract artist from title (Discogs format is usually "Artist - Album" or "Artist (5) - Album")
-            String resultArtist = '';
-            String resultAlbum = resultTitle;
-
-            if (resultTitle.contains(' - ')) {
-              final parts = resultTitle.split(' - ');
-              resultArtist = parts[0];
-              resultAlbum = parts.sublist(1).join(' - ');
-            }
-
-            // Normalize for comparison - specifically removing Discogs "(#)" style suffixes
-            final normalizedResultArtist = normalizeForComparison(
-                resultArtist.replaceAll(RegExp(r'\s*\(\d+\)$'), ''));
-            final normalizedResultAlbum = normalizeForComparison(resultAlbum);
-
-            // Calculate similarity scores
-            final artistScore = calculateStringSimilarity(
-                normalizedArtist, normalizedResultArtist);
-            final albumScore = calculateStringSimilarity(
-                normalizedAlbum, normalizedResultAlbum);
-
-            // Increase artist importance for matching (was 0.6 artist, 0.4 album)
-            // Now 0.7 artist, 0.3 album to ensure artist match is more important
-            final combinedScore = (artistScore * 0.7) + (albumScore * 0.3);
-
+          if (results.isNotEmpty) {
             Logging.severe(
-                'Discogs match candidate: "$resultArtist - $resultAlbum"');
-            Logging.severe(
-                'Scores - artist: ${artistScore.toStringAsFixed(2)}, '
-                'album: ${albumScore.toStringAsFixed(2)}, '
-                'combined: ${combinedScore.toStringAsFixed(2)}');
+                'Found ${results.length} Discogs results for $description');
 
-            // Stricter matching criteria to prevent false positives:
-            // 1. Either a high combined score (>0.7 instead of 0.65)
-            // 2. Or a very high artist match (>0.85 instead of 0.8) AND decent album match (>0.5)
-            if ((combinedScore > 0.7) ||
-                (artistScore > 0.85 && albumScore > 0.5)) {
-              // Return the URL to the album on Discogs website
-              final resourceId = release['id']?.toString();
-              if (resourceId != null) {
-                final albumUrl = 'https://www.discogs.com/release/$resourceId';
-                Logging.severe('Discogs match found: $albumUrl');
-                return albumUrl;
-              }
+            // Process results with the original artist name
+            final String? matchUrl = _processSearchResults(results, cleanArtist,
+                albumName, normalizedArtist, normalizedAlbum);
+
+            if (matchUrl != null) {
+              return matchUrl;
             }
           }
         }
       }
 
-      Logging.severe('No matching album found on Discogs');
+      Logging.severe(
+          'No matching album found on Discogs that meets BOTH artist and album criteria');
       return null;
     } catch (e, stack) {
       Logging.severe('Error searching Discogs', e, stack);
       return null;
     }
+  }
+
+  // Helper method to process search results and find best match
+  String? _processSearchResults(List<dynamic> results, String searchArtist,
+      String albumName, String normalizedArtist, String normalizedAlbum) {
+    // Process and score all results
+    final scoredResults = <Map<String, dynamic>>[];
+
+    for (var release in results) {
+      final resultTitle = release['title']?.toString() ?? '';
+
+      // Extract artist and album using the improved helper method
+      final extracted = _extractArtistAndAlbum(resultTitle);
+      final resultArtist = extracted['artist'] ?? '';
+      final resultAlbum = extracted['album'] ?? resultTitle;
+
+      // Clean and normalize result values
+      final cleanResultArtist =
+          resultArtist.replaceAll(RegExp(r'\s*\(\d+\)$'), '');
+      final normalizedResultArtist = normalizeForComparison(cleanResultArtist);
+      final normalizedResultAlbum = normalizeForComparison(resultAlbum);
+
+      // Calculate similarity scores
+      final artistScore =
+          calculateStringSimilarity(normalizedArtist, normalizedResultArtist);
+      final albumScore =
+          calculateStringSimilarity(normalizedAlbum, normalizedResultAlbum);
+
+      // IMPORTANT: Both artist and album need to match reasonably well
+      // Use minimum thresholds for each instead of just combined score
+      final artistMatchLevel = _getMatchLevel(artistScore);
+      final albumMatchLevel = _getMatchLevel(albumScore);
+
+      // Combined score weighted toward artist matching (70% artist, 30% album)
+      final combinedScore = (artistScore * 0.7) + (albumScore * 0.3);
+
+      // Log for debugging when at least one score is decent
+      if (artistScore > 0.5 || albumScore > 0.5) {
+        Logging.severe(
+            'Discogs match candidate: "$resultArtist - $resultAlbum"');
+        Logging.severe(
+            '  - Artist score: ${artistScore.toStringAsFixed(2)} ($artistMatchLevel), '
+            'Album score: ${albumScore.toStringAsFixed(2)} ($albumMatchLevel), '
+            'Combined: ${combinedScore.toStringAsFixed(2)}');
+      }
+
+      scoredResults.add({
+        'release': release,
+        'resultArtist': resultArtist,
+        'resultAlbum': resultAlbum,
+        'artistScore': artistScore,
+        'albumScore': albumScore,
+        'artistMatchLevel': artistMatchLevel,
+        'albumMatchLevel': albumMatchLevel,
+        'combinedScore': combinedScore,
+      });
+    }
+
+    // Sort by combined score
+    scoredResults
+        .sort((a, b) => b['combinedScore'].compareTo(a['combinedScore']));
+
+    // Log only top matches for debugging (maximum 3)
+    for (var i = 0; i < math.min(3, scoredResults.length); i++) {
+      final match = scoredResults[i];
+      if (i == 0) {
+        // Only log the best match in detail
+        Logging.severe(
+            'Discogs top match: "${match['resultArtist']} - ${match['resultAlbum']}" '
+            '(artist score: ${match['artistScore'].toStringAsFixed(2)}, '
+            'album score: ${match['albumScore'].toStringAsFixed(2)})');
+      }
+    }
+
+    // Apply match criteria and return URL if found
+    for (var scoredMatch in scoredResults) {
+      final artistScore = scoredMatch['artistScore'] as double;
+      final albumScore = scoredMatch['albumScore'] as double;
+
+      // Check our matching criteria for various quality levels
+      if ((artistScore > 0.95 && albumScore > 0.9) || // Perfect match
+          (artistScore > 0.85 && albumScore > 0.7) || // Strong match
+          (artistScore > 0.9 && albumScore > 0.6) || // Good artist match
+          (artistScore > 0.75 && albumScore > 0.65) || // Acceptable match
+          (albumScore > 0.9 && artistScore > 0.6)) {
+        // Compilation match
+
+        final resourceId = scoredMatch['release']['id']?.toString();
+        if (resourceId != null) {
+          return 'https://www.discogs.com/release/$resourceId';
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Helper method to get a text description of match quality
+  String _getMatchLevel(double score) {
+    if (score > 0.95) return '(perfect)';
+    if (score > 0.85) return '(excellent)';
+    if (score > 0.75) return '(good)';
+    if (score > 0.6) return '(fair)';
+    if (score > 0.4) return '(poor)';
+    return '(no match)';
+  }
+
+  // Improved helper method to extract artist and album from Discogs title format
+  Map<String, String> _extractArtistAndAlbum(String discogsTitle) {
+    // Discogs usually formats as "Artist - Album" or "Various - Album" or "Artist (5) - Album"
+    String artist = '';
+    String album = discogsTitle;
+
+    // Check for the standard "Artist - Album" format
+    if (discogsTitle.contains(' - ')) {
+      final parts = discogsTitle.split(' - ');
+      // The artist is the first part
+      artist = parts[0].trim();
+      // The album is everything after the first dash
+      album = parts.sublist(1).join(' - ').trim();
+
+      // Special handling for "Various" artists
+      if (artist.toLowerCase() == 'various') {
+        artist = 'Various Artists';
+      }
+
+      // Handle common artist formatting patterns in Discogs
+
+      // 1. Multiple artists notation: "Artist 1, Artist 2"
+      if (artist.contains(', ')) {
+        // Keep just the first artist for better matching
+        final firstArtist = artist.split(', ')[0].trim();
+        Logging.severe(
+            'Extracted primary artist from multiartist: "$firstArtist" (original: "$artist")');
+        artist = firstArtist;
+      }
+
+      // 2. Artist numbering: "Artist (5)" - preserve for now as it's handled elsewhere
+
+      // If album contains additional artist info like "feat.", move it to the artist field
+      final featRegexes = [
+        RegExp(r'\(feat\.\s+([^)]+)\)$'),
+        RegExp(r'\(featuring\s+([^)]+)\)$'),
+        RegExp(r'\(with\s+([^)]+)\)$'),
+      ];
+
+      for (final regex in featRegexes) {
+        final featMatch = regex.firstMatch(album);
+        if (featMatch != null) {
+          final featArtists = featMatch.group(1);
+          if (featArtists != null) {
+            artist += ' feat. $featArtists';
+            album = album.replaceAll(featMatch.group(0)!, '').trim();
+            break;
+          }
+        }
+      }
+
+      // Handle common album type notations
+      final albumTypeMarkers = [
+        'EP',
+        'LP',
+        'Single',
+        'Remixes',
+        'Remix',
+        'Album',
+        'Compilation'
+      ];
+      for (final marker in albumTypeMarkers) {
+        final pattern =
+            RegExp(r'\(\s*' + marker + r'\s*\)', caseSensitive: false);
+        if (pattern.hasMatch(album)) {
+          Logging.severe('Detected $marker notation in album: "$album"');
+          // Don't remove, but log that we found it
+        }
+      }
+    }
+
+    return {
+      'artist': artist,
+      'album': album,
+    };
   }
 
   @override
@@ -124,20 +336,23 @@ class DiscogsService extends PlatformServiceBase {
         return false;
       }
 
-      // Normalize artist name by removing suffix like "Artist (5)"
-      final normalizedArtist =
-          normalizeForComparison(artist.replaceAll(RegExp(r'\s*\(\d+\)$'), ''));
+      // Clean artist name by removing suffix like "Artist (5)"
+      final cleanArtist = artist.replaceAll(RegExp(r'\s*\(\d+\)$'), '');
+
+      // Normalize for comparison
+      final normalizedArtist = normalizeForComparison(cleanArtist);
       final normalizedAlbum = normalizeForComparison(albumName);
 
-      // Log the normalized values to debug
+      // Log the normalized values for debugging
       Logging.severe(
           'Discogs verification: normalized artist="$normalizedArtist", album="$normalizedAlbum"');
 
-      final query = Uri.encodeComponent('$artist $albumName');
-      final url = Uri.parse(
-          '$_baseUrl/database/search?q=$query&type=release&per_page=10');
+      // First try with both artist and album in quotes for exact matching
+      final exactQuery = Uri.encodeComponent('"$cleanArtist" "$albumName"');
+      final exactUrl = Uri.parse(
+          '$_baseUrl/database/search?q=$exactQuery&type=release&per_page=10');
 
-      final response = await http.get(url, headers: {
+      final response = await http.get(exactUrl, headers: {
         'Authorization':
             'Discogs key=${apiCredentials['key']}, secret=${apiCredentials['secret']}'
       });
@@ -146,52 +361,104 @@ class DiscogsService extends PlatformServiceBase {
         final data = jsonDecode(response.body);
         final results = data['results'] as List? ?? [];
 
-        for (var result in results) {
-          final String resultTitle = result['title'] ?? '';
+        if (results.isEmpty) {
+          // Try a more general search if exact search yields nothing
+          final generalQuery = Uri.encodeComponent('$cleanArtist $albumName');
+          final generalUrl = Uri.parse(
+              '$_baseUrl/database/search?q=$generalQuery&type=release&per_page=20');
 
-          // Parse artist and album from title
-          String resultArtist = '';
-          String resultAlbum = '';
+          final generalResponse = await http.get(generalUrl, headers: {
+            'Authorization':
+                'Discogs key=${apiCredentials['key']}, secret=${apiCredentials['secret']}'
+          });
 
-          if (resultTitle.contains(' - ')) {
-            final parts = resultTitle.split(' - ');
-            // Remove Discogs artist numbering like "Artist (5)" -> "Artist"
-            resultArtist = parts[0].replaceAll(RegExp(r'\s*\(\d+\)$'), '');
-            resultAlbum = parts.sublist(1).join(' - ');
-
-            Logging.severe(
-                'Discogs verification candidate: Artist="$resultArtist", Album="$resultAlbum"');
-          } else {
-            // If title doesn't follow "Artist - Album" format, use the whole title as album name
-            resultAlbum = resultTitle;
-            Logging.severe(
-                'Discogs verification candidate (no artist): Album="$resultAlbum"');
+          if (generalResponse.statusCode == 200) {
+            final generalData = jsonDecode(generalResponse.body);
+            return await _processVerificationResults(
+                generalData['results'] as List? ?? [],
+                normalizedArtist,
+                normalizedAlbum);
           }
 
-          final artistScore = calculateStringSimilarity(
-              normalizeForComparison(resultArtist), normalizedArtist);
-          final albumScore = calculateStringSimilarity(
-              normalizeForComparison(resultAlbum), normalizedAlbum);
-
-          Logging.severe(
-              'Verification scores - artist: ${artistScore.toStringAsFixed(2)}, album: ${albumScore.toStringAsFixed(2)}');
-
-          // Both artist AND album must match with good scores for verification
-          // The original logic only required one OR the other to be >0.7
-          if (artistScore > 0.7 && albumScore > 0.6) {
-            Logging.severe(
-                'Discogs verification successful - good match on both artist and album');
-            return true;
-          }
+          Logging.severe('Discogs: Verification returned no results');
+          return false;
         }
+
+        return await _processVerificationResults(
+            results, normalizedArtist, normalizedAlbum);
       }
 
-      Logging.severe('Discogs: Verification failed - no matches found');
+      Logging.severe('Discogs: Verification failed - API error');
       return false;
     } catch (e, stack) {
       Logging.severe('Error verifying Discogs album', e, stack);
       return false;
     }
+  }
+
+  // Helper method to process verification results
+  Future<bool> _processVerificationResults(
+      List results, String normalizedArtist, String normalizedAlbum) async {
+    // Score all results
+    final List<Map<String, dynamic>> scoredMatches = [];
+    for (var result in results) {
+      final String resultTitle = result['title'] ?? '';
+      final extracted = _extractArtistAndAlbum(resultTitle);
+
+      final resultArtist = extracted['artist'] ?? '';
+      final resultAlbum = extracted['album'] ?? '';
+
+      // Clean up the artist name from Discogs numbering
+      final cleanResultArtist =
+          resultArtist.replaceAll(RegExp(r'\s*\(\d+\)$'), '');
+
+      // Calculate similarity scores
+      final artistScore = calculateStringSimilarity(
+          normalizedArtist, normalizeForComparison(cleanResultArtist));
+
+      final albumScore = calculateStringSimilarity(
+          normalizedAlbum, normalizeForComparison(resultAlbum));
+
+      // For verification, we require BOTH artist AND album to match at reasonable levels
+      final isGoodMatch = (artistScore > 0.75 && albumScore > 0.65) ||
+          (artistScore > 0.85 && albumScore > 0.5) ||
+          (albumScore > 0.9 && artistScore > 0.6);
+
+      final combinedScore = (artistScore * 0.7) + (albumScore * 0.3);
+
+      Logging.severe(
+          'Discogs verification candidate: "$resultArtist - $resultAlbum"');
+      Logging.severe('  - Scores: artist=${artistScore.toStringAsFixed(2)}, '
+          'album=${albumScore.toStringAsFixed(2)}, '
+          'combined=${combinedScore.toStringAsFixed(2)}, '
+          'goodMatch=$isGoodMatch');
+
+      scoredMatches.add({
+        'artistScore': artistScore,
+        'albumScore': albumScore,
+        'combinedScore': combinedScore,
+        'isGoodMatch': isGoodMatch,
+      });
+    }
+
+    // Sort by combined score
+    scoredMatches
+        .sort((a, b) => b['combinedScore'].compareTo(a['combinedScore']));
+
+    // Check if any match meets our criteria
+    for (final match in scoredMatches) {
+      if (match['isGoodMatch'] == true) {
+        Logging.severe(
+            'Discogs: Verification successful! Found match with scores: '
+            'artist=${match['artistScore'].toStringAsFixed(2)}, '
+            'album=${match['albumScore'].toStringAsFixed(2)}, '
+            'combined=${match['combinedScore'].toStringAsFixed(2)}');
+        return true;
+      }
+    }
+
+    Logging.severe('Discogs: Verification failed - no suitable matches found');
+    return false;
   }
 
   @override
@@ -228,7 +495,6 @@ class DiscogsService extends PlatformServiceBase {
 
       // API call to get album details
       final apiUrl = '$_baseUrl/${type}s/$id';
-      Logging.severe('Direct API call: $apiUrl');
       final response = await http.get(Uri.parse(apiUrl), headers: {
         'Authorization':
             'Discogs key=${apiCredentials['key']}, secret=${apiCredentials['secret']}',
@@ -293,16 +559,20 @@ class DiscogsService extends PlatformServiceBase {
           }
         }
 
-        // Extract artwork URL
+        // Simplify logging - just log track count
+        Logging.severe(
+            'Extracted ${tracks.length} tracks from Discogs response');
+
+        // Extract artwork URL - simplified logging
         String artworkUrl = '';
-        if (data['images'] != null &&
-            data['images'] is List &&
-            data['images'].isNotEmpty) {
-          artworkUrl = data['images'][0]['uri'] ?? '';
+        if (data['images'] != null && data['images'] is List) {
+          if (data['images'].isNotEmpty) {
+            artworkUrl = data['images'][0]['uri'] ?? '';
+          }
         }
 
-        // Create standardized album object
-        return {
+        // Create standardized album object - ensure both artworkUrl fields are set
+        final result = {
           'id': id,
           'collectionId': id,
           'name': albumTitle,
@@ -318,6 +588,8 @@ class DiscogsService extends PlatformServiceBase {
           'platform': 'discogs',
           'tracks': tracks,
         };
+
+        return result;
       } else {
         Logging.severe('Discogs API error: ${response.statusCode}');
         return null;
@@ -355,5 +627,20 @@ class DiscogsService extends PlatformServiceBase {
       Logging.severe('Error getting Discogs credentials', e, stack);
       return null;
     }
+  }
+
+  // Reuse the _isSpacedLetterFormat method from the platform_service_base class
+  bool _isSpacedLetterFormat(String input) {
+    // First check if string contains multiple spaces
+    if (!input.contains(' ')) return false;
+
+    // Count single letters followed by spaces
+    List<String> parts = input.split(' ');
+
+    // If most parts are single letters, it's probably a spaced-letter format
+    int singleLetterCount = parts.where((part) => part.length == 1).length;
+
+    // Consider it spaced-letter format if more than 60% are single letters and at least 2 single letters
+    return singleLetterCount >= 2 && singleLetterCount / parts.length > 0.6;
   }
 }

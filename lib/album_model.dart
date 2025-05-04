@@ -113,34 +113,52 @@ class Album {
     Logging.severe(
         'Album.fromJson: Final parsed releaseDate: ${DateFormat('yyyy-MM-dd').format(releaseDate)}');
 
-    // Ensure artwork URL is properly handled
+    // Ensure artwork URL is properly handled - ADD DETAILED LOGGING
     String artworkUrl = '';
+
+    // Log all incoming artwork fields for debugging
+    Logging.severe('Album.fromJson artwork debugging:');
+    Logging.severe(' - artworkUrl: ${json['artworkUrl']}');
+    Logging.severe(' - artworkUrl100: ${json['artworkUrl100']}');
+    Logging.severe(' - artwork_url: ${json['artwork_url']}');
+
     if (json['artworkUrl'] != null &&
         json['artworkUrl'].toString().isNotEmpty) {
       artworkUrl = json['artworkUrl'].toString();
+      Logging.severe('Using artworkUrl field: $artworkUrl');
     } else if (json['artworkUrl100'] != null &&
         json['artworkUrl100'].toString().isNotEmpty) {
       artworkUrl = json['artworkUrl100'].toString();
+      Logging.severe('Using artworkUrl100 field: $artworkUrl');
     } else if (json['artwork_url'] != null &&
         json['artwork_url'].toString().isNotEmpty) {
       artworkUrl = json['artwork_url'].toString();
+      Logging.severe('Using artwork_url field: $artworkUrl');
+    } else {
+      Logging.severe('No artwork URL found in json data');
     }
 
-    return Album(
+    final album = Album(
       id: albumId ??
           DateTime.now().millisecondsSinceEpoch, // Use timestamp as fallback ID
       name: json['name'] ?? json['collectionName'] ?? 'Unknown Album',
       artist: json['artist'] ?? json['artistName'] ?? 'Unknown Artist',
       artworkUrl: artworkUrl,
-      url: json['url'] ??
-          json['collectionViewUrl'] ??
-          '', // Added collectionViewUrl fallback
+      url: json['url'] ?? json['collectionViewUrl'] ?? '',
       platform: json['platform'] ?? 'unknown',
       releaseDate: releaseDate,
-      metadata: json['metadata'] ??
-          json, // Store the entire json as metadata if no specific metadata field
+      metadata: json,
       tracks: parsedTracks,
     );
+
+    // Log final album values for verification
+    Logging.severe('Created Album with:'
+        ' name="${album.name}",'
+        ' artist="${album.artist}",'
+        ' platform="${album.platform}",'
+        ' artworkUrl="${album.artworkUrl}"');
+
+    return album;
   }
 
   // Create from legacy format (old data model)

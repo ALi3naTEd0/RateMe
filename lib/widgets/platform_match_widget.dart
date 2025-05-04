@@ -56,9 +56,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     }
 
     try {
-      // Add debug log to see the album's source platform
+      // More concise logging
       Logging.severe(
-          'PlatformMatch: Loading matches for album: ${widget.album.name} from platform: ${widget.album.platform}');
+          'Loading platform matches: ${widget.album.name} (${widget.album.platform})');
 
       // Always add the source platform itself to _platformUrls - this ensures we always show the source platform
       if (widget.album.url.isNotEmpty) {
@@ -89,8 +89,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       if (savedMatches.isNotEmpty) {
         Logging.severe(
             'Loaded ${savedMatches.length} platform matches from database');
+
+        // NEW CODE: Instead of blindly accepting the saved matches,
+        // run them through verification for poor matches
+        await _verifyAndUpdateSavedMatches(savedMatches);
+
         setState(() {
-          _platformUrls.addAll(savedMatches);
           _isLoading = false;
         });
         return;
@@ -287,7 +291,16 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
 
       // Create search query from album and artist
-      final artist = widget.album.artist.trim();
+      // Clean artist name by removing Discogs numbering (e.g., "Artist (5)" -> "Artist")
+      String artist = widget.album.artist.trim();
+      String cleanedArtist = artist.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
+
+      // Only log if we actually cleaned something
+      if (artist != cleanedArtist) {
+        Logging.severe(
+            'Cleaned artist name from "$artist" to "$cleanedArtist" for search');
+      }
+
       final albumName = widget.album.name.trim();
 
       // Search for the album on each platform we don't already have
@@ -296,7 +309,8 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           .map((platform) async {
         if (_platformFactory.isPlatformSupported(platform)) {
           final service = _platformFactory.getService(platform);
-          final url = await service.findAlbumUrl(artist, albumName);
+          // Use cleaned artist name for search
+          final url = await service.findAlbumUrl(cleanedArtist, albumName);
           if (url != null) {
             _platformUrls[platform] = url;
           }
@@ -348,6 +362,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   Future<void> _verifyMatches() async {
     final List<String> platformsToVerify = [..._supportedPlatforms, 'bandcamp'];
     final String artistName = widget.album.artist;
+    // Clean artist name for verification as well
+    final String cleanedArtistName =
+        artistName.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
     final String albumName = widget.album.name;
 
     // Check if the current platform is iTunes, and if so, make sure apple_music is also marked as current
@@ -402,39 +419,38 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
                 String spotifyAlbumName = albumDetails['collectionName'] ?? '';
                 String spotifyArtistName = albumDetails['artistName'] ?? '';
 
-                // Check artist match directly
+                // Check artist match directly - use cleanedArtistName for this comparison
                 bool artistMatches =
-                    _normalizeForComparison(spotifyArtistName) ==
-                        _normalizeForComparison(artistName);
+                    normalizeForComparison(spotifyArtistName) ==
+                        normalizeForComparison(cleanedArtistName);
 
                 // Check if the album names match after cleaning
-                bool albumsMatch = _normalizeForComparison(spotifyAlbumName) ==
-                    _normalizeForComparison(cleanedAlbumName);
+                bool albumsMatch = normalizeForComparison(spotifyAlbumName) ==
+                    normalizeForComparison(cleanedAlbumName);
 
                 if (artistMatches && albumsMatch) {
                   // Direct match after cleanup, keep this URL
                   continue;
                 }
 
-                // Standard scoring as fallback
+                // Standard scoring as fallback - also use cleanedArtistName
                 double matchScore = SearchService.calculateMatchScore(
-                    artistName,
+                    cleanedArtistName,
                     cleanedAlbumName,
                     spotifyArtistName,
                     spotifyAlbumName);
 
                 // Lowered threshold just for Spotify EP/Single matches
                 const double threshold = 0.45;
-
                 if (matchScore >= threshold) {
                   // Good enough match for Spotify with EP/Single
                   continue;
                 }
               }
-            }
 
-            // If we get here, the Spotify match failed verification
-            platformsToRemove.add(platform);
+              // If we get here, the Spotify match failed verification
+              platformsToRemove.add(platform);
+            }
           } catch (e) {
             Logging.severe('Error in special Spotify verification: $e');
           }
@@ -451,14 +467,14 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           try {
             if (_platformFactory.isPlatformSupported(platform)) {
               final service = _platformFactory.getService(platform);
-
               // Get album details if possible to compare accurately
               final albumDetails = await service.fetchAlbumDetails(url);
 
               if (albumDetails != null) {
                 // Use the improved match scoring algorithm from SearchService
+                // Use cleanedArtistName for more accurate matching
                 final matchScore = SearchService.calculateMatchScore(
-                    artistName,
+                    cleanedArtistName,
                     cleanedAlbumName,
                     albumDetails['artistName'] ?? '',
                     albumDetails['collectionName'] ?? '');
@@ -473,8 +489,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
                 }
               } else {
                 // Fall back to basic verification if detailed info isn't available
+                // Also use cleanedArtistName here
                 isValidMatch = await service.verifyAlbumExists(
-                    artistName, cleanedAlbumName);
+                    cleanedArtistName, cleanedAlbumName);
               }
             }
           } catch (e) {
@@ -492,9 +509,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
               final albumDetails = await service.fetchAlbumDetails(url);
 
               if (albumDetails != null) {
-                // Use the improved match scoring algorithm
+                // Use the improved match scoring algorithm - with cleanedArtistName
                 final matchScore = SearchService.calculateMatchScore(
-                    artistName,
+                    cleanedArtistName,
                     cleanedAlbumName,
                     albumDetails['artistName'] ?? '',
                     albumDetails['collectionName'] ?? '');
@@ -505,8 +522,33 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
                       'Low direct URL match score for $platform: $matchScore');
                 }
 
-                // Use a consistent threshold across all platforms
-                const double threshold = 0.5;
+                // IMPORTANT FIX: Use platform-specific thresholds for better accuracy
+                double threshold;
+                if (platform == 'deezer') {
+                  // Higher threshold specifically for Deezer due to the inconsistent matching
+                  threshold = 0.7; // Increased from 0.5
+                } else {
+                  threshold = 0.5; // Default for other platforms
+                }
+
+                // Apply additional check for Deezer to require both artist and album to match well
+                if (platform == 'deezer') {
+                  final artistScore = calculateStringSimilarity(
+                      normalizeForComparison(cleanedArtistName),
+                      normalizeForComparison(albumDetails['artistName'] ?? ''));
+
+                  final albumScore = calculateStringSimilarity(
+                      normalizeForComparison(cleanedAlbumName),
+                      normalizeForComparison(
+                          albumDetails['collectionName'] ?? ''));
+
+                  // For Deezer, must have good artist match AND acceptable album match
+                  if (artistScore > 0.8 && albumScore < 0.5) {
+                    Logging.severe(
+                        'Removing Deezer match despite good artist score: artist=$artistScore, album=$albumScore');
+                    platformsToRemove.add(platform);
+                  }
+                }
 
                 if (matchScore < threshold) {
                   Logging.severe(
@@ -531,13 +573,213 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         'After verification, have ${_platformUrls.length} valid platform matches: ${_platformUrls.keys.join(', ')}');
   }
 
-  // Helper method to normalize strings for direct comparison
-  String _normalizeForComparison(String input) {
+  // NEW METHOD: Verify saved matches and update poor ones
+  Future<void> _verifyAndUpdateSavedMatches(
+      Map<String, String?> savedMatches) async {
+    try {
+      // First, add all saved matches to our platform URLs
+      _platformUrls.addAll(savedMatches);
+
+      // Then verify each one individually
+      String artist = widget.album.artist;
+      // Clean artist name by removing Discogs numbering
+      String cleanedArtist = artist.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
+
+      // Only log if we actually cleaned something
+      if (artist != cleanedArtist) {
+        Logging.severe(
+            'Cleaned artist name from "$artist" to "$cleanedArtist" for verification');
+      }
+
+      final albumName = widget.album.name;
+
+      // Log which album we're checking
+      Logging.severe(
+          'Verifying saved matches for "$albumName" by "$cleanedArtist"');
+
+      // Flag to track whether we need to update the database
+      bool needsDatabaseUpdate = false;
+
+      // Check for missing key platforms and search for them
+      List<String> keyPlatforms = [
+        'spotify',
+        'apple_music',
+        'deezer',
+        'discogs'
+      ];
+      List<String> missingPlatforms = keyPlatforms
+          .where((platform) =>
+              !_platformUrls.containsKey(platform) ||
+              _platformUrls[platform] == null ||
+              _platformUrls[platform]!.isEmpty)
+          .toList();
+
+      if (missingPlatforms.isNotEmpty) {
+        // Simplify to a single log with all missing platforms
+        Logging.severe('Missing platforms: ${missingPlatforms.join(", ")}');
+
+        // Search for each missing platform
+        for (final platform in missingPlatforms) {
+          if (_platformFactory.isPlatformSupported(platform)) {
+            Logging.severe('Searching for missing platform: $platform');
+            final service = _platformFactory.getService(platform);
+            final url = await service.findAlbumUrl(cleanedArtist, albumName);
+
+            if (url != null) {
+              _platformUrls[platform] = url;
+              needsDatabaseUpdate = true;
+              Logging.severe(
+                  'Found match for missing platform $platform: $url');
+            }
+          }
+        }
+      }
+
+      // List of platforms to verify
+      final platformsToVerify = savedMatches.keys.toList();
+
+      // Skip the album's own platform - always trust that URL
+      final currentPlatform = widget.album.platform.toLowerCase();
+      final normalizedCurrentPlatform =
+          currentPlatform == 'itunes' ? 'apple_music' : currentPlatform;
+
+      // For each saved match
+      for (final platform in platformsToVerify) {
+        // Skip the album's own platform - we trust that URL
+        if (platform == normalizedCurrentPlatform) continue;
+
+        final url = savedMatches[platform];
+        if (url == null || url.isEmpty) continue;
+
+        // Verify match quality by fetching album details
+        if (_platformFactory.isPlatformSupported(platform)) {
+          final service = _platformFactory.getService(platform);
+
+          try {
+            // Fetch album details to check match quality
+            final albumDetails = await service.fetchAlbumDetails(url);
+
+            if (albumDetails != null) {
+              final resultArtist = albumDetails['artistName'] ?? '';
+              final resultAlbum = albumDetails['collectionName'] ?? '';
+
+              // Clean result artist name for fair comparison
+              final cleanedResultArtist =
+                  resultArtist.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
+
+              // Check for both artist and album match - using cleaned artist names
+              final artistScore = calculateStringSimilarity(
+                  normalizeForComparison(cleanedArtist),
+                  normalizeForComparison(cleanedResultArtist));
+
+              final albumScore = calculateStringSimilarity(
+                  normalizeForComparison(albumName),
+                  normalizeForComparison(resultAlbum));
+
+              final combinedScore = (artistScore * 0.6) + (albumScore * 0.4);
+
+              // Log the match quality
+              Logging.severe(
+                  'Match quality for $platform: artist=$artistScore, album=$albumScore, combined=$combinedScore');
+
+              // If match quality is poor (adjust threshold as needed)
+              if ((platform == 'spotify' && combinedScore < 0.5) ||
+                  (platform != 'spotify' && combinedScore < 0.4)) {
+                Logging.severe(
+                    'Poor match detected for $platform. Searching for better match.');
+
+                // Remove the bad match from our URLs
+                _platformUrls.remove(platform);
+
+                // Try to find a better match - use cleaned artist name
+                final newUrl =
+                    await service.findAlbumUrl(cleanedArtist, albumName);
+
+                if (newUrl != null && newUrl != url) {
+                  // Verify the new match is better
+                  final newDetails = await service.fetchAlbumDetails(newUrl);
+
+                  if (newDetails != null) {
+                    final newArtistScore = calculateStringSimilarity(
+                        normalizeForComparison(cleanedArtist),
+                        normalizeForComparison(newDetails['artistName'] ?? ''));
+
+                    final newAlbumScore = calculateStringSimilarity(
+                        normalizeForComparison(albumName),
+                        normalizeForComparison(
+                            newDetails['collectionName'] ?? ''));
+
+                    final newCombinedScore =
+                        (newArtistScore * 0.6) + (newAlbumScore * 0.4);
+
+                    Logging.severe(
+                        'New match quality for $platform: artist=$newArtistScore, album=$newAlbumScore, combined=$newCombinedScore');
+
+                    // If new match is better, use it
+                    if (newCombinedScore > combinedScore) {
+                      _platformUrls[platform] = newUrl;
+                      needsDatabaseUpdate = true;
+                      Logging.severe(
+                          'Replaced $platform match with better URL: $newUrl');
+                    } else {
+                      Logging.severe(
+                          'Keeping original $platform match as new match was not better');
+                      // Restore the original match if we couldn't verify the new one
+                      _platformUrls[platform] = url;
+                    }
+                  } else {
+                    // Restore the original match if we couldn't verify the new one
+                    _platformUrls[platform] = url;
+                  }
+                } else if (newUrl != null) {
+                  // Same URL but mark it as verified again
+                  _platformUrls[platform] = url;
+                  Logging.severe('Re-verified $platform match with same URL');
+                } else {
+                  // No match found, remove it
+                  Logging.severe(
+                      'Removed poor $platform match with no replacement found');
+                  needsDatabaseUpdate = true;
+                }
+              } else {
+                Logging.severe('Verified $platform match with good quality');
+              }
+            }
+          } catch (e) {
+            Logging.severe('Error verifying $platform match: $e');
+            // Keep the original match if verification fails
+            _platformUrls[platform] = url;
+          }
+        }
+      }
+
+      // Update the database if we found better matches
+      if (needsDatabaseUpdate) {
+        await _savePlatformMatches();
+        Logging.severe('Updated database with improved platform matches');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error during match verification', e, stack);
+    }
+  }
+
+  // Helper to normalize for comparison
+  String normalizeForComparison(String input) {
     return input
         .toLowerCase()
         .replaceAll(RegExp(r'[^\w\s]'), '') // Remove special chars
         .replaceAll(RegExp(r'\s+'), ' ') // Normalize whitespace
         .trim();
+  }
+
+  // Calculate string similarity
+  double calculateStringSimilarity(String s1, String s2) {
+    // Simple exact match
+    if (s1 == s2) return 1.0;
+
+    // Return the service from platform_service_base
+    final service = _platformFactory.getService('spotify'); // Use any service
+    return service.calculateStringSimilarity(s1, s2);
   }
 
   /// Determine which platform a URL belongs to
@@ -590,17 +832,15 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     }
 
     // Fix the order of platforms
-    // Order: apple_music, spotify, deezer, bandcamp, discogs
-    final sortedPlatforms = <String>[];
-
-    // First add platforms in our desired order
+    // Define order of platforms
     final platformOrder = [
       'apple_music',
       'spotify',
       'deezer',
       'discogs',
-      'bandcamp' // moved to end
+      'bandcamp'
     ];
+    final sortedPlatforms = <String>[];
     for (final platform in platformOrder) {
       if (availablePlatforms.contains(platform)) {
         sortedPlatforms.add(platform);
@@ -614,40 +854,81 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
     }
 
-    // Debug the order and URLs only once
-    Logging.severe('Platform order: ${sortedPlatforms.join(', ')}');
+    // Debug the order and URLs only once with a simplified message
+    Logging.severe('Available platforms: ${sortedPlatforms.join(', ')}');
     for (final platform in sortedPlatforms) {
       Logging.severe('$platform URL: ${_platformUrls[platform]}');
     }
 
-    // Fix: Show all platform matches, even if the only match is the current platform
-    // The original check was hiding the widget when the only match was the source platform
-    // Changed condition to only apply the filter for platforms other than 'discogs'
-    if (sortedPlatforms.length == 1 &&
-        sortedPlatforms.first == widget.album.platform.toLowerCase() &&
-        sortedPlatforms.first != 'discogs' &&
-        sortedPlatforms.first != 'bandcamp') {
-      return const SizedBox.shrink();
-    }
+    // MODIFIED: Always show platform match widget, even if only the source platform is available
+    // This ensures the refresh button is always available
+    // Removed the condition that was hiding the widget when only the source platform was available
 
     return Padding(
       // Reduce padding to make the entire widget more compact vertically
       padding: const EdgeInsets.symmetric(vertical: 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: sortedPlatforms.map((platform) {
-          final button = _buildPlatformButton(platform);
-          // Reduce spacers between buttons even further
-          return sortedPlatforms.indexOf(platform) < sortedPlatforms.length - 1
-              ? Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: sortedPlatforms.map((platform) {
+              final button = _buildPlatformButton(platform);
+              // Reduce spacers between buttons even further
+              return sortedPlatforms.indexOf(platform) <
+                      sortedPlatforms.length - 1
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        button,
+                        const SizedBox(width: 6),
+                      ],
+                    )
+                  : button;
+            }).toList(),
+          ),
+
+          // MODIFIED: Always show the refresh button for consistency
+          // This helps users refresh platform matches regardless of the source
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: InkWell(
+              onTap: _isLoading ? null : _refreshPlatformMatches,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade800.withAlpha(128)
+                      : Colors.grey.shade200.withAlpha(179),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    button,
-                    const SizedBox(width: 6),
+                    // MODIFIED: Use primary color for the refresh icon to match app styling
+                    Icon(
+                      Icons.refresh,
+                      size: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Refresh matches',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
+                      ),
+                    ),
                   ],
-                )
-              : button;
-        }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -731,7 +1012,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       height: widget.buttonSize,
       child: iconPath.isNotEmpty
           ? Padding(
-              padding: const EdgeInsets.all(4.0), // Reduced from 8.0 to 4.0,
+              padding: const EdgeInsets.all(4.0), // Reduced from 8.0 to 4.0
               child: SvgPicture.asset(
                 iconPath,
                 height: widget.buttonSize - 8, // Increased from 16 to 8
@@ -784,7 +1065,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     const double menuWidth = 200; // Estimated menu width
     final double centerX = position.dx + (buttonSize.width / 2);
     final double leftPosition = centerX - (menuWidth / 2);
-
     final RelativeRect rect = RelativeRect.fromLTRB(
       leftPosition, // LEFT: centered horizontally
       position.dy + buttonSize.height + 5, // TOP: just below the button
@@ -823,7 +1103,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         // Add Share option
         PopupMenuItem<String>(
           value: 'share',
-          height: 26,
+          height: 26, // Set a smaller height for more compact appearance
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Row(
             children: [
@@ -927,6 +1207,60 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e, stack) {
       Logging.severe('Error opening URL: $url', e, stack);
+    }
+  }
+
+  // Add this method to refresh platform matches for this album
+  Future<void> _refreshPlatformMatches() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      // Delete existing platform matches from database
+      final albumId = widget.album.id.toString();
+      final db = await DatabaseHelper.instance.database;
+
+      await db.delete(
+        'platform_matches',
+        where: 'album_id = ?',
+        whereArgs: [albumId],
+      );
+
+      Logging.severe('Deleted existing platform matches for album $albumId');
+
+      // Clear current platform URLs
+      _platformUrls.clear();
+
+      // Find matches from scratch
+      await _findMatchingAlbums();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Platform matches refreshed'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e, stack) {
+      Logging.severe('Error refreshing platform matches', e, stack);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error refreshing platform matches: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 }

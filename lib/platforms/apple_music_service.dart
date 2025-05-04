@@ -13,19 +13,99 @@ class AppleMusicService extends PlatformServiceBase {
   @override
   Future<String?> findAlbumUrl(String artist, String albumName) async {
     try {
-      // Simple debugging
-      Logging.severe('Apple Music: Searching for "$albumName" by "$artist"');
+      // Clean artist name by removing Discogs numbering format "(n)"
+      String cleanedArtist = artist.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
+
+      // Only log if we actually cleaned something
+      if (cleanedArtist != artist) {
+        Logging.severe(
+            'Apple Music: Cleaned artist name from "$artist" to "$cleanedArtist"');
+      }
+
+      // Initial log
+      Logging.severe(
+          'Apple Music: Searching for "$albumName" by "$cleanedArtist"');
 
       // Normalize names for better matching
-      final normalizedArtist = normalizeForComparison(artist);
+      final normalizedArtist = normalizeForComparison(cleanedArtist);
       final normalizedAlbum = normalizeForComparison(albumName);
 
+      // APPROACH 0: Try artist+album as exact terms - most precise search
+      final strictQuery =
+          Uri.encodeComponent('artist:"$cleanedArtist" album:"$albumName"');
+      final strictSearchUrl = Uri.parse(
+          'https://itunes.apple.com/search?term=$strictQuery&entity=album&limit=10');
+
+      // Reduce URL logging to just mention we're doing the search
+      Logging.severe('Apple Music: Trying strict search');
+      final strictResponse = await http.get(strictSearchUrl);
+
+      if (strictResponse.statusCode == 200) {
+        final data = jsonDecode(strictResponse.body);
+        final results = data['results'] as List;
+
+        if (results.isNotEmpty) {
+          Logging.severe(
+              'Apple Music: Found ${results.length} results from strict search');
+
+          // Find best match considering both artist and album similarity
+          final bestMatch = _findBestMatch(
+              results, normalizedArtist, normalizedAlbum, 0.7, 0.7);
+          if (bestMatch != null) {
+            Logging.severe(
+                'Apple Music: STRICT MATCH FOUND: "${bestMatch['collectionName']}" by "${bestMatch['artistName']}"');
+            return bestMatch['collectionViewUrl'];
+          }
+        }
+      }
+
+      // Add additional direct search before artist search for exact name matches
+      // This helps with cases like Kink - Tsunami where we need an exact artist/album pair
+      final exactQuery = Uri.encodeComponent('"$cleanedArtist" "$albumName"');
+      final exactSearchUrl = Uri.parse(
+          'https://itunes.apple.com/search?term=$exactQuery&entity=album&limit=10');
+
+      // Simplify logging - don't include full URL
+      Logging.severe('Apple Music: Trying exact match search');
+      final exactResponse = await http.get(exactSearchUrl);
+
+      if (exactResponse.statusCode == 200) {
+        final data = jsonDecode(exactResponse.body);
+        final results = data['results'] as List;
+
+        if (results.isNotEmpty) {
+          Logging.severe(
+              'Apple Music: Found ${results.length} results from exact search');
+
+          // Score each result
+          for (final album in results) {
+            final resultArtist =
+                normalizeForComparison(album['artistName'] ?? '');
+            final resultAlbum =
+                normalizeForComparison(album['collectionName'] ?? '');
+
+            final artistScore =
+                calculateStringSimilarity(normalizedArtist, resultArtist);
+            final albumScore =
+                calculateStringSimilarity(normalizedAlbum, resultAlbum);
+
+            // Log for exact matches or close matches
+            if (artistScore > 0.8 && albumScore > 0.8) {
+              Logging.severe(
+                  'Apple Music: STRONG MATCH FOUND: "${album['collectionName']}" by "${album['artistName']}" (artist: $artistScore, album: $albumScore)');
+              return album['collectionViewUrl'];
+            }
+          }
+        }
+      }
+
       // APPROACH 1: Search by artist name only - this appears to be more reliable
-      final artistQuery = Uri.encodeComponent(artist);
+      final artistQuery = Uri.encodeComponent(cleanedArtist);
       final artistSearchUrl = Uri.parse(
           'https://itunes.apple.com/search?term=$artistQuery&entity=musicArtist&attribute=artistTerm&limit=1');
 
-      Logging.severe('Apple Music: Artist search URL: $artistSearchUrl');
+      // Simplify logging
+      Logging.severe('Apple Music: Searching by artist name only');
       final artistResponse = await http.get(artistSearchUrl);
 
       if (artistResponse.statusCode == 200) {
@@ -40,7 +120,8 @@ class AppleMusicService extends PlatformServiceBase {
           final albumsUrl = Uri.parse(
               'https://itunes.apple.com/lookup?id=$artistId&entity=album&limit=100');
 
-          Logging.severe('Apple Music: Artist albums lookup URL: $albumsUrl');
+          // Simplify logging
+          Logging.severe('Apple Music: Looking up albums by artist ID');
           final albumsResponse = await http.get(albumsUrl);
 
           if (albumsResponse.statusCode == 200) {
@@ -102,15 +183,31 @@ class AppleMusicService extends PlatformServiceBase {
       }
 
       // FALLBACK: Direct combined search if artist lookup fails
-      final combinedQuery = Uri.encodeComponent('$artist $albumName');
+      final combinedQuery = Uri.encodeComponent('$cleanedArtist $albumName');
       final searchUrl = Uri.parse(
           'https://itunes.apple.com/search?term=$combinedQuery&entity=album&limit=25');
 
-      Logging.severe('Apple Music: Fallback search URL: $searchUrl');
+      // Simplify logging
+      Logging.severe('Apple Music: Using fallback combined search');
       final response = await http.get(searchUrl);
 
       if (response.statusCode == 200) {
-        // ...existing code...
+        final data = jsonDecode(response.body);
+        final results = data['results'] as List;
+
+        if (results.isNotEmpty) {
+          Logging.severe(
+              'Apple Music: Found ${results.length} results from fallback search');
+
+          // Find best match considering both artist and album similarity
+          final bestMatch = _findBestMatch(
+              results, normalizedArtist, normalizedAlbum, 0.7, 0.7);
+          if (bestMatch != null) {
+            Logging.severe(
+                'Apple Music: FALLBACK MATCH FOUND: "${bestMatch['collectionName']}" by "${bestMatch['artistName']}"');
+            return bestMatch['collectionViewUrl'];
+          }
+        }
       }
 
       // LAST RESORT: Try exact album name as a query
@@ -118,7 +215,8 @@ class AppleMusicService extends PlatformServiceBase {
       final albumOnlyUrl = Uri.parse(
           'https://itunes.apple.com/search?term=$albumOnlyQuery&entity=album&limit=50');
 
-      Logging.severe('Apple Music: Album-only search URL: $albumOnlyUrl');
+      // Simplify logging
+      Logging.severe('Apple Music: Using album-only search');
       final albumOnlyResponse = await http.get(albumOnlyUrl);
 
       if (albumOnlyResponse.statusCode == 200) {
@@ -138,10 +236,13 @@ class AppleMusicService extends PlatformServiceBase {
                 calculateStringSimilarity(normalizedArtist, resultArtist);
             final albumScore =
                 calculateStringSimilarity(normalizedAlbum, resultAlbum);
-            final combinedScore = (artistScore * 0.6) + (albumScore * 0.4);
 
-            Logging.severe(
-                'Apple Music: Album-only candidate: "${album['collectionName']}" by "${album['artistName']}" (artistScore: $artistScore, albumScore: $albumScore, combined: $combinedScore)');
+            // Only log album-only candidates with good scores
+            final combinedScore = (artistScore * 0.6) + (albumScore * 0.4);
+            if (combinedScore > 0.5) {
+              Logging.severe(
+                  'Apple Music: Album-only candidate: "${album['collectionName']}" by "${album['artistName']}" (combinedScore: ${combinedScore.toStringAsFixed(2)})');
+            }
 
             return {
               'album': album,
@@ -154,6 +255,24 @@ class AppleMusicService extends PlatformServiceBase {
           scoredResults
               .sort((a, b) => b['combinedScore'].compareTo(a['combinedScore']));
 
+          // Changed: First prioritize albums with good artist match (to avoid Khoma instead of Kink)
+          final artistMatches =
+              scoredResults.where((r) => r['artistScore'] > 0.7).toList();
+          if (artistMatches.isNotEmpty) {
+            // Find the best album match among good artist matches
+            artistMatches
+                .sort((a, b) => b['albumScore'].compareTo(a['albumScore']));
+
+            final bestArtistMatch = artistMatches.first;
+            final bestMatchAlbum = bestArtistMatch['album'];
+
+            Logging.severe(
+                'Apple Music: Artist-prioritized match: "${bestMatchAlbum['collectionName']}" by "${bestMatchAlbum['artistName']}" (artist: ${bestArtistMatch['artistScore']}, album: ${bestArtistMatch['albumScore']})');
+
+            return bestMatchAlbum['collectionViewUrl'];
+          }
+
+          // Otherwise use the combined score approach as fallback
           if (scoredResults.isNotEmpty &&
               (scoredResults[0]['combinedScore'] > 0.6 ||
                   scoredResults[0]['artistScore'] > 0.8 ||
@@ -175,11 +294,56 @@ class AppleMusicService extends PlatformServiceBase {
     }
   }
 
+  // Helper method to find the best match from results
+  Map<String, dynamic>? _findBestMatch(List results, String normalizedArtist,
+      String normalizedAlbum, double minArtistScore, double minAlbumScore) {
+    // Track best matches
+    Map<String, dynamic>? bestMatch;
+    double bestCombinedScore = 0.0;
+
+    for (final album in results) {
+      final resultArtist = normalizeForComparison(album['artistName'] ?? '');
+      final resultAlbum = normalizeForComparison(album['collectionName'] ?? '');
+
+      final artistScore =
+          calculateStringSimilarity(normalizedArtist, resultArtist);
+      final albumScore =
+          calculateStringSimilarity(normalizedAlbum, resultAlbum);
+      final combinedScore = (artistScore * 0.6) + (albumScore * 0.4);
+
+      // Log all potential matches with decent scores
+      if (artistScore > 0.5 || albumScore > 0.5) {
+        Logging.severe(
+            'Match candidate: "${album['collectionName']}" by "${album['artistName']}" '
+            '(artist: $artistScore, album: $albumScore, combined: $combinedScore)');
+      }
+
+      // Return immediately if we found an excellent match
+      if (artistScore > 0.9 && albumScore > 0.9) {
+        Logging.severe('Found excellent match!');
+        return album;
+      }
+
+      // Track the best match that meets minimum thresholds
+      if (artistScore >= minArtistScore &&
+          albumScore >= minAlbumScore &&
+          combinedScore > bestCombinedScore) {
+        bestMatch = album;
+        bestCombinedScore = combinedScore;
+      }
+    }
+
+    return bestMatch;
+  }
+
   @override
   Future<bool> verifyAlbumExists(String artist, String albumName) async {
     try {
+      // Clean artist name by removing Discogs numbering format "(n)"
+      String cleanedArtist = artist.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
+
       // Simplified verification - we just need to know if the album exists
-      final query = Uri.encodeComponent('$artist $albumName');
+      final query = Uri.encodeComponent('$cleanedArtist $albumName');
       final url = Uri.parse(
           'https://itunes.apple.com/search?term=$query&entity=album&limit=5');
 
@@ -386,5 +550,65 @@ class AppleMusicService extends PlatformServiceBase {
       Logging.severe('Error fetching Apple Music album details', e, stack);
       return null;
     }
+  }
+
+  @override
+  String normalizeForComparison(String? input) {
+    if (input == null || input.isEmpty) return '';
+
+    // Convert to lowercase and trim
+    String normalized = input.toLowerCase().trim();
+
+    // Store the original input before removing qualifiers
+    final originalNormalized = normalized;
+
+    // Create a comparison version with removed qualifiers
+    String comparisonVersion = normalized
+        .replaceAll(' - ep', '')
+        .replaceAll('-ep', '') // Handle no space case
+        .replaceAll(' ep', '')
+        .replaceAll(' - single', '')
+        .replaceAll('-single', '') // Handle no space case
+        .replaceAll(' single', '')
+        .replaceAll(' - deluxe', '')
+        .replaceAll('-deluxe', '') // Handle no space case
+        .replaceAll(' deluxe', '')
+        .replaceAll(' - deluxe edition', '')
+        .replaceAll(' deluxe edition', '')
+        .replaceAll(' - special edition', '')
+        .replaceAll(' special edition', '')
+        .replaceAll(' - remastered', '')
+        .replaceAll(' remastered', '')
+        .replaceAll(' (remastered)', '');
+
+    // Remove special characters
+    comparisonVersion = comparisonVersion.replaceAll(RegExp(r'[^\w\s]'), ' ');
+
+    // Replace multiple spaces with a single space
+    comparisonVersion =
+        comparisonVersion.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    // If using this for search, keep the original qualified version
+    if (normalized.contains('deluxe') ||
+        normalized.contains('ep') ||
+        normalized.contains('single') ||
+        normalized.contains('remastered') ||
+        normalized.contains('special edition')) {
+      // For search, we want to keep the qualifiers like "Deluxe Edition"
+      normalized = originalNormalized;
+
+      // Just clean up spaces and special characters
+      normalized = normalized.replaceAll(RegExp(r'[^\w\s\-()]'), ' ');
+      normalized = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+      // REMOVED: Don't log "Keeping qualifiers" messages
+    } else {
+      // For regular comparison with no special qualifiers, use the simpler version
+      normalized = comparisonVersion;
+    }
+
+    // REMOVE ALL NORMALIZATION LOGGING completely - it's way too noisy
+
+    return normalized;
   }
 }

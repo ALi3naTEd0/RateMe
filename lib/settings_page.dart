@@ -23,6 +23,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'version_info.dart';
 import 'package:flutter/services.dart'; // Add this for TextInputFormatter
+import 'widgets/platform_match_cleaner.dart';
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -1749,6 +1750,21 @@ class _SettingsPageState extends State<SettingsPage> {
                                     subtitle: const Text(
                                         'Refresh track data for Bandcamp albums'),
                                     onTap: _fixBandcampTrackIds,
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons
+                                        .cleaning_services), // Cleaning icon
+                                    title: const Text('Clean Platform Matches'),
+                                    subtitle: const Text(
+                                        'Find and fix incorrect platform links'),
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const PlatformMatchCleanerWidget(),
+                                        ),
+                                      );
+                                    },
                                   ),
                                   ListTile(
                                     leading: Icon(

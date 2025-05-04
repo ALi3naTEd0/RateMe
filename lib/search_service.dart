@@ -102,14 +102,24 @@ class SearchService {
         try {
           // Fetch basic album info from Discogs API to display a proper preview
           final apiUrl = 'https://api.discogs.com/${type}s/$id';
+
+          // Get proper credentials for the API call
+          final discogsCredentials = await _getDiscogsCredentials();
+          if (discogsCredentials == null) {
+            Logging.severe('Discogs API credentials not available');
+            throw Exception('Missing Discogs API credentials');
+          }
+
+          // Add required headers with proper credentials
           final response = await http.get(
             Uri.parse(apiUrl),
             headers: {
               'User-Agent': 'RateMe/1.0',
               'Authorization':
-                  'Discogs key=${ApiKeys.discogsConsumerKey}, secret=${ApiKeys.discogsConsumerSecret}',
+                  'Discogs key=${discogsCredentials['key']}, secret=${discogsCredentials['secret']}',
             },
           );
+
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
             // Extract title and artist info
@@ -117,7 +127,8 @@ class SearchService {
             String artist = '';
             if (type == 'master') {
               if (data['artists'] != null && data['artists'].isNotEmpty) {
-                artist = data['artists'][0]['name'] ?? '';
+                // FIX: Add null check for accessing array element
+                artist = data['artists']?[0]?['name'] ?? '';
               }
             } else {
               artist = data['artists_sort'] ?? '';
@@ -125,19 +136,29 @@ class SearchService {
             if (artist.isEmpty) {
               artist = 'Unknown Artist';
             }
-            // Get artwork URL if available
+
+            // Get artwork URL if available - with better logging
             String artworkUrl = '';
             if (data['images'] != null && data['images'].isNotEmpty) {
-              artworkUrl = data['images'][0]['uri'] ?? '';
+              // FIX: Add null check for accessing array element
+              artworkUrl = data['images']?[0]?['uri'] ?? '';
+              Logging.severe('Found Discogs preview artwork URL: $artworkUrl');
+            } else {
+              Logging.severe('No images found in Discogs preview API response');
             }
+
             Logging.severe('Found Discogs album: $artist - $title');
+
             // Return the album with actual data, plus a flag to indicate this is from a direct URL
-            return {
+            // ENSURE BOTH artworkUrl and artworkUrl100 fields are set
+            final resultMap = {
               'results': [
                 {
                   'collectionId': id,
                   'collectionName': title,
                   'artistName': artist,
+                  'artworkUrl':
+                      artworkUrl, // Set both artwork URLs to the same value
                   'artworkUrl100': artworkUrl,
                   'url': query,
                   'platform': 'discogs',
@@ -148,30 +169,36 @@ class SearchService {
                 }
               ]
             };
+
+            // Log the result to confirm artwork URLs are set
+            Logging.severe(
+                'Discogs preview response artworkUrl: ${resultMap['results']?[0]['artworkUrl']}');
+            Logging.severe(
+                'Discogs preview response artworkUrl100: ${resultMap['results']?[0]['artworkUrl100']}');
+
+            return resultMap;
           } else {
             Logging.severe('Discogs API error: ${response.statusCode}');
           }
         } catch (e) {
           Logging.severe('Error fetching Discogs album data: $e');
         }
-      } else {
-        // Fallback if API call fails
-        return {
-          'results': [
-            {
-              'collectionId': match?.group(2) ??
-                  'unknown', // Use match?.group(2) instead of undefined 'id'
-              'collectionName': 'Discogs Album', // Generic title
-              'artistName': 'Loading details...',
-              'artworkUrl100': '',
-              'url': query,
-              'platform': 'discogs',
-            }
-          ]
-        };
       }
-      // If URL parsing failed, proceed with search
-      platform = SearchPlatform.discogs;
+
+      // Fallback if API call fails
+      return {
+        'results': [
+          {
+            'collectionId': match?.group(2) ?? 'unknown',
+            'collectionName': 'Discogs Album', // Generic title
+            'artistName': 'Loading details...',
+            'artworkUrl': '', // IMPORTANT: Include both artworkUrl fields
+            'artworkUrl100': '',
+            'url': query,
+            'platform': 'discogs',
+          }
+        ]
+      };
     } else if (lowerQuery.contains('music.apple.com') ||
         lowerQuery.contains('itunes.apple.com')) {
       Logging.severe(
@@ -1132,8 +1159,17 @@ class SearchService {
       // Check if this is a Bandcamp URL
       if (query.toLowerCase().contains('bandcamp.com')) {
         Logging.severe('Detected Bandcamp URL: $query');
+
+        // FIX: Ensure URL has a proper protocol prefix
+        String fixedUrl = query;
+        if (!fixedUrl.startsWith('http://') &&
+            !fixedUrl.startsWith('https://')) {
+          fixedUrl = 'https://$fixedUrl';
+          Logging.severe('Added https:// prefix to Bandcamp URL: $fixedUrl');
+        }
+
         // Use the PlatformService.fetchBandcampAlbum method to get details
-        final album = await PlatformService.fetchBandcampAlbum(query);
+        final album = await PlatformService.fetchBandcampAlbum(fixedUrl);
         if (album != null) {
           Logging.severe(
               'Successfully fetched Bandcamp album: ${album.name} by ${album.artist}');
@@ -1263,7 +1299,7 @@ class SearchService {
           final id = match.group(2);
           Logging.severe('Detected Discogs $type ID: $id');
 
-          // Simplify artwork extraction to match search method
+          // Fetch basic album info to show a proper preview with artwork
           try {
             // Get proper credentials
             final discogsCredentials = await _getDiscogsCredentials();
@@ -1275,7 +1311,7 @@ class SearchService {
             final consumerKey = discogsCredentials['key'];
             final consumerSecret = discogsCredentials['secret'];
 
-            // Fetch basic album info to show a proper preview with artwork
+            // Fetch basic album info to display a proper preview
             final apiUrl = Uri.parse(
                 'https://api.discogs.com/${type}s/$id?key=$consumerKey&secret=$consumerSecret');
             Logging.severe('Fetching basic Discogs preview info from: $apiUrl');
@@ -1303,11 +1339,12 @@ class SearchService {
                 artist = data['artists_sort'];
               }
 
-              // SIMPLIFIED: Just get the first image like in the search method
+              // Extract artwork URL - ensure we get the correct field
               String artworkUrl = '';
               if (data['images'] != null &&
                   data['images'] is List &&
                   data['images'].isNotEmpty) {
+                // Get the first image URL
                 artworkUrl = data['images'][0]['uri'] ?? '';
                 Logging.severe('Found artwork for Discogs album: $artworkUrl');
               }
@@ -1323,15 +1360,19 @@ class SearchService {
                     'collectionId': id,
                     'collectionName': title,
                     'artistName': artist,
+                    'artworkUrl': artworkUrl, // Set both artwork URLs
                     'artworkUrl100': artworkUrl,
-                    'artworkUrl': artworkUrl, // Set both URLs for consistency
                     'url': query,
                     'platform': 'discogs',
-                    'type': type,
-                    'requiresMiddlewareProcessing': true
+                    'isDirectUrl':
+                        true, // Add this flag to indicate direct URL loading
+                    'requiresFullFetch':
+                        true // Add this flag to ensure tracks are fetched
                   }
                 ]
               };
+            } else {
+              Logging.severe('Discogs API error: ${response.statusCode}');
             }
           } catch (e, stack) {
             // On error, fall back to generic placeholder
@@ -1345,10 +1386,11 @@ class SearchService {
                 'collectionId': id,
                 'collectionName': 'Discogs Album',
                 'artistName': 'Loading details...',
+                'artworkUrl':
+                    '', // Ensure both artwork URLs are set consistently
                 'artworkUrl100': '',
                 'url': query,
                 'platform': 'discogs',
-                'type': type,
                 'requiresMiddlewareProcessing': true
               }
             ]

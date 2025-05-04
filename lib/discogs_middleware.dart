@@ -27,15 +27,9 @@ class DiscogsMiddleware {
     Logging.severe(
         'Starting Discogs album enhancement for: ${album['collectionName'] ?? album['name']}');
 
-    // Instead of showing a snackbar, just log for debugging purposes
-    final processingTimer = Future.delayed(Duration(seconds: 5), () {
-      Logging.severe('Still working on Discogs data enhancement...');
-    });
-
     try {
       // Fetch enhanced data
       final enhancedAlbum = await _enhanceDiscogsAlbum(album);
-      processingTimer; // Acknowledge the timer to avoid warning
 
       // Close loading dialog - using stored navigator state instead of context
       navigatorState.pop();

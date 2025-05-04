@@ -191,18 +191,19 @@ class _MigrationProgressPageState extends State<MigrationProgressPage> {
 
   @override
   Widget build(BuildContext context) {
+    final pageWidth =
+        MediaQuery.of(context).size.width * ThemeService.contentMaxWidthFactor;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Database Migration'),
         automaticallyImplyLeading: !isMigrating,
+        centerTitle: false,
+        leadingWidth: (MediaQuery.of(context).size.width - pageWidth) / 2 + 48,
       ),
       body: Center(
-        child: ConstrainedBox(
-          // Use the ThemeService's standardized width constraint (85% of screen width)
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width *
-                ThemeService.contentMaxWidthFactor,
-          ),
+        child: SizedBox(
+          width: pageWidth,
           child: Padding(
             padding: const EdgeInsets.all(32.0),
             child: Column(

@@ -1,4 +1,4 @@
-import 'package:rateme/logging.dart';
+import 'dart:math' as math;
 
 /// Base class for platform-specific services
 abstract class PlatformServiceBase {
@@ -70,17 +70,13 @@ abstract class PlatformServiceBase {
       normalized = normalized.replaceAll(RegExp(r'[^\w\s\-()]'), ' ');
       normalized = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
 
-      // Log that we're keeping qualifiers
-      Logging.severe('Keeping qualifiers in normalized version: "$normalized"');
+      // REMOVED: Don't log "Keeping qualifiers" messages anymore
     } else {
       // For regular comparison with no special qualifiers, use the simpler version
       normalized = comparisonVersion;
     }
 
-    // Logging to debug
-    if (normalized != input.toLowerCase().trim()) {
-      Logging.severe('Normalized "$input" to "$normalized" for comparison');
-    }
+    // REMOVED: No more logging of every normalization operation
 
     return normalized;
   }
@@ -91,18 +87,58 @@ abstract class PlatformServiceBase {
     if (s1.isEmpty && s2.isEmpty) return 1.0;
     if (s1.isEmpty || s2.isEmpty) return 0.0;
 
+    // IMPROVED: Better handling for spaced-out artist names like "E L U C I D"
+    // Only apply this when one string appears to be spaced letters (containing multiple single letters separated by spaces)
+    bool isSpacedLetters1 = _isSpacedLetterFormat(s1);
+    bool isSpacedLetters2 = _isSpacedLetterFormat(s2);
+
+    if (isSpacedLetters1 || isSpacedLetters2) {
+      // Remove all spaces for comparison
+      String s1NoSpaces = s1.replaceAll(' ', '');
+      String s2NoSpaces = s2.replaceAll(' ', '');
+
+      // If they match exactly after removing spaces, consider it a perfect match
+      if (s1NoSpaces.toLowerCase() == s2NoSpaces.toLowerCase()) {
+        return 1.0;
+      }
+
+      // If not exact, but still similar after space removal, give a high score
+      double noSpaceSimilarity = 1.0 -
+          (_levenshteinDistance(
+                  s1NoSpaces.toLowerCase(), s2NoSpaces.toLowerCase()) /
+              math.max(s1NoSpaces.length, s2NoSpaces.length));
+      if (noSpaceSimilarity > 0.8) {
+        return noSpaceSimilarity;
+      }
+    }
+
     // Check for exact match after normalization
     if (s1 == s2) {
       return 1.0;
     }
 
-    // Calculate Levenshtein distance
+    // Calculate Levenshtein distance for non-exact matches
     int distance = _levenshteinDistance(s1, s2);
-    int maxLength = s1.length > s2.length ? s1.length : s2.length;
+    int maxLength = math.max(s1.length, s2.length);
 
     // Convert to similarity score (0.0 to 1.0)
     double similarity = 1.0 - (distance / maxLength);
     return similarity;
+  }
+
+  /// Determines if a string looks like it has intentional spaces between letters (like "E L U C I D")
+  bool _isSpacedLetterFormat(String input) {
+    // First check if string contains multiple spaces
+    if (!input.contains(' ')) return false;
+
+    // Count single letters followed by spaces
+    List<String> parts = input.split(' ');
+
+    // If most parts are single letters, it's probably a spaced-letter format
+    int singleLetterCount = parts.where((part) => part.length == 1).length;
+
+    // Consider it spaced-letter format if more than 60% are single letters and at least 2 single letters
+    return singleLetterCount >= 2 && singleLetterCount / parts.length > 0.6;
   }
 
   /// Compare strings for artist matching
