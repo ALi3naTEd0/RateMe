@@ -22,33 +22,27 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'preload_service.dart';
-import 'discogs_middleware.dart'; // Add this import
+import 'discogs_middleware.dart';
+import 'deezer_middleware.dart'; // Add import for Deezer middleware
 
 Future<void> main() async {
   try {
     // Initialize Flutter binding
     WidgetsFlutterBinding.ensureInitialized();
-
     // Initialize database factory
     await _initializeDatabaseFactory();
-
     // Initialize logging first
     Logging.initialize();
     Logging.severe('===== Logging system initialized =====');
-
     // CRITICAL FIX: Preload theme settings before building the UI
     await PreloadService.preloadEssentialSettings();
-
     // Get the preloaded color for the initial UI render
     Color initialThemeColor = PreloadService.primaryColor;
-
     runApp(MyApp(initialColor: initialThemeColor));
-
     // Initialize services
     await ApiKeyManager.instance.initialize();
     await DatabaseHelper.initialize();
     await ts.ThemeService.initialize();
-
     // Start clipboard listener
     ClipboardDetector.startClipboardListener(
       onDetected: (url) {
@@ -64,7 +58,6 @@ Future<void> main() async {
         // Handle search completion
       },
     );
-
     Logging.severe('MAIN: Application initialized');
   } catch (e, stack) {
     Logging.severe('MAIN: Error initializing application', e, stack);
@@ -75,7 +68,6 @@ Future<void> main() async {
 Future<void> _initializeDatabaseFactory() async {
   // Log that we're initializing database factory
   Logging.severe('Initializing database factory for current platform');
-
   try {
     // For desktop platforms and non-Android/iOS, use FFI
     if (kIsWeb) {
@@ -109,7 +101,6 @@ Future<void> _initializeDatabaseFactory() async {
 class MyApp extends StatefulWidget {
   final bool showMigrationPrompt;
   final Color initialColor;
-
   const MyApp({
     super.key,
     this.showMigrationPrompt = false,
@@ -138,32 +129,24 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-
     // Fix: Set ThemeMode and Color directly from ThemeService right at initState
     _themeMode = ts.ThemeService.themeMode;
     _primaryColor = widget.initialColor;
-
     // Single initialization log
     Logging.severe('MAIN: Application initialized');
-
     _loadTheme();
-
     // Add a listener to ensure ThemeService changes are applied
     ts.ThemeService.addListener(_themeListener);
-
     _loadSettings();
     _startClipboardDetection();
     _loadSearchPlatform();
     _setupGlobalListeners();
-
     if (widget.showMigrationPrompt) {
       Future.delayed(const Duration(seconds: 2), () {
         _showMigrationPrompt();
       });
     }
-
     _setupNotificationListener();
-
     // Register for theme changes
     SettingsService.addThemeListener((mode, color) {
       if (mounted) {
@@ -173,9 +156,7 @@ class _MyAppState extends State<MyApp> {
         });
       }
     });
-
     _loadTheme();
-
     // Set up separate listeners for theme changes vs color changes
     SettingsService.addThemeListener((mode, color) {
       if (mounted) {
@@ -186,7 +167,6 @@ class _MyAppState extends State<MyApp> {
         });
       }
     });
-
     // Add color-specific listener
     SettingsService.addPrimaryColorListener((color) {
       if (mounted) {
@@ -195,15 +175,14 @@ class _MyAppState extends State<MyApp> {
         });
       }
     });
-
     // Add a listener to ThemeService to update when theme changes
     ts.ThemeService.addListener((mode, color) {
       if (mounted) {
         setState(() {
           _themeMode = mode;
           _primaryColor = color;
+          // Reduce frequency of log messages
         });
-        // Reduce frequency of log messages
       }
     });
   }
@@ -215,13 +194,13 @@ class _MyAppState extends State<MyApp> {
         Logging.severe('Default search platform changed to: ${platform.name}');
         setState(() {
           _selectedSearchPlatform = platform;
+          final currentQuery = searchController.text.trim();
+          if (currentQuery.isNotEmpty) {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              _performSearch(currentQuery);
+            });
+          }
         });
-        final currentQuery = searchController.text.trim();
-        if (currentQuery.isNotEmpty) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _performSearch(currentQuery);
-          });
-        }
       }
     });
   }
@@ -266,9 +245,9 @@ class _MyAppState extends State<MyApp> {
           if (mounted) {
             setState(() {
               _selectedSearchPlatform = SearchPlatform.values[platformIndex];
+              Logging.severe(
+                  'Loaded default search platform: ${_selectedSearchPlatform.name}');
             });
-            Logging.severe(
-                'Loaded default search platform: ${_selectedSearchPlatform.name}');
           }
         }
       }
@@ -287,7 +266,6 @@ class _MyAppState extends State<MyApp> {
   void _updatePrimaryColor(Color color) {
     // Set ThemeService color first
     ts.ThemeService.setPrimaryColor(color);
-
     // Then update the local state variable
     setState(() {
       _primaryColor = color;
@@ -298,13 +276,13 @@ class _MyAppState extends State<MyApp> {
     try {
       setState(() {
         _selectedSearchPlatform = platform;
+        final currentQuery = searchController.text.trim();
+        if (currentQuery.isNotEmpty) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _performSearch(currentQuery);
+          });
+        }
       });
-      final currentQuery = searchController.text.trim();
-      if (currentQuery.isNotEmpty) {
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _performSearch(currentQuery);
-        });
-      }
     } catch (e) {
       Logging.severe('Error updating search platform', e);
     }
@@ -410,7 +388,6 @@ class _MyAppState extends State<MyApp> {
             _themeMode = mode;
             Logging.severe('Theme mode updated to: $_themeMode');
           }
-
           // Always update color
           _primaryColor = color;
           Logging.severe('Primary color updated to: $_primaryColor');
@@ -422,14 +399,12 @@ class _MyAppState extends State<MyApp> {
   Future<void> _loadTheme() async {
     try {
       final prevMode = _themeMode; // Store previous mode for comparison
-
       // Update state with ThemeService values
       setState(() {
         _themeMode = ts.ThemeService.themeMode;
         _primaryColor = ts.ThemeService.primaryColor;
         // Remove redundant logging
       });
-
       // Log only when theme mode changes
       if (prevMode != _themeMode) {
         Logging.severe('Theme mode changed from $prevMode to $_themeMode');
@@ -447,7 +422,6 @@ class _MyAppState extends State<MyApp> {
     _debounce?.cancel();
     GlobalNotifications.dispose();
     ts.ThemeService.removeListener(_themeListener);
-
     super.dispose();
   }
 
@@ -466,14 +440,11 @@ class _MyAppState extends State<MyApp> {
     final currentThemeMode = _themeMode; // Make a local copy
     // Remove unused variable warning by not declaring it if we're not using it
     // final currentPrimaryColor = _primaryColor; // Make a local copy
-
     final searchWidth = MediaQuery.of(context).size.width * 0.85;
     final sideOffset = (MediaQuery.of(context).size.width - searchWidth) / 2;
     const iconAdjustment = 8.0;
-
     // CRITICAL FIX: Completely disable build logging to reduce spam
     // Most build logs are not useful for debugging and create noise
-
     // Sanity check - if somehow main.dart's state got out of sync with ThemeService
     if (currentThemeMode != ts.ThemeService.themeMode && mounted) {
       // Fix without triggering a build during the current build
@@ -485,7 +456,6 @@ class _MyAppState extends State<MyApp> {
         }
       });
     }
-
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
@@ -514,13 +484,11 @@ class _MyAppState extends State<MyApp> {
       ),
       themeMode:
           currentThemeMode, // Use the local copy to prevent inconsistency
-
       home: Builder(builder: (context) {
         // FIXED: Get the correct color for icons based on theme brightness
         final iconColor = Theme.of(context).brightness == Brightness.dark
             ? Colors.white
             : Colors.black;
-
         return Scaffold(
           appBar: AppBar(
             title: Text(
@@ -720,10 +688,20 @@ class _MyAppState extends State<MyApp> {
                                   return PlatformUI.buildAlbumCard(
                                     album: album,
                                     onTap: () {
-                                      // Add special handling for Discogs albums
+                                      // Check platform and use appropriate middleware
                                       if (album['platform'] == 'discogs') {
-                                        // Use our Discogs middleware
+                                        // Use Discogs middleware
                                         DiscogsMiddleware
+                                            .showDetailPageWithPreload(
+                                                context, album);
+                                      } else if (album['platform'] ==
+                                              'deezer' &&
+                                          album['useDeezerMiddleware'] ==
+                                              true) {
+                                        // Use Deezer middleware for accurate date fetching
+                                        Logging.severe(
+                                            'Using DeezerMiddleware for Deezer album');
+                                        DeezerMiddleware
                                             .showDetailPageWithPreload(
                                                 context, album);
                                       } else {
@@ -753,7 +731,6 @@ class _MyAppState extends State<MyApp> {
   DropdownMenuItem<SearchPlatform> _buildDropdownItem(
       SearchPlatform platform, Color? iconColor) {
     final Color safeIconColor = iconColor ?? Colors.grey;
-
     String tooltipText;
     switch (platform) {
       case SearchPlatform.itunes:
@@ -772,7 +749,6 @@ class _MyAppState extends State<MyApp> {
         tooltipText = 'Select platform';
         break;
     }
-
     return DropdownMenuItem<SearchPlatform>(
       value: platform,
       child: Tooltip(
@@ -885,8 +861,7 @@ class _MyAppState extends State<MyApp> {
 // Update the MaterialColorGenerator class to fix type issues and deprecated member usage
 class MaterialColorGenerator {
   static MaterialColor from(Color color) {
-    // Replace color.value with color.value property
-    // Use toARGB32() instead of value as recommended by the deprecation warning
+    // Replace color.value with color.toARGB32() as recommended by the deprecation warning
     return MaterialColor(color.toARGB32(), {
       50: _tintColor(color, 0.9),
       100: _tintColor(color, 0.8),

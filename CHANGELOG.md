@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper color persistence across app restarts
 
 ### Added
+- Implemented middleware architecture for Deezer albums to efficiently fetch accurate release dates and track information
+- New DeezerMiddleware class matching the pattern used for Discogs to enhance album data
+- Fixed Deezer album date loading with efficient on-demand fetching strategy
+- Improved Deezer search performance by fetching dates only when needed
 - New platform match cleaner utility for fixing incorrect platform associations
 - Improved URL matching between streaming platforms with unified matching algorithms
 - Standardized matching thresholds across all music platforms (Spotify, Apple Music, Deezer, Discogs)
@@ -120,6 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Fixed Deezer album integration with dedicated middleware for better performance and accuracy
+- Solved performance issues in Deezer album date loading by using on-demand middleware approach
 - Fixed platform match widget with improved stability and reliability
 - Fixed overly verbose logging with cleaner, more organized log output
 - Fixed inconsistent platform matching between streaming services
@@ -183,6 +189,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved state handling for asynchronous operations
 
 ### Changed
+- Enhanced Deezer album handling with middleware pattern for better performance
+- Implemented consistent middleware approach across different music platforms
 - Enhanced logging system with reduced noise and better organization
 - Improved platform matching with standardized threshold values across all services
 - Refactored platform_match_widget for better maintainability and performance
@@ -246,6 +254,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced logging for date-related issues to improve troubleshooting
 
 ### Technical
+- Added DeezerMiddleware to efficiently handle album enhancement with accurate release dates
+- Added 'useDeezerMiddleware' flag for identifying albums requiring date enhancement
 - Implemented consistent platform matching mechanisms across all music services
 - Created dedicated platform_match_cleaner component for user-initiated match fixing
 - Added normalized threshold values for string similarity across platform services

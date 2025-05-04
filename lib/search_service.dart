@@ -644,7 +644,7 @@ class SearchService {
     }
   }
 
-  // Search on Deezer - Complete rewrite with aggressive pre-loading of all dates
+  // Search on Deezer - Simplified to avoid pre-fetching, will use middleware instead
   static Future<Map<String, dynamic>?> searchDeezer(String query,
       {int limit = 25}) async {
     try {
@@ -677,8 +677,8 @@ class SearchService {
               'artworkUrl100': albumData['cover_medium'] ?? '',
               'url': query,
               'platform': 'deezer',
-              'releaseDate': albumData['release_date'],
-              'requiresFullFetch': true // Flag to get full track details later
+              // Flag to indicate this album should use the Deezer middleware
+              'useDeezerMiddleware': true
             };
             // Return the single album
             Logging.severe(
@@ -700,7 +700,7 @@ class SearchService {
               'artworkUrl100': '',
               'url': query,
               'platform': 'deezer',
-              'requiresFullFetch': true
+              'useDeezerMiddleware': true
             }
           ]
         };
@@ -729,13 +729,13 @@ class SearchService {
       // Format results to match the expected structure - without dates initially
       final results = <Map<String, dynamic>>[];
 
-      // First, create all album entries with necessary metadata but no reliable dates yet
+      // Create album entries with minimal data, middleware will fetch dates later
       for (var i = 0; i < resultCount; i++) {
         final album = data['data'][i];
         final String albumTitle = album['title'] ?? 'Unknown Title';
         final String artistName = album['artist']['name'] ?? 'Unknown Artist';
 
-        // Create album entry with a temporary date
+        // Create album entry with minimal information - middleware will enhance it
         final albumResult = {
           'id': album['id'],
           'collectionId': album['id'],
@@ -749,105 +749,18 @@ class SearchService {
           'artworkUrl100': album['cover_medium'] ?? album['cover_small'],
           'url': album['link'],
           'platform': 'deezer',
-          // Initially set to null - will be populated after fetching
-          'releaseDate': null,
-          'dateLoading': true,
+          // Add flag to use middleware for accurate date fetching
+          'useDeezerMiddleware': true,
         };
 
         results.add(albumResult);
       }
 
-      // Now that we have the results prepared, return them immediately
-      // This lets the UI show results without waiting for all date fetches
-      final resultsContainer = {'results': results};
-
-      // Start pre-fetching ALL dates immediately after returning results
-      // This runs in the background and updates the results in-place
-      _prefetchAllDeezerDatesImmediately(results);
-
-      return resultsContainer;
+      return {'results': results};
     } catch (e, stack) {
       Logging.severe('Error searching Deezer', e, stack);
       return null;
     }
-  }
-
-  // New method that pre-fetches ALL dates aggressively
-  static void _prefetchAllDeezerDatesImmediately(
-      List<Map<String, dynamic>> albums) {
-    // We intentionally don't await this process - it runs in the background
-    // and updates the albums in-place as dates come in
-    Future(() async {
-      Logging.severe(
-          'Starting background prefetch for ALL ${albums.length} Deezer album dates');
-
-      // Create a list of fetch operations
-      final List<Future<void>> dateFetches = [];
-
-      // Start date fetch for each album
-      for (var album in albums) {
-        final albumId = album['id'];
-        if (albumId == null) continue;
-
-        final future = () async {
-          try {
-            final albumDetailsUrl =
-                Uri.parse('https://api.deezer.com/album/$albumId');
-            final albumResponse = await http.get(albumDetailsUrl);
-
-            if (albumResponse.statusCode == 200) {
-              final albumData = jsonDecode(albumResponse.body);
-              final fetchedDate = albumData['release_date'];
-
-              // Update the album date if we got valid data
-              if (fetchedDate != null && fetchedDate.toString().isNotEmpty) {
-                album['releaseDate'] = fetchedDate.toString();
-                album['dateLoading'] = false;
-                Logging.severe(
-                    'Updated date for Deezer album "${album['collectionName']}" (ID: $albumId) to $fetchedDate');
-              } else {
-                // Mark as unknown date rather than using today's date
-                album['releaseDate'] = 'unknown';
-                album['dateLoading'] = false;
-                Logging.severe(
-                    'No valid date from API for "${album['collectionName']}" (ID: $albumId), marking as unknown');
-              }
-            } else {
-              // Mark as unknown if API call fails
-              album['releaseDate'] = 'unknown';
-              album['dateLoading'] = false;
-              Logging.severe(
-                  'Failed to fetch date for "${album['collectionName']}" (ID: $albumId), marking as unknown');
-            }
-          } catch (e) {
-            // On any error, mark date as unknown
-            album['releaseDate'] = 'unknown';
-            album['dateLoading'] = false;
-            Logging.severe(
-                'Error fetching date for Deezer album ID $albumId: $e');
-          }
-        }();
-
-        dateFetches.add(future);
-      }
-
-      // Execute all fetches with a reasonable timeout (20 seconds total)
-      try {
-        await Future.wait(dateFetches).timeout(Duration(seconds: 20));
-        Logging.severe(
-            'Completed pre-fetching all ${albums.length} Deezer album dates');
-      } catch (e) {
-        Logging.severe(
-            'Timed out or error while pre-fetching Deezer dates: $e');
-        // Ensure any remaining albums without dates are marked as unknown
-        for (var album in albums) {
-          if (album['dateLoading'] == true || album['releaseDate'] == null) {
-            album['releaseDate'] = 'unknown';
-            album['dateLoading'] = false;
-          }
-        }
-      }
-    });
   }
 
   // Fetch album tracks for a specific album
@@ -940,6 +853,19 @@ class SearchService {
   static Future<Map<String, dynamic>?> fetchDeezerAlbumDetails(
       Map<String, dynamic> album) async {
     try {
+      // If album has already been processed by middleware, just return it
+      if (album['useDeezerMiddleware'] == true &&
+          album.containsKey('tracks') &&
+          album['tracks'] is List &&
+          (album['tracks'] as List).isNotEmpty &&
+          album.containsKey('releaseDate') &&
+          album['releaseDate'] != null) {
+        Logging.severe(
+            'Album already processed by DeezerMiddleware, skipping fetch');
+        return album;
+      }
+
+      // Otherwise, proceed with the fetch as before
       final albumId = album['id'] ?? album['collectionId'];
       if (albumId == null) {
         Logging.severe('Deezer fetch details: Missing album ID.');
