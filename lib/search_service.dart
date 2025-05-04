@@ -1077,386 +1077,51 @@ class SearchService {
     }
   }
 
-  /// Fetch details for Discogs albums with smarter version selection for track durations
+  /// Fetch details for Discogs albums - simplified to create basic preview only
   static Future<Map<String, dynamic>?> fetchDiscogsAlbumDetails(
       Map<String, dynamic> album) async {
     try {
-      Logging.severe('Fetching Discogs album details: ${album['url']}');
+      Logging.severe('Creating basic Discogs album preview: ${album['url']}');
       // Extract the ID from the URL
       final RegExp regExp = RegExp(r'/(master|release)/(\d+)');
       final match = regExp.firstMatch(album['url'] as String);
       if (match == null || match.groupCount < 2) {
         Logging.severe(
             'Could not extract ID from Discogs URL: ${album['url']}');
-        return null;
+        return album; // Return original album if URL parsing fails
       }
+
       final type = match.group(1);
       final id = match.group(2);
       if (type == null || id == null) {
-        return null;
+        return album;
       }
-      // Build the API URL with authentication parameters directly in the URL
+
+      // Get credentials
       final discogsCredentials = await _getDiscogsCredentials();
       if (discogsCredentials == null) {
         Logging.severe('Discogs API credentials not available');
-        return album; // Return original album on error
-      }
-      final consumerKey = discogsCredentials['key'];
-      final consumerSecret = discogsCredentials['secret'];
-      final apiUrl =
-          'https://api.discogs.com/${type}s/$id?key=$consumerKey&secret=$consumerSecret';
-      Logging.severe('Fetching from Discogs API: $apiUrl');
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {
-          'User-Agent': 'RateMe/1.0',
-        },
-      );
-      if (response.statusCode != 200) {
-        Logging.severe('Discogs API error: ${response.statusCode}');
-        return album; // Return original album on error
-      }
-      final data = jsonDecode(response.body);
-      // Extract artist name
-      String artistName = '';
-      if (data['artists'] != null) {
-        artistName = data['artists'].map((a) => a['name']).join(', ');
-      } else if (data['artists_sort'] != null) {
-        artistName = data['artists_sort'];
-      }
-      if (artistName.isEmpty) {
-        artistName = album['artistName'] ?? 'Unknown Artist';
-      }
-      // Extract album title
-      final albumTitle =
-          data['title'] ?? album['collectionName'] ?? 'Unknown Album';
-      // Extract tracks from the current response first
-      List<Map<String, dynamic>> tracks = <Map<String, dynamic>>[];
-      int trackIndex = 0;
-      if (data['tracklist'] != null) {
-        for (var track in data['tracklist']) {
-          // Skip headings, indexes, etc.
-          if (track['type_'] == 'heading' || track['type_'] == 'index') {
-            continue;
-          }
-          trackIndex++;
-          // Create a unique numeric track ID
-          int trackId = int.parse(id) * 1000 + trackIndex;
-          // Extract track artist if available, or use album artist
-          String trackArtist = artistName;
-          if (track['artists'] != null &&
-              track['artists'] is List &&
-              track['artists'].isNotEmpty) {
-            trackArtist = track['artists'].map((a) => a['name']).join(', ');
-          }
-          // Parse duration - only if it actually exists
-          int durationMs = 0;
-          if (track['duration'] != null &&
-              track['duration'].toString().trim().isNotEmpty) {
-            durationMs = parseTrackDuration(track['duration']);
-            Logging.severe(
-                'Parsed track ${track['title']}: duration ${track['duration']} -> ${durationMs}ms');
-          }
-          tracks.add({
-            'trackId': trackId,
-            'trackName': track['title'] ?? 'Track $trackIndex',
-            'trackNumber': trackIndex,
-            'trackTimeMillis': durationMs > 0 ? durationMs : null,
-            'artistName': trackArtist,
-          });
-        }
-      }
-      // Check if we have track durations in the initial response
-      bool hasTrackDurations = _tracksHaveDurations(tracks);
-      if (hasTrackDurations) {
-        Logging.severe('Original response has track durations, using those');
-      } else {
-        Logging.severe(
-            'Original response missing track durations, will search for alternatives');
-        // Now we need to build a comprehensive set of versions to try
-        final List<Map<String, dynamic>> versionsToTry = [];
-        // APPROACH 1: If we have a release, try its master release
-        String? masterId;
-        if (type == "release" && data['master_id'] != null) {
-          masterId = data['master_id'].toString();
-          Logging.severe('Found master release ID: $masterId for release: $id');
-          versionsToTry.add({
-            'id': masterId,
-            'type': 'masters',
-            'score': 90, // High priority
-            'note': 'Master of current release',
-          });
-        }
-        // APPROACH 2: Get specific versions from releases list
-        List<dynamic> releasesVersions = [];
-        // For a master, get its releases
-        if (type == "master") {
-          try {
-            final releasesUrl =
-                'https://api.discogs.com/masters/$id/versions?key=$consumerKey&secret=$consumerSecret';
-            final releasesResponse = await http.get(
-              Uri.parse(releasesUrl),
-              headers: {'User-Agent': 'RateMe/1.0'},
-            );
-            if (releasesResponse.statusCode == 200) {
-              final releasesData = jsonDecode(releasesResponse.body);
-              if (releasesData['versions'] != null) {
-                releasesVersions = releasesData['versions'];
-                Logging.severe(
-                    'Found ${releasesVersions.length} releases of master $id');
-              }
-            }
-          } catch (e) {
-            Logging.severe('Error fetching master versions: $e');
-          }
-        }
-        // For a specific release, get versions from its master
-        else if (masterId != null) {
-          try {
-            final masterReleasesUrl =
-                'https://api.discogs.com/masters/$masterId/versions?key=$consumerKey&secret=$consumerSecret';
-            final masterReleasesResponse = await http.get(
-              Uri.parse(masterReleasesUrl),
-              headers: {'User-Agent': 'RateMe/1.0'},
-            );
-            if (masterReleasesResponse.statusCode == 200) {
-              final masterReleasesData =
-                  jsonDecode(masterReleasesResponse.body);
-              if (masterReleasesData['versions'] != null) {
-                releasesVersions = masterReleasesData['versions'];
-                Logging.severe(
-                    'Found ${releasesVersions.length} releases from master $masterId');
-              }
-            }
-          } catch (e) {
-            Logging.severe('Error fetching master releases: $e');
-          }
-        }
-        // Process and score all available releases
-        final preferredCountries = ['US', 'UK', 'Japan', 'Germany', 'France'];
-        final preferredFormats = ['CD', 'Digital', 'File', 'Vinyl'];
-        for (var version in releasesVersions) {
-          if (version['id'] != null) {
-            final versionId = version['id'].toString();
-            // Skip the current release if it's in the list (already tried it)
-            if (type == 'release' && versionId == id) continue;
-            // Score this version based on various factors
-            int score = 50; // Base score
-            // Factor 1: Country preference
-            final country = (version['country'] as String?) ?? '';
-            if (preferredCountries.contains(country)) {
-              score += (5 - preferredCountries.indexOf(country)) * 5;
-            }
-            // Factor 2: Format preference - formats are often in a list like ["CD", "Album"]
-            final format = version['format'] ?? [];
-            String formatStr = '';
-            if (format is List && format.isNotEmpty) {
-              formatStr = format.join(', ');
-              for (final preferredFormat in preferredFormats) {
-                if (formatStr
-                    .toLowerCase()
-                    .contains(preferredFormat.toLowerCase())) {
-                  score += (4 - preferredFormats.indexOf(preferredFormat)) * 5;
-                  break;
-                }
-              }
-            } else if (format is String) {
-              formatStr = format;
-              for (final preferredFormat in preferredFormats) {
-                if (formatStr
-                    .toLowerCase()
-                    .contains(preferredFormat.toLowerCase())) {
-                  score += (4 - preferredFormats.indexOf(preferredFormat)) * 5;
-                  break;
-                }
-              }
-            }
-            // Factor 3: Major label releases often have better metadata
-            final label = version['label'] as String? ?? '';
-            if (label.isNotEmpty) {
-              score += 5;
-            }
-            // Factor 4: Newer releases tend to have better data
-            final year = version['released'] as String? ?? '';
-            if (year.length == 4 && int.tryParse(year) != null) {
-              final releaseYear = int.parse(year);
-              if (releaseYear >= 2000) {
-                score += 10;
-              } else if (releaseYear >= 1990) {
-                score += 5;
-              }
-            }
-            versionsToTry.add({
-              'id': versionId,
-              'type': 'releases', // These are always specific releases
-              'score': score,
-              'note': 'Format: $formatStr, Country: $country',
-              'country': country,
-              'format': formatStr,
-            });
-          }
-        }
-        // Sort versions by score (highest first)
-        versionsToTry
-            .sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-        // Increase the number of versions to try - specifically for cases like Lingua Ignota
-        final maxVersionsToTry = math.min(15, versionsToTry.length);
-        Logging.severe(
-            'Will try up to $maxVersionsToTry alternate versions to find track durations:');
-        for (int i = 0; i < maxVersionsToTry; i++) {
-          final version = versionsToTry[i];
-          Logging.severe(
-              '  ${i + 1}. ${version['type']}/${version['id']} - Score: ${version['score']} - ${version['note']}');
-        }
-        // Now systematically try versions until we find durations
-        for (int i = 0; i < maxVersionsToTry; i++) {
-          final version = versionsToTry[i];
-          final versionType = version['type'] as String;
-          final versionId = version['id'] as String;
-          Logging.severe(
-              'Trying ${i + 1}/$maxVersionsToTry: $versionType/$versionId (${version['note']})');
-          try {
-            final versionUrl =
-                'https://api.discogs.com/$versionType/$versionId?key=$consumerKey&secret=$consumerSecret';
-            final versionResponse = await http.get(
-              Uri.parse(versionUrl),
-              headers: {'User-Agent': 'RateMe/1.0'},
-            );
-            if (versionResponse.statusCode == 200) {
-              final versionData = jsonDecode(versionResponse.body);
-              if (versionData['tracklist'] != null) {
-                // Process tracks from this version
-                final versionTracks = _processDiscogsTrackList(
-                    versionData['tracklist'], versionId, artistName);
-                // Check if these tracks have durations
-                final hasVersionDurations = _tracksHaveDurations(versionTracks);
-                final durationPercentage =
-                    _calculateTrackDurationPercentage(versionTracks);
-                Logging.severe(
-                    'Version $versionId has ${versionTracks.length} tracks with ${(durationPercentage * 100).toStringAsFixed(1)}% having durations');
-                if (hasVersionDurations) {
-                  Logging.severe(
-                      'Found version with good track durations: $versionType/$versionId');
-                  // Lower the threshold for track count difference to better handle variants
-                  // Some releases might have a few bonus tracks or slightly different tracklists
-                  if (tracks.isEmpty ||
-                      (tracks.length - versionTracks.length).abs() <= 3 ||
-                      durationPercentage > 0.7) {
-                    tracks = versionTracks;
-                    hasTrackDurations = true;
-                    break; // Stop checking more versions
-                  } else {
-                    Logging.severe(
-                        'Version has different track count (${versionTracks.length} vs ${tracks.length}), continuing search...');
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            Logging.severe('Error fetching version $versionId: $e');
-          }
-        }
-      }
-      // If we still don't have track durations, we'll return what we have
-      Logging.severe(
-          'Final track count: ${tracks.length}, has durations: $hasTrackDurations');
-      // Add the tracks to the album
-      final result = Map<String, dynamic>.from(album);
-      result['tracks'] = tracks;
-      result['collectionName'] = albumTitle;
-      result['artistName'] = artistName;
-      // Add artwork if available and not already in the album data
-      if (data['images'] != null &&
-          data['images'].isNotEmpty &&
-          (album['artworkUrl100'] == null ||
-              album['artworkUrl100'].toString().isEmpty)) {
-        result['artworkUrl100'] = data['images'][0]['uri'];
-      }
-      // NEW: Check if this version has a better release date
-      if (result['releaseDate'].toString().isEmpty &&
-          data['released'] != null) {
-        final releasedRaw = data['released'].toString().trim();
-        if (releasedRaw.length >= 10 && releasedRaw.contains('-')) {
-          // This version has a proper date, use it!
-          result['releaseDate'] = releasedRaw;
-          Logging.severe(
-              'Found better release date in main response: ${result['releaseDate']}');
-        } else if (RegExp(r'^\d{4}$').hasMatch(releasedRaw)) {
-          // It's just a year, better than nothing
-          result['releaseDate'] = '$releasedRaw-01-01';
-          Logging.severe(
-              'Using year as release date from main response: ${result['releaseDate']}');
-        }
+        return album;
       }
 
+      // Create a basic album preview - minimum viable version for display
+      // The DiscogsMiddleware will handle the complete fetch with all details
+      final result = Map<String, dynamic>.from(album);
+
+      // Ensure we have the right type information
+      result['type'] = type;
+      result['collectionId'] = id;
+      result['platform'] = 'discogs';
+
+      // Add flag to indicate this needs full processing by middleware
+      result['requiresMiddlewareProcessing'] = true;
+
+      Logging.severe('Created basic Discogs preview - middleware will enhance');
       return result;
     } catch (e, stack) {
-      Logging.severe('Error fetching Discogs album details', e, stack);
-      return album; // Return the original album on error
+      Logging.severe('Error creating Discogs album preview', e, stack);
+      return album; // Return original album on error
     }
-  }
-
-  /// Process a Discogs tracklist into our standard format
-  static List<Map<String, dynamic>> _processDiscogsTrackList(
-      List<dynamic> tracklist, String releaseId, String defaultArtistName) {
-    final tracks = <Map<String, dynamic>>[];
-    int trackIndex = 0;
-    for (var track in tracklist) {
-      // Skip headings, indexes, etc.
-      if (track['type_'] == 'heading' || track['type_'] == 'index') {
-        continue;
-      }
-      trackIndex++;
-      // Create a unique numeric track ID
-      int trackId = int.parse(releaseId) * 1000 + trackIndex;
-      // Extract track artist if available, or use album artist
-      String trackArtist = defaultArtistName;
-      if (track['artists'] != null &&
-          track['artists'] is List &&
-          track['artists'].isNotEmpty) {
-        trackArtist = track['artists'].map((a) => a['name']).join(', ');
-      }
-      // Parse duration - only if it actually exists
-      int durationMs = 0;
-      if (track['duration'] != null &&
-          track['duration'].toString().trim().isNotEmpty) {
-        durationMs = parseTrackDuration(track['duration']);
-        Logging.severe(
-            'Parsed track ${track['title']}: duration ${track['duration']} -> ${durationMs}ms');
-      }
-      tracks.add({
-        'trackId': trackId,
-        'trackName': track['title'] ?? 'Track $trackIndex',
-        'trackNumber': trackIndex,
-        'trackTimeMillis': durationMs > 0 ? durationMs : null,
-        'artistName': trackArtist,
-      });
-    }
-    return tracks;
-  }
-
-  /// Check if a list of tracks has duration information
-  static bool _tracksHaveDurations(List<Map<String, dynamic>> tracks) {
-    if (tracks.isEmpty) return false;
-    // Calculate the percentage of tracks with durations
-    final percentage = _calculateTrackDurationPercentage(tracks);
-    Logging.severe(
-        'Track duration percentage: ${(percentage * 100).toStringAsFixed(1)}%');
-    // If more than 30% of tracks have durations, consider it good
-    return percentage > 0.3;
-  }
-
-  /// Calculate the percentage of tracks with durations
-  static double _calculateTrackDurationPercentage(
-      List<Map<String, dynamic>> tracks) {
-    if (tracks.isEmpty) return 0.0;
-    int tracksWithDurations = 0;
-    for (var track in tracks) {
-      if (track['trackTimeMillis'] != null && track['trackTimeMillis'] > 0) {
-        tracksWithDurations++;
-      }
-    }
-    return tracksWithDurations / tracks.length;
   }
 
   // Add the missing searchBandcamp method
@@ -1572,7 +1237,7 @@ class SearchService {
     }
   }
 
-  // Fix the searchDiscogs method to properly fetch dates immediately like Deezer
+  // Fix the searchDiscogs method to remove the 30 seconds of preloading
   static Future<Map<String, dynamic>?> searchDiscogs(String query,
       {int limit = 25}) async {
     try {
@@ -1590,13 +1255,108 @@ class SearchService {
 
       // Check if this is a URL
       if (query.toLowerCase().contains('discogs.com')) {
-        // ...existing URL handling code...
+        // URL handling code remains unchanged
+        final regExp = RegExp(r'/(master|release)/(\d+)');
+        final match = regExp.firstMatch(query);
+        if (match != null && match.groupCount >= 2) {
+          final type = match.group(1);
+          final id = match.group(2);
+          Logging.severe('Detected Discogs $type ID: $id');
+
+          // Simplify artwork extraction to match search method
+          try {
+            // Get proper credentials
+            final discogsCredentials = await _getDiscogsCredentials();
+            if (discogsCredentials == null) {
+              Logging.severe('Discogs API credentials not available');
+              return {'results': []};
+            }
+
+            final consumerKey = discogsCredentials['key'];
+            final consumerSecret = discogsCredentials['secret'];
+
+            // Fetch basic album info to show a proper preview with artwork
+            final apiUrl = Uri.parse(
+                'https://api.discogs.com/${type}s/$id?key=$consumerKey&secret=$consumerSecret');
+            Logging.severe('Fetching basic Discogs preview info from: $apiUrl');
+
+            final response = await http.get(
+              apiUrl,
+              headers: {'User-Agent': 'RateMe/1.0'},
+            );
+
+            if (response.statusCode == 200) {
+              final data = jsonDecode(response.body);
+
+              // Extract title and artist
+              String title = data['title'] ?? 'Discogs Album';
+              String artist = 'Unknown Artist';
+
+              if (data['artists'] != null &&
+                  data['artists'] is List &&
+                  data['artists'].isNotEmpty) {
+                artist = (data['artists'] as List)
+                    .where((a) => a['name'] != null)
+                    .map((a) => a['name'].toString())
+                    .join(', ');
+              } else if (data['artists_sort'] != null) {
+                artist = data['artists_sort'];
+              }
+
+              // SIMPLIFIED: Just get the first image like in the search method
+              String artworkUrl = '';
+              if (data['images'] != null &&
+                  data['images'] is List &&
+                  data['images'].isNotEmpty) {
+                artworkUrl = data['images'][0]['uri'] ?? '';
+                Logging.severe('Found artwork for Discogs album: $artworkUrl');
+              }
+
+              if (artworkUrl.isEmpty) {
+                Logging.severe('No artwork URL found in Discogs data');
+              }
+
+              // Create a proper preview with artwork
+              return {
+                'results': [
+                  {
+                    'collectionId': id,
+                    'collectionName': title,
+                    'artistName': artist,
+                    'artworkUrl100': artworkUrl,
+                    'artworkUrl': artworkUrl, // Set both URLs for consistency
+                    'url': query,
+                    'platform': 'discogs',
+                    'type': type,
+                    'requiresMiddlewareProcessing': true
+                  }
+                ]
+              };
+            }
+          } catch (e, stack) {
+            // On error, fall back to generic placeholder
+            Logging.severe('Error fetching Discogs preview', e, stack);
+          }
+
+          // Create a placeholder with minimal information as fallback
+          return {
+            'results': [
+              {
+                'collectionId': id,
+                'collectionName': 'Discogs Album',
+                'artistName': 'Loading details...',
+                'artworkUrl100': '',
+                'url': query,
+                'platform': 'discogs',
+                'type': type,
+                'requiresMiddlewareProcessing': true
+              }
+            ]
+          };
+        }
       }
 
       // Continue with regular search if not a URL or URL parsing failed
-      final List<Map<String, dynamic>> allResults = [];
-
-      // APPROACH 1: First try to find the album directly
       final albumQuery = Uri.encodeComponent(query);
       final albumUrl = Uri.parse(
           'https://api.discogs.com/database/search?q=$albumQuery&type=master&per_page=20&key=$consumerKey&secret=$consumerSecret');
@@ -1608,12 +1368,14 @@ class SearchService {
         },
       );
 
+      final List<Map<String, dynamic>> allResults = [];
+
       if (albumResponse.statusCode == 200) {
         final albumData = jsonDecode(albumResponse.body);
         final albumResults = albumData['results'] as List? ?? [];
         Logging.severe('Discogs found ${albumResults.length} matching albums');
 
-        // Process album results - create all the basic results first
+        // Process album results - create the basic results
         for (var result in albumResults) {
           if (result['type'] == 'master' || result['type'] == 'release') {
             // Extract needed information
@@ -1621,16 +1383,13 @@ class SearchService {
             final title = result['title'] ?? 'Unknown Album';
             final year = result['year']?.toString() ?? '';
 
-            // Fix URL construction - always use full https://www.discogs.com URL
+            // Fix URL construction
             String url;
             if (result['uri'] != null &&
                 result['uri'].toString().startsWith('http')) {
-              // Use the URI if it's a full URL
               url = result['uri'].toString();
             } else {
-              // Create proper URL with the domain
               url = 'https://www.discogs.com/${result['type']}/$id';
-              Logging.severe('Constructed Discogs URL: $url');
             }
 
             // Extract artist from title (Discogs format is typically "Artist - Title")
@@ -1640,12 +1399,11 @@ class SearchService {
               final parts = title.split(' - ');
               if (parts.length >= 2) {
                 artist = parts[0].trim();
-                // Use the part after the first " - " as the actual title
                 actualTitle = parts.sublist(1).join(' - ').trim();
               }
             }
 
-            // Generate proper initial date (year-01-01) for immediate display
+            // Generate initial date based on year for immediate display
             String initialDate = '';
             if (year.isNotEmpty && RegExp(r'^\d{4}$').hasMatch(year)) {
               initialDate = '$year-01-01';
@@ -1662,28 +1420,23 @@ class SearchService {
                 'artworkUrl100': result['cover_image'] ?? '',
                 'url': url,
                 'platform': 'discogs',
-                'releaseDate': initialDate, // Start with year-based date
-                'type':
-                    result['type'], // Save whether it's 'master' or 'release'
-                'year': year // Store year for fallback
+                'releaseDate': initialDate,
+                'type': result['type'],
+                'year': year
               };
 
               allResults.add(albumEntry);
             }
           }
         }
-
-        // Immediately start fetching proper dates in the background,
-        // following Deezer's model of updating the results in-place
-        if (allResults.isNotEmpty) {
-          _prefetchAllDiscogsReleaseDates(
-              allResults, consumerKey!, consumerSecret!);
-        }
       }
+
+      // IMPORTANT: We've removed the _prefetchAllDiscogsReleaseDates call here
+      // We'll now load dates only when the user selects a specific album
 
       // APPROACH 2: If we didn't find enough results, try artist search
       if (allResults.length < 5) {
-        // ...existing artist search code...
+        // ...existing artist search code remains unchanged...
       }
 
       Logging.severe('Total Discogs results found: ${allResults.length}');
@@ -1692,483 +1445,6 @@ class SearchService {
       Logging.severe('Error searching Discogs', e, stack);
       return {'results': []};
     }
-  }
-
-  // Completely revised method that properly handles Discogs date extraction and uses version dates
-  static void _prefetchAllDiscogsReleaseDates(List<Map<String, dynamic>> albums,
-      String consumerKey, String consumerSecret) {
-    // Run in background to avoid blocking UI
-    Future(() async {
-      Logging.severe(
-          'Starting background prefetch for ALL ${albums.length} Discogs album dates');
-
-      // Start date fetch for each album
-      for (var album in albums) {
-        try {
-          final id = album['collectionId'];
-          final type = album['type'] ?? 'master';
-          final albumName = album['collectionName'] ?? 'Unknown Album';
-
-          if (id == null || id.toString().isEmpty) continue;
-
-          // Fetch complete date for this album
-          final apiUrl =
-              'https://api.discogs.com/${type}s/$id?key=$consumerKey&secret=$consumerSecret';
-
-          Logging.severe(
-              'Fetching details for Discogs album "$albumName" (ID: $id) from $apiUrl');
-
-          final response = await http.get(
-            Uri.parse(apiUrl),
-            headers: {'User-Agent': 'RateMe/1.0'},
-          );
-
-          if (response.statusCode == 200) {
-            final data = jsonDecode(response.body);
-            bool dateFound = false;
-            String? updatedDate;
-
-            // Check for the direct 'released' field first
-            if (data['released'] != null &&
-                data['released'].toString().trim().isNotEmpty) {
-              final releasedRaw = data['released'].toString().trim();
-              dateFound = true;
-              Logging.severe(
-                  'Found raw release date for "$albumName": $releasedRaw');
-
-              if (releasedRaw.length >= 10 && releasedRaw.contains('-')) {
-                updatedDate = releasedRaw;
-                album['releaseDate'] = updatedDate;
-                Logging.severe(
-                    'Updated date for Discogs album "$albumName" (ID: $id) to $updatedDate');
-                continue; // We found a good date, move to next album
-              } else if (releasedRaw.length >= 7 && releasedRaw.contains('-')) {
-                // Add day as 01 if missing (YYYY-MM format)
-                updatedDate = '$releasedRaw-01';
-                album['releaseDate'] = updatedDate;
-                Logging.severe(
-                    'Updated date for Discogs album "$albumName" (ID: $id) to $updatedDate (added day)');
-                continue;
-              }
-            }
-
-            // If we're still here, try to find better dates from versions (FOR MASTERS)
-            if (type == 'master') {
-              Logging.severe(
-                  'No precise release date in master record. Checking versions for "$albumName"');
-
-              // Let's find the first version with a proper date
-              String? versionsUrl = data['versions_url'];
-              if (versionsUrl != null) {
-                versionsUrl +=
-                    '?per_page=100&key=$consumerKey&secret=$consumerSecret';
-                Logging.severe('Fetching versions from $versionsUrl');
-
-                final versionsResponse = await http.get(
-                  Uri.parse(versionsUrl),
-                  headers: {'User-Agent': 'RateMe/1.0'},
-                );
-
-                if (versionsResponse.statusCode == 200) {
-                  final versionsData = jsonDecode(versionsResponse.body);
-                  if (versionsData['versions'] != null) {
-                    final versions = versionsData['versions'] as List;
-                    Logging.severe(
-                        'Found ${versions.length} versions for "$albumName"');
-
-                    // Sort versions by score - prefer main markets and digital releases
-                    final scoredVersions = _scoreDiscogsVersions(versions);
-
-                    // Check each version for a proper date
-                    String? bestDate;
-                    for (var versionData in scoredVersions) {
-                      final version = versionData['version'];
-                      final score = versionData['score'];
-
-                      // Check for released date in version
-                      if (version['released'] != null &&
-                          version['released'].toString().isNotEmpty) {
-                        final versionReleased =
-                            version['released'].toString().trim();
-                        Logging.severe(
-                            'Version has date: $versionReleased (score: $score)');
-
-                        // If it's a full date (YYYY-MM-DD), use it directly
-                        if (versionReleased.length >= 10 &&
-                            versionReleased.contains('-')) {
-                          bestDate = versionReleased;
-                          Logging.severe(
-                              'Found full date in version: $bestDate (score: $score)');
-                          break;
-                        }
-
-                        // If it's YYYY-MM format, save it but keep looking for better
-                        else if (versionReleased.length >= 7 &&
-                            versionReleased.contains('-') &&
-                            (bestDate == null || !bestDate.contains('-'))) {
-                          bestDate = '$versionReleased-01'; // Add day
-                          Logging.severe(
-                              'Found partial date (YYYY-MM) in version: $versionReleased (score: $score)');
-                          // Don't break, keep looking for full dates
-                        }
-
-                        // If it's just a year and we don't have anything better, use it
-                        else if (RegExp(r'^\d{4}$').hasMatch(versionReleased) &&
-                            bestDate == null) {
-                          bestDate =
-                              '$versionReleased-01-01'; // Add month and day
-                          Logging.severe(
-                              'Found year in version: $versionReleased (score: $score)');
-                          // Don't break, keep looking for better dates
-                        }
-                      }
-
-                      // If this is a high-scoring version (>70), actually fetch its details for a better date
-                      if (score > 70 &&
-                          (bestDate == null || bestDate.endsWith('-01-01'))) {
-                        if (version['id'] != null) {
-                          final versionId = version['id'].toString();
-                          Logging.severe(
-                              'Fetching high-scoring version details: $versionId (score: $score)');
-
-                          final versionDetailUrl =
-                              'https://api.discogs.com/releases/$versionId?key=$consumerKey&secret=$consumerSecret';
-
-                          try {
-                            final versionDetailResponse = await http.get(
-                              Uri.parse(versionDetailUrl),
-                              headers: {'User-Agent': 'RateMe/1.0'},
-                            );
-
-                            if (versionDetailResponse.statusCode == 200) {
-                              final versionDetail =
-                                  jsonDecode(versionDetailResponse.body);
-
-                              if (versionDetail['released'] != null &&
-                                  versionDetail['released']
-                                      .toString()
-                                      .trim()
-                                      .isNotEmpty) {
-                                final detailReleased =
-                                    versionDetail['released'].toString().trim();
-
-                                if (detailReleased.length >= 10 &&
-                                    detailReleased.contains('-')) {
-                                  bestDate = detailReleased;
-                                  Logging.severe(
-                                      'Found full date in version detail: $bestDate');
-                                  break; // We found a perfect date
-                                } else if (detailReleased.length >= 7 &&
-                                    detailReleased.contains('-') &&
-                                    (bestDate == null ||
-                                        !bestDate.contains('-'))) {
-                                  bestDate = '$detailReleased-01';
-                                  Logging.severe(
-                                      'Found partial date in version detail: $detailReleased');
-                                } else if (RegExp(r'^\d{4}$')
-                                        .hasMatch(detailReleased) &&
-                                    bestDate == null) {
-                                  bestDate = '$detailReleased-01-01';
-                                  Logging.severe(
-                                      'Found year in version detail: $detailReleased');
-                                }
-                              }
-                            }
-                          } catch (e) {
-                            Logging.severe('Error fetching version detail: $e');
-                          }
-                        }
-                      }
-                    }
-
-                    // If we found a good date from any version, use it
-                    if (bestDate != null) {
-                      album['releaseDate'] = bestDate;
-                      dateFound = true;
-                      Logging.severe(
-                          'Updated date for Discogs album "$albumName" (ID: $id) to $bestDate (from versions)');
-                      continue; // Found a good date, move to next album
-                    }
-                  }
-                }
-              }
-            }
-
-            // If still no date from versions, fall back to year field
-            if (!dateFound &&
-                data['year'] != null &&
-                data['year'].toString().trim().isNotEmpty) {
-              final yearRaw = data['year'].toString().trim();
-              dateFound = true;
-              Logging.severe(
-                  'Falling back to year field for "$albumName": $yearRaw');
-
-              if (RegExp(r'^\d{4}$').hasMatch(yearRaw)) {
-                updatedDate = '$yearRaw-01-01';
-                album['releaseDate'] = updatedDate;
-                Logging.severe(
-                    'Updated date for Discogs album "$albumName" (ID: $id) to $updatedDate (from year field)');
-                continue;
-              }
-            }
-
-            // Store master ID for releases - we might use this for a second pass if needed
-            if (type == 'release' && data['master_id'] != null) {
-              album['master_id'] = data['master_id'].toString();
-            }
-
-            // If no date found through any method, log appropriately
-            if (!dateFound) {
-              Logging.severe(
-                  'No release date found for Discogs album "$albumName" (ID: $id) - using fallback date');
-              album['releaseDate'] =
-                  '2000-01-01'; // Use a reasonable fallback date
-            }
-          } else {
-            Logging.severe(
-                'Failed to fetch date for Discogs album "$albumName" (ID: $id): HTTP ${response.statusCode}');
-            album['releaseDate'] =
-                '2000-01-01'; // Use fallback date on API error
-          }
-        } catch (e) {
-          final albumName = album['collectionName'] ?? 'Unknown Album';
-          final id = album['collectionId'] ?? 'unknown';
-          Logging.severe(
-              'Error fetching date for Discogs album "$albumName" (ID: $id): $e');
-          album['releaseDate'] = '2000-01-01'; // Use fallback date on any error
-        }
-      }
-
-      // Second pass for releases that have master IDs but still lack proper dates
-      for (var album in albums) {
-        // Only process albums that still have year-only dates but link to a master
-        if (album['type'] == 'release' &&
-            album['master_id'] != null &&
-            (album['releaseDate'] == null ||
-                album['releaseDate'] == '2000-01-01' ||
-                album['releaseDate'].toString().endsWith('-01-01'))) {
-          final albumName = album['collectionName'] ?? 'Unknown Album';
-          final id = album['collectionId'] ?? 'unknown';
-
-          try {
-            final masterId = album['master_id'].toString();
-            Logging.severe(
-                'Checking master record $masterId for release album "$albumName" (ID: $id)');
-
-            final masterUrl =
-                'https://api.discogs.com/masters/$masterId?key=$consumerKey&secret=$consumerSecret';
-            final masterResponse = await http.get(
-              Uri.parse(masterUrl),
-              headers: {'User-Agent': 'RateMe/1.0'},
-            );
-
-            if (masterResponse.statusCode == 200) {
-              final masterData = jsonDecode(masterResponse.body);
-              bool betterDateFound = false;
-
-              // Try the direct 'released' field first
-              if (masterData['released'] != null &&
-                  masterData['released'].toString().trim().isNotEmpty) {
-                final masterDate = masterData['released'].toString().trim();
-
-                // Only use if it's a better format than what we already have
-                if (masterDate.length >= 10 && masterDate.contains('-')) {
-                  album['releaseDate'] = masterDate;
-                  betterDateFound = true;
-                  Logging.severe(
-                      'Updated date for Discogs album "$albumName" from master release to $masterDate');
-                }
-                // Handle YYYY-MM format
-                else if (masterDate.length >= 7 && masterDate.contains('-')) {
-                  final betterDate = '$masterDate-01';
-                  album['releaseDate'] = betterDate;
-                  betterDateFound = true;
-                  Logging.severe(
-                      'Updated date for Discogs album "$albumName" from master to $betterDate (added day)');
-                }
-              }
-
-              // If we didn't find a better date in the master directly, try its versions
-              if (!betterDateFound && masterData['versions_url'] != null) {
-                final versionsUrl =
-                    '${masterData['versions_url']}?per_page=100&key=$consumerKey&secret=$consumerSecret';
-                Logging.severe(
-                    'Checking master versions for better dates: $versionsUrl');
-
-                try {
-                  final versionsResponse = await http.get(
-                    Uri.parse(versionsUrl),
-                    headers: {'User-Agent': 'RateMe/1.0'},
-                  );
-
-                  if (versionsResponse.statusCode == 200) {
-                    final versionsData = jsonDecode(versionsResponse.body);
-                    if (versionsData['versions'] != null) {
-                      final versions = versionsData['versions'] as List;
-                      final scoredVersions = _scoreDiscogsVersions(versions);
-
-                      // Look for the best date in versions
-                      String? bestDate;
-                      for (var versionData in scoredVersions) {
-                        final version = versionData['version'];
-
-                        if (version['released'] != null &&
-                            version['released'].toString().isNotEmpty) {
-                          final versionReleased =
-                              version['released'].toString().trim();
-
-                          if (versionReleased.length >= 10 &&
-                              versionReleased.contains('-')) {
-                            bestDate = versionReleased;
-                            break; // Perfect date
-                          } else if (versionReleased.length >= 7 &&
-                              versionReleased.contains('-') &&
-                              (bestDate == null || !bestDate.contains('-'))) {
-                            bestDate = '$versionReleased-01';
-                          } else if (RegExp(r'^\d{4}$')
-                                  .hasMatch(versionReleased) &&
-                              bestDate == null) {
-                            bestDate = '$versionReleased-01-01';
-                          }
-                        }
-                      }
-
-                      if (bestDate != null) {
-                        album['releaseDate'] = bestDate;
-                        Logging.severe(
-                            'Updated date for Discogs album "$albumName" to $bestDate (from master versions)');
-                      }
-                    }
-                  }
-                } catch (e) {
-                  Logging.severe('Error checking master versions: $e');
-                }
-              }
-            } else {
-              Logging.severe(
-                  'Failed to fetch master record for "$albumName": HTTP ${masterResponse.statusCode}');
-            }
-          } catch (e) {
-            Logging.severe(
-                'Error fetching master date for Discogs album "$albumName": $e');
-          }
-        }
-      }
-
-      Logging.severe(
-          'Completed pre-fetching all ${albums.length} Discogs album dates');
-    });
-  }
-
-  // Helper method to score Discogs versions based on desirability for accurate release date
-  static List<Map<String, dynamic>> _scoreDiscogsVersions(
-      List<dynamic> versions) {
-    final scoredVersions = <Map<String, dynamic>>[];
-    final preferredCountries = {
-      'US': 10,
-      'UK': 9,
-      'Europe': 8,
-      'Germany': 7,
-      'Japan': 6,
-      'France': 5
-    };
-    final preferredFormats = {
-      'Digital': 20,
-      'CD': 15,
-      'File': 15,
-      'Vinyl': 10,
-      'LP': 10
-    };
-
-    for (var version in versions) {
-      int score = 50; // Base score
-
-      // Parse fields with null safety
-      final String country = version['country']?.toString() ?? '';
-      final dynamic format = version['format'];
-      String formatStr = '';
-
-      // Process format which can be a string or list
-      if (format is List && format.isNotEmpty) {
-        formatStr = format.join(', ').toLowerCase();
-      } else if (format is String) {
-        formatStr = format.toLowerCase();
-      }
-
-      // Score by country
-      if (preferredCountries.containsKey(country)) {
-        score += preferredCountries[country]!;
-      }
-
-      // Score by format
-      for (final entry in preferredFormats.entries) {
-        if (formatStr.contains(entry.key.toLowerCase())) {
-          score += entry.value;
-          // Digital formats are strongly preferred for accurate dates
-          if (entry.key == 'Digital' || entry.key == 'File') {
-            score += 15; // Additional boost
-          }
-          break;
-        }
-      }
-
-      // Favor major releases
-      final String label = version['label'] ?? '';
-      if (label.isNotEmpty) {
-        score += 5;
-        if (['Sargent House', 'Profound Lore', 'Sacred Bones', '4AD', 'Flenser']
-            .any((major) => label.contains(major))) {
-          score += 15; // Additional boost for major labels
-        }
-      }
-
-      // Favor newer releases (may have better metadata)
-      final String year = version['released'] ?? '';
-      if (year.length == 4 && int.tryParse(year) != null) {
-        final releaseYear = int.parse(year);
-        if (releaseYear >= 2010) {
-          score += 10; // Modern releases
-        } else if (releaseYear >= 2000) {
-          score += 5; // Digital era releases
-        }
-      }
-
-      // If this has a proper date (not just year), boost score
-      final String released = version['released'] ?? '';
-      if (released.contains('-')) {
-        score += 25; // Big boost for having an actual date
-      }
-
-      scoredVersions.add({
-        'version': version,
-        'score': score,
-        'formatStr': formatStr,
-        'country': country
-      });
-    }
-
-    // Sort by score, highest first
-    scoredVersions.sort((a, b) => b['score'].compareTo(a['score']));
-    return scoredVersions;
-  }
-
-  // Helper method to convert month name to number
-  static String _convertMonthToNumber(String monthName) {
-    final Map<String, String> months = {
-      'Jan': '01',
-      'Feb': '02',
-      'Mar': '03',
-      'Apr': '04',
-      'May': '05',
-      'Jun': '06',
-      'Jul': '07',
-      'Aug': '08',
-      'Sep': '09',
-      'Oct': '10',
-      'Nov': '11',
-      'Dec': '12'
-    };
-    return months[monthName] ?? '01'; // Default to January if not found
   }
 
   // Fix the discogs API key issue in search_service.dart
@@ -2308,7 +1584,7 @@ class SearchService {
           final parts = rawDate.split(' ');
           if (parts.length >= 4) {
             try {
-              final day = int.tryParse(parts[0]) ?? 1;
+              final day = int.tryParse(parts[0].trim()) ?? 1;
 
               // Map month name to number - inline instead of using _convertMonthToNumber
               final monthNames = {
@@ -2767,5 +2043,24 @@ class SearchService {
     }
 
     return results;
+  }
+
+  // Helper method to convert month name to number
+  static String _convertMonthToNumber(String monthName) {
+    final Map<String, String> months = {
+      'Jan': '01',
+      'Feb': '02',
+      'Mar': '03',
+      'Apr': '04',
+      'May': '05',
+      'Jun': '06',
+      'Jul': '07',
+      'Aug': '08',
+      'Sep': '09',
+      'Oct': '10',
+      'Nov': '11',
+      'Dec': '12'
+    };
+    return months[monthName] ?? '01'; // Default to January if not found
   }
 }

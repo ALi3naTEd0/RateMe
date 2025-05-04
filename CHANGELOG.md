@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper color persistence across app restarts
 
 ### Added
+- Comprehensive Discogs integration with middleware for advanced album processing
+- Improved handling for both Discogs master and release album types
+- Consistent metadata extraction across all Discogs API interactions
+- Reliable credential management system for Discogs API with database storage
+- Middleware architecture for platform-specific album enhancement
 - Fixed Discogs track duration fetching with intelligent version selection
 - Enhanced date extraction algorithms for all supported music platforms
 - Improved Discogs date parsing with background prefetching for search results
@@ -111,6 +116,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SVG-based platform icons with proper theme support
 
 ### Fixed
+- Complete overhaul of Discogs integration with proper error handling
+- Fixed Discogs URL detection for both master and release album types
+- Fixed inconsistent metadata extraction between search and direct URL flows
+- Improved credential management for Discogs API with database-first approach
+- Standardized artwork field naming for consistent display
+- Enhanced error recovery for all Discogs API interactions
 - Fixed Discogs album URL detection and metadata extraction
 - Improved Discogs version selection logic to find best release dates
 - Fixed master/release relationship handling for Discogs albums
@@ -162,6 +173,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved state handling for asynchronous operations
 
 ### Changed
+- Refactored Discogs integration with consistent processing across all entry points
+- Adopted middleware pattern for advanced Discogs album processing
+- Improved Discogs credential management with database storage
+- Standardized Discogs search and URL paste flows for consistent behavior
 - Enhanced Discogs integration with improved master/release version selection
 - Better handling of albums with missing track durations across all platforms
 - Enhanced date handling with standardized ISO 8601 format across all platforms
@@ -215,6 +230,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced logging for date-related issues to improve troubleshooting
 
 ### Technical
+- Implemented middleware pattern for enhanced platform-specific album processing
+- Added consistent credential retrieval system with primary and fallback sources
+- Improved error handling throughout Discogs API interactions
+- Added requiresMiddlewareProcessing flag for advanced metadata extraction
+- Standardized artwork field naming for better cross-component compatibility
 - Implemented intelligent Discogs version scoring system based on release formats and countries
 - Created specialized date parsers for each music platform's unique format
 - Created multi-pass approach to finding accurate Discogs dates from related releases

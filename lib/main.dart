@@ -22,6 +22,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'preload_service.dart';
+import 'discogs_middleware.dart'; // Add this import
 
 Future<void> main() async {
   try {
@@ -719,12 +720,21 @@ class _MyAppState extends State<MyApp> {
                                   return PlatformUI.buildAlbumCard(
                                     album: album,
                                     onTap: () {
-                                      navigatorKey.currentState?.push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              DetailsPage(album: album),
-                                        ),
-                                      );
+                                      // Add special handling for Discogs albums
+                                      if (album['platform'] == 'discogs') {
+                                        // Use our Discogs middleware
+                                        DiscogsMiddleware
+                                            .showDetailPageWithPreload(
+                                                context, album);
+                                      } else {
+                                        // Use the original approach for other platforms
+                                        navigatorKey.currentState?.push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                DetailsPage(album: album),
+                                          ),
+                                        );
+                                      }
                                     },
                                   );
                                 },

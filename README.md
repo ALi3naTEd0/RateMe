@@ -9,6 +9,10 @@
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
 ![Stars](https://img.shields.io/github/stars/ALi3naTEd0/RateMe)
 
+<a href="https://discord.gg/kFGQckFz">
+  <img src="https://img.shields.io/discord/1234567890?color=5865F2&logo=discord&logoColor=white&label=Join%20Discord" alt="Discord Server">
+</a>
+
 </div>
 
 <div align="center">
@@ -336,7 +340,7 @@ The MIT License is a permissive license that is short and to the point. It allow
 
 ## Contact
 
-[Discord](https://discord.gg/UQ55AVv4ZY)
+[Discord](https://discord.gg/kFGQckFz)
 
 Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTEd0/RateMe)
 
