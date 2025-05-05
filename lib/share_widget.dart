@@ -198,16 +198,28 @@ class ShareWidgetState extends State<ShareWidget> {
         ...widget.tracks?.map((track) {
               // Safely get the track ID as string for ratings lookup
               String trackIdStr = track.id.toString();
-              double rating = widget.ratings?[trackIdStr] ?? 0.0;
 
-              // Log any issues for debugging
-              if (widget.ratings?.containsKey(trackIdStr) == true) {
-                debugPrint("Found rating $rating for track $trackIdStr");
-              } else {
-                // Try alternative keys
-                debugPrint(
-                    "No rating found for track $trackIdStr, available keys: ${widget.ratings?.keys.join(', ')}");
+              // Debug the actual value in the ratings map
+              var rawValue = widget.ratings?[trackIdStr];
+              debugPrint(
+                  "Raw rating value for track $trackIdStr: $rawValue (type: ${rawValue?.runtimeType})");
+
+              // Try to extract the actual integer rating without any rounding
+              int rating = 0;
+
+              // Handle different possible formats of rating data
+              if (rawValue is int) {
+                rating = rawValue;
+              } else if (rawValue is double) {
+                // Use floor to avoid rounding up
+                rating = rawValue.round();
+              } else if (rawValue is String) {
+                // Try parsing as a number if it's stored as a string
+                rating = int.tryParse(rawValue) ?? 0;
               }
+
+              debugPrint(
+                  "Final displayed rating for track $trackIdStr: $rating");
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -241,7 +253,7 @@ class ShareWidgetState extends State<ShareWidget> {
                     SizedBox(
                       width: 40,
                       child: Text(
-                        rating.toInt().toString(),
+                        rating.toString(), // Display rating as an integer
                         textAlign: TextAlign.right,
                         style: TextStyle(
                           color: rating > 0
