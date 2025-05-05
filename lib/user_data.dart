@@ -204,6 +204,39 @@ class UserData {
         }
       }
 
+      // Special case for release date - ensure it's properly stored in database format
+      if (columnNames.contains('release_date')) {
+        // Try both camelCase and snake_case versions
+        final releaseDate = album['releaseDate'] ?? album['release_date'];
+
+        if (releaseDate != null) {
+          String formattedDate;
+
+          // Handle different input formats
+          if (releaseDate is DateTime) {
+            formattedDate = releaseDate.toIso8601String();
+          } else if (releaseDate is String) {
+            try {
+              // Try to parse and normalize
+              final date = DateTime.parse(releaseDate);
+              formattedDate = date.toIso8601String();
+            } catch (e) {
+              // Use as-is if parsing fails
+              formattedDate = releaseDate;
+            }
+          } else {
+            // Default for other types
+            formattedDate = releaseDate.toString();
+          }
+
+          // Store the date in database
+          albumEntry['release_date'] = formattedDate;
+          Logging.severe('Stored release_date in database as: $formattedDate');
+        } else {
+          Logging.severe('No release date found to save in database');
+        }
+      }
+
       // Special case for artwork - try multiple fields
       if (album.containsKey('artworkUrl100') &&
           columnNames.contains('artwork_url')) {
@@ -254,6 +287,22 @@ class UserData {
 
       // Make sure the album ID is ready for database
       albumEntry['id'] = albumEntry['id'].toString();
+
+      // IMPORTANT: Always save a complete data field to ensure all metadata is preserved
+      if (columnNames.contains('data')) {
+        // Create a deep copy of the album to modify
+        Map<String, dynamic> dataToStore = Map<String, dynamic>.from(album);
+
+        // Make sure release date is included in data field
+        if (!dataToStore.containsKey('releaseDate') &&
+            albumEntry.containsKey('release_date')) {
+          dataToStore['releaseDate'] = albumEntry['release_date'];
+          Logging.severe(
+              'Added missing releaseDate to data field: ${albumEntry['release_date']}');
+        }
+
+        albumEntry['data'] = jsonEncode(dataToStore);
+      }
 
       Logging.severe(
           'Saving album with compatible fields: ${albumEntry.keys.join(", ")}');
@@ -340,17 +389,49 @@ class UserData {
       if (columnNames.contains('url')) {
         insertData['url'] = album['url'] ?? album['collectionViewUrl'] ?? '';
       }
-      if (columnNames.contains('releaseDate')) {
-        if (album['releaseDate'] is String) {
-          insertData['releaseDate'] = album['releaseDate'];
-        } else if (album['releaseDate'] is DateTime) {
-          insertData['releaseDate'] = album['releaseDate'].toIso8601String();
+
+      // Improved release date handling - normalize format before storage
+      if (columnNames.contains('releaseDate') ||
+          columnNames.contains('release_date')) {
+        String? formattedDate;
+        final releaseDate = album['releaseDate'];
+
+        if (releaseDate != null) {
+          if (releaseDate is DateTime) {
+            formattedDate = releaseDate.toIso8601String();
+          } else if (releaseDate is String) {
+            // Ensure it's a valid date string
+            try {
+              final date = DateTime.parse(releaseDate);
+              formattedDate = date.toIso8601String();
+            } catch (e) {
+              Logging.severe('Error formatting release date: $e');
+            }
+          }
+        }
+
+        // Use the appropriate column name based on schema
+        if (formattedDate != null) {
+          if (columnNames.contains('releaseDate')) {
+            insertData['releaseDate'] = formattedDate;
+          }
+          if (columnNames.contains('release_date')) {
+            insertData['release_date'] = formattedDate;
+          }
         }
       }
+
       if (columnNames.contains('data')) {
         // Convert entire album data to JSON string including tracks
         // Make sure we include tracks data for Deezer albums
         Map<String, dynamic> albumData = Map<String, dynamic>.from(album);
+
+        // Special handling for Deezer albums to ensure release date is preserved
+        if (albumData['platform']?.toString().toLowerCase() == 'deezer' &&
+            albumData['releaseDate'] != null) {
+          Logging.severe(
+              'Ensuring Deezer releaseDate is preserved in data field: ${albumData['releaseDate']}');
+        }
 
         // Ensure tracks are included in the saved data
         if (albumData['tracks'] != null) {
@@ -471,16 +552,30 @@ class UserData {
         );
 
         // Remove from album order
-        await txn.delete(
+        int orderDeleted = await txn.delete(
           'album_order',
           where: 'album_id = ?',
           whereArgs: [albumId],
         );
 
         Logging.severe(
-            'Deleted: $deleted album, $ratingsDeleted ratings, $relationshipsDeleted list relationships');
+            'Deleted: $deleted album, $ratingsDeleted ratings, $relationshipsDeleted list relationships, $orderDeleted album order entries');
       });
 
+      // Verify the album was actually deleted by checking if it still exists
+      final verifyResult = await db.query(
+        'albums',
+        where: 'id = ?',
+        whereArgs: [albumId],
+      );
+
+      if (verifyResult.isNotEmpty) {
+        Logging.severe('ERROR: Album still exists after deletion attempt!');
+        return false;
+      }
+
+      Logging.severe(
+          'Verification successful: Album $albumId was removed from database');
       return true;
     } catch (e, stack) {
       Logging.severe('Error deleting album', e, stack);
@@ -818,6 +913,47 @@ class UserData {
     } catch (e, stack) {
       Logging.severe('Error deleting custom list', e, stack);
       return false;
+    }
+  }
+
+  /// Get custom lists in the saved order
+  static Future<List<CustomList>> getOrderedCustomLists() async {
+    try {
+      final db = DatabaseHelper.instance;
+
+      // Get all lists first
+      final lists = await getCustomLists();
+
+      // Get saved order
+      final orderResult = await db.getCustomListOrder();
+
+      // If we have order data, use it to sort the lists
+      if (orderResult.isNotEmpty) {
+        // Create a map for faster lookups
+        final listMap = {for (var list in lists) list.id: list};
+
+        // Create ordered list
+        final orderedLists = <CustomList>[];
+
+        // First add lists in the saved order
+        for (final id in orderResult) {
+          if (listMap.containsKey(id)) {
+            orderedLists.add(listMap[id]!);
+            listMap.remove(id); // Remove to track what's been added
+          }
+        }
+
+        // Add any remaining lists (not in saved order) at the end
+        orderedLists.addAll(listMap.values);
+
+        return orderedLists;
+      }
+
+      // If no order data, return the original list
+      return lists;
+    } catch (e, stack) {
+      Logging.severe('Error getting ordered custom lists', e, stack);
+      return [];
     }
   }
 

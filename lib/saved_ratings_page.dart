@@ -575,7 +575,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                           children: [
                             Expanded(
                               child: ReorderableListView.builder(
-                                itemCount: displayedAlbums.length,
+                                buildDefaultDragHandles:
+                                    false, // Add this line to prevent automatic drag handles
                                 onReorder: (oldIndex, newIndex) async {
                                   // Convert display indices to global indices
                                   final globalOldIndex =
@@ -605,6 +606,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
                                   await UserData.saveAlbumOrder(albumOrder);
                                 },
+                                itemCount: displayedAlbums.length,
                                 itemBuilder: (context, index) {
                                   final album = displayedAlbums[index];
                                   return _buildCompactAlbumCard(album, index);
@@ -746,6 +748,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Add drag handle at the leftmost position
+            ReorderableDragStartListener(
+              index: index,
+              child: const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: Icon(Icons.drag_handle, size: 20),
+              ),
+            ),
             // Rating display in a prominent box
             Container(
               width: 48, // Rating box width
@@ -818,19 +828,11 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Delete button
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _confirmDeleteAlbum(album, index),
-              tooltip: 'Delete Album',
-            ),
-            // Drag handle
-            const Icon(Icons.drag_handle),
-          ],
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, size: 20),
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _confirmDeleteAlbum(album, index),
+          tooltip: 'Delete Album',
         ),
         onTap: () {
           // Create a properly formatted album object before passing to SavedAlbumPage
@@ -864,6 +866,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         album['name'] ?? album['collectionName'] ?? 'Unknown Album';
     final artistName =
         album['artist'] ?? album['artistName'] ?? 'Unknown Artist';
+    final albumId = album['id'] ?? album['collectionId'] ?? '';
 
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -900,6 +903,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
     if (shouldDelete == true) {
       try {
+        Logging.severe('Attempting to delete album $albumId: $albumName');
         final success = await UserData.deleteAlbum(album);
         if (success) {
           // Immediately update UI
@@ -933,9 +937,34 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           // Save the album order
           await UserData.saveAlbumOrder(albumOrder);
 
+          // Verify album is truly gone from the database with direct check
+          final stillExists = await UserData.albumExists(albumId.toString());
+          if (stillExists) {
+            Logging.severe(
+                'WARNING: Album still exists in database after deletion!');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Album may not have been fully deleted. Try refreshing.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Album deleted successfully')),
+              );
+            }
+          }
+        } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Album deleted')),
+              const SnackBar(
+                content: Text('Failed to delete album'),
+                backgroundColor: Colors.red,
+              ),
             );
           }
         }

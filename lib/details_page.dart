@@ -759,16 +759,22 @@ class _DetailsPageState extends State<DetailsPage> {
       padding: EdgeInsets.symmetric(
         vertical: label == "Rating" ? 8.0 : 2.0,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Wrap(
+        // Use Wrap to allow text to flow to next line
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             "$label: ",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
           ),
-          Text(
-            value,
-            style: TextStyle(fontSize: fontSize),
+          Tooltip(
+            message: value, // Add tooltip to show full text on hover/long press
+            child: Text(
+              value,
+              style: TextStyle(fontSize: fontSize),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -917,7 +923,8 @@ class _DetailsPageState extends State<DetailsPage> {
                   const Divider(),
                   Expanded(
                     child: FutureBuilder<List<CustomList>>(
-                      future: UserData.getCustomLists(),
+                      future: UserData
+                          .getOrderedCustomLists(), // Use ordered lists instead of getCustomLists()
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(

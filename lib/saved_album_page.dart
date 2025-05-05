@@ -335,6 +335,28 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
       final albumData = results.first;
 
+      // Enhanced debug logging for release date fields
+      Logging.severe(
+          'Retrieving album release date info for "${albumData['name'] ?? albumData['id']}":');
+      Logging.severe(
+          'Database release_date field: ${albumData['release_date']}');
+      Logging.severe('Database releaseDate field: ${albumData['releaseDate']}');
+
+      // Extract and process raw data field if available
+      if (albumData['data'] != null && albumData['data'] is String) {
+        try {
+          final dataJson = jsonDecode(albumData['data'] as String);
+          if (dataJson is Map<String, dynamic>) {
+            Logging.severe(
+                'From data JSON: releaseDate field: ${dataJson['releaseDate']}');
+            Logging.severe(
+                'From data JSON: release_date field: ${dataJson['release_date']}');
+          }
+        } catch (e) {
+          Logging.severe('Error parsing data JSON for debug: $e');
+        }
+      }
+
       // Ensure all artwork keys are set for UI compatibility
       String? artworkUrl = albumData['artworkUrl'] as String?;
       String? artworkUrl100 = albumData['artworkUrl100'] as String?;
@@ -345,6 +367,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       String resolvedArtwork =
           artworkUrl100 ?? artworkUrl ?? artworkUrlAlt ?? '';
 
+      // First, set base album properties
       _albumData = {
         'id': albumData['id'],
         'collectionId': albumData['id'],
@@ -358,29 +381,58 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         'artwork_url': resolvedArtwork,
         'url': albumData['url'],
         'platform': albumData['platform'],
-        'releaseDate': albumData['release_date'],
       };
 
-      // Try to parse any additional data stored in the data field
-      if (albumData['data'] != null && albumData['data'] is String) {
-        final dataStr = albumData['data'] as String;
+      // CRITICAL FIX: Properly handle release date
+      // Try multiple sources for release date in this priority order
+      String? releaseDate;
+
+      // 1. First check database column
+      if (albumData['release_date'] != null &&
+          albumData['release_date'].toString().isNotEmpty) {
+        releaseDate = albumData['release_date'].toString();
+        Logging.severe('Found primary release_date in database: $releaseDate');
+      }
+
+      // 2. Camel case variant
+      else if (albumData['releaseDate'] != null &&
+          albumData['releaseDate'].toString().isNotEmpty) {
+        releaseDate = albumData['releaseDate'].toString();
+        Logging.severe('Found alternate releaseDate in database: $releaseDate');
+      }
+
+      // 3. Check the data field as a fallback
+      else if (albumData['data'] != null && albumData['data'] is String) {
         try {
-          // Only try to parse if it looks like JSON
-          if (dataStr.trim().startsWith('{') && dataStr.trim().endsWith('}')) {
-            final additionalData = json.decode(dataStr);
-            if (additionalData is Map) {
-              _albumData.addAll(additionalData as Map<String, dynamic>);
+          final dataJson = jsonDecode(albumData['data'] as String);
+          if (dataJson is Map<String, dynamic>) {
+            if (dataJson['releaseDate'] != null &&
+                dataJson['releaseDate'].toString().isNotEmpty) {
+              releaseDate = dataJson['releaseDate'].toString();
+              Logging.severe(
+                  'Found releaseDate in album metadata: $releaseDate');
+            } else if (dataJson['release_date'] != null &&
+                dataJson['release_date'].toString().isNotEmpty) {
+              releaseDate = dataJson['release_date'].toString();
+              Logging.severe(
+                  'Found release_date in album metadata: $releaseDate');
             }
-          } else {
-            Logging.severe(
-                'albumData["data"] is not valid JSON, skipping parse');
           }
         } catch (e) {
-          Logging.severe('Error parsing album data JSON: $e');
+          Logging.severe('Error extracting release date from metadata: $e');
         }
       }
 
-      // --- FIX: Parse and merge metadata from 'data' field ---
+      // If we found a release date from any source, add it to our album data
+      if (releaseDate != null) {
+        _albumData['releaseDate'] = releaseDate;
+        _albumData['release_date'] = releaseDate;
+        Logging.severe('Using release date for album: $releaseDate');
+      } else {
+        Logging.severe('No release date found for album');
+      }
+
+      // --- Merge metadata from 'data' field ---
       if (albumData['data'] != null && albumData['data'] is String) {
         try {
           final meta = jsonDecode(albumData['data'] as String);
@@ -1057,16 +1109,22 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       padding: EdgeInsets.symmetric(
         vertical: label == "Rating" ? 8.0 : 2.0,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Wrap(
+        // Replace Row with Wrap to allow text to flow to next line
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             "$label: ",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
           ),
-          Text(
-            value,
-            style: TextStyle(fontSize: fontSize),
+          Tooltip(
+            message: value, // Add tooltip to show full text on hover/long press
+            child: Text(
+              value,
+              style: TextStyle(fontSize: fontSize),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -1119,7 +1177,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   const Divider(),
                   Expanded(
                     child: FutureBuilder<List<CustomList>>(
-                      future: UserData.getCustomLists(),
+                      future: UserData
+                          .getOrderedCustomLists(), // Use ordered lists instead of getCustomLists()
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(
@@ -1353,19 +1412,39 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   String _formatReleaseDate() {
-    // Fix release date formatting
+    // ENHANCED release date formatting with better error handling
     try {
       if (unifiedAlbum?.releaseDate != null) {
-        return DateFormat('d MMMM yyyy').format(unifiedAlbum!.releaseDate);
+        // If we have a unified album with a date
+        final date = unifiedAlbum!.releaseDate;
+        if (date.year == 2000 && date.month == 1 && date.day == 1) {
+          // This is likely our placeholder/fallback date
+          Logging.severe(
+              'Detected placeholder date (Jan 1, 2000), showing as Unknown');
+          return 'Unknown Date';
+        }
+        return DateFormat('d MMMM yyyy').format(date);
       } else if (_albumData['releaseDate'] != null) {
+        // Try parsing from string
         final dateStr = _albumData['releaseDate'];
-        if (dateStr is String) {
-          final date = DateTime.parse(dateStr);
-          return DateFormat('d MMMM yyyy').format(date);
+        Logging.severe('Formatting release date from string: $dateStr');
+        if (dateStr is String && dateStr.isNotEmpty) {
+          try {
+            final date = DateTime.parse(dateStr);
+            // Check if it's the placeholder date
+            if (date.year == 2000 && date.month == 1 && date.day == 1) {
+              Logging.severe(
+                  'Detected placeholder date (Jan 1, 2000), showing as Unknown');
+              return 'Unknown Date';
+            }
+            return DateFormat('d MMMM yyyy').format(date);
+          } catch (e) {
+            Logging.severe('Error parsing date string: $dateStr', e);
+          }
         }
       }
-    } catch (e) {
-      Logging.severe('Error formatting release date', e);
+    } catch (e, stack) {
+      Logging.severe('Error formatting release date', e, stack);
     }
 
     return 'Unknown Date';

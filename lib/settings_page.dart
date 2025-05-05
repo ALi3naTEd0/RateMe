@@ -24,6 +24,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'version_info.dart';
 import 'package:flutter/services.dart'; // Add this for TextInputFormatter
 import 'widgets/platform_match_cleaner.dart';
+import 'date_fixer_utility.dart'; // Add this import
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -1751,6 +1752,43 @@ class _SettingsPageState extends State<SettingsPage> {
                                         'Refresh track data for Bandcamp albums'),
                                     onTap: _fixBandcampTrackIds,
                                   ),
+                                  // Add the Fix Album Dates option right after the Bandcamp fix
+                                  ListTile(
+                                    leading: const Icon(Icons.calendar_today),
+                                    title:
+                                        const Text('Fix Album Release Dates'),
+                                    subtitle: const Text(
+                                      'Fix missing or incorrect release dates for albums',
+                                    ),
+                                    onTap: () async {
+                                      // Store the BuildContext before async operations
+                                      final currentContext = context;
+
+                                      // Store a reference to the ScaffoldMessenger before async gap
+                                      final scaffoldMessenger =
+                                          ScaffoldMessenger.of(currentContext);
+
+                                      final results =
+                                          await DateFixerUtility.runWithDialog(
+                                        currentContext,
+                                        onlyDeezer: true,
+                                        onlyMissingDates: true,
+                                      );
+
+                                      // Check if still mounted before accessing scaffold messenger
+                                      if (mounted) {
+                                        scaffoldMessenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Date fixing completed: ${results.fixed} albums fixed, '
+                                                '${results.failed} failed, ${results.skipped} skipped'),
+                                            duration:
+                                                const Duration(seconds: 5),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
                                   ListTile(
                                     leading: const Icon(Icons
                                         .cleaning_services), // Cleaning icon
@@ -1964,7 +2002,7 @@ class _SettingsPageState extends State<SettingsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('About Rate Me!', textAlign: TextAlign.center),
+        title: Text('About Rate Me!', textAlign: TextAlign.center),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,

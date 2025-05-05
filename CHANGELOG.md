@@ -7,18 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### New Logo Implementation Across All Platforms
-- Designed and implemented a new modern logo for better brand identity
-- Created optimized logo assets for all supported platforms (Android, iOS, Windows, macOS, Linux)
-- Implemented adaptive icon support for Android with proper foreground/background layers
-- Added high-resolution icons for desktop platforms with proper scaling
-- Updated app icon in package manifests for all platforms
-- Ensured proper icon display in OS task managers and app launchers
-- Optimized SVG source files for better scaling and rendering
-- Created platform-specific variants to match OS design guidelines
+### Album Date Management System
+- Added comprehensive date fixing utility in settings with UI for batch fixing missing dates
+- Fixed Deezer album date handling to prevent null dates and avoid placeholder fallbacks
+- Enhanced date extraction and persistence across all supported music platforms
+- Implemented unified album data format for consistent storage and retrieval
+- Added direct API integration with improved error recovery for accurate release date retrieval
+- Enhanced tooltip support throughout the app for better accessibility
+- Fixed BuildContext handling across async gaps for improved app stability
+- Fixed placeholder dates being displayed instead of "Unknown Date" when date information is missing
+- Implemented proper detection of placeholder dates (Jan 1, 2000) to display as "Unknown Date"
+- Added multi-level date extraction system that checks multiple sources for maximum reliability
+- Implemented comprehensive logging for date parsing to improve troubleshooting
+- Added better error recovery for various date formats across different music platforms
+- Comprehensive Bandcamp date parsing for non-standard formats including "11 Oct 2024 00:00:00 GMT"
+- Fixed runtime exceptions when parsing non-standard date formats
+- Fixed year-only date handling for Discogs releases
+- Fixed timezone issues in date parsing for consistent display across devices
+- Enhanced date validation with appropriate fallbacks for missing or corrupted dates
+- Fixed future release date handling with metadata preservation
+- Fixed search results date sorting for Deezer albums with missing dates
 
-### Major Database Migration & Persistence Overhaul
-- Complete rewrite of app's core data persistence from SharedPreferences to SQLite
+### Custom List & UI Improvements
+- Fixed list reordering persistence issue in custom album lists
+- Implemented proper album order synchronization with database
+- Fixed custom lists appearing in wrong order in "Save Album" dialogs
+- Ensured consistent ordering across all list selection interfaces
+- Custom lists reordering with drag handles at consistent leftmost position
+- Common layout for album cards across the app for better visual consistency
+- Fixed drag and drop functionality in custom lists and saved albums
+- Removed duplicate drag handles to avoid UI clutter and overlap with icons
+- Corrected drag handle positioning in list and album views
+- Consistent 85% width design pattern across all UI components
+- Consistent notification styling with 85% width to match app theme
+
+### Album Data & Metadata Management
+- Standardized album data format between different music platforms
+- Enhanced album model to user data conversion for reliable storage
+- Fixed album details page to properly save and retrieve complete album metadata
+- Improved error recovery when processing album data with missing fields
+- Enhanced metadata extraction with redundant storage for maximum reliability
+- Multi-level metadata extraction from various album data sources for maximum reliability
+- Fixed critical issue with album release dates not being preserved in database storage
+- Improved Deezer album data handling with consistent fields
+- Standardized artwork field naming for consistent display
+- Fixed inconsistent release date display with proper formatting
+- Fixed Bandcamp album metadata storage with proper track information preservation
+- Fixed track persistence for albums from all supported platforms
+- Improved track metadata persistence with consistent field naming
+- Enhanced album artwork URL extraction with comprehensive logging
+
+### Database & Data Persistence
+- Fixed Linux window title bar not displaying on GTK-based systems
+- Optimized database queries with better error handling
+- Complete migration from SharedPreferences to SQLite database for all settings and user data
 - New database architecture providing better performance, reliability and data integrity
 - Backward compatibility with previous versions through guided migration process
 - Extensive logging and error handling for diagnosing database issues
@@ -26,67 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database maintenance tools including vacuum, integrity checks, and emergency reset
 - Cross-platform data migration with progress tracking
 - Recovery mechanisms for database connection issues
-
-### Theme System Redesign
-- Complete overhaul of app theming with new ThemeService architecture
-- Centralized theme management with reactive updates across the app
-- Support for dynamic theme and color changes without app restart
-- Fixed critical color corruption issues with proper color value handling
-- Fixed hex color representation issues ensuring consistent RGB to hex conversion
-- Fixed color picker issues with direct integer-based RGB handling
-- Support for dark mode, light mode and system default with seamless transitions
-- Consistent 85% width design pattern across all UI components
-- Fixed black color issue on Android devices with proper "safe black" implementation
-- Eliminated flashing of default purple color during app startup with theme preloading
-- Proper color persistence across app restarts
-
-### Added
-- Implemented middleware architecture for Deezer albums to efficiently fetch accurate release dates and track information
-- New DeezerMiddleware class matching the pattern used for Discogs to enhance album data
-- Fixed Deezer album date loading with efficient on-demand fetching strategy
-- Improved Deezer search performance by fetching dates only when needed
-- New platform match cleaner utility for fixing incorrect platform associations
-- Improved URL matching between streaming platforms with unified matching algorithms
-- Standardized matching thresholds across all music platforms (Spotify, Apple Music, Deezer, Discogs)
-- Enhanced platform-specific URL handling for Bandcamp and Discogs URLs
-- Comprehensive Discogs integration with middleware for advanced album processing
-- Improved handling for both Discogs master and release album types
-- Consistent metadata extraction across all Discogs API interactions
-- Reliable credential management system for Discogs API with database storage
-- Middleware architecture for platform-specific album enhancement
-- Fixed Discogs track duration fetching with intelligent version selection
-- Enhanced date extraction algorithms for all supported music platforms
-- Improved Discogs date parsing with background prefetching for search results
-- Enhanced date format handling for all supported music platforms
-- Comprehensive Bandcamp date parsing for non-standard formats including "11 Oct 2024 00:00:00 GMT"
-- Multi-strategy approach to date parsing with fallbacks for maximum compatibility
-- Multiple date format parser implementations with locale-specific handling
-- Manual component-based date parsing for complex cases
-- Improved clipboard URL detection and handling across all supported platforms
-- Better platform detection from pasted URLs with more accurate source identification
-- Enhanced album metadata extraction from Bandcamp URLs
-- Smart date format conversion for Deezer albums with improved error handling
-- Special handling for future release dates to ensure proper display across the app
-- Robust date parsing for Discogs releases with intelligent fallbacks
-- Secure user-provided API key support for Spotify and Discogs services
-- Dedicated API key management section in the Settings page
-- Automatic API key validation for Spotify credentials
-- Detailed API setup instructions with step-by-step guidance
-- Clear status indicators showing connected API services
-- Helpful context for why certain services require API keys
-- Direct links to developer portals for obtaining API credentials
-- Complete migration from SharedPreferences to SQLite database for all settings and user data
-- Reliable track data persistence for all platforms (iTunes/Apple Music, Spotify, Deezer, Discogs, Bandcamp)
-- Fixed Bandcamp album metadata storage with proper track information preservation
-- Multi-level metadata extraction from various album data sources for maximum reliability
-- Custom hex color input field in color picker for precise color selection
-- Interactive color preview in settings for immediate feedback
-- Improved support option in About dialog
-- Enhanced footer with version information and sponsor links
-- Consistent notification styling with 85% width to match app theme
-- Refined database maintenance tools with appropriate icons
-- Emergency reset option for critical database issues
-- Complete migration from SharedPreferences to SQLite database for all app settings
 - New database helper methods for settings management
 - Centralized version tracking with version_info.dart
 - Automatic migration of remaining SharedPreferences data
@@ -95,10 +76,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced album ID handling for cross-platform compatibility
 - Improved error recovery for database operations
 - Support for backup and restore of all settings
+- Database migration utility with progress tracking
+- Database integrity checking and vacuum optimization
 - More reliable track ID handling with position-based fallbacks
+
+### Platform Integration & Middleware
+- Implemented middleware architecture for Deezer albums to efficiently fetch accurate release dates and track information
+- New DeezerMiddleware class matching the pattern used for Discogs to enhance album data
+- Fixed Deezer album date loading with efficient on-demand fetching strategy
+- Improved Deezer search performance by fetching dates only when needed
+- Fixed Deezer album integration with dedicated middleware for better performance and accuracy
+- Solved performance issues in Deezer album date loading by using on-demand middleware approach
+- Added 'useDeezerMiddleware' flag for identifying albums requiring date enhancement
+- Improved Deezer date loading with proper error recovery mechanisms
+- New platform match cleaner utility for fixing incorrect platform associations
+- Improved URL matching between streaming platforms with unified matching algorithms
+- Standardized matching thresholds across all music platforms (Spotify, Apple Music, Deezer, Discogs)
+- Fixed platform match widget with improved stability and reliability
+- Fixed unstable URL pasting, particularly for Discogs and Bandcamp URLs
+- Normalized similarity thresholds across all platform services for consistent matching quality
+- Enhanced platform-specific URL handling for Bandcamp and Discogs URLs
+- Middleware architecture for platform-specific album enhancement
+- Implemented consistent platform matching mechanisms across all music services
+- Created dedicated platform_match_cleaner component for user-initiated match fixing
+
+### Discogs Integration
+- Comprehensive Discogs integration with middleware for advanced album processing
+- Improved handling for both Discogs master and release album types
+- Consistent metadata extraction across all Discogs API interactions
+- Reliable credential management system for Discogs API with database storage
+- Fixed Discogs track duration fetching with intelligent version selection
+- Improved Discogs date parsing with background prefetching for search results
+- Robust date parsing for Discogs releases with intelligent fallbacks
+- Complete overhaul of Discogs integration with proper error handling
+- Fixed Discogs URL detection for both master and release album types
+- Fixed inconsistent metadata extraction between search and direct URL flows
+- Improved credential management for Discogs API with database-first approach
+- Fixed Discogs album URL detection and metadata extraction
+- Improved Discogs version selection logic to find best release dates
+- Fixed master/release relationship handling for Discogs albums
+- Enhanced release date processing with multi-attempt parsing strategies
 - Comprehensive track duration detection for Discogs albums across all available versions
 - Smart version selection for Discogs albums based on format, country, and data quality
 - Discogs integration with complete search and album details support
+- Added consistent credential retrieval system with primary and fallback sources
+- Implemented intelligent Discogs version scoring system based on release formats and countries
+- Created multi-pass approach to finding accurate Discogs dates from related releases
+
+### Theme & UI Improvements
+- Complete overhaul of app theming with new ThemeService architecture
+- Centralized theme management with reactive updates across the app
+- Support for dynamic theme and color changes without app restart
+- Fixed critical color corruption issues with proper color value handling
+- Fixed hex color representation issues ensuring consistent RGB to hex conversion
+- Fixed color picker issues with direct integer-based RGB handling
+- Support for dark mode, light mode and system default with seamless transitions
+- Fixed black color issue on Android devices with proper "safe black" implementation
+- Eliminated flashing of default purple color during app startup with theme preloading
+- Proper color persistence across app restarts
+- Custom hex color input field in color picker for precise color selection
+- Interactive color preview in settings for immediate feedback
+- Critical issue with color picker not displaying correct hex values for selected colors
+- Fixed RGB to hex conversion ensuring exact values are preserved across the application
+- Fixed variable usage in color handling to prevent duplicate definitions
+- Critical color handling issues with reliable RGB value storage and retrieval
+- Theme consistency issues with proper state management and persistence
+- Settings page color picker corruption with proper color value normalization
+- Race condition in ThemeService preventing proper theme application
+- Fixed notification issues with standardized 85% width for consistent UI
+- Eliminated corrupted colors (particularly black and near-black colors) through proper value handling
+- Fixed color selection in settings page to always use correct color channels
+- SVG-based platform icons with proper theme support
+
+### API & Search Features
+- Secure user-provided API key support for Spotify and Discogs services
+- Dedicated API key management section in the Settings page
+- Automatic API key validation for Spotify credentials
+- Detailed API setup instructions with step-by-step guidance
+- Clear status indicators showing connected API services
+- Helpful context for why certain services require API keys
+- Direct links to developer portals for obtaining API credentials
+- Fixed Spotify and Discogs search results showing only when API keys are provided
+- Enhanced API key persistence using secure database storage
+- Fixed platform-specific search behavior when API keys are missing
+- Improved error handling for failed API authentication attempts
+- Fixed user-facing API documentation links
+- Implemented API key validation system with proper error handling
+- Added conditional search behavior based on available credentials
+- Implemented platform-specific configuration UI components
+- Enhanced service factory to handle authentication failures gracefully
+
+### Album Features & Cross-platform Compatibility
 - Universal EP/Single handling across all platforms (iTunes/Apple Music, Spotify, Deezer, Discogs)
 - Standardized album suffix normalization system for cross-platform compatibility
 - Smart detection and cleanup of album name variations (EP, Single, etc.)
@@ -109,170 +177,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Context menu for streaming buttons with copy, open, and share options
 - Cross-platform streaming integration with buttons for Spotify, Apple Music and Deezer
 - Integration with existing Bandcamp links to provide unified streaming experience
-- Context menu for streaming buttons with copy URL and open options
 - Default search platform selection in settings
 - Default search platform persistence across app restarts
 - Multi-platform search capability (iTunes, Spotify, Deezer)
-- Integrated SQLite database for improved data persistence and performance
-- Cross-platform album matching between different music services
+- Enhanced clipboard detection for URLs from all supported platforms
+- Improved clipboard URL detection and handling across all supported platforms
+- Better platform detection from pasted URLs with more accurate source identification
+- Enhanced album metadata extraction from Bandcamp URLs
 - Platform icons in search results for better visual identification
 - Platform-specific search capabilities for more accurate results
-- Enhanced clipboard detection for URLs from all supported platforms
-- Database migration utility with progress tracking
-- Database integrity checking and vacuum optimization
 - Global notifications system for real-time app state updates
-- SVG-based platform icons with proper theme support
 
-### Fixed
-- Fixed Deezer album integration with dedicated middleware for better performance and accuracy
-- Solved performance issues in Deezer album date loading by using on-demand middleware approach
-- Fixed platform match widget with improved stability and reliability
+### Brand & Application Assets
+- Designed and implemented a new modern logo for better brand identity
+- Created optimized logo assets for all supported platforms (Android, iOS, Windows, macOS, Linux)
+- Implemented adaptive icon support for Android with proper foreground/background layers
+- Added high-resolution icons for desktop platforms with proper scaling
+- Updated app icon in package manifests for all platforms
+- Ensured proper icon display in OS task managers and app launchers
+- Optimized SVG source files for better scaling and rendering
+- Created platform-specific variants to match OS design guidelines
+- Improved support option in About dialog
+- Enhanced footer with version information and sponsor links
+- Refined database maintenance tools with appropriate icons
+- Emergency reset option for critical database issues
+
+### Performance & Logging Improvements
 - Fixed overly verbose logging with cleaner, more organized log output
-- Fixed inconsistent platform matching between streaming services
-- Fixed unstable URL pasting, particularly for Discogs and Bandcamp URLs
 - Removed unnecessary background processing in middleware for improved performance
-- Normalized similarity thresholds across all platform services for consistent matching quality
-- Complete overhaul of Discogs integration with proper error handling
-- Fixed Discogs URL detection for both master and release album types
-- Fixed inconsistent metadata extraction between search and direct URL flows
-- Improved credential management for Discogs API with database-first approach
-- Standardized artwork field naming for consistent display
-- Enhanced error recovery for all Discogs API interactions
-- Fixed Discogs album URL detection and metadata extraction
-- Improved Discogs version selection logic to find best release dates
-- Fixed master/release relationship handling for Discogs albums
-- Enhanced release date processing with multi-attempt parsing strategies
-- Critical issue with Bandcamp date parsing in format "11 Oct 2024 00:00:00 GMT"
-- Fixed runtime exceptions when parsing non-standard date formats
-- Fixed year-only date handling for Discogs releases
-- Improved Deezer date loading with proper error recovery mechanisms
-- Fixed date display inconsistencies across different music platforms
-- Implemented robust date parsing strategies with comprehensive error handling
-- Fixed month name parsing in multiple languages and formats
-- Fixed clipboard URL detection and handling for complex URLs
-- Fixed Bandcamp release date handling ensuring proper ISO format conversion
-- Fixed timezone issues in date parsing for consistent display across devices
-- Enhanced date validation with appropriate fallbacks for missing or corrupted dates
-- Fixed future release date handling with metadata preservation
-- Fixed search results date sorting for Deezer albums with missing dates
-- Improved pre-fetching of Deezer album dates for better performance
-- Fixed Spotify and Discogs search results showing only when API keys are provided
-- Enhanced API key persistence using secure database storage
-- Fixed platform-specific search behavior when API keys are missing
-- Improved error handling for failed API authentication attempts
-- Fixed user-facing API documentation links
 - Improved log management with reduced verbosity and better organization
 - Fixed redundant artwork URL logging during album display
 - Optimized logging for better debug experience and reduced noise
 - Eliminated duplicate artwork URL lookups and logs
 - Fixed performance issues related to excessive logging
 - Streamlined logging for album loading to prevent redundant messages
-- Critical issue with color picker not displaying correct hex values for selected colors
-- Fixed RGB to hex conversion ensuring exact values are preserved across the application
-- Fixed variable usage in color handling to prevent duplicate definitions
-- Critical issue with Bandcamp albums not storing track information properly
-- Improved metadata extraction for albums with multiple track data sources
-- Fixed track persistence for albums from all supported platforms
-- Multiple metadata extraction strategies for maximum data reliability
-- Critical color handling issues with reliable RGB value storage and retrieval
-- Theme consistency issues with proper state management and persistence
-- Settings page color picker corruption with proper color value normalization
-- Race condition in ThemeService preventing proper theme application
-- Implemented robust error handling for database operations
-- Fixed notification issues with standardized 85% width for consistent UI
 - Fixed album conversion using appropriate JsonFixer implementation
 - Fixed duplicate functionality for Bandcamp album updating and album format conversion
-- Eliminated corrupted colors (particularly black and near-black colors) through proper value handling
-- Fixed color selection in settings page to always use correct color channels
 - Platform-specific path issues for data storage
 - Proper disposal of resources to prevent memory leaks
 - Improved state handling for asynchronous operations
+- Added artwork URL caching during album processing for better performance
+- Implemented efficient artwork URL extraction across multiple data source formats
+- Added data summary logging for better troubleshooting
+- Improved logging consistency with single-responsibility pattern
+- Enhanced saved albums display with optimized artwork detection and handling
+- Reduced debug log noise by eliminating redundant messages
+- Added log summaries for batch operations to improve monitoring
+- Implemented pre-processed data storage to avoid redundant lookups
+- Added consistent notification formatting for better UX
+- Improved SnackBar appearance with standardized width
+- Enhanced sponsor integration for better project support options
 
-### Changed
-- Enhanced Deezer album handling with middleware pattern for better performance
-- Implemented consistent middleware approach across different music platforms
-- Enhanced logging system with reduced noise and better organization
-- Improved platform matching with standardized threshold values across all services
-- Refactored platform_match_widget for better maintainability and performance
-- Added consolidated log messages replacing excessive detail with meaningful summaries
-- Optimized platform detection with better URL pattern recognition
-- Enhanced cross-platform URL compatibility with standardized handling
-- Refactored Discogs integration with consistent processing across all entry points
-- Adopted middleware pattern for advanced Discogs album processing
-- Improved Discogs credential management with database storage
-- Standardized Discogs search and URL paste flows for consistent behavior
-- Enhanced Discogs integration with improved master/release version selection
-- Better handling of albums with missing track durations across all platforms
-- Enhanced date handling with standardized ISO 8601 format across all platforms
-- Improved clipboard content detection with more accurate platform identification
-- Standardized date display format for consistency across all views
-- Improved date parsing with explicit locale handling for better international support
-- Enhanced date extraction from various music platforms with customized parsing strategies
-- Made date parsing more resilient with multi-level fallback mechanisms
-- Enhanced logging for date-related issues to improve troubleshooting
-- Redesigned API key management interface with platform-specific sections
-- Improved API configuration UX with connection status indicators and help resources
-- Redesigned Settings screen with dedicated API management section
-- Enhanced search results to indicate when results are limited due to missing API keys
-- Enhanced log output with clearer summaries of loaded data
-- Improved logging organization with proper counter-based summaries
-- Reduced verbose logging for frequent operations to improve performance
-- Consolidated artwork URL lookups to avoid redundant processing
-- Reorganized Settings page with more intuitive grouping of options
-- Updated icons for better visual representation of functionality
-- Improved About dialog with additional support options and GitHub sponsor links
-- Replaced SharedPreferences with SQLite for all settings storage
-- Improved startup performance with optimized database initialization
-- Enhanced error handling throughout settings management
-- Added proper database transaction support for settings operations
-- Simplified theme management with direct database access
-- More consistent API for accessing user preferences
-- Better organization of settings with standardized access methods
-- Improved Discogs album data quality with intelligent version selection algorithm
-- Enhanced logging for easier debugging of platform-specific integration issues
-- Universal album name normalization system for all platforms
-- Enhanced algorithm for EP/Single name cleanup across all music services
-- Added direct album name comparison after standardization for all platforms
-- Improved multi-platform album matching with standardized naming conventions
-- Reorganized Settings page with grouped options for search preferences
-- Enhanced default platform selection with visual platform indicators
-- Implemented automatic platform updates when default is changed in settings
-- Enhanced data model with more consistent field naming
-- Improved album detail page loading performance
-- Enhanced platform detection from URLs
-- Reorganized search service to better handle multiple platforms
-- Improved search result ranking algorithm
-- Enhanced rating persistence with a robust position-based fallback system
-- Refactored track rating display with consistent handling across platforms
-- Improved track name storage and retrieval from database
-- Enhanced date handling with standardized ISO 8601 format across all platforms
-- Improved clipboard content detection with more accurate platform identification
-- Standardized date display format for consistency across all views
-- Improved date parsing with explicit locale handling for better international support
-- Enhanced date extraction from various music platforms with customized parsing strategies
-- Made date parsing more resilient with multi-level fallback mechanisms
-- Enhanced logging for date-related issues to improve troubleshooting
-
-### Technical
-- Added DeezerMiddleware to efficiently handle album enhancement with accurate release dates
-- Added 'useDeezerMiddleware' flag for identifying albums requiring date enhancement
-- Implemented consistent platform matching mechanisms across all music services
-- Created dedicated platform_match_cleaner component for user-initiated match fixing
-- Added normalized threshold values for string similarity across platform services
-- Improved logging organization with consistent message formats
+### Code Quality & Architecture
+- Enhanced logging organization with consistent message formats
 - Reduced log verbosity by eliminating redundant messages
 - Added log filtering to focus on important diagnostic information
 - Standardized platform URL detection patterns for better URL handling
-- Implemented middleware pattern for enhanced platform-specific album processing
-- Added consistent credential retrieval system with primary and fallback sources
-- Improved error handling throughout Discogs API interactions
 - Added requiresMiddlewareProcessing flag for advanced metadata extraction
-- Standardized artwork field naming for better cross-component compatibility
-- Implemented intelligent Discogs version scoring system based on release formats and countries
 - Created specialized date parsers for each music platform's unique format
-- Created multi-pass approach to finding accurate Discogs dates from related releases
 - Enhanced date fallback mechanism with consistent default values
-- Implemented specialized date parsers for each music platform's unique format
 - Created utility functions for date normalization and standardization
 - Enhanced DateFormat usage with explicit locale support
 - Improved RegExp patterns for date extraction from complex strings
@@ -285,36 +248,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced logging for date parsing to aid in debugging
 - Implemented secure API key storage in SQLite database
 - Created centralized ApiKeys and ApiKeyManager classes for better credential management
-- Added API key validation system with proper error handling
-- Added conditional search behavior based on available credentials
-- Implemented platform-specific configuration UI components
-- Enhanced service factory to handle authentication failures gracefully
-- Added artwork URL caching during album processing for better performance
-- Implemented efficient artwork URL extraction across multiple data source formats
-- Added data summary logging for better troubleshooting
-- Improved logging consistency with single-responsibility pattern
-- Enhanced saved albums display with optimized artwork detection and handling
-- Reduced debug log noise by eliminating redundant messages
-- Added log summaries for batch operations to improve monitoring
-- Implemented pre-processed data storage to avoid redundant lookups
-- Implemented centralized version tracking system
-- Added consistent notification formatting for better UX
-- Improved SnackBar appearance with standardized width
-- Enhanced sponsor integration for better project support options
-- Created DatabaseHelper with comprehensive settings support
-- Added automatic database initialization during app startup
-- Implemented robust error handling for all database operations
-- Added migration utility for SharedPreferences to SQLite
-- Enhanced logging for database operations
-- Added database schema validation and repair tools
-- Improved backup and restore capabilities
-- More consistent API for settings management
-- Connected track ratings with SQLite database storage for persistent ratings
-- Added position-based track ID matching for ratings when direct ID match fails
-- Fixed recursive method calls causing stack overflow errors in rating display
-- Implemented robust track metadata saving with ratings in database
-- Added reliable fallback mechanisms when track data is incomplete
-- Added extensive debug logging for rating matching and persistence
 - Centralized album name normalization with regex-based suffix detection
 - Standardized string comparison utilities for better text matching
 - Platform-agnostic album title cleanup system
@@ -322,22 +255,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved BuildContext management with GlobalKey approach
 - Added StreamController-based global notification system
 - Enhanced error logging for platform-specific issues
-- Added database helper methods for SQLite operations
-- Added migration utility for data transition to SQLite
-- Implemented transaction support for batch database operations
 - Better album matching algorithms for cross-platform compatibility
 - Optimized search queries with improved platform handling
-- Implemented specialized date parsers for each music platform's unique format
-- Created utility functions for date normalization and standardization
-- Enhanced DateFormat usage with explicit locale support
-- Improved RegExp patterns for date extraction from complex strings
-- Added manual date component parsing for maximum flexibility
-- Added extensive validation and error recovery for date parsing operations
-- Enhanced clipboard integration with improved URL format detection
-- Improved album metadata extraction pipeline with better error handling
-- Added comprehensive date format conversion utilities
-- Implemented special case handling for problematic date formats
-- Enhanced logging for date parsing to aid in debugging
+- Connected track ratings with SQLite database storage for persistent ratings
+- Added position-based track ID matching for ratings when direct ID match fails
+- Fixed recursive method calls causing stack overflow errors in rating display
+- Implemented robust track metadata saving with ratings in database
+- Added reliable fallback mechanisms when track data is incomplete
+- Added extensive debug logging for rating matching and persistence
 
 ## [1.1.0-4] - 2025-04-02
 

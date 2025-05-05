@@ -7,6 +7,8 @@ import 'details_page.dart';
 /// Middleware for Deezer albums that handles fetching accurate release dates
 /// before displaying the album details
 class DeezerMiddleware {
+  final String _baseUrl = 'https://api.deezer.com';
+
   /// Show a loading screen while fetching accurate album data,
   /// then navigate to the details page when complete
   static Future<void> showDetailPageWithPreload(
@@ -201,6 +203,39 @@ class DeezerMiddleware {
       result['dateLoading'] = false;
 
       return result;
+    }
+  }
+
+  /// Fetch album details from Deezer API
+  /// Returns a Map with album details including releaseDate
+  Future<Map<String, dynamic>?> getAlbumInfo(String albumId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/album/$albumId');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Extract and format the release date from Deezer response
+        if (data.containsKey('release_date')) {
+          final releaseDate = data['release_date'];
+
+          // Create a standardized album details map
+          return {
+            'releaseDate': releaseDate,
+            'title': data['title'],
+            'artist': data['artist']?['name'],
+            'tracks': data['tracks']?['data'],
+            // Include any other fields needed
+          };
+        }
+      }
+
+      Logging.severe('Failed to get Deezer album info: ${response.statusCode}');
+      return null;
+    } catch (e, stack) {
+      Logging.severe('Error fetching Deezer album details', e, stack);
+      return null;
     }
   }
 }

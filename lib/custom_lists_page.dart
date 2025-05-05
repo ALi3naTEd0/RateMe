@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart'; // Add import for ConflictAlgorithm
+import 'package:sqflite/sqflite.dart';
 import 'user_data.dart';
 import 'saved_album_page.dart';
 import 'share_widget.dart';
 import 'album_model.dart';
 import 'logging.dart';
-import 'widgets/skeleton_loading.dart'; // Add this import
-import 'database/database_helper.dart'; // Add import for database helper
+import 'widgets/skeleton_loading.dart';
+import 'database/database_helper.dart';
 import 'dart:convert';
 
 // Model for custom album lists
@@ -111,47 +111,41 @@ class _CustomListsPageState extends State<CustomListsPage> {
       });
 
       Logging.info('[LISTS] Loading custom lists');
+
+      // Get lists from database
       final dbLists = await DatabaseHelper.instance.getAllCustomLists();
 
-      // Log summary instead of individual lists
-      Logging.info('[LISTS] Found ${dbLists.length} custom lists in database');
+      // Get the saved order
+      final orderResult = await DatabaseHelper.instance.getCustomListOrder();
 
-      // Track total albums across all lists
-      int totalAlbums = 0;
-      int nonEmptyLists = 0;
-
-      for (int i = 0; i < dbLists.length; i++) {
-        final list = dbLists[i];
-        final listId = list['id'].toString();
-
-        // Get albums for this list - using getAlbumsInList instead of getAlbumsForList
-        final albums = await DatabaseHelper.instance.getAlbumsInList(listId);
-        totalAlbums += albums.length;
-
-        if (albums.isNotEmpty) {
-          nonEmptyLists++;
-        }
-
-        // Only log anomalies or when debugging
-        if (albums.isEmpty) {
-          Logging.debug('[LISTS] List "${list['name']}" has no albums');
-        }
-      }
-
-      // Log summary of all lists
-      Logging.info('[LISTS] Processed ${dbLists.length} lists: '
-          '$nonEmptyLists have albums, $totalAlbums total albums');
-
-      final savedLists = await DatabaseHelper.instance
-          .getAllCustomLists()
-          .then((lists) => lists.map((list) => jsonEncode(list)).toList());
+      // Convert to CustomList objects
+      final savedLists = dbLists.map((list) => jsonEncode(list)).toList();
       final loadedLists = savedLists
           .map((list) => CustomList.fromJson(jsonDecode(list)))
           .toList();
 
+      // Create a map for sorting
+      final listMap = {for (var list in loadedLists) list.id: list};
+      final orderedLists = <CustomList>[];
+
+      // First add lists in saved order
+      if (orderResult.isNotEmpty) {
+        for (final id in orderResult) {
+          if (listMap.containsKey(id)) {
+            orderedLists.add(listMap[id]!);
+            listMap.remove(id);
+          }
+        }
+        // Add any remaining lists
+        orderedLists.addAll(listMap.values);
+      } else {
+        // No saved order, use lists as is
+        orderedLists.addAll(loadedLists);
+      }
+
       if (mounted) {
         setState(() {
-          lists = loadedLists;
+          lists = orderedLists;
           // Clean all lists when loading
           for (var list in lists) {
             list.cleanupAlbumIds();
@@ -409,27 +403,41 @@ class _CustomListsPageState extends State<CustomListsPage> {
   }
 
   Future<void> _reorderLists(int oldIndex, int newIndex) async {
-    // Convert display indices to global indices
-    final globalOldIndex = currentPage * itemsPerPage + oldIndex;
-    final globalNewIndex = currentPage * itemsPerPage +
-        (newIndex > oldIndex ? newIndex - 1 : newIndex);
+    try {
+      // Make sure indexes are valid
+      if (oldIndex < 0 ||
+          oldIndex >= displayedLists.length ||
+          newIndex < 0 ||
+          newIndex > displayedLists.length) {
+        return;
+      }
 
-    setState(() {
-      final item = lists.removeAt(globalOldIndex);
-      lists.insert(globalNewIndex, item);
-      _updateDisplayedLists();
-    });
+      setState(() {
+        // Convert display indices to global indices
+        final globalOldIndex = currentPage * itemsPerPage + oldIndex;
+        final globalNewIndex = currentPage * itemsPerPage +
+            (newIndex > oldIndex ? newIndex - 1 : newIndex);
 
-    // Save to database instead of SharedPreferences
-    for (int i = 0; i < lists.length; i++) {
-      await DatabaseHelper.instance.saveCustomList(
-        lists[i].id,
-        lists[i].name,
-        lists[i].description,
-        lists[i].albumIds,
-        createdAt: lists[i].createdAt,
-        updatedAt: lists[i].updatedAt,
-      );
+        // Update the main lists array
+        final item = lists.removeAt(globalOldIndex);
+        lists.insert(globalNewIndex, item);
+
+        // Update listIds array for database saving
+        List<String> listIds = lists
+            .map((list) => list.id.toString())
+            .where((id) => id.isNotEmpty)
+            .toList();
+
+        // Update displayed lists
+        _updateDisplayedLists();
+
+        // Save the updated order to database
+        DatabaseHelper.instance.saveCustomListOrder(listIds);
+      });
+
+      Logging.severe('List reordered and saved to database');
+    } catch (e, stack) {
+      Logging.severe('Error reordering lists', e, stack);
     }
   }
 
@@ -506,8 +514,11 @@ class _CustomListsPageState extends State<CustomListsPage> {
                         onRefresh: _refreshData,
                         child: Column(
                           children: [
+                            const SizedBox(height: 16),
                             Expanded(
                               child: ReorderableListView.builder(
+                                buildDefaultDragHandles:
+                                    false, // Add this line to disable default drag handles
                                 onReorder: (oldIndex, newIndex) async {
                                   await _reorderLists(oldIndex, newIndex);
                                 },
@@ -562,10 +573,25 @@ class _CustomListsPageState extends State<CustomListsPage> {
         contentPadding: const EdgeInsets.symmetric(
             horizontal: 12, vertical: 2), // Reduced from 4 to 2
         dense: true, // Added dense property to make it more compact
-        leading: Icon(
-          Icons.playlist_play_rounded,
-          size: 42,
-          color: Theme.of(context).colorScheme.secondary,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Move drag handle to leftmost position
+            ReorderableDragStartListener(
+              index: index,
+              child: const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: Icon(Icons.drag_handle, size: 20),
+              ),
+            ),
+            // Replace playlist icon with a better alternative
+            Icon(
+              Icons
+                  .album, // More distinct from drag handle than playlist_play_rounded
+              size: 42,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+          ],
         ),
         title: Text(
           list.name,
@@ -617,7 +643,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
               onPressed: () => _deleteList(list),
               tooltip: 'Delete List',
             ),
-            const Icon(Icons.drag_handle),
+            // No drag handle icon here - completely removed
           ],
         ),
         onTap: () {
@@ -625,7 +651,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
             context,
             MaterialPageRoute(
               builder: (context) => CustomListDetailsPage(
-                list: list,
+                initialList: list,
               ),
             ),
           ).then((_) => _loadLists());
@@ -636,13 +662,11 @@ class _CustomListsPageState extends State<CustomListsPage> {
 }
 
 // List details page
+@immutable
 class CustomListDetailsPage extends StatefulWidget {
-  final CustomList list;
+  final CustomList initialList; // Use final initialList instead of mutable list
 
-  const CustomListDetailsPage({
-    super.key,
-    required this.list,
-  });
+  const CustomListDetailsPage({super.key, required this.initialList});
 
   @override
   State<CustomListDetailsPage> createState() => _CustomListDetailsPageState();
@@ -657,10 +681,20 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   List<Map<String, dynamic>> albums = [];
   bool isLoading = true;
 
+  // Add the mutable state here instead
+  late CustomList list; // Create a mutable copy in the state
+
   @override
   void initState() {
     super.initState();
+    // Initialize the mutable state from the widget's immutable property
+    list = widget.initialList;
     _loadAlbums();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   void _showSnackBar(String message) {
@@ -716,12 +750,12 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
   Future<void> _loadAlbums() async {
     List<Map<String, dynamic>> loadedAlbums = [];
     List<String> idsToRemove = [];
-    widget.list.cleanupAlbumIds();
+    list.cleanupAlbumIds();
 
     Logging.severe(
-        'Loading albums for list: ${widget.list.name} with ${widget.list.albumIds.length} albums');
+        'Loading albums for list: ${list.name} with ${list.albumIds.length} albums');
 
-    for (String albumIdStr in widget.list.albumIds) {
+    for (String albumIdStr in list.albumIds) {
       try {
         // Use our new helper function
         Album? album = await UserData.getAlbumByAnyId(albumIdStr);
@@ -761,8 +795,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
     // Remove invalid IDs after iteration is complete
     if (idsToRemove.isNotEmpty) {
-      widget.list.albumIds.removeWhere((id) => idsToRemove.contains(id));
-      await UserData.saveCustomList(widget.list);
+      list.albumIds.removeWhere((id) => idsToRemove.contains(id));
+      await UserData.saveCustomList(list);
       Logging.severe(
           'Removed ${idsToRemove.length} invalid album IDs from list');
     }
@@ -774,60 +808,6 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         albums = loadedAlbums;
         isLoading = false;
       });
-    }
-  }
-
-  Future<void> _removeAlbum(int index) async {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    final album = albums[index];
-
-    final shouldRemove = await navigator.push<bool>(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Remove Album'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                  'Are you sure you want to remove this album from the list?'),
-              const SizedBox(height: 16),
-              Text(
-                album['artistName'] ?? 'Unknown Artist',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(album['collectionName'] ?? 'Unknown Album'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => navigator.pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              onPressed: () => navigator.pop(true),
-              child: const Text('Remove'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (shouldRemove == true) {
-      final albumId = album['collectionId'].toString();
-      setState(() {
-        widget.list.albumIds.remove(albumId);
-        albums.removeAt(index);
-      });
-      await UserData.saveCustomList(widget.list);
-      _showSnackBar('Album removed from list');
     }
   }
 
@@ -880,7 +860,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
             tracks: const [], // Empty tracks list for collection view
             ratings: const {}, // Empty ratings for collection view
             averageRating: 0.0, // No average for collection view
-            title: widget.list.name, // Add list name as title
+            title: list.name, // Add list name as title
             albums: albums, // Add full albums list for collection view
           );
 
@@ -914,6 +894,46 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         },
       ),
     );
+  }
+
+  Future<bool> _confirmRemoveAlbum(
+      Map<String, dynamic> album, int index) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Album'),
+        content: Text(
+            'Are you sure you want to remove "${album['name'] ?? album['collectionName'] ?? "this album"}" from this list?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      setState(() {
+        final albumId = album['id'].toString();
+        list.albumIds.remove(albumId);
+        albums.removeAt(index);
+      });
+
+      // Save the updated list
+      await saveCustomList(list);
+
+      _showSnackBar('Album removed from list');
+    }
+
+    return result ?? false;
   }
 
   @override
@@ -952,10 +972,10 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(widget.list.name),
-                      if (widget.list.description.isNotEmpty)
+                      Text(list.name),
+                      if (list.description.isNotEmpty)
                         Text(
-                          widget.list.description,
+                          list.description,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.normal,
@@ -1027,6 +1047,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                 }),
               ),
             ),
+            // Delete icon removed from here
           ],
         ),
         body: Center(
@@ -1037,22 +1058,24 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                 : albums.isEmpty
                     ? const Center(child: Text('No albums in this list'))
                     : ReorderableListView.builder(
+                        buildDefaultDragHandles:
+                            false, // Add this line to prevent automatic drag handles
                         onReorder: (oldIndex, newIndex) async {
                           if (newIndex > oldIndex) newIndex--;
                           setState(() {
                             final album = albums.removeAt(oldIndex);
                             albums.insert(newIndex, album);
-                            widget.list.albumIds.clear();
-                            widget.list.albumIds.addAll(
+                            list.albumIds.clear();
+                            list.albumIds.addAll(
                               albums.map((a) => a['collectionId'].toString()),
                             );
                           });
-                          await UserData.saveCustomList(widget.list);
+                          await UserData.saveCustomList(list);
                         },
                         itemCount: albums.length,
                         itemBuilder: (context, index) {
                           final album = albums[index];
-                          return _buildCompactAlbumCard(album, index);
+                          return _buildAlbumCard(album, index);
                         },
                       ),
           ),
@@ -1061,7 +1084,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     );
   }
 
-  Widget _buildCompactAlbumCard(Map<String, dynamic> album, int index) {
+  Widget _buildAlbumCard(Map<String, dynamic> album, int index) {
     // Add null safety check for album attributes
     final artistName =
         album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
@@ -1079,6 +1102,14 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Move the drag handle to the leftmost position
+            ReorderableDragStartListener(
+              index: index,
+              child: const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: Icon(Icons.drag_handle, size: 20),
+              ),
+            ),
             // Rating display in a prominent box
             Container(
               width: 48,
@@ -1151,17 +1182,12 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _removeAlbum(index),
-              tooltip: 'Remove from List',
-            ),
-            const Icon(Icons.drag_handle),
-          ],
+        // IMPORTANT FIX: Use a simple IconButton here, not a Row which might contain hidden elements
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, size: 20),
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _confirmRemoveAlbum(album, index),
+          tooltip: 'Remove from List',
         ),
         onTap: () => _openAlbumDetails(index),
       ),
@@ -1308,5 +1334,117 @@ extension ColorWithValues on Color {
       g.round(),
       b.round(),
     );
+  }
+}
+
+// Extension to DatabaseHelper to handle list order
+extension CustomListOrderExtension on DatabaseHelper {
+  Future<void> saveCustomListOrder(List<String> listIds) async {
+    final db = await database;
+
+    try {
+      // First check if the list_order table exists
+      final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='list_order'");
+
+      if (tableCheck.isEmpty) {
+        // Create the table if it doesn't exist
+        Logging.severe('Creating list_order table since it does not exist');
+        await db.execute('''
+          CREATE TABLE list_order (
+            list_id TEXT PRIMARY KEY,
+            position INTEGER
+          )
+        ''');
+      }
+
+      // Use a transaction for better reliability
+      await db.transaction((txn) async {
+        // Clear existing order
+        await txn.delete('list_order');
+
+        // Insert new order
+        for (int i = 0; i < listIds.length; i++) {
+          await txn.insert('list_order', {
+            'list_id': listIds[i],
+            'position': i,
+          });
+        }
+      });
+
+      Logging.severe('Saved order for ${listIds.length} lists');
+    } catch (e, stack) {
+      Logging.severe('Error saving list order', e, stack);
+    }
+  }
+
+  Future<List<String>> getCustomListOrder() async {
+    try {
+      final db = await database;
+
+      // Check if the table exists first
+      final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='list_order'");
+
+      if (tableCheck.isEmpty) {
+        // Table doesn't exist yet, return empty list
+        return [];
+      }
+
+      // Get ordered list IDs
+      final results = await db.query(
+        'list_order',
+        orderBy: 'position ASC',
+      );
+
+      return results.map((row) => row['list_id'].toString()).toList();
+    } catch (e, stack) {
+      Logging.severe('Error getting custom list order', e, stack);
+      return [];
+    }
+  }
+}
+
+// Add loadCustomLists method to UserData class that respects order
+extension CustomListsUserDataExtension on UserData {
+  static Future<List<CustomList>> getOrderedCustomLists() async {
+    try {
+      final db = DatabaseHelper.instance;
+
+      // Get all lists first
+      // Fix: Qualify the static method with UserData class name
+      final lists = await UserData.getCustomLists();
+
+      // Get saved order
+      final orderResult = await db.getCustomListOrder();
+
+      // If we have order data, use it to sort the lists
+      if (orderResult.isNotEmpty) {
+        // Create a map for faster lookups
+        final listMap = {for (var list in lists) list.id: list};
+
+        // Create ordered list
+        final orderedLists = <CustomList>[];
+
+        // First add lists in the saved order
+        for (final id in orderResult) {
+          if (listMap.containsKey(id)) {
+            orderedLists.add(listMap[id]!);
+            listMap.remove(id); // Remove to track what's been added
+          }
+        }
+
+        // Add any remaining lists (not in saved order) at the end
+        orderedLists.addAll(listMap.values);
+
+        return orderedLists;
+      }
+
+      // If no order data, return the original list
+      return lists;
+    } catch (e, stack) {
+      Logging.severe('Error getting ordered custom lists', e, stack);
+      return [];
+    }
   }
 }
