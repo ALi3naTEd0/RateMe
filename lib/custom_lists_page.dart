@@ -485,12 +485,27 @@ class _CustomListsPageState extends State<CustomListsPage> {
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _createNewList,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: useDarkButtonText ? Colors.black : Colors.white,
-          child: const Icon(Icons.add),
+          actions: [
+            Padding(
+              padding: EdgeInsets.only(right: horizontalPadding, top: 8.0),
+              child: TextButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create List'),
+                style: TextButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context)
+                      .colorScheme
+                      .onPrimary, // White text on primary color
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: _createNewList,
+              ),
+            ),
+          ],
         ),
         body: Center(
           child: SizedBox(
@@ -517,8 +532,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
                             const SizedBox(height: 16),
                             Expanded(
                               child: ReorderableListView.builder(
-                                buildDefaultDragHandles:
-                                    false, // Add this line to disable default drag handles
+                                buildDefaultDragHandles: false,
                                 onReorder: (oldIndex, newIndex) async {
                                   await _reorderLists(oldIndex, newIndex);
                                 },
