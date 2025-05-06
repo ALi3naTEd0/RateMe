@@ -20,10 +20,10 @@
 [Introduction](#introduction) •
 [Features](#features) •
 [Screenshots](#screenshots) •
+[Getting Started](#getting-started) •
 [Downloads](#downloads) •
 [Installation](#installation) •
 [Technologies](#technologies-used) •
-[Getting Started](#getting-started) •
 [How to Use](#how-to-use) •
 [Project Architecture](#project-architecture) •
 [Development](#development) •
