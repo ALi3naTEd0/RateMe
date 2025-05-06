@@ -42,24 +42,30 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 
 ## Features
 
+### Core Features
 - **Multi-Platform Support**: Rate albums from Apple Music, Spotify, Deezer, Discogs, and Bandcamp
-- **Cross-Platform Matching**: Easily find your albums across different music services
 - **Track-by-Track Rating**: Rate individual tracks on a 0-10 scale
 - **Custom Lists**: Organize albums into custom lists (e.g., "Best of 2023", "Prog Rock", etc.)
+- **Album Notes**: Save personal reviews, thoughts, and observations for each album
 - **Data Export/Import**: Easily backup and restore your collection
 - **Share as Images**: Generate beautiful images of your ratings to share on social media
-- **Clipboard Detection**: Automatically detects music platform URLs from clipboard
-- **Unified Data Model**: Compatible data structure across different music platforms
-- **Dark Mode**: Choose between light, dark, or system themes
-- **Custom Colors**: Personalize the app with your preferred color scheme
 - **Offline Support**: Access your saved albums and ratings without an internet connection
-- **One-Touch Import/Export**: Quickly import/export individual albums or your entire collection
-- **Pull-to-Refresh**: Update content with a simple swipe down gesture
-- **Skeleton UI**: Beautiful loading placeholders while fetching content
-- **Pagination**: Smooth navigation through large collections
-- **Search History**: Access your recent album searches
 - **SQLite Database**: Fast performance and reliable data storage
 - **Track Duration Support**: View track lengths from various platforms including Discogs
+
+### Platform Integration
+- **Cross-Platform Matching**: Easily find your albums across different music services
+- **API Key Support**: Secure user-provided API keys for Spotify and Discogs services
+- **Clipboard Detection**: Automatically detects music platform URLs from clipboard
+- **Cross-Platform Streaming**: Buttons for Spotify, Apple Music and Deezer with context menu options
+- **Universal EP/Single Handling**: Consistent album format detection across all platforms
+
+### User Interface
+- **Dark Mode**: Choose between light, dark, or system themes
+- **Custom Colors**: Personalize the app with your preferred color scheme
+- **Pull-to-Refresh**: Update content with a simple swipe down gesture
+- **Skeleton UI**: Beautiful loading placeholders while fetching content
+- **Drag and Drop List Management**: Reorder custom lists and saved albums with intuitive controls
 
 ## Screenshots
 
@@ -97,7 +103,6 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 | Android | arm64-v8a | [**RateMe_1.1.0-4_arm64-v8a.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_arm64-v8a.apk) |
 | Android | armeabi-v7a | [**RateMe_1.1.0-4_armeabi-v7a.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_armeabi-v7a.apk) |
 | Android | x86_64 | [**RateMe_1.1.0-4_x86_64.apk**](../../releases/download/v1.1.0-4/RateMe_1.1.0-4_x86_64.apk) |
-| iOS | - | Coming soon |
 
 </div>
 
@@ -214,24 +219,27 @@ makepkg -si
 1. **Search for Albums**: Enter an artist or album name to search, or paste a URL from Apple Music, Bandcamp, Spotify, Deezer or Discogs
 2. **Rate Albums**: Open an album and use the sliders to rate each track from 0-10
 3. **Create Lists**: Organize your music by creating custom lists
-4. **Share Your Ratings**: Generate beautiful images of your ratings to share
+4. **Add Album Notes**: Write personal reviews or observations about each album
+5. **Share Your Ratings**: Generate beautiful images of your ratings to share
 
 ## Data Management
 
 RateMe provides several options for managing your data:
 
-- **Standard Backup**: Export/import your entire collection with ratings and custom lists
+- **Standard Backup**: Export/import your entire collection with ratings, custom lists, and notes
 - **Album Exchange**: Share individual albums with friends who use RateMe
-- **Data Conversion**: Convert from older versions of RateMe to the new unified format
-- **Repair Tools**: Fix potential issues with album data
-- **Database Migration**: Seamless upgrade to new database format for better performance
+- **Date Fixing Utility**: Batch fix missing or incorrect album release dates
+- **Platform Match Cleaner**: Fix incorrect associations between albums on different platforms
+- **Database Optimization**: Vacuum and analyze database for improved performance
+- **Database Integrity**: Check and repair potential issues with album data
+- **Database Migration**: Seamless upgrade from older versions with progress tracking
+- **Track Management**: Fix duplicate tracks and refresh missing track information
 
 ## Supported Platforms
 
-- iOS
 - Android
 - Windows
-- MacOS
+- macOS
 - Linux
 
 ## About The Unified Data Model
@@ -241,6 +249,8 @@ RateMe uses a unified data model that ensures consistent handling of music from 
 - Works across multiple music platforms (Apple Music, Spotify, Deezer, Discogs, and Bandcamp)
 - Maintains backward compatibility with previous versions
 - Provides consistent field naming and data access
+- Standardizes album data format between different music platforms
+- Normalizes album name variations (EP, Single, etc.) across platforms
 - Improves reliability and error handling
 - Supports cascading deletes and proper relationships
 - Enables cross-platform album matching and lookup
@@ -251,6 +261,7 @@ RateMe respects your privacy:
 - All data is stored locally on your device
 - No personal information is collected or transmitted
 - No tracking or analytics
+- API keys are securely stored in the local database
 
 ## Project Architecture
 
@@ -258,30 +269,54 @@ This Flutter project follows a modular architecture and uses the Provider patter
 
 ### Main Components
 
-1. **MusicRatingApp**: Main widget handling theme state and persistence
-2. **SearchPage**: Album search interface with platform integration
-3. **SavedRatingsPage**: Album list management and ratings display
-4. **CustomListsPage**: Custom collections management
-5. **DetailsPage**: Album details and rating interface
-6. **UserData**: Data persistence and management utility
-7. **PlatformService**: Handles interactions with different music platforms
-8. **PlatformUI**: Platform-specific UI elements and styling
+1. **Core Application**
+   - **Main**: Entry point and root widget handling theme state
+   - **ThemeService**: Centralized theme management with reactive updates
+   - **GlobalNotifications**: App-wide messaging system
+   - **Footer**: Consistent layout component with version info and links
+   - **NavigationUtil**: Page navigation and route handling utility
 
-### Data Handling
+2. **Data Models**
+   - **AlbumModel**: Core data model for albums, tracks, and unified platform handling
+   - **UserData**: High-level data operations and persistence 
+   - **ApiKeyManager**: Secure credentials storage and validation
+   - **ModelMappingService**: Data conversion between different format models
 
-- **SQLite Database**: Efficient local storage for albums, ratings, and preferences
-- **Migration Utility**: Tools for upgrading data between versions
-- **HTTP**: API requests to music platforms
-- **HTML**: Extraction of structured data from web pages
+3. **User Interface**
+   - **SearchPage**: Album search interface with platform integration
+   - **DetailsPage**: Album details and rating interface
+   - **SavedAlbumPage**: Individual saved album view and editing
+   - **SavedRatingsPage**: Album list management and ratings display
+   - **CustomListsPage**: Custom collections management
+   - **SettingsPage**: Application configuration and preferences
 
-### External Integrations
+4. **UI Components**
+   - **PlatformMatchWidget**: Cross-platform streaming service integration buttons
+   - **ShareWidget**: Album rating image generation for social sharing
+   - **SkeletonLoading**: Loading state placeholders for UI elements
+   - **PlatformMatchCleaner**: Interface for fixing incorrect platform associations
 
-- **iTunes API**: Album and track information via official API
-- **Spotify API**: OAuth2 integration for fetching album and track details
-- **Deezer API**: Direct integration for album and track details
-- **Discogs API**: Comprehensive integration with release matching and master record support
-- **Bandcamp**: Album and track information via embedded JSON-LD data
-- **RateYourMusic**: Additional album information lookup
+5. **Database Layer**
+   - **DatabaseHelper**: Central SQLite database interaction
+   - **MigrationUtility**: Database and model version upgrades
+   - **BackupConverter**: Data import/export and format conversion
+   - **SearchHistoryDb**: Search history tracking and management
+
+6. **Platform Services**
+   - **PlatformServiceFactory**: Service provider for multiple music platforms
+   - **PlatformMiddleware**: Enhanced album data processing (Discogs, Deezer)
+   - **SearchService**: Cross-platform search operations
+   - **PlatformUI**: Platform-specific UI elements and styling
+   - **PreloadService**: Resource and data preparation utility
+
+7. **Utilities**
+   - **Logging**: Diagnostic and error tracking
+   - **ColorUtility**: Color management and conversion tools
+   - **DateFixerUtility**: Album date corrections and standardization
+   - **ClipboardDetector**: URL detection and processing
+   - **JsonFixer**: JSON data structure normalization and repair
+   - **DebugUtil**: Development debugging tools
+   - **CleanupUtility**: Database and resource maintenance
 
 ## Development
 
@@ -292,19 +327,28 @@ This Flutter project follows a modular architecture and uses the Provider patter
 - **Code Conventions**: 
   We follow the official [Dart style guide](https://dart.dev/guides/language/effective-dart/style) and [Flutter style guide](https://github.com/flutter/flutter/wiki/Style-guide-for-Flutter-repo). Please ensure your contributions adhere to these guidelines.
 
-- **Running Tests**: 
-  To run tests, use the following command in the project root directory:
+- **Building the App**:
+  Run the following commands to build the app for your target platform:
+  ```bash
+  flutter pub get
+  flutter build <platform>
+  ```
+  Where `<platform>` can be `apk`, `windows`, `macos`, or `linux`.
 
 ## Roadmap
 
-- Improved Discogs integration with more metadata support
-- Implementation of Apple Music authentication and API integration
-- Advanced search filter and sort options
+- Advanced search filter options
+- Search history implementation and management
 - Advanced query optimization for large datasets (10,000+ albums)
 - Database telemetry and performance monitoring
-- Full Spotify OAuth2 implementation
-- Integration with additional music streaming services
-- Functionality to share ratings on RateYourMusic.com
+- Album notes export and import functionality
+- Bulk editing tools for ratings and album data
+- Custom tags for albums and tracks
+- Local music file integration
+- Statistics and listening insights
+- Cross-device sync via private cloud storage
+- Rating trends and history visualization
+- iOS version (pending Apple Developer subscription)
 
 ## Contributions
 
@@ -328,6 +372,7 @@ The MIT License is a permissive license that is short and to the point. It allow
 - [http](https://pub.dev/packages/http) - HTTP requests and API integration
 - [shared_preferences](https://pub.dev/packages/shared_preferences) - Local data storage
 - [sqflite](https://pub.dev/packages/sqflite) - SQLite database support
+- [sqflite_common_ffi](https://pub.dev/packages/sqflite_common_ffi) - SQLite FFI implementation for desktop platforms
 - [html](https://pub.dev/packages/html) - HTML parsing for structured data
 - [url_launcher](https://pub.dev/packages/url_launcher) - External URL handling
 - [intl](https://pub.dev/packages/intl) - Date formatting
@@ -337,6 +382,13 @@ The MIT License is a permissive license that is short and to the point. It allow
 - [package_info_plus](https://pub.dev/packages/package_info_plus) - App version info
 - [flutter_svg](https://pub.dev/packages/flutter_svg) - SVG rendering for platform icons
 - [logging](https://pub.dev/packages/logging) - Application logging
+- [flex_color_picker](https://pub.dev/packages/flex_color_picker) - Color selection utilities
+- [flutter_launcher_icons](https://pub.dev/packages/flutter_launcher_icons) - App icon generation
+- [path](https://pub.dev/packages/path) - File path manipulation
+- [flutter_lints](https://pub.dev/packages/flutter_lints) - Lint rules for clean code
+- [flutter_distributor](https://pub.dev/packages/flutter_distributor) - App distribution helpers
+- [build_runner](https://pub.dev/packages/build_runner) - Build system for code generation
+- [json_serializable](https://pub.dev/packages/json_serializable) - JSON serialization utilities
 
 ## Contact
 
@@ -348,4 +400,4 @@ Project Link: [https://github.com/ALi3naTEd0/RateMe](https://github.com/ALi3naTE
 - [Changelog](CHANGELOG.md)
 
 ---
-Developed with ♥ by [X](https://github.com/ALi3naTEd0)
+Developed with ♥ by [ALi3naTEd0](https://github.com/ALi3naTEd0)
