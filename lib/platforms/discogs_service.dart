@@ -183,7 +183,7 @@ class DiscogsService extends PlatformServiceBase {
         Logging.severe(
             'Discogs match candidate: "$resultArtist - $resultAlbum"');
         Logging.severe(
-            '  - Artist score: ${artistScore.toStringAsFixed(2)} ($artistMatchLevel), '
+            'Artist score: ${artistScore.toStringAsFixed(2)} ($artistMatchLevel), '
             'Album score: ${albumScore.toStringAsFixed(2)} ($albumMatchLevel), '
             'Combined: ${combinedScore.toStringAsFixed(2)}');
       }

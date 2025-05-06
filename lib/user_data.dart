@@ -919,41 +919,32 @@ class UserData {
   /// Get custom lists in the saved order
   static Future<List<CustomList>> getOrderedCustomLists() async {
     try {
-      final db = DatabaseHelper.instance;
-
       // Get all lists first
       final lists = await getCustomLists();
 
-      // Get saved order
-      final orderResult = await db.getCustomListOrder();
+      // Sort lists by creation date (or another field that was previously used)
+      // This restores the previous behavior
+      lists.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-      // If we have order data, use it to sort the lists
-      if (orderResult.isNotEmpty) {
-        // Create a map for faster lookups
-        final listMap = {for (var list in lists) list.id: list};
-
-        // Create ordered list
-        final orderedLists = <CustomList>[];
-
-        // First add lists in the saved order
-        for (final id in orderResult) {
-          if (listMap.containsKey(id)) {
-            orderedLists.add(listMap[id]!);
-            listMap.remove(id); // Remove to track what's been added
-          }
-        }
-
-        // Add any remaining lists (not in saved order) at the end
-        orderedLists.addAll(listMap.values);
-
-        return orderedLists;
-      }
-
-      // If no order data, return the original list
+      Logging.severe('Retrieved ${lists.length} lists in original order');
       return lists;
     } catch (e, stack) {
       Logging.severe('Error getting ordered custom lists', e, stack);
       return [];
+    }
+  }
+
+  // Add the missing method for saveCustomListOrder
+  static Future<bool> saveCustomListOrder(List<String> listIds) async {
+    try {
+      await initializeDatabase();
+      // directly call the method instead of storing the instance in an unused variable
+      await DatabaseHelper.instance.saveCustomListOrder(listIds);
+      Logging.severe('Custom list order saved: ${listIds.length} lists');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error saving custom list order', e, stack);
+      return false;
     }
   }
 
@@ -1508,5 +1499,153 @@ class UserData {
   Future<void> clearSettings() async {
     final db = await DatabaseHelper.instance.database;
     await db.delete('settings');
+  }
+
+  static Future<void> saveAlbumNote(String albumId, String note) async {
+    try {
+      Logging.severe(
+          'Saving album note for ID: $albumId (length: ${note.length})');
+
+      if (albumId.isEmpty) {
+        Logging.severe('Cannot save album note: Empty album ID');
+        return;
+      }
+
+      final dbHelper = DatabaseHelper.instance;
+      final db = await dbHelper.database;
+
+      // First check if the table exists and create it if not
+      try {
+        final tableCheck = await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='album_notes'");
+
+        if (tableCheck.isEmpty) {
+          Logging.severe('Album notes table not found, forcing recreation');
+          // Force recreation of the table using the specialized method
+          final success = await dbHelper.recreateAlbumNotesTable();
+          if (!success) {
+            Logging.severe(
+                'Failed to create album_notes table, cannot save note');
+            return;
+          }
+        }
+      } catch (e) {
+        Logging.severe('Error checking for album_notes table: $e');
+        // Force recreation as a fallback
+        await dbHelper.recreateAlbumNotesTable();
+      }
+
+      try {
+        // Check if a note already exists for this album
+        final existing = await db.query(
+          'album_notes',
+          where: 'album_id = ?',
+          whereArgs: [albumId],
+        );
+
+        if (existing.isEmpty) {
+          // Insert new note
+          await db.insert(
+            'album_notes',
+            {'album_id': albumId, 'note': note},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          Logging.severe('Inserted new album note for ID: $albumId');
+        } else {
+          // Update existing note
+          await db.update(
+            'album_notes',
+            {'note': note},
+            where: 'album_id = ?',
+            whereArgs: [albumId],
+          );
+          Logging.severe('Updated existing album note for ID: $albumId');
+        }
+      } catch (e) {
+        Logging.severe('Error with standard approach to save note: $e');
+
+        // Try a different approach with direct SQL
+        try {
+          // Ensure the table exists
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS album_notes (
+              album_id TEXT PRIMARY KEY,
+              note TEXT
+            )
+          ''');
+
+          // Delete any existing note
+          await db.rawDelete(
+              'DELETE FROM album_notes WHERE album_id = ?', [albumId]);
+
+          // Insert new note
+          await db.rawInsert(
+              'INSERT INTO album_notes (album_id, note) VALUES (?, ?)',
+              [albumId, note]);
+
+          Logging.severe('Saved album note using direct SQL approach');
+        } catch (e2, stack2) {
+          Logging.severe('All attempts to save album note failed', e2, stack2);
+        }
+      }
+    } catch (e, stack) {
+      Logging.severe('Error saving album note', e, stack);
+    }
+  }
+
+  static Future<String?> getAlbumNote(String albumId) async {
+    try {
+      Logging.severe('Retrieving album note for ID: $albumId');
+
+      if (albumId.isEmpty) {
+        Logging.severe('Cannot get album note: Empty album ID');
+        return null;
+      }
+
+      final dbHelper = DatabaseHelper.instance;
+      final db = await dbHelper.database;
+
+      // Check if the table exists first to avoid errors
+      try {
+        final tableCheck = await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='album_notes'");
+
+        if (tableCheck.isEmpty) {
+          Logging.severe('Album notes table not found, forcing recreation');
+          // Force recreation of the table
+          final success = await dbHelper.recreateAlbumNotesTable();
+          if (!success) {
+            Logging.severe(
+                'Failed to create album_notes table, cannot retrieve note');
+            return null;
+          }
+        }
+      } catch (e) {
+        Logging.severe('Error checking album_notes table: $e');
+        // Try to recreate the table
+        await dbHelper.recreateAlbumNotesTable();
+      }
+
+      try {
+        // Get the note
+        final result = await db.rawQuery(
+            'SELECT note FROM album_notes WHERE album_id = ?', [albumId]);
+
+        if (result.isNotEmpty) {
+          final note = result.first['note'] as String?;
+          Logging.severe(
+              'Retrieved album note for ID: $albumId (found: ${note != null})');
+          return note;
+        }
+      } catch (e) {
+        Logging.severe('Error querying album note: $e');
+      }
+
+      Logging.severe('No album note found for ID: $albumId');
+      return null;
+    } catch (e) {
+      Logging.severe('Error retrieving album note: $e');
+      return null;
+    }
   }
 }

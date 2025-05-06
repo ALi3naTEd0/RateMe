@@ -47,6 +47,7 @@ class _DetailsPageState extends State<DetailsPage> {
   DateTime? releaseDate;
   bool isLoading = true;
   bool useDarkButtonText = false;
+  String? albumNote;
 
   // Add a key for the RefreshIndicator
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
@@ -57,6 +58,7 @@ class _DetailsPageState extends State<DetailsPage> {
     super.initState();
     _initialize();
     _loadButtonTextPreference(); // Add this line to load the button text preference
+    _loadAlbumNote(); // Load the note for the album
   }
 
   // Add this method to load the button text preference
@@ -393,6 +395,122 @@ class _DetailsPageState extends State<DetailsPage> {
     return 'Unknown Date';
   }
 
+  Future<void> _loadAlbumNote() async {
+    try {
+      // Fix: Convert any numeric ID to string
+      final albumId = widget.album['id'] != null
+          ? widget.album['id'].toString()
+          : widget.album['collectionId']?.toString() ?? '';
+
+      Logging.severe('Loading album note for ID: $albumId');
+
+      if (albumId.isEmpty) {
+        Logging.severe('Cannot load album note: No valid album ID found');
+        return;
+      }
+
+      final note = await UserData.getAlbumNote(albumId);
+      Logging.severe(
+          'Retrieved album note: ${note != null ? "Found" : "None"}');
+
+      if (mounted) {
+        setState(() {
+          albumNote = note;
+        });
+      }
+    } catch (e, stack) {
+      Logging.severe('Error loading album note', e, stack);
+    }
+  }
+
+  Future<void> _editAlbumNote() async {
+    // Fix: Use a consistent ID field and ensure it's a string
+    final albumId = widget.album['id'] != null
+        ? widget.album['id'].toString()
+        : widget.album['collectionId']?.toString() ?? '';
+
+    if (albumId.isEmpty) {
+      Logging.severe('Cannot edit album note: No valid album ID found');
+      return;
+    }
+
+    final newNote = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController(text: albumNote);
+        // Update to match the same dialog design as SavedAlbumPage
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.edit_note,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              const Text('Album Notes'),
+              const Spacer(),
+              // Add copy button to dialog
+              if (albumNote != null && albumNote!.isNotEmpty)
+                IconButton(
+                  icon: Icon(
+                    Icons.copy,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: albumNote!));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Notes copied to clipboard'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  tooltip: 'Copy to clipboard',
+                ),
+            ],
+          ),
+          content: TextField(
+            controller: controller,
+            maxLines: 10,
+            decoration: InputDecoration(
+              hintText:
+                  'Write your notes, review, or thoughts about this album...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newNote != null) {
+      // Fix: Save the note using the correct album ID
+      await UserData.saveAlbumNote(albumId, newNote);
+      Logging.severe('Saved album note for ID: $albumId');
+      setState(() {
+        albumNote = newNote;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Calculate page width consistently with other pages (85% of screen width)
@@ -507,15 +625,15 @@ class _DetailsPageState extends State<DetailsPage> {
                                     "Rating", averageRating.toStringAsFixed(2),
                                     fontSize: 20),
                                 const SizedBox(height: 16),
-                                // Buttons row
+
+                                // Buttons row - KEEP AT CURRENT POSITION
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     FilledButton(
                                       onPressed: () async {
-                                        // Remove the auto-save here
-                                        _showAddToListDialog(); // Just show the dialog directly
+                                        _showAddToListDialog();
                                       },
                                       style: FilledButton.styleFrom(
                                         backgroundColor: Theme.of(context)
@@ -530,7 +648,6 @@ class _DetailsPageState extends State<DetailsPage> {
                                     ),
                                     const SizedBox(width: 12),
                                     FilledButton.icon(
-                                      // Changed from ElevatedButton.icon
                                       icon: Icon(Icons.settings,
                                           color: useDarkButtonText
                                               ? Colors.black
@@ -555,7 +672,6 @@ class _DetailsPageState extends State<DetailsPage> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
                               ],
                             ),
                           ),
@@ -615,6 +731,251 @@ class _DetailsPageState extends State<DetailsPage> {
                               }).toList(),
                             ),
                           ),
+
+                          // NOTES SECTION - MOVED TO HERE (below tracks, above RateYourMusic)
+                          const SizedBox(height: 20),
+
+                          // Display note if exists
+                          if (albumNote != null && albumNote!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Container(
+                                width:
+                                    dataTableWidth, // Match the width of the track table
+                                padding: const EdgeInsets.all(12.0),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.grey.shade800.withAlpha(128)
+                                      : Colors.grey.shade200.withAlpha(179),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withAlpha(77),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Notes',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                          ),
+                                        ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Add Copy button
+                                            InkWell(
+                                              onTap: () {
+                                                Clipboard.setData(ClipboardData(
+                                                    text: albumNote!));
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                        'Notes copied to clipboard'),
+                                                    duration:
+                                                        Duration(seconds: 1),
+                                                  ),
+                                                );
+                                              },
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                child: Icon(
+                                                  Icons.copy,
+                                                  size: 16,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                ),
+                                              ),
+                                            ),
+                                            // Edit button
+                                            InkWell(
+                                              onTap: _editAlbumNote,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                child: Icon(
+                                                  Icons.edit,
+                                                  size: 16,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                ),
+                                              ),
+                                            ),
+                                            // Add Delete button
+                                            InkWell(
+                                              onTap: () {
+                                                // Show confirmation dialog
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) =>
+                                                      AlertDialog(
+                                                    title: const Text(
+                                                        'Delete Notes'),
+                                                    content: const Text(
+                                                        'Are you sure you want to delete these notes?'),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(
+                                                                    context)
+                                                                .pop(),
+                                                        child: const Text(
+                                                            'Cancel'),
+                                                      ),
+                                                      FilledButton(
+                                                        onPressed: () async {
+                                                          // Store context in local variable before async gap
+                                                          final currentContext =
+                                                              context;
+                                                          Navigator.of(
+                                                                  currentContext)
+                                                              .pop();
+
+                                                          // Get album ID
+                                                          final albumId = widget
+                                                                          .album[
+                                                                      'id'] !=
+                                                                  null
+                                                              ? widget
+                                                                  .album['id']
+                                                                  .toString()
+                                                              : widget.album[
+                                                                          'collectionId']
+                                                                      ?.toString() ??
+                                                                  '';
+
+                                                          if (albumId
+                                                              .isNotEmpty) {
+                                                            // Save empty note (effectively deleting it)
+                                                            await UserData
+                                                                .saveAlbumNote(
+                                                                    albumId,
+                                                                    '');
+
+                                                            // Fix: Add mounted check before using context after async gap
+                                                            if (mounted) {
+                                                              setState(() {
+                                                                albumNote =
+                                                                    null;
+                                                              });
+                                                              // Use scaffoldMessengerKey instead of context after async gap
+                                                              scaffoldMessengerKey
+                                                                  .currentState
+                                                                  ?.showSnackBar(
+                                                                const SnackBar(
+                                                                  content: Text(
+                                                                      'Notes deleted'),
+                                                                  duration:
+                                                                      Duration(
+                                                                          seconds:
+                                                                              1),
+                                                                ),
+                                                              );
+                                                            }
+                                                          }
+                                                        },
+                                                        child: const Text(
+                                                            'Delete'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                child: Icon(
+                                                  Icons.delete_outline,
+                                                  size: 16,
+                                                  // Change from error color to primary color
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      albumNote!,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.grey.shade300
+                                            : Colors.grey.shade800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                          // Add notes button
+                          if (albumNote == null || albumNote!.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: InkWell(
+                                onTap: _editAlbumNote,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12.0, vertical: 6.0),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.grey.shade800.withAlpha(128)
+                                        : Colors.grey.shade200.withAlpha(179),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.note_add,
+                                        size: 16,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Add notes',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.grey.shade300
+                                              : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
                           const SizedBox(height: 20),
                           FilledButton(
                             // Changed from ElevatedButton

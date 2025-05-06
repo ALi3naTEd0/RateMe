@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Album Notes & Documentation
+- Added album notes feature for saving personal reviews, thoughts, and observations
+- Implemented notes display and editing on album details page
+- Added copy functionality for easy sharing of album notes
+- Positioned notes section below tracklist for better user experience
+- Added tooltip support for notes with copy functionality
+- Implemented consistent note display across saved albums and details pages
+- Added delete functionality for album notes with confirmation dialog
+
 ### Album Date Management System
 - Added comprehensive date fixing utility in settings with UI for batch fixing missing dates
 - Fixed Deezer album date handling to prevent null dates and avoid placeholder fallbacks
@@ -81,6 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More reliable track ID handling with position-based fallbacks
 
 ### Platform Integration & Middleware
+- Fixed platform match widget lifecycle issues to prevent setState after dispose
+- Added proper component disposal handling to platform match queries
+- Improved error resilience in platform match component with mounted state checks
+- Fixed control flow issues in async operations for better stability
 - Implemented middleware architecture for Deezer albums to efficiently fetch accurate release dates and track information
 - New DeezerMiddleware class matching the pattern used for Discogs to enhance album data
 - Fixed Deezer album date loading with efficient on-demand fetching strategy

@@ -74,10 +74,74 @@ class DatabaseHelper {
         Logging.severe('Tracks table created successfully');
       }
 
-      // Check for other essential tables and create them if needed
-      // ... similar checks for other tables
+      // Check for album_notes table and create if missing
+      final albumNotesCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='album_notes'");
+
+      if (albumNotesCheck.isEmpty) {
+        // Table doesn't exist, create it
+        Logging.severe('Album notes table not found, creating it now');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS album_notes (
+            album_id TEXT PRIMARY KEY,
+            note TEXT
+          )
+        ''');
+        Logging.severe('Album notes table created successfully');
+
+        // Explicitly check that the table was created
+        final verifyCheck = await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='album_notes'");
+        if (verifyCheck.isEmpty) {
+          Logging.severe('ERROR: Failed to create album_notes table!');
+        } else {
+          Logging.severe('Verified album_notes table was created properly');
+        }
+      } else {
+        Logging.severe('Album notes table already exists');
+      }
     } catch (e, stack) {
       Logging.severe('Error ensuring database tables exist', e, stack);
+    }
+  }
+
+  // Add this new method specifically for recreating the album_notes table
+  Future<bool> recreateAlbumNotesTable() async {
+    try {
+      final db = await database;
+      Logging.severe('Force recreating album_notes table');
+
+      // Try to drop the table first in case it exists but is corrupted
+      try {
+        await db.execute('DROP TABLE IF EXISTS album_notes');
+        Logging.severe('Dropped existing album_notes table');
+      } catch (e) {
+        Logging.severe('Could not drop album_notes table: $e');
+      }
+
+      // Create the table
+      await db.execute('''
+        CREATE TABLE album_notes (
+          album_id TEXT PRIMARY KEY,
+          note TEXT
+        )
+      ''');
+
+      // Verify table was created
+      final check = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='album_notes'");
+
+      if (check.isEmpty) {
+        Logging.severe(
+            'Failed to recreate album_notes table after explicit attempt');
+        return false;
+      }
+
+      Logging.severe('Successfully recreated album_notes table');
+      return true;
+    } catch (e, stack) {
+      Logging.severe('Error recreating album_notes table', e, stack);
+      return false;
     }
   }
 
@@ -101,7 +165,6 @@ class DatabaseHelper {
   // Helper method for synchronization - simplified without using unused lock object
   Future<T> synchronized<T>(Object lock, Future<T> Function() action) async {
     if (_database != null) return action();
-
     try {
       Logging.severe('Acquiring database lock');
       return await action();
@@ -115,7 +178,6 @@ class DatabaseHelper {
     try {
       Logging.severe('Initializing database at ${await getDatabasePath()}');
       final path = await getDatabasePath();
-
       // Add proper timeout settings
       Database db = await openDatabase(
         path,
@@ -132,7 +194,6 @@ class DatabaseHelper {
         readOnly: false,
         // Remove the unsupported queryTimeoutDuration parameter
       );
-
       try {
         // Try to set WAL mode using rawQuery instead of execute for better Android compatibility
         await db.rawQuery('PRAGMA journal_mode = WAL');
@@ -142,15 +203,16 @@ class DatabaseHelper {
         Logging.severe(
             'Failed to set WAL journal mode: $e (continuing anyway)');
       }
-
       // Update schema directly with the db instance
       await _updateDatabaseSchemaInternal(db);
-
-      // Set pragmas for better performance and stability
-      await db.execute('PRAGMA synchronous = NORMAL;');
-      await db.execute('PRAGMA cache_size = 1000;');
-      await db.execute('PRAGMA temp_store = MEMORY;');
-
+      try {
+        // Set pragmas for better performance and stability
+        await db.execute('PRAGMA synchronous = NORMAL;');
+        await db.execute('PRAGMA cache_size = 1000;');
+        await db.execute('PRAGMA temp_store = MEMORY;');
+      } catch (e) {
+        Logging.severe('Error setting pragmas: $e');
+      }
       return db;
     } catch (e, stack) {
       Logging.severe('Error initializing database', e, stack);
@@ -166,7 +228,6 @@ class DatabaseHelper {
       // Check if master_release_map table exists
       final masterReleaseTableCheck = await db.rawQuery(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='master_release_map'");
-
       if (masterReleaseTableCheck.isEmpty) {
         Logging.severe('Creating missing master_release_map table');
         await db.execute('''
@@ -183,7 +244,6 @@ class DatabaseHelper {
             await db.rawQuery('PRAGMA table_info(master_release_map)');
         final columnNames =
             columnCheck.map((c) => c['name'].toString()).toList();
-
         if (!columnNames.contains('release_id')) {
           Logging.severe(
               'Adding missing release_id column to master_release_map table');
@@ -198,16 +258,13 @@ class DatabaseHelper {
                 PRIMARY KEY (master_id)
               )
             ''');
-
             // Copy data from old table to new one
             await txn.execute('''
               INSERT INTO master_release_map_temp (master_id, timestamp)
               SELECT master_id, timestamp FROM master_release_map
             ''');
-
             // Drop old table
             await txn.execute('DROP TABLE master_release_map');
-
             // Rename new table to original name
             await txn.execute(
                 'ALTER TABLE master_release_map_temp RENAME TO master_release_map');
@@ -218,7 +275,6 @@ class DatabaseHelper {
       // Check for platform_matches table
       final platformMatchesTableCheck = await db.rawQuery(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_matches'");
-
       if (platformMatchesTableCheck.isEmpty) {
         Logging.severe('Creating missing platform_matches table');
         await db.execute('''
@@ -229,6 +285,20 @@ class DatabaseHelper {
             verified INTEGER DEFAULT 0,
             timestamp TEXT,
             PRIMARY KEY (album_id, platform)
+          )
+        ''');
+      }
+
+      // Check for custom_list_order table
+      final customListOrderCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='custom_list_order'");
+      if (customListOrderCheck.isEmpty) {
+        Logging.severe('Creating missing custom_list_order table');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS custom_list_order (
+            list_id TEXT PRIMARY KEY,
+            position INTEGER,
+            FOREIGN KEY (list_id) REFERENCES custom_lists(id)
           )
         ''');
       }
@@ -362,6 +432,14 @@ class DatabaseHelper {
       )
     ''');
 
+    // Add album notes table
+    await db.execute('''
+      CREATE TABLE album_notes (
+        album_id TEXT PRIMARY KEY,
+        note TEXT
+      )
+    ''');
+
     // Add indices for common lookups
     await _createIndices(db);
   }
@@ -374,23 +452,18 @@ class DatabaseHelper {
       // Index for ratings lookups by album_id
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_ratings_album_id ON ratings(album_id)');
-
       // Index for ratings lookups by track_id
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_ratings_track_id ON ratings(track_id)');
-
       // Index for album platform (useful for filtering by source)
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_albums_platform ON albums(platform)');
-
       // Compound index for album_lists to speed up list retrieval
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_album_lists_list_id ON album_lists(list_id, position)');
-
       // Index for album_order to speed up ordered album retrieval
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_album_order_position ON album_order(position)');
-
       Logging.severe('Database indices created successfully');
     } catch (e, stack) {
       Logging.severe('Error creating database indices', e, stack);
@@ -403,7 +476,6 @@ class DatabaseHelper {
       // Check if the ratings album_id index exists
       var result = await db.rawQuery(
           "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_ratings_album_id'");
-
       if (result.isEmpty) {
         // Indices don't exist, create them
         await _createIndices(db);
@@ -418,13 +490,10 @@ class DatabaseHelper {
     try {
       Logging.severe('Starting database vacuum');
       final db = await database;
-
       // Run VACUUM to rebuild the database file, reclaiming unused space
       await db.execute('VACUUM');
-
       // Run ANALYZE to update statistics used by the query optimizer
       await db.execute('ANALYZE');
-
       Logging.severe('Database vacuum completed successfully');
       return true;
     } catch (e, stack) {
@@ -456,19 +525,15 @@ class DatabaseHelper {
     try {
       Logging.severe('Running database integrity check');
       final db = await database;
-
       final results = await db.rawQuery('PRAGMA integrity_check');
-
       final isOk = results.isNotEmpty &&
           results.first.containsKey('integrity_check') &&
           results.first['integrity_check'] == 'ok';
-
       if (isOk) {
         Logging.severe('Database integrity check passed');
       } else {
         Logging.severe('Database integrity check failed: $results');
       }
-
       return isOk;
     } catch (e, stack) {
       Logging.severe('Error checking database integrity', e, stack);
@@ -503,9 +568,7 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
-
     if (maps.isEmpty) return null;
-
     try {
       return Album.fromJson(maps.first);
     } catch (e, stack) {
@@ -541,14 +604,12 @@ class DatabaseHelper {
   // Rating methods
   Future<void> saveRating(String albumId, String trackId, double rating) async {
     final db = await database;
-
     // Check if rating exists
     final existingRating = await db.query(
       'ratings',
       where: 'album_id = ? AND track_id = ?',
       whereArgs: [albumId, trackId],
     );
-
     if (existingRating.isEmpty) {
       // Insert new rating
       await db.insert(
@@ -586,10 +647,8 @@ class DatabaseHelper {
   // Album order methods
   Future<void> saveAlbumOrder(List<String> albumIds) async {
     final db = await database;
-
     // Clear existing order
     await db.delete('album_order');
-
     // Insert new order
     for (int i = 0; i < albumIds.length; i++) {
       await db.insert(
@@ -608,7 +667,6 @@ class DatabaseHelper {
       'album_order',
       orderBy: 'position ASC',
     );
-
     return result.map((map) => map['album_id'].toString()).toList();
   }
 
@@ -620,10 +678,8 @@ class DatabaseHelper {
       // Check table schema
       final columns = await db.rawQuery('PRAGMA table_info(custom_lists)');
       final columnNames = columns.map((c) => c['name'].toString()).toList();
-
       // Adapt field names to match database schema
       final Map<String, dynamic> data = {};
-
       // Handle required fields
       data['id'] = list['id'];
       data['name'] = list['name'];
@@ -683,7 +739,6 @@ class DatabaseHelper {
         WHERE al.list_id = ?
         ORDER BY al.position
       ''', [listId]);
-
       return results;
     } catch (e, stack) {
       Logging.severe('Error getting albums in list', e, stack);
@@ -708,7 +763,6 @@ class DatabaseHelper {
         where: 'key = ?',
         whereArgs: [key],
       );
-
       if (result.isNotEmpty) {
         // Update existing setting
         await db.update(
@@ -733,24 +787,20 @@ class DatabaseHelper {
       }
     } catch (e, stack) {
       Logging.severe('Error saving setting: $key = $value', e, stack);
-
       // Try one more time with a simplified approach
       try {
         final db = await database;
-
         // Delete any existing value first
         await db.delete(
           'settings',
           where: 'key = ?',
           whereArgs: [key],
         );
-
         // Then insert fresh
         await db.insert(
           'settings',
           {'key': key, 'value': value},
         );
-
         Logging.severe('Setting saved using fallback method: $key = $value');
       } catch (e2, stack2) {
         Logging.severe(
@@ -768,7 +818,6 @@ class DatabaseHelper {
         where: 'key = ?',
         whereArgs: [key],
       );
-
       if (result.isNotEmpty) {
         // For color settings, log the actual value to verify
         if (key == 'primaryColor') {
@@ -789,21 +838,17 @@ class DatabaseHelper {
       String listId, String name, String description, List<String> albumIds,
       {DateTime? createdAt, DateTime? updatedAt}) async {
     final db = await database;
-
     await db.transaction((txn) async {
       // Use txn for all DB operations inside this transaction!
-
       // Check table schema to handle both naming conventions
       final columns = await txn.rawQuery('PRAGMA table_info(custom_lists)');
       final columnNames = columns.map((c) => c['name'].toString()).toList();
-
       // Determine whether to use snake_case or camelCase field names
       final Map<String, dynamic> data = {
         'id': listId,
         'name': name,
         'description': description,
       };
-
       // Add timestamp fields in the right format based on schema
       if (columnNames.contains('created_at')) {
         data['created_at'] = (createdAt ?? DateTime.now()).toIso8601String();
@@ -812,20 +857,17 @@ class DatabaseHelper {
         data['createdAt'] = (createdAt ?? DateTime.now()).toIso8601String();
         data['updatedAt'] = (updatedAt ?? DateTime.now()).toIso8601String();
       }
-
       await txn.insert(
         'custom_lists',
         data,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-
       // Then, delete any existing album relationships for this list
       await txn.delete(
         'album_lists',
         where: 'list_id = ?',
         whereArgs: [listId],
       );
-
       // Finally, insert all the album relationships with their positions
       for (int i = 0; i < albumIds.length; i++) {
         await txn.insert(
@@ -839,7 +881,6 @@ class DatabaseHelper {
         );
       }
     });
-
     Logging.severe('Saved custom list: $name with ${albumIds.length} albums');
   }
 
@@ -860,11 +901,9 @@ class DatabaseHelper {
 
       // Process results outside of transaction to reduce lock time
       List<Map<String, dynamic>> result = [];
-
       for (var list in lists) {
         final listId = list['id'] as String;
         final Map<String, dynamic> resultList = Map.from(list);
-
         // Normalize field names to camelCase for consistency
         if (useSnakeCase) {
           if (list.containsKey('created_at')) {
@@ -874,7 +913,6 @@ class DatabaseHelper {
             resultList['updatedAt'] = list['updated_at'];
           }
         }
-
         // Get album IDs for this list in a separate transaction
         final albumResults = await db.transaction((txn) async {
           return await txn.query(
@@ -885,24 +923,19 @@ class DatabaseHelper {
             orderBy: 'position ASC',
           );
         });
-
         final albumIds =
             albumResults.map((row) => row['album_id'] as String).toList();
         resultList['albumIds'] = albumIds;
-
         result.add(resultList);
       }
-
       return result;
     } catch (e, stack) {
       Logging.severe(
           'Error getting custom lists, attempting to fix locks', e, stack);
       await fixDatabaseLocks();
-
       // Retry once after fixing locks
       final db = await database;
       final lists = await db.query('custom_lists');
-
       // Simplified return on retry to reduce complexity
       return lists;
     }
@@ -911,7 +944,6 @@ class DatabaseHelper {
   // Helper method to delete a custom list - enhanced version that uses transaction
   Future<void> deleteCustomList(String listId) async {
     final db = await database;
-
     await db.transaction((txn) async {
       // Delete the list
       await txn.delete(
@@ -919,7 +951,6 @@ class DatabaseHelper {
         where: 'id = ?',
         whereArgs: [listId],
       );
-
       // Delete all album relationships for this list
       await txn.delete(
         'album_lists',
@@ -927,7 +958,6 @@ class DatabaseHelper {
         whereArgs: [listId],
       );
     });
-
     Logging.severe('Deleted custom list: $listId');
   }
 
@@ -941,38 +971,31 @@ class DatabaseHelper {
         await _database!.close();
         _database = null;
       }
-
       // Wait a moment to ensure connection is closed
       await Future.delayed(const Duration(milliseconds: 500));
-
       // Get the database path
       final dbPath = await getDatabasePath();
       final dbFile = File(dbPath);
-
       // Check if database exists
       if (await dbFile.exists()) {
         // Check for lock files
         final journalFile = File('$dbPath-journal');
         final walFile = File('$dbPath-wal');
         final shmFile = File('$dbPath-shm');
-
         // Delete lock files if they exist
         if (await journalFile.exists()) {
           Logging.severe('Removing journal file');
           await journalFile.delete();
         }
-
         if (await walFile.exists()) {
           Logging.severe('Removing WAL file');
           await walFile.delete();
         }
-
         if (await shmFile.exists()) {
           Logging.severe('Removing SHM file');
           await shmFile.delete();
         }
       }
-
       // Reopen the database
       _database = await _initDb();
       Logging.severe('Database locks fixed and connection reopened');
@@ -990,10 +1013,8 @@ class DatabaseHelper {
       whereArgs: [albumId],
       orderBy: 'position ASC',
     );
-
     Logging.severe(
         'Retrieved ${results.length} tracks from database for album $albumId');
-
     if (results.isEmpty) return [];
 
     // Get ratings for this album
@@ -1015,13 +1036,11 @@ class DatabaseHelper {
     }
 
     List<Map<String, dynamic>> tracks = [];
-
     for (var result in results) {
       final trackId = result['id']?.toString();
       final trackNumber = result['position'] is int
           ? result['position'] as int
           : int.tryParse(result['position']?.toString() ?? '') ?? 0;
-
       // Try to get rating by ID, fallback to position, then fallback to trailing number in ID
       double rating = 0.0;
       if (ratingById.containsKey(trackId)) {
@@ -1064,10 +1083,8 @@ class DatabaseHelper {
           Logging.severe('Error parsing track data JSON: $e');
         }
       }
-
       tracks.add(track);
     }
-
     return tracks;
   }
 
@@ -1081,13 +1098,11 @@ class DatabaseHelper {
         // --- FIX: Ensure trackName and trackTimeMillis are mapped from possible Bandcamp keys ---
         String trackId = track['trackId']?.toString() ?? '';
         if (trackId.isEmpty) continue;
-
         // Try to get name from multiple possible keys
         String trackName = track['trackName'] ??
             track['name'] ??
             track['title'] ??
             'Unknown Track';
-
         // Try to get position from multiple possible keys
         int position = track['trackNumber'] ??
             track['position'] ??
@@ -1099,7 +1114,6 @@ class DatabaseHelper {
             track['durationMs'] ??
             track['duration'] ??
             0;
-
         await txn.insert(
           'tracks',
           {
@@ -1114,7 +1128,6 @@ class DatabaseHelper {
         );
       }
     });
-
     Logging.severe('Inserted ${tracks.length} tracks for album $albumId');
   }
 
@@ -1124,13 +1137,10 @@ class DatabaseHelper {
     try {
       Logging.severe('Creating tracks from ratings for album $albumId');
       final db = await database;
-
       // Get all ratings for this album
       final ratings = await getRatingsForAlbum(albumId);
       if (ratings.isEmpty) return [];
-
       List<Map<String, dynamic>> tracks = [];
-
       // Create a track for each rating
       for (int i = 0; i < ratings.length; i++) {
         final rating = ratings[i];
@@ -1142,7 +1152,6 @@ class DatabaseHelper {
           where: 'id = ?',
           whereArgs: [trackId],
         );
-
         String trackName = 'Track ${i + 1}';
         if (existingTracks.isNotEmpty) {
           trackName = existingTracks.first['name'].toString();
@@ -1156,7 +1165,6 @@ class DatabaseHelper {
           'rating': rating['rating'],
         });
       }
-
       Logging.severe(
           'Created ${tracks.length} tracks from ratings for album $albumId');
       return tracks;
@@ -1178,20 +1186,16 @@ class DatabaseHelper {
           'refreshBandcampAlbumTracks: Not a Bandcamp URL: $albumUrl');
       return false;
     }
-
     Logging.severe(
         'Refreshing Bandcamp tracks for album $albumId from $albumUrl');
-
     try {
       // Try to use BandcampService if implemented
       // Import BandcampService at the top: import '../platforms/bandcamp_service.dart';
       // and PlatformServiceFactory: import '../platforms/platform_service_factory.dart';
       final platformFactory = PlatformServiceFactory();
       final bandcampService = platformFactory.getService('bandcamp');
-
       // Try to fetch album details using BandcampService
       final albumDetails = await bandcampService.fetchAlbumDetails(albumUrl);
-
       if (albumDetails != null &&
           albumDetails['tracks'] is List &&
           (albumDetails['tracks'] as List).isNotEmpty) {
@@ -1223,7 +1227,6 @@ class DatabaseHelper {
       where: 'album_id = ?',
       whereArgs: [albumId],
     );
-
     // Group by normalized name, keep the one with the longest duration
     final Map<String, Map<String, dynamic>> bestTracks = {};
     for (final track in tracks) {
@@ -1236,11 +1239,9 @@ class DatabaseHelper {
         bestTracks[normalized] = track;
       }
     }
-
     // Build a set of (id, album_id) to keep
     final Set<String> keepKeys =
         bestTracks.values.map((t) => '${t['id']}|${t['album_id']}').toSet();
-
     // Delete all tracks for this album not in keepKeys
     for (final track in tracks) {
       final key = '${track['id']}|${track['album_id']}';
@@ -1253,7 +1254,6 @@ class DatabaseHelper {
         removed++;
       }
     }
-
     Logging.severe('Removed $removed duplicate tracks for album $albumId');
     return removed;
   }

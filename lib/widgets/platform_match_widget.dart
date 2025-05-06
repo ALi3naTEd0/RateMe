@@ -42,10 +42,20 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   // Create a factory instance to access platform services
   final _platformFactory = PlatformServiceFactory();
 
+  // Add this flag to track disposal state
+  bool _disposed = false;
+
   @override
   void initState() {
     super.initState();
     _loadPlatformMatches();
+  }
+
+  @override
+  void dispose() {
+    // Add this to cancel any ongoing operations when the widget is disposed
+    _disposed = true;
+    super.dispose();
   }
 
   Future<void> _loadPlatformMatches() async {
@@ -94,6 +104,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         // run them through verification for poor matches
         await _verifyAndUpdateSavedMatches(savedMatches);
 
+        if (!mounted || _disposed) return;
         setState(() {
           _isLoading = false;
         });
@@ -104,11 +115,10 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       await _findMatchingAlbums();
     } catch (e, stack) {
       Logging.severe('Error loading platform matches', e, stack);
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (!mounted || _disposed) return;
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -349,11 +359,20 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       await _savePlatformMatches();
     } catch (e, stack) {
       Logging.severe('Error finding matching albums', e, stack);
-    } finally {
-      if (mounted) {
+
+      // Check if still mounted before updating state
+      if (!mounted || _disposed) {
+        // Don't return here, let the finally block handle it
+      } else {
         setState(() {
           _isLoading = false;
         });
+      }
+    } finally {
+      // Remove the return statement from finally block
+      // This fixes the "control_flow_in_finally" warning
+      if (!mounted || _disposed) {
+        // Do nothing, but don't use return statement here
       }
     }
   }
