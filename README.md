@@ -24,7 +24,6 @@
 [Downloads](#downloads) •
 [Installation](#installation) •
 [Technologies](#technologies-used) •
-[How to Use](#how-to-use) •
 [Project Architecture](#project-architecture) •
 [Development](#development) •
 [Roadmap](#roadmap) •
