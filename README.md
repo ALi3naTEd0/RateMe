@@ -73,6 +73,14 @@ Welcome to **Rate Me!**, an app designed for music lovers to discover, rate, and
 |:-------------------------:|:-------------------------:|:-------------------------:|
 |![Screenshot 1](https://i.imgur.com/jjclzhS.png)       |  ![Screenshot 2](https://i.imgur.com/m73eQXI.png)|![Screenshot 3](https://i.imgur.com/ve8LkiB.png)|
 
+## Getting Started
+
+1. **Search for Albums**: Enter an artist or album name to search, or paste a URL from Apple Music, Bandcamp, Spotify, Deezer or Discogs
+2. **Rate Albums**: Open an album and use the sliders to rate each track from 0-10
+3. **Create Lists**: Organize your music by creating custom lists
+4. **Add Album Notes**: Write personal reviews or observations about each album
+5. **Share Your Ratings**: Generate beautiful images of your ratings to share
+
 ## Downloads
 
 <div align="center">
