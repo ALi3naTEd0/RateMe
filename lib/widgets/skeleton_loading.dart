@@ -198,3 +198,22 @@ class ListCardSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// A skeleton placeholder for platform buttons
+class PlatformButtonSkeleton extends StatelessWidget {
+  final double size;
+
+  const PlatformButtonSkeleton({
+    super.key,
+    this.size = 40.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SkeletonLoading(
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+    );
+  }
+}
