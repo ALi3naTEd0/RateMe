@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed search results date sorting for Deezer albums with missing dates
 
 ### Custom List & UI Improvements
+- Custom list order persistence across app restarts
+- Improved list management with drag-to-reorder functionality
+- Reduced verbose logging in dialog list rendering for better performance
+- Changed custom list dialog to use ordered lists instead of alphabetical sorting
+- Custom list ordering now properly saves and loads from database
+- Lists now maintain the user-defined order consistently throughout the app
 - Fixed list reordering persistence issue in custom album lists
 - Implemented proper album order synchronization with database
 - Fixed custom lists appearing in wrong order in "Save Album" dialogs

@@ -922,14 +922,33 @@ class UserData {
       // Get all lists first
       final lists = await getCustomLists();
 
-      // Sort lists by creation date (or another field that was previously used)
-      // This restores the previous behavior
-      lists.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      // Get custom list order from DatabaseHelper
+      final orderResult = await DatabaseHelper.instance.getCustomListOrder();
 
-      Logging.severe('Retrieved ${lists.length} lists in original order');
-      return lists;
+      if (orderResult.isNotEmpty) {
+        // Create a map for sorting
+        final listMap = {for (var list in lists) list.id: list};
+        final orderedLists = <CustomList>[];
+
+        // First add lists in saved order
+        for (final id in orderResult) {
+          if (listMap.containsKey(id)) {
+            orderedLists.add(listMap[id]!);
+            listMap.remove(id);
+          }
+        }
+
+        // Add any remaining lists
+        orderedLists.addAll(listMap.values);
+
+        return orderedLists;
+      } else {
+        // Fall back to sorting by creation date
+        lists.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return lists;
+      }
     } catch (e, stack) {
-      Logging.severe('Error getting ordered custom lists', e, stack);
+      Logging.error('Error getting ordered custom lists', e, stack);
       return [];
     }
   }
@@ -938,12 +957,10 @@ class UserData {
   static Future<bool> saveCustomListOrder(List<String> listIds) async {
     try {
       await initializeDatabase();
-      // directly call the method instead of storing the instance in an unused variable
       await DatabaseHelper.instance.saveCustomListOrder(listIds);
-      Logging.severe('Custom list order saved: ${listIds.length} lists');
       return true;
     } catch (e, stack) {
-      Logging.severe('Error saving custom list order', e, stack);
+      Logging.error('Error saving custom list order', e, stack);
       return false;
     }
   }

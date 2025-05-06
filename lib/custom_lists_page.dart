@@ -7,7 +7,6 @@ import 'album_model.dart';
 import 'logging.dart';
 import 'widgets/skeleton_loading.dart';
 import 'database/database_helper.dart';
-import 'dart:convert';
 
 // Model for custom album lists
 class CustomList {
@@ -113,35 +112,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
       Logging.info('[LISTS] Loading custom lists');
 
       // Get lists from database
-      final dbLists = await DatabaseHelper.instance.getAllCustomLists();
-
-      // Get the saved order
-      final orderResult = await DatabaseHelper.instance.getCustomListOrder();
-
-      // Convert to CustomList objects
-      final savedLists = dbLists.map((list) => jsonEncode(list)).toList();
-      final loadedLists = savedLists
-          .map((list) => CustomList.fromJson(jsonDecode(list)))
-          .toList();
-
-      // Create a map for sorting
-      final listMap = {for (var list in loadedLists) list.id: list};
-      final orderedLists = <CustomList>[];
-
-      // First add lists in saved order
-      if (orderResult.isNotEmpty) {
-        for (final id in orderResult) {
-          if (listMap.containsKey(id)) {
-            orderedLists.add(listMap[id]!);
-            listMap.remove(id);
-          }
-        }
-        // Add any remaining lists
-        orderedLists.addAll(listMap.values);
-      } else {
-        // No saved order, use lists as is
-        orderedLists.addAll(loadedLists);
-      }
+      final orderedLists = await UserData.getOrderedCustomLists();
 
       if (mounted) {
         setState(() {

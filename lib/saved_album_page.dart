@@ -1489,27 +1489,37 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor:
                           useDarkButtonText ? Colors.black : Colors.white,
-                      minimumSize: const Size(200, 45),
                     ),
                     onPressed: () => navigator.pop('new'),
                   ),
                   const Divider(),
                   Expanded(
                     child: FutureBuilder<List<CustomList>>(
-                      future: UserData
-                          .getOrderedCustomLists(), // Use ordered lists instead of getCustomLists()
+                      future: UserData.getOrderedCustomLists(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(
                               child: CircularProgressIndicator());
                         }
+
                         final lists = snapshot.data!;
+                        // Replace detailed logging with a simple summary
+                        Logging.info(
+                            'Dialog loaded ${lists.length} custom lists');
+
+                        // Remove all these individual list logs
+                        // for (int i = 0; i < lists.length; i++) {
+                        //   Logging.severe('SavedAlbumPage dialog list $i: ${lists[i].name}');
+                        // }
 
                         // Initialize selected state for lists containing the album
                         for (var list in lists) {
                           if (!selectedLists.containsKey(list.id)) {
-                            selectedLists[list.id] = list.albumIds
-                                .contains(unifiedAlbum?.id.toString());
+                            selectedLists[list.id] = list.albumIds.contains(
+                                unifiedAlbum?.id.toString() ??
+                                    _albumData['id'] ??
+                                    _albumData['collectionId'] ??
+                                    '');
                           }
                         }
 

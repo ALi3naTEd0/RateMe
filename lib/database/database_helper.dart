@@ -1272,4 +1272,52 @@ class DatabaseHelper {
     await db.delete('settings');
     Logging.severe('Cleared all settings from database');
   }
+
+  // Fixed saveCustomListOrder method with reduced logging
+  Future<void> saveCustomListOrder(List<String> listIds) async {
+    try {
+      final db = await database;
+
+      // Use a transaction for atomicity
+      await db.transaction((txn) async {
+        // First delete the existing order
+        await txn.delete('custom_list_order');
+
+        // Then insert the new order with explicit position values
+        for (int i = 0; i < listIds.length; i++) {
+          await txn.insert('custom_list_order', {
+            'list_id': listIds[i],
+            'position': i, // Make sure position is 0-based
+          });
+        }
+      });
+
+      Logging.info('Saved custom list order: ${listIds.length} lists');
+    } catch (e, stack) {
+      Logging.error('Error saving custom list order', e, stack);
+    }
+  }
+
+  // Fixed getCustomListOrder method with reduced logging
+  Future<List<String>> getCustomListOrder() async {
+    try {
+      final db = await database;
+
+      // Query with explicit ordering
+      final result = await db.query(
+        'custom_list_order',
+        columns: ['list_id', 'position'],
+        orderBy: 'position ASC',
+      );
+
+      // Create the list in the exact order from the database
+      final List<String> orderedIds =
+          result.map((row) => row['list_id'].toString()).toList();
+
+      return orderedIds;
+    } catch (e, stack) {
+      Logging.error('Error getting custom list order', e, stack);
+      return [];
+    }
+  }
 }

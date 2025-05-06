@@ -1284,14 +1284,17 @@ class _DetailsPageState extends State<DetailsPage> {
                   const Divider(),
                   Expanded(
                     child: FutureBuilder<List<CustomList>>(
-                      future: UserData
-                          .getOrderedCustomLists(), // Use ordered lists instead of getCustomLists()
+                      // Use getOrderedCustomLists() instead of getCustomLists()
+                      future: UserData.getOrderedCustomLists(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(
                               child: CircularProgressIndicator());
                         }
+
                         final lists = snapshot.data!;
+                        Logging.info(
+                            'Dialog loaded ${lists.length} custom lists');
 
                         // Initialize selected state for lists containing the album
                         for (var list in lists) {
