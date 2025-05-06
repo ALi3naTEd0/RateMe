@@ -23,7 +23,11 @@
 - [x] Create desktop-optimized layout
 - [x] Add pagination for lists
 - [x] Implement loading placeholders with skeleton UI
-- [x] Add pull-to-refresh for content updates (allows users to swipe down to refresh data)
+- [x] Add pull-to-refresh for content updates
+- [x] Support both light and dark app themes with consistent styling
+- [x] Add cross-platform streaming buttons for music services
+- [x] Implement customizable color themes
+- [x] Add album notes functionality for reviews and comments
 
 ### Data Handling - Core
 - [x] Unify album model across different platforms
@@ -33,17 +37,24 @@
 - [x] Add bulk import/export functionality
 - [x] Implement proper cascade delete for albums and related entities
 - [x] Add custom list to album many-to-many relationships
-- [x] Fix rating persistence and display across all platforms (iTunes, Bandcamp, Spotify, Deezer)
+- [x] Fix rating persistence and display across all platforms
+- [x] Implement comprehensive album date handling and normalization
+- [x] Add album notes storage and retrieval functionality
 - [ ] Implement search filter/sort options
+- [x] Implement search history storage
 
 ### Platform Integration - Core
 - [x] Basic Bandcamp parsing and integration
-- [x] iTunes API integration
+- [x] iTunes API integration 
 - [x] Spotify API integration
 - [x] Deezer API integration
-- [ ] Apple Music authentication (allows access to user libraries and extended features)
-- [ ] Spotify OAuth2 implementation (allows access to user libraries and playlists)
-- [ ] Deezer authentication (allows access to user libraries and personalized content)
+- [x] Discogs API integration
+- [x] User API key management for Spotify and Discogs
+- [x] Platform middleware for enhanced album data
+- [x] Cross-platform matching for albums
+- [x] Universal EP/Single handling across platforms
+- [ ] Apple Music authentication (allows access to user libraries)
+- [x] Fix platform-specific URL detection and handling
 
 ## Advanced Tasks (Future Development)
 
@@ -57,13 +68,23 @@
   - [ ] Storage growth monitoring
   - [ ] Usage pattern tracking
 
+### Data Management
+- [x] Album notes editing and display
+- [ ] Album notes export and import functionality
+- [x] Platform match cleaner for fixing incorrect associations
+- [x] Date fixing utility for batch correction
+- [ ] Bulk editing tools for ratings and metadata
+- [ ] Custom tags for albums and tracks
+- [x] Drag and drop list management
+- [ ] Advanced rating history with trends visualization
+
 ### Caching System
+- [x] Implementation of offline album access
 - [ ] Setup disk cache for images and API responses
   - [ ] Add configurable size limits
   - [ ] Implement LRU cache eviction
   - [ ] Add background cleanup job
 - [ ] Implement memory cache for frequent data
-- [ ] Add offline mode support
 - [ ] Setup cache warming strategy
 - [ ] Add cache invalidation rules
 
@@ -79,19 +100,23 @@
 - [ ] Progressive loading for large datasets
 - [x] Proper caching for database queries
 - [x] Size optimization
+- [x] Middleware architecture for advanced data processing
 - [ ] Network request handling
   - [ ] Timeouts
   - [ ] Retry logic
   - [ ] Rate limiting
 - [x] Batch operations for database
+- [x] Resource disposal for asynchronous operations
 - [ ] Memory management
-  - [ ] Resource disposal
+  - [x] Resource disposal
   - [ ] Cache clearing
   - [ ] Memory monitoring
 
 ### UI/UX - Advanced
+- [x] Platform-specific icons for music services
 - [ ] Add platform-specific theme handling for Linux
 - [ ] Optimize widget rebuilds
+- [ ] Implement search history interface
 - [ ] Improve accessibility features
   - [ ] Screen reader support
   - [ ] High contrast mode
@@ -103,7 +128,7 @@
   - [ ] Cache cleanup
   - [ ] Library scanning
   - [ ] Metadata updates
-- [ ] Add notification system
+- [x] Global notification system
 - [ ] Handle background playback
 - [ ] Implement battery optimizations
 
@@ -112,7 +137,7 @@
 - [ ] Add unit tests for core functionality
 - [ ] Implement integration tests
 - [ ] Add UI tests for critical flows
-- [ ] Setup CI/CD pipeline
+- [x] Setup CI/CD pipeline
 - [ ] Add error reporting
 - [ ] Implement crash analytics
 
@@ -128,5 +153,4 @@
 - [ ] Dynamic theming based on album artwork
 - [ ] Rating history and trends
 - [ ] Listening statistics
-- [ ] Integration with additional music platforms
 - [ ] Playlist generation based on ratings
