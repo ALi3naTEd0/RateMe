@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1-1] - 2025-05-07
+
 ### Album Notes & Documentation
 - Added album notes feature for saving personal reviews, thoughts, and observations
 - Implemented notes display and editing on album details page
