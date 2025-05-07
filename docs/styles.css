@@ -49,10 +49,10 @@ body {
 
 /* Header Styles */
 header {
-    background-color: var(--header-bg, var(--primary));
-    border-bottom: 2px solid var(--primary-header, transparent);
+    background-color: #FFFFFF; /* White background in light mode */
+    border-bottom: 2px solid var(--primary); /* Purple border in light mode */
     transition: background-color 0.3s, border-color 0.3s;
-    color: var(--text-light);
+    color: var(--primary); /* Purple text in light mode */
     padding: 1rem 0;
     position: fixed;
     width: 100%;
@@ -60,6 +60,13 @@ header {
     left: 0;
     z-index: 1000;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode header override */
+[data-theme="dark"] header {
+    background-color: var(--header-bg); /* Dark background in dark mode */
+    border-bottom: 2px solid var(--primary-header); /* Dark mode border */
+    color: var(--text-light); /* White text in dark mode */
 }
 
 header .container {
@@ -87,15 +94,25 @@ nav ul li {
     margin-left: 1.5rem;
 }
 
+/* Update nav link colors to match the header theme */
 nav ul li a {
-    color: var(--text-light);
+    color: var(--primary); /* Purple links in light mode */
     text-decoration: none;
     font-weight: 500;
     transition: color 0.3s;
 }
 
 nav ul li a:hover {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--primary-dark); /* Darker purple on hover in light mode */
+}
+
+/* Dark mode nav links */
+[data-theme="dark"] nav ul li a {
+    color: var(--text-light); /* White links in dark mode */
+}
+
+[data-theme="dark"] nav ul li a:hover {
+    color: rgba(255, 255, 255, 0.8); /* Slightly dimmed white on hover in dark mode */
 }
 
 /* GitHub icon in nav */
@@ -103,6 +120,12 @@ nav ul li a:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    color: var(--primary); /* Purple in light mode */
+}
+
+/* GitHub icon in nav - ensure proper color in both modes */
+[data-theme="dark"] .github-icon {
+    color: var(--text-light); /* White in dark mode */
 }
 
 .github-icon i {
@@ -669,11 +692,16 @@ footer {
         top: 73px; /* Header height + padding */
         left: 0;
         width: 100%;
-        background: var(--button-bg);
+        background: white; /* Change the mobile nav background to white */
+        backdrop-filter: blur(8px);
         padding: 1rem 0;
         border-top: 1px solid var(--button-border);
         border-bottom: 1px solid var(--button-border);
         z-index: 999;
+    }
+    
+    [data-theme="dark"] nav {
+        background: var(--button-bg); /* Dark background in dark mode */
     }
     
     nav.show {
@@ -689,10 +717,16 @@ footer {
     nav ul li a {
         display: block;
         padding: 0.5rem 0;
+        color: var(--primary); /* Ensure text is purple in mobile menu */
+    }
+    
+    [data-theme="dark"] nav ul li a {
+        color: var(--text-light); /* White text in dark mode */
     }
 
     nav ul li a:hover {
-        background: var(--button-border);
+        background: var(--primary); /* Keep the hover background */
+        color: white; /* Change text to white on hover for contrast */
     }
 
     .download-options {
@@ -719,11 +753,16 @@ footer {
         top: 73px; /* Header height + padding */
         left: 0;
         width: 100%;
-        background: var(--button-bg);
+        background: white; /* Change the mobile nav background to white */
+        backdrop-filter: blur(8px);
         padding: 1rem 0;
         border-top: 1px solid var(--button-border);
         border-bottom: 1px solid var(--button-border);
         z-index: 999;
+    }
+
+    [data-theme="dark"] nav {
+        background: var(--button-bg); /* Dark background in dark mode */
     }
 
     nav.show {
@@ -748,10 +787,16 @@ footer {
         padding: 12px 0;
         width: 100%;
         text-align: center;
+        color: var(--primary); /* Ensure text is purple in mobile menu */
+    }
+    
+    [data-theme="dark"] nav ul li a {
+        color: var(--text-light); /* White text in dark mode */
     }
 
     nav ul li a:hover {
-        background: var(--button-border);
+        background: var(--primary); /* Keep the hover background */
+        color: white; /* Change text to white on hover for contrast */
     }
 
     .menu-toggle {
@@ -816,11 +861,15 @@ footer {
         left: 0;
         width: 100%;
         display: none;
-        background: var(--button-bg);
+        background: white; /* Change the mobile nav background to white */
         padding: 1rem 0;
         border-top: 1px solid var(--button-border);
         border-bottom: 1px solid var(--button-border);
         z-index: 999;
+    }
+
+    [data-theme="dark"] nav {
+        background: var(--button-bg); /* Dark background in dark mode */
     }
 
     nav.show {
@@ -829,8 +878,7 @@ footer {
 
     nav ul {
         display: flex;
-        flex-direction: column;
-        width: 100%;
+        flex-direction: row;
     }
 
     nav ul li {
@@ -843,6 +891,16 @@ footer {
         padding: 12px 0;
         display: block;
         width: 100%;
+        color: var(--primary); /* Ensure text is purple in mobile menu */
+    }
+    
+    [data-theme="dark"] nav ul li a {
+        color: var(--text-light); /* White text in dark mode */
+    }
+
+    nav ul li a:hover {
+        background: var(--primary); /* Keep the hover background */
+        color: white; /* Change text to white on hover for contrast */
     }
 
     /* Make all download buttons full width on mobile */
@@ -903,7 +961,7 @@ footer {
 }
 
 [data-theme="dark"] .download-button:hover i {
-    color: var(--text-light);
+    color: var (--text-light);
 }
 
 /* Update version info for dark mode */
