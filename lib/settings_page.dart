@@ -19,7 +19,6 @@ import 'debug_util.dart';
 import 'settings_service.dart';
 import 'widgets/skeleton_loading.dart';
 import 'search_service.dart';
-import 'backup_converter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'version_info.dart';
@@ -655,36 +654,74 @@ class _SettingsPageState extends State<SettingsPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
+        dialogTitle: 'Select backup file to import',
       );
-      if (!mounted) return;
 
       if (result == null || result.files.isEmpty) {
-        _showSnackBar('Import cancelled.');
+        _showSnackBar('No file selected');
         return;
       }
 
-      final file = result.files.first;
-      String jsonString;
-      if (file.bytes != null) {
-        jsonString = utf8.decode(file.bytes!);
-      } else if (file.path != null) {
-        jsonString = await File(file.path!).readAsString();
+      // Show loading dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          title: Text('Importing...'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Please wait while your backup is being imported...'),
+            ],
+          ),
+        ),
+      );
+
+      // Read file
+      final file = File(result.files.first.path!);
+      final jsonString = await file.readAsString();
+
+      // Import backup
+      final success =
+          await DatabaseHelper.instance.importBackupFile(jsonString);
+
+      // Dismiss loading dialog
+      if (!mounted) return;
+      Navigator.pop(context); // Close the loading dialog
+
+      if (success) {
+        _showSnackBar('Backup imported successfully');
+
+        // NEW: Force UI refresh by loading settings again
+        if (!mounted) return;
+        await _loadSettings();
+
+        // NEW: Force theme refresh with the imported primary color
+        final db = DatabaseHelper.instance;
+        final colorStr = await db.getSetting('primaryColor');
+        if (colorStr != null) {
+          // Fix: Replace updateColorFromString with setPrimaryColor
+          final colorValue = int.tryParse(colorStr);
+          if (colorValue != null) {
+            await ts.ThemeService.setPrimaryColor(Color(colorValue));
+
+            // Force UI rebuild with setState
+            if (mounted) {
+              setState(() {
+                // This will trigger a rebuild with the new theme
+              });
+            }
+          }
+        }
       } else {
-        _showSnackBar('Import failed: Could not read file.');
-        return;
+        _showSnackBar('Error importing backup');
       }
-
-      // Use the smart import that detects format
-      final success = await BackupConverter.smartImport(jsonString);
-
+    } catch (e) {
       if (!mounted) return;
-      _showSnackBar(success
-          ? 'Backup restored successfully!'
-          : 'Import failed: Invalid backup format.');
-    } catch (e, stack) {
-      Logging.severe('Error importing backup', e, stack);
-      if (!mounted) return;
-      _showSnackBar('Import failed: $e');
+      _showSnackBar('Error importing backup: $e');
     }
   }
 
@@ -1167,7 +1204,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ts.ThemeService.setPrimaryColorDirectly(safeColor);
 
                         // Create hex string for storage
-                        final storageHex =
+                        final String storageHex =
                             '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
                                     '${safeG.toRadixString(16).padLeft(2, '0')}'
                                     '${safeB.toRadixString(16).padLeft(2, '0')}'

@@ -1337,10 +1337,18 @@ class DatabaseHelper {
     Logging.severe('Cleared all settings from database');
   }
 
-  // Fixed saveCustomListOrder method with reduced logging
+  /// Save custom list order with reduced logging and improved error handling
   Future<void> saveCustomListOrder(List<String> listIds) async {
     try {
       final db = await database;
+
+      // Make sure the table exists first
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS custom_list_order (
+          list_id TEXT PRIMARY KEY,
+          position INTEGER
+        )
+      ''');
 
       // Use a transaction for atomicity
       await db.transaction((txn) async {
@@ -1351,26 +1359,34 @@ class DatabaseHelper {
         for (int i = 0; i < listIds.length; i++) {
           await txn.insert('custom_list_order', {
             'list_id': listIds[i],
-            'position': i, // Make sure position is 0-based
+            'position': i,
           });
         }
       });
 
-      Logging.info('Saved custom list order: ${listIds.length} lists');
+      Logging.severe('Saved custom list order: ${listIds.length} lists');
     } catch (e, stack) {
-      Logging.error('Error saving custom list order', e, stack);
+      Logging.severe('Error saving custom list order', e, stack);
     }
   }
 
-  // Fixed getCustomListOrder method with reduced logging
+  /// Get custom list order with reduced logging and improved error handling
   Future<List<String>> getCustomListOrder() async {
     try {
       final db = await database;
 
+      // Make sure the table exists first
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS custom_list_order (
+          list_id TEXT PRIMARY KEY,
+          position INTEGER
+        )
+      ''');
+
       // Query with explicit ordering
       final result = await db.query(
         'custom_list_order',
-        columns: ['list_id', 'position'],
+        columns: ['list_id'],
         orderBy: 'position ASC',
       );
 
@@ -1380,7 +1396,7 @@ class DatabaseHelper {
 
       return orderedIds;
     } catch (e, stack) {
-      Logging.error('Error getting custom list order', e, stack);
+      Logging.severe('Error getting custom list order', e, stack);
       return [];
     }
   }

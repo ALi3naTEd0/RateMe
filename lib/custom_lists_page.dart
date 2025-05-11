@@ -86,11 +86,14 @@ class _CustomListsPageState extends State<CustomListsPage> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
+  List<Map<String, dynamic>> _customLists = [];
+
   @override
   void initState() {
     super.initState();
     _loadLists();
     _loadButtonPreference();
+    _loadCustomLists();
   }
 
   Future<void> _loadButtonPreference() async {
@@ -409,6 +412,81 @@ class _CustomListsPageState extends State<CustomListsPage> {
       Logging.severe('List reordered and saved to database');
     } catch (e, stack) {
       Logging.severe('Error reordering lists', e, stack);
+    }
+  }
+
+  Future<void> _loadCustomLists() async {
+    Logging.info('[LISTS] Loading custom lists');
+    setState(() {
+      // Show loading state
+    });
+
+    try {
+      final db = DatabaseHelper.instance;
+
+      // First get the list order with explicit logging
+      final orderIds = await db.getCustomListOrder();
+      Logging.severe(
+          'Loaded custom list order with ${orderIds.length} items: ${orderIds.take(5).join(", ")}${orderIds.length > 5 ? "..." : ""}');
+
+      // Now get all custom lists
+      final lists = await db.getAllCustomLists();
+      Logging.severe('Loaded ${lists.length} custom lists');
+
+      // Create a map for easy lookup
+      final Map<String, Map<String, dynamic>> listMap = {
+        for (var list in lists) list['id'].toString(): list
+      };
+
+      // First add lists in order
+      final orderedLists = <Map<String, dynamic>>[];
+
+      // First add all lists that are in the order
+      for (final listId in orderIds) {
+        if (listMap.containsKey(listId)) {
+          orderedLists.add(listMap[listId]!);
+          listMap.remove(listId); // Remove to avoid duplicates
+          Logging.severe('Added list with ID: $listId (from order)');
+        }
+      }
+
+      // Then add any remaining lists
+      orderedLists.addAll(listMap.values);
+
+      setState(() {
+        _customLists = orderedLists;
+      });
+
+      Logging.severe(
+          'Applied custom list order to ${_customLists.length} lists');
+
+      // If no order exists or order is out of date, save the current list order
+      if (orderIds.length != lists.length) {
+        _saveCurrentOrderAsDefault();
+      }
+    } catch (e, stack) {
+      Logging.severe('Error loading custom lists', e, stack);
+      setState(() {
+        _customLists = [];
+      });
+    }
+  }
+
+  // Save the current list order to the database with explicit logging
+  void _saveCurrentOrderAsDefault() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final listIds =
+          _customLists.map((list) => list['id'].toString()).toList();
+
+      Logging.severe(
+          'Saving custom list order: ${listIds.take(5).join(", ")}${listIds.length > 5 ? "..." : ""}');
+
+      await db.saveCustomListOrder(listIds);
+      Logging.severe(
+          'Saved default custom list order with ${listIds.length} lists');
+    } catch (e) {
+      Logging.severe('Error saving default custom list order: $e');
     }
   }
 

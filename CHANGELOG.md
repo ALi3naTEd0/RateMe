@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ensure primary color correctly persists across app restarts
 - Improved settings page UI updates for theme changes
 - Enhanced color_reset_utility to properly update theme service
+- Custom list order now correctly persists after importing backups
+- Theme color and mode now update correctly when importing backups
+- Fixed duplicate method definitions in DatabaseHelper
+- Removed unused code in custom lists page
+- Added better error handling and diagnostics
 
 ## [1.1.1-1] - 2025-05-07
 

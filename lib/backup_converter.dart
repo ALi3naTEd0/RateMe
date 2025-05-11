@@ -1072,7 +1072,20 @@ class BackupConverter {
         }
       }
 
-      // 5. Import settings
+      // 5. Import custom list order
+      if (data.containsKey('custom_list_order')) {
+        final List<dynamic> listOrder = data['custom_list_order'];
+        if (listOrder.isNotEmpty) {
+          final List<String> listIds =
+              listOrder.map((id) => id.toString()).toList();
+          await db.saveCustomListOrder(listIds);
+          stats['custom_list_order'] = listIds.length;
+          Logging.severe(
+              'Imported custom list order with ${listIds.length} items');
+        }
+      }
+
+      // 6. Import settings
       if (data.containsKey('settings')) {
         final List<dynamic> settings = data['settings'];
         int settingsCount = 0;
@@ -1107,7 +1120,7 @@ class BackupConverter {
         Logging.severe('Imported $settingsCount settings from SQLite format');
       }
 
-      // 6. After import, verify and log empty lists (but don't use undefined diagnostic class)
+      // 7. After import, verify and log empty lists (but don't use undefined diagnostic class)
       try {
         // Check for any empty lists (lists with no albums) and log them
         final db = await DatabaseHelper.instance.database;
@@ -1318,7 +1331,19 @@ class BackupConverter {
         }
       }
 
-      // 5. Import settings
+      // 5. Import custom list order
+      if (backup.containsKey('custom_list_order')) {
+        final List<dynamic> listOrder = backup['custom_list_order'];
+        if (listOrder.isNotEmpty) {
+          final List<String> listIds =
+              listOrder.map((id) => id.toString()).toList();
+          await db.saveCustomListOrder(listIds);
+          stats['custom_list_order'] = listIds.length;
+          Logging.severe('Imported custom list order from SQLite format');
+        }
+      }
+
+      // 6. Import settings
       if (backup.containsKey('settings')) {
         final List<dynamic> settings = backup['settings'];
         int settingsCount = 0;
@@ -1402,6 +1427,66 @@ class BackupConverter {
     } catch (e, stack) {
       Logging.severe('Error in smart import', e, stack);
       return false;
+    }
+  }
+
+  /// Export data to JSON backup format
+  static Future<String> exportBackup() async {
+    try {
+      final db = DatabaseHelper.instance;
+
+      // Create a modern, SQLite-compatible backup format
+      final exportMap = <String, dynamic>{};
+
+      // 1. Export albums with tracks
+      final albums = await db.getAllAlbums();
+      final List<Map<String, dynamic>> albumsWithTracks = [];
+
+      for (final album in albums) {
+        final albumId = album['id'].toString();
+        final tracks = await db.getTracksForAlbum(albumId);
+
+        // Create a copy of the album with tracks added
+        final albumWithTracks = Map<String, dynamic>.from(album);
+        albumWithTracks['tracks'] = tracks;
+        albumsWithTracks.add(albumWithTracks);
+      }
+
+      exportMap['albums'] = albumsWithTracks;
+      Logging.severe('Exported ${albumsWithTracks.length} albums with tracks');
+
+      // 2. Export ratings
+      final ratings = await db.database.then((db) => db.query('ratings'));
+      exportMap['ratings'] = ratings;
+      Logging.severe('Exported ${ratings.length} ratings');
+
+      // 3. Export custom lists
+      final customLists = await db.getAllCustomLists();
+      exportMap['custom_lists'] = customLists;
+      Logging.severe('Exported ${customLists.length} custom lists');
+
+      // 4. Export album order
+      final albumOrder = await db.getAlbumOrder();
+      exportMap['album_order'] = albumOrder;
+      Logging.severe('Exported album order with ${albumOrder.length} items');
+
+      // 5. Export custom list order
+      final customListOrder = await db.getCustomListOrder();
+      exportMap['custom_list_order'] = customListOrder;
+      Logging.severe(
+          'Exported custom list order with ${customListOrder.length} items');
+
+      // 6. Export settings
+      final settings = await db.database.then((db) => db.query('settings'));
+      exportMap['settings'] = settings;
+      Logging.severe('Exported ${settings.length} settings');
+
+      // Convert to pretty-printed JSON
+      final jsonString = const JsonEncoder.withIndent('  ').convert(exportMap);
+      return jsonString;
+    } catch (e, stack) {
+      Logging.severe('Error exporting backup', e, stack);
+      rethrow;
     }
   }
 }
