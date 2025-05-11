@@ -88,6 +88,9 @@ class _CustomListsPageState extends State<CustomListsPage> {
 
   List<Map<String, dynamic>> _customLists = [];
 
+  // Add a new state variable to track when we're in reordering mode
+  bool isReorderingMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -376,43 +379,19 @@ class _CustomListsPageState extends State<CustomListsPage> {
     _showSnackBar('Lists refreshed');
   }
 
-  Future<void> _reorderLists(int oldIndex, int newIndex) async {
-    try {
-      // Make sure indexes are valid
-      if (oldIndex < 0 ||
-          oldIndex >= displayedLists.length ||
-          newIndex < 0 ||
-          newIndex > displayedLists.length) {
-        return;
-      }
-
-      setState(() {
-        // Convert display indices to global indices
-        final globalOldIndex = currentPage * itemsPerPage + oldIndex;
-        final globalNewIndex = currentPage * itemsPerPage +
-            (newIndex > oldIndex ? newIndex - 1 : newIndex);
-
-        // Update the main lists array
-        final item = lists.removeAt(globalOldIndex);
-        lists.insert(globalNewIndex, item);
-
-        // Update listIds array for database saving
-        List<String> listIds = lists
-            .map((list) => list.id.toString())
-            .where((id) => id.isNotEmpty)
-            .toList();
-
-        // Update displayed lists
-        _updateDisplayedLists();
-
-        // Save the updated order to database
+  // Add a method to toggle reordering mode
+  void _toggleReorderingMode() {
+    setState(() {
+      isReorderingMode = !isReorderingMode;
+      if (!isReorderingMode) {
+        // When exiting reorder mode, update the database
+        final listIds = lists.map((list) => list.id).toList();
         DatabaseHelper.instance.saveCustomListOrder(listIds);
-      });
-
-      Logging.severe('List reordered and saved to database');
-    } catch (e, stack) {
-      Logging.severe('Error reordering lists', e, stack);
-    }
+        _showSnackBar('List order saved');
+      } else {
+        _showSnackBar('Reordering all ${lists.length} lists');
+      }
+    });
   }
 
   Future<void> _loadCustomLists() async {
@@ -514,12 +493,12 @@ class _CustomListsPageState extends State<CustomListsPage> {
           title: Padding(
             padding: const EdgeInsets.only(left: 8.0),
             child: Text(
-              'Custom Lists',
+              isReorderingMode ? 'Reorder Lists' : 'Custom Lists',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).brightness == Brightness.dark
                     ? Colors.white
-                    : Colors.black, // Add explicit color for visibility
+                    : Colors.black,
               ),
             ),
           ),
@@ -531,27 +510,41 @@ class _CustomListsPageState extends State<CustomListsPage> {
               constraints: const BoxConstraints(),
               iconSize: 24.0,
               splashRadius: 28.0,
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                if (isReorderingMode) {
+                  _toggleReorderingMode();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
           ),
           actions: [
+            if (!isReorderingMode)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: IconButton(
+                  icon: Icon(Icons.reorder, color: iconColor),
+                  onPressed: lists.isEmpty ? null : _toggleReorderingMode,
+                  tooltip: 'Reorder All Lists',
+                ),
+              ),
             Padding(
               padding: EdgeInsets.only(right: horizontalPadding, top: 8.0),
               child: TextButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Create List'),
+                icon: Icon(isReorderingMode ? Icons.save : Icons.add, size: 18),
+                label: Text(isReorderingMode ? 'Save Order' : 'Create List'),
                 style: TextButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context)
-                      .colorScheme
-                      .onPrimary, // White text on primary color
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: _createNewList,
+                onPressed:
+                    isReorderingMode ? _toggleReorderingMode : _createNewList,
               ),
             ),
           ],
@@ -580,20 +573,13 @@ class _CustomListsPageState extends State<CustomListsPage> {
                           children: [
                             const SizedBox(height: 16),
                             Expanded(
-                              child: ReorderableListView.builder(
-                                buildDefaultDragHandles: false,
-                                onReorder: (oldIndex, newIndex) async {
-                                  await _reorderLists(oldIndex, newIndex);
-                                },
-                                itemCount: displayedLists.length,
-                                itemBuilder: (context, index) {
-                                  final list = displayedLists[index];
-                                  return _buildCompactListCard(list, index);
-                                },
-                              ),
+                              // Choose which view to show based on reordering mode
+                              child: isReorderingMode
+                                  ? _buildReorderableFullListView()
+                                  : _buildPaginatedReorderableListView(),
                             ),
-                            // Pagination controls
-                            if (totalPages > 1)
+                            // Pagination controls - only show when not reordering
+                            if (totalPages > 1 && !isReorderingMode)
                               Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 8.0),
@@ -627,6 +613,60 @@ class _CustomListsPageState extends State<CustomListsPage> {
     );
   }
 
+  // New method to build the full reorderable list view
+  Widget _buildReorderableFullListView() {
+    return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          if (newIndex > oldIndex) {
+            newIndex -= 1;
+          }
+          final item = lists.removeAt(oldIndex);
+          lists.insert(newIndex, item);
+        });
+      },
+      itemCount: lists.length,
+      itemBuilder: (context, index) {
+        final list = lists[index];
+        return _buildCompactListCard(list, index);
+      },
+    );
+  }
+
+  // Replace _buildPaginatedListView with _buildPaginatedReorderableListView
+  Widget _buildPaginatedReorderableListView() {
+    return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
+      onReorder: (oldIndex, newIndex) async {
+        if (newIndex > oldIndex) {
+          newIndex--;
+        }
+        setState(() {
+          // 1. Handle reordering within the current page first
+          final item = displayedLists.removeAt(oldIndex);
+          displayedLists.insert(newIndex, item);
+
+          // 2. Update the main list to reflect the change
+          final globalOldIndex = currentPage * itemsPerPage + oldIndex;
+          final globalNewIndex = currentPage * itemsPerPage + newIndex;
+          final movedItem = lists.removeAt(globalOldIndex);
+          lists.insert(globalNewIndex, movedItem);
+        });
+
+        // 3. Save the updated order to database
+        final listIds = lists.map((list) => list.id).toList();
+        await DatabaseHelper.instance.saveCustomListOrder(listIds);
+      },
+      itemCount: displayedLists.length,
+      itemBuilder: (context, index) {
+        final list = displayedLists[index];
+        return _buildCompactListCard(list, index);
+      },
+    );
+  }
+
+  // Modified card builder to show drag handles in both modes
   Widget _buildCompactListCard(CustomList list, int index) {
     return Card(
       key: ValueKey(list.id),
@@ -639,7 +679,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Move drag handle to leftmost position
+            // Show drag handles in both normal and reordering mode
             ReorderableDragStartListener(
               index: index,
               child: const Padding(
@@ -647,10 +687,8 @@ class _CustomListsPageState extends State<CustomListsPage> {
                 child: Icon(Icons.drag_handle, size: 20),
               ),
             ),
-            // Replace playlist icon with a better alternative
             Icon(
-              Icons
-                  .album, // More distinct from drag handle than playlist_play_rounded
+              Icons.album,
               size: 42,
               color: Theme.of(context).colorScheme.secondary,
             ),
@@ -691,34 +729,38 @@ class _CustomListsPageState extends State<CustomListsPage> {
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _editList(list),
-              tooltip: 'Edit List',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _deleteList(list),
-              tooltip: 'Delete List',
-            ),
-            // No drag handle icon here - completely removed
-          ],
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CustomListDetailsPage(
-                initialList: list,
-              ),
-            ),
-          ).then((_) => _loadLists());
-        },
+        // Only show edit/delete buttons when not in reordering mode
+        trailing: !isReorderingMode
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _editList(list),
+                    tooltip: 'Edit List',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _deleteList(list),
+                    tooltip: 'Delete List',
+                  ),
+                ],
+              )
+            : null,
+        onTap: isReorderingMode
+            ? null
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CustomListDetailsPage(
+                      initialList: list,
+                    ),
+                  ),
+                ).then((_) => _loadLists());
+              },
       ),
     );
   }

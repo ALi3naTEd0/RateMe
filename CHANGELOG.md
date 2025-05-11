@@ -7,22 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Implemented album reordering feature in saved albums page with drag-and-drop functionality
+- Added dedicated reordering mode with clear visual indicators and improved user feedback
+- Enhanced UI with direct feedback during reordering operations
+- Added ability to save custom album order to database with proper persistence
+
 ### Fixed
+
+#### Data Management & Import
 - Fixed UNIQUE constraint violations when importing album-list relationships in backup files
 - Enhanced import process to properly handle duplicate entries in custom lists
 - Improved error handling during backup import to ensure all data is properly processed
 - Added better logging for database constraints during import operations
-- Import themeMode and primaryColor from backup
-- Theme color updates properly when imported from backup
-- Added updateThemeModeFromImport to ThemeService
-- Ensure primary color correctly persists across app restarts
-- Improved settings page UI updates for theme changes
-- Enhanced color_reset_utility to properly update theme service
-- Custom list order now correctly persists after importing backups
-- Theme color and mode now update correctly when importing backups
 - Fixed duplicate method definitions in DatabaseHelper
 - Removed unused code in custom lists page
+
+#### UI & Navigation
+- Enhanced custom list and saved albums reordering with improved drag-and-drop handling and state persistence
+- Enhanced drag handle positioning for better user experience
+- Implemented consistent UI for reordering between custom lists and saved albums pages
+- Enhanced color_reset_utility to properly update theme service
 - Added better error handling and diagnostics
+
+#### Theme System
+- Ensured theme color and mode now update correctly when importing backups
+- Fixed theme color updating properly when imported from backup
+- Added updateThemeModeFromImport to ThemeService
+- Ensured primary color correctly persists across app restarts
+- Improved settings page UI updates for theme changes
+
+#### Platform Integration
+- Fixed platform match widget causing Bandcamp icons not to be properly highlighted when selected
+- Fixed concurrent modification issues in platform match widget causing Discogs icons not to appear
+- Fixed platform icon selection logic to properly handle Bandcamp URLs with different domain formats
+- Improved platform matching with more reliable URL detection and platform identification
+- Fixed missing platform icons by ensuring all standard platforms are always included in supported platforms list
+- Enhanced platform URL detection and matching with consistent logging and error handling
 
 ## [1.1.1-1] - 2025-05-07
 

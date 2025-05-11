@@ -49,6 +49,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   // Add sorting options - using the enum defined outside the class
   SortOrder currentSortOrder = SortOrder.custom;
 
+  // Add a new state variable to track when we're in reordering mode
+  bool isReorderingMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -486,6 +489,27 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
     );
   }
 
+  // Add a method to toggle reordering mode
+  void _toggleReorderingMode() {
+    setState(() {
+      isReorderingMode = !isReorderingMode;
+      if (!isReorderingMode) {
+        // When exiting reorder mode, update the database
+        UserData.saveAlbumOrder(albumOrder);
+        _showSnackBar('Album order saved');
+      } else {
+        _showSnackBar('Reordering all ${albums.length} albums');
+      }
+    });
+  }
+
+  // Add a helper method to show snackbar messages
+  void _showSnackBar(String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pageWidth = MediaQuery.of(context).size.width * 0.85;
@@ -510,7 +534,7 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           title: Padding(
             padding: const EdgeInsets.only(left: 8.0),
             child: Text(
-              'Saved Albums',
+              isReorderingMode ? 'Reorder Albums' : 'Saved Albums',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).brightness == Brightness.dark
@@ -527,28 +551,56 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
               constraints: const BoxConstraints(),
               iconSize: 24.0,
               splashRadius: 28.0,
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                if (isReorderingMode) {
+                  _toggleReorderingMode();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
           ),
           actions: [
-            // Sort button with label showing current sort
-            Padding(
-              padding: EdgeInsets.only(right: horizontalPadding),
-              child: Row(
-                children: [
-                  if (!isLoading && albums.isNotEmpty)
-                    Text(
-                      _getSortOrderLabel(),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  IconButton(
-                    icon: Icon(Icons.sort, color: iconColor),
-                    tooltip: 'Sort Albums',
-                    onPressed: () => _showSortOptionsMenu(context),
-                  ),
-                ],
+            // Fix the list type error by correctly handling the conditional rendering
+            if (!isReorderingMode)
+              if (!isLoading && albums.isNotEmpty)
+                Text(
+                  _getSortOrderLabel(),
+                  style: const TextStyle(fontSize: 14),
+                ),
+            if (!isReorderingMode)
+              IconButton(
+                icon: Icon(Icons.sort, color: iconColor),
+                tooltip: 'Sort Albums',
+                onPressed: () => _showSortOptionsMenu(context),
               ),
-            ),
+            if (!isReorderingMode)
+              Padding(
+                padding: EdgeInsets.only(right: horizontalPadding),
+                child: IconButton(
+                  icon: Icon(Icons.reorder, color: iconColor),
+                  onPressed: albums.isEmpty ? null : _toggleReorderingMode,
+                  tooltip: 'Reorder Albums',
+                ),
+              )
+            else
+              Padding(
+                padding: EdgeInsets.only(right: horizontalPadding),
+                child: TextButton.icon(
+                  icon: const Icon(Icons.save, size: 18),
+                  label: const Text('Save Order'),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: _toggleReorderingMode,
+                ),
+              ),
           ],
         ),
         body: Center(
@@ -574,47 +626,14 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                         child: Column(
                           children: [
                             Expanded(
-                              child: ReorderableListView.builder(
-                                buildDefaultDragHandles:
-                                    false, // Add this line to prevent automatic drag handles
-                                onReorder: (oldIndex, newIndex) async {
-                                  // Convert display indices to global indices
-                                  final globalOldIndex =
-                                      currentPage * itemsPerPage + oldIndex;
-                                  final globalNewIndex =
-                                      currentPage * itemsPerPage +
-                                          (newIndex > oldIndex
-                                              ? newIndex - 1
-                                              : newIndex);
-
-                                  setState(() {
-                                    final album =
-                                        albums.removeAt(globalOldIndex);
-                                    albums.insert(globalNewIndex, album);
-
-                                    // Update album order
-                                    albumOrder = albums
-                                        .map((a) =>
-                                            a['id']?.toString() ??
-                                            a['collectionId']?.toString() ??
-                                            '')
-                                        .where((id) => id.isNotEmpty)
-                                        .toList();
-
-                                    _updateDisplayedAlbums();
-                                  });
-
-                                  await UserData.saveAlbumOrder(albumOrder);
-                                },
-                                itemCount: displayedAlbums.length,
-                                itemBuilder: (context, index) {
-                                  final album = displayedAlbums[index];
-                                  return _buildCompactAlbumCard(album, index);
-                                },
-                              ),
+                              // Choose view based on reordering mode - either show all albums
+                              // or just the paginated ones
+                              child: isReorderingMode
+                                  ? _buildReorderableFullListView()
+                                  : _buildPaginatedReorderableListView(),
                             ),
-                            // Pagination controls
-                            if (totalPages > 1)
+                            // Only show pagination controls when not in reordering mode
+                            if (totalPages > 1 && !isReorderingMode)
                               Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 8.0),
@@ -645,6 +664,68 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // New method to build the full reorderable list view (no pagination)
+  Widget _buildReorderableFullListView() {
+    return ReorderableListView.builder(
+      buildDefaultDragHandles: false, // Disable default drag handles
+      onReorder: (oldIndex, newIndex) async {
+        setState(() {
+          if (newIndex > oldIndex) {
+            newIndex -= 1;
+          }
+          final item = albums.removeAt(oldIndex);
+          albums.insert(newIndex, item);
+
+          // Update album order
+          albumOrder = albums
+              .map((a) =>
+                  a['id']?.toString() ?? a['collectionId']?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList();
+        });
+      },
+      itemCount: albums.length,
+      itemBuilder: (context, index) {
+        final album = albums[index];
+        return _buildCompactAlbumCard(album, index);
+      },
+    );
+  }
+
+  // Updated method to handle paginated reorderable list (replaces previous implementation)
+  Widget _buildPaginatedReorderableListView() {
+    return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
+      onReorder: (oldIndex, newIndex) async {
+        // Convert display indices to global indices
+        final globalOldIndex = currentPage * itemsPerPage + oldIndex;
+        final globalNewIndex = currentPage * itemsPerPage +
+            (newIndex > oldIndex ? newIndex - 1 : newIndex);
+
+        setState(() {
+          final album = albums.removeAt(globalOldIndex);
+          albums.insert(globalNewIndex, album);
+
+          // Update album order
+          albumOrder = albums
+              .map((a) =>
+                  a['id']?.toString() ?? a['collectionId']?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList();
+
+          _updateDisplayedAlbums();
+        });
+
+        await UserData.saveAlbumOrder(albumOrder);
+      },
+      itemCount: displayedAlbums.length,
+      itemBuilder: (context, index) {
+        final album = displayedAlbums[index];
+        return _buildCompactAlbumCard(album, index);
+      },
     );
   }
 

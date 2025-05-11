@@ -116,12 +116,26 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       // First check source platform - always guaranteed
       _addSourcePlatform();
 
+      // Make a copy of supported platforms to avoid concurrent modification
+      final platformsToProcess = List<String>.from(_supportedPlatforms);
+
+      // Also ensure 'discogs' is in the list of platforms to check
+      if (!platformsToProcess.contains('discogs')) {
+        platformsToProcess.add('discogs');
+        _platformLoading['discogs'] = true;
+      }
+
       // Process each platform independently and progressively update UI
-      for (final platform in _supportedPlatforms) {
+      for (final platform in platformsToProcess) {
         // Skip if this is already the source platform
         if (_platformUrls.containsKey(platform)) {
           _updatePlatformLoadingState(platform, false);
           continue;
+        }
+
+        // Make sure we're tracking loading state for this platform
+        if (!_platformLoading.containsKey(platform)) {
+          _platformLoading[platform] = true;
         }
 
         // Check memory cache first
@@ -155,19 +169,28 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           _isInitialLoading = false;
         });
       }
-    } catch (e) {
-      Logging.severe('Error in platform match loading', e);
+    } catch (e, stack) {
+      Logging.severe('Error in platform match loading', e, stack);
       _markAllPlatformsLoaded();
     }
   }
 
   void _addSourcePlatform() {
     if (widget.album.url.isNotEmpty) {
+      // Fix: Normalize platform name to lowercase for consistent comparison
       String currentPlatform = widget.album.platform.toLowerCase();
 
       // Normalize iTunes to apple_music
       if (currentPlatform == 'itunes') {
         currentPlatform = 'apple_music';
+      }
+
+      // For Bandcamp URLs, ensure the platform is set correctly regardless of the stored platform name
+      if (widget.album.url.toLowerCase().contains('bandcamp.com') &&
+          currentPlatform != 'bandcamp') {
+        Logging.severe(
+            'Correcting platform to bandcamp for URL: ${widget.album.url}');
+        currentPlatform = 'bandcamp';
       }
 
       _platformUrls[currentPlatform] = widget.album.url;
@@ -179,6 +202,15 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
           urlDetectedPlatform != currentPlatform) {
         _platformUrls[urlDetectedPlatform] = widget.album.url;
         _updatePlatformLoadingState(urlDetectedPlatform, false);
+        Logging.severe(
+            'Added additional platform from URL detection: $urlDetectedPlatform');
+      }
+
+      // Debug logging for Bandcamp
+      if (currentPlatform == 'bandcamp' ||
+          widget.album.url.toLowerCase().contains('bandcamp.com')) {
+        Logging.severe(
+            'Bandcamp album detected: platform=$currentPlatform, URL=${widget.album.url}');
       }
 
       // Update cache
@@ -345,15 +377,18 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   String _determinePlatformFromUrl(String url) {
     final lowerUrl = url.toLowerCase();
 
-    if (lowerUrl.contains('spotify.com') || lowerUrl.contains('open.spotify')) {
+    // Improved Bandcamp URL detection
+    if (lowerUrl.contains('bandcamp.com')) {
+      Logging.severe('URL matched as Bandcamp: $url');
+      return 'bandcamp';
+    } else if (lowerUrl.contains('spotify.com') ||
+        lowerUrl.contains('open.spotify')) {
       return 'spotify';
     } else if (lowerUrl.contains('music.apple.com') ||
         lowerUrl.contains('itunes.apple.com')) {
       return 'apple_music';
     } else if (lowerUrl.contains('deezer.com')) {
       return 'deezer';
-    } else if (lowerUrl.contains('bandcamp.com')) {
-      return 'bandcamp';
     } else if (lowerUrl.contains('discogs.com')) {
       return 'discogs';
     }
@@ -369,6 +404,18 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         .map((entry) => entry.key)
         .toList();
 
+    // Create a copy to avoid concurrent modification
+    final supportedPlatformsCopy = List<String>.from(_supportedPlatforms);
+
+    // Make sure 'bandcamp' is included when the URL contains 'bandcamp.com'
+    if (widget.album.url.toLowerCase().contains('bandcamp.com') &&
+        !availablePlatforms.contains('bandcamp')) {
+      availablePlatforms.add('bandcamp');
+      _platformUrls['bandcamp'] = widget.album.url;
+      Logging.severe(
+          'Added missing bandcamp to available platforms explicitly');
+    }
+
     // Don't show anything if in initial loading state and no platforms are available yet
     if (_isInitialLoading && availablePlatforms.isEmpty) {
       return _buildSkeletonButtons();
@@ -378,6 +425,20 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     if (availablePlatforms.contains('apple_music') &&
         availablePlatforms.contains('itunes')) {
       availablePlatforms.remove('itunes');
+    }
+
+    // Add all standard platforms to supported list if not already there
+    for (final platform in [
+      'bandcamp',
+      'discogs',
+      'spotify',
+      'deezer',
+      'apple_music'
+    ]) {
+      if (!supportedPlatformsCopy.contains(platform)) {
+        supportedPlatformsCopy.add(platform);
+        Logging.severe('Added $platform to supported platforms list');
+      }
     }
 
     // Sort platforms in the correct order (Apple Music first, as it was originally)
@@ -404,6 +465,21 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       }
     }
 
+    // Update the _supportedPlatforms list safely
+    if (mounted) {
+      setState(() {
+        // Create a new list with all needed platforms
+        _supportedPlatforms.clear();
+        _supportedPlatforms.addAll(supportedPlatformsCopy);
+      });
+    }
+
+    // Log available platforms for debugging
+    Logging.severe('Available platforms: ${availablePlatforms.join(", ")}');
+    Logging.severe('Supported platforms: ${supportedPlatformsCopy.join(", ")}');
+    Logging.severe('Sorted platforms: ${sortedPlatforms.join(", ")}');
+
+    // Build UI with platforms
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0),
       child: Column(
@@ -411,25 +487,15 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: _supportedPlatforms.map((platform) {
-              // Show skeleton if loading, button if available, nothing if unavailable
-              if (_platformLoading[platform] == true) {
-                // Show skeleton loader for this platform
+            children: [
+              // Show all available platforms in our sorted order
+              ...sortedPlatforms.map((platform) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: PlatformButtonSkeleton(size: widget.buttonSize),
+                  child: _buildPlatformButton(platform),
                 );
-              } else if (sortedPlatforms.contains(platform)) {
-                final button = _buildPlatformButton(platform);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: button,
-                );
-              } else {
-                // Platform not available, show nothing or a disabled button
-                return const SizedBox.shrink();
-              }
-            }).toList(),
+              }),
+            ],
           ),
 
           // Refresh button
@@ -489,14 +555,39 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   }
 
   Widget _buildPlatformButton(String platform) {
-    final bool hasMatch =
-        _platformUrls.containsKey(platform) && _platformUrls[platform] != null;
+    // Get URL for this platform
+    final platformUrl = _platformUrls[platform];
+    final bool hasMatch = platformUrl != null && platformUrl.isNotEmpty;
 
-    // Check if this is the current platform of the album
-    final String currentPlatform = widget.album.platform.toLowerCase();
-    final String normalizedCurrentPlatform =
-        currentPlatform == 'itunes' ? 'apple_music' : currentPlatform;
-    final bool isSelected = platform == normalizedCurrentPlatform;
+    // FIXED approach for platform comparison
+    final currentPlatform = widget.album.platform.toLowerCase().trim();
+    final normalizedPlatform = platform.toLowerCase().trim();
+
+    // Create debug info for this specific platform
+    Logging.severe(
+        'Building platform button: platform=$platform, currentPlatform=${widget.album.platform}');
+
+    // Much simpler isSelected logic that handles all cases
+    bool isSelected = false;
+
+    // Case 1: Direct platform name match
+    if (normalizedPlatform == currentPlatform) {
+      isSelected = true;
+      Logging.severe('Platform selected due to direct name match: $platform');
+    }
+    // Case 2: Bandcamp special case with URL check
+    else if (normalizedPlatform == 'bandcamp' &&
+        widget.album.url.toLowerCase().contains('bandcamp.com')) {
+      isSelected = true;
+      Logging.severe('Bandcamp selected due to URL match: ${widget.album.url}');
+    }
+    // Case 3: iTunes = apple_music normalization
+    else if ((normalizedPlatform == 'apple_music' &&
+            currentPlatform == 'itunes') ||
+        (normalizedPlatform == 'itunes' && currentPlatform == 'apple_music')) {
+      isSelected = true;
+      Logging.severe('Apple Music selected due to iTunes normalization');
+    }
 
     // Use SVG icons for better quality
     String iconPath;
@@ -525,6 +616,12 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
     final iconColor = isSelected
         ? Theme.of(context).colorScheme.primary
         : (isDarkTheme ? Colors.white : Colors.black);
+
+    // Log when Bandcamp is selected
+    if (normalizedPlatform == 'bandcamp' && isSelected) {
+      Logging.severe(
+          'Bandcamp icon IS selected! Using primary color: ${Theme.of(context).colorScheme.primary}');
+    }
 
     // Create button content
     final buttonContent = SizedBox(
@@ -694,7 +791,8 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   }
 
   String _getPlatformName(String platform) {
-    switch (platform) {
+    // Fix: Ensure consistent normalization for platform names
+    switch (platform.toLowerCase()) {
       case 'spotify':
         return 'Spotify';
       case 'apple_music':
