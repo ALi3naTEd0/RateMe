@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart';
+import 'package:rateme/backup_converter.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import '../logging.dart';
@@ -675,42 +676,105 @@ class DatabaseHelper {
     try {
       final db = await database;
 
-      // Check table schema
-      final columns = await db.rawQuery('PRAGMA table_info(custom_lists)');
-      final columnNames = columns.map((c) => c['name'].toString()).toList();
-      // Adapt field names to match database schema
-      final Map<String, dynamic> data = {};
-      // Handle required fields
-      data['id'] = list['id'];
-      data['name'] = list['name'];
-      data['description'] = list['description'] ?? '';
+      // Start a transaction to ensure atomicity
+      await db.transaction((txn) async {
+        // First, insert or update the custom list metadata
+        final Map<String, dynamic> listData = {
+          'id': list['id'],
+          'name': list['name'],
+          'description': list['description'] ?? '',
+          'createdAt': list['createdAt'] ?? DateTime.now().toIso8601String(),
+          'updatedAt': list['updatedAt'] ?? DateTime.now().toIso8601String(),
+        };
 
-      // Handle timestamps based on actual table schema
-      if (columnNames.contains('created_at') && list.containsKey('createdAt')) {
-        data['created_at'] = list['createdAt'];
-      }
+        await txn.insert(
+          'custom_lists',
+          listData,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
 
-      if (columnNames.contains('updated_at') && list.containsKey('updatedAt')) {
-        data['updated_at'] = list['updatedAt'];
-      }
+        // Extract album IDs using multiple possible sources
+        List<String> albumIds = [];
 
-      // For legacy schema that uses camelCase directly
-      if (columnNames.contains('createdAt') && list.containsKey('createdAt')) {
-        data['createdAt'] = list['createdAt'];
-      }
+        // Source 1: Direct albumIds field (most common)
+        if (list.containsKey('albumIds') && list['albumIds'] is List) {
+          albumIds = List<String>.from(list['albumIds']);
+        }
+        // Source 2: Albums field (alternative naming)
+        else if (list.containsKey('albums') && list['albums'] is List) {
+          albumIds = List<String>.from(list['albums']);
+        }
+        // Source 3: String representation of albumIds that needs parsing
+        else if (list.containsKey('albumIds') && list['albumIds'] is String) {
+          try {
+            final parsed = json.decode(list['albumIds'] as String);
+            if (parsed is List) {
+              albumIds = List<String>.from(parsed);
+            }
+          } catch (_) {
+            // Not JSON, try comma-separated
+            final rawIds = list['albumIds'] as String;
+            if (rawIds.isNotEmpty) {
+              albumIds = rawIds.split(',').map((e) => e.trim()).toList();
+            }
+          }
+        }
 
-      if (columnNames.contains('updatedAt') && list.containsKey('updatedAt')) {
-        data['updatedAt'] = list['updatedAt'];
-      }
+        // Source 4: Additionally check 'data' field for embedded JSON with albumIds
+        if (albumIds.isEmpty && list.containsKey('data')) {
+          try {
+            final dataStr = list['data'] as String?;
+            if (dataStr != null && dataStr.isNotEmpty) {
+              final data = json.decode(dataStr);
+              if (data is Map &&
+                  data.containsKey('albumIds') &&
+                  data['albumIds'] is List) {
+                albumIds = List<String>.from(data['albumIds']);
+              }
+            }
+          } catch (e) {
+            // Silent catch - just try other methods
+          }
+        }
 
-      Logging.severe('Saving custom list with adapted data: $data');
-      await db.insert(
-        'custom_lists',
-        data,
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+        Logging.severe(
+            'List "${list['name']}" has ${albumIds.length} albums: ${albumIds.join(', ')}');
+
+        // Only clear and reinsert album relationships if we found albumIds
+        if (albumIds.isNotEmpty) {
+          // First clear existing relationships to avoid duplicates
+          await txn.delete(
+            'album_lists',
+            where: 'list_id = ?',
+            whereArgs: [list['id']],
+          );
+
+          // Then insert all albums with positions
+          for (int i = 0; i < albumIds.length; i++) {
+            // Verify the albumId is not empty
+            final albumId = albumIds[i].toString().trim();
+            if (albumId.isEmpty) continue;
+
+            // Insert the album-list relationship
+            await txn.insert(
+              'album_lists',
+              {
+                'list_id': list['id'],
+                'album_id': albumId,
+                'position': i,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+
+          Logging.severe(
+              'Successfully added ${albumIds.length} albums to list "${list['name']}"');
+        } else {
+          Logging.severe('No albums found for list "${list['name']}"');
+        }
+      });
     } catch (e, stack) {
-      Logging.severe('Error inserting custom list', e, stack);
+      Logging.severe('Error inserting custom list: ${list['name']}', e, stack);
       rethrow;
     }
   }
@@ -731,14 +795,17 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getAlbumsInList(String listId) async {
     try {
       final db = await database;
+
       // Join album_lists with albums to get album data
       final results = await db.rawQuery('''
         SELECT a.*, al.position
         FROM albums a
         JOIN album_lists al ON a.id = al.album_id
         WHERE al.list_id = ?
-        ORDER BY al.position
+        ORDER BY al.position ASC
       ''', [listId]);
+
+      Logging.severe('Retrieved ${results.length} albums for list $listId');
       return results;
     } catch (e, stack) {
       Logging.severe('Error getting albums in list', e, stack);
@@ -889,55 +956,52 @@ class DatabaseHelper {
     try {
       final db = await database;
 
-      // Check table schema to handle both naming conventions
-      final columns = await db.rawQuery('PRAGMA table_info(custom_lists)');
-      final columnNames = columns.map((c) => c['name'].toString()).toList();
-      final useSnakeCase = columnNames.contains('created_at');
+      final stopwatch = Stopwatch()..start();
 
-      // Get all lists within a transaction to prevent locking
-      final lists = await db.transaction((txn) async {
-        return await txn.query('custom_lists');
-      });
+      // First get all lists
+      final lists = await db.query('custom_lists');
 
-      // Process results outside of transaction to reduce lock time
+      Logging.severe(
+          'Retrieved ${lists.length} custom lists (${stopwatch.elapsedMilliseconds}ms)');
+
+      // For each list, query its albums separately
       List<Map<String, dynamic>> result = [];
-      for (var list in lists) {
+      for (final list in lists) {
         final listId = list['id'] as String;
-        final Map<String, dynamic> resultList = Map.from(list);
-        // Normalize field names to camelCase for consistency
-        if (useSnakeCase) {
-          if (list.containsKey('created_at')) {
-            resultList['createdAt'] = list['created_at'];
-          }
-          if (list.containsKey('updated_at')) {
-            resultList['updatedAt'] = list['updated_at'];
-          }
-        }
-        // Get album IDs for this list in a separate transaction
-        final albumResults = await db.transaction((txn) async {
-          return await txn.query(
-            'album_lists',
-            columns: ['album_id'],
-            where: 'list_id = ?',
-            whereArgs: [listId],
-            orderBy: 'position ASC',
-          );
-        });
+        final listName = list['name'] as String;
+        final Map<String, dynamic> enhancedList =
+            Map<String, dynamic>.from(list);
+
+        // Query album-list relationships
+        final albumResults = await db.query(
+          'album_lists',
+          columns: ['album_id', 'position'],
+          where: 'list_id = ?',
+          whereArgs: [listId],
+          orderBy: 'position ASC',
+        );
+
+        // Extract album IDs while preserving order
         final albumIds =
             albumResults.map((row) => row['album_id'] as String).toList();
-        resultList['albumIds'] = albumIds;
-        result.add(resultList);
+        enhancedList['albumIds'] = albumIds;
+
+        // Enhance logging to show list contents
+        Logging.severe(
+            'Custom list "$listName" (id: $listId) has ${albumIds.length} albums: ${albumIds.take(5).join(", ")}${albumIds.length > 5 ? "..." : ""}');
+
+        result.add(enhancedList);
       }
+
+      stopwatch.stop();
+      Logging.severe(
+          'Fetched all custom lists with albums in ${stopwatch.elapsedMilliseconds}ms');
+
       return result;
     } catch (e, stack) {
-      Logging.severe(
-          'Error getting custom lists, attempting to fix locks', e, stack);
+      Logging.severe('Error getting custom lists', e, stack);
       await fixDatabaseLocks();
-      // Retry once after fixing locks
-      final db = await database;
-      final lists = await db.query('custom_lists');
-      // Simplified return on retry to reduce complexity
-      return lists;
+      return [];
     }
   }
 
@@ -1319,5 +1383,50 @@ class DatabaseHelper {
       Logging.error('Error getting custom list order', e, stack);
       return [];
     }
+  }
+
+  /// Convert a backup file to new format and import it
+  Future<bool> importBackupFile(String jsonString) async {
+    try {
+      Logging.severe('Starting backup import');
+
+      // Use smartImport for the actual import
+      final success = await BackupConverter.smartImport(jsonString);
+
+      // After import, verify results with detailed logging
+      if (success) {
+        // Log album stats
+        final albumCount = await getAlbumCount();
+        Logging.severe('Import complete: Database now has $albumCount albums');
+
+        // Log custom list stats with contents
+        final customLists = await getAllCustomLists();
+        Logging.severe(
+            'Import complete: Database now has ${customLists.length} custom lists');
+
+        // Log a few albums for verification
+        final sampleAlbums = await getSampleAlbums(5);
+        Logging.severe(
+            'Sample albums after import: ${sampleAlbums.map((a) => "${a['name']} (${a['id']})").join(", ")}');
+      }
+
+      return success;
+    } catch (e, stack) {
+      Logging.severe('Error importing backup file', e, stack);
+      return false;
+    }
+  }
+
+  // Helper method to get album count
+  Future<int> getAlbumCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM albums');
+    return result.first['count'] as int? ?? 0;
+  }
+
+  // Helper method to get sample albums for verification
+  Future<List<Map<String, dynamic>>> getSampleAlbums(int limit) async {
+    final db = await database;
+    return await db.query('albums', limit: limit);
   }
 }

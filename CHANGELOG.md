@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed UNIQUE constraint violations when importing album-list relationships in backup files
+- Enhanced import process to properly handle duplicate entries in custom lists
+- Improved error handling during backup import to ensure all data is properly processed
+- Added better logging for database constraints during import operations
+
 ## [1.1.1-1] - 2025-05-07
 
 ### Album Notes & Documentation

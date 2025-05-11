@@ -11,6 +11,7 @@ import 'database/cleanup_utility.dart';
 import 'database/database_helper.dart';
 import 'database/json_fixer.dart';
 import 'database/migration_progress_page.dart';
+import 'database/track_recovery_utility.dart';
 import 'theme_service.dart' as ts;
 import 'user_data.dart';
 import 'logging.dart';
@@ -1565,6 +1566,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                     onTap: _exportBackup,
                                   ),
                                   const Divider(),
+                                  ListTile(
+                                    title: const Text('Recover Missing Tracks'),
+                                    subtitle: const Text(
+                                        'Find and fix albums missing track data'),
+                                    leading: const Icon(Icons.construction),
+                                    onTap: isLoading ? null : _runTrackRecovery,
+                                  ),
                                 ],
                               ),
                             ),
@@ -2801,6 +2809,42 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _runTrackRecovery() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    // Store context before async operation
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(content: Text('Starting track recovery process...')),
+    );
+
+    try {
+      await TrackRecoveryUtility.runFullRecovery();
+
+      // Check if widget is still mounted before using context
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Track recovery completed!')),
+      );
+    } catch (e) {
+      // Check if widget is still mounted before using context
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Error recovering tracks: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 }
 

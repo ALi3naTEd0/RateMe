@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:sqflite/sqflite.dart';
 import 'database/database_helper.dart'; // Add database helper import
 import 'album_model.dart';
 import 'logging.dart';
@@ -140,6 +141,22 @@ class BackupConverter {
         }
       }
 
+      // Import custom lists and their album relationships
+      if (convertedData.containsKey('custom_lists')) {
+        final db = DatabaseHelper.instance;
+        for (var listData in convertedData['custom_lists']) {
+          try {
+            await db.insertCustomList(listData);
+            final albumIds = listData['albumIds'] ?? [];
+            for (int i = 0; i < albumIds.length; i++) {
+              await db.addAlbumToList(albumIds[i], listData['id'], i);
+            }
+          } catch (e) {
+            Logging.severe('Error importing custom list: $e');
+          }
+        }
+      }
+
       _showSnackBar('Backup converted and imported successfully!');
       return true;
     } catch (e, stack) {
@@ -262,52 +279,22 @@ class BackupConverter {
       // Process custom lists if present
       if (data.containsKey('custom_lists') && data['custom_lists'] is List) {
         List<String> customLists = List<String>.from(data['custom_lists']);
-        List<String> newCustomLists = [];
+        List<Map<String, dynamic>> newCustomLists = [];
 
         Logging.severe("Found ${customLists.length} custom lists to process");
 
-        for (int i = 0; i < customLists.length; i++) {
+        for (String listJson in customLists) {
           try {
-            Map<String, dynamic> list = jsonDecode(customLists[i]);
-
-            // Ensure list has required fields
-            if (!list.containsKey('id')) {
-              list['id'] = DateTime.now().millisecondsSinceEpoch.toString();
-            }
-
-            if (!list.containsKey('albumIds') || list['albumIds'] == null) {
-              list['albumIds'] = [];
-            } else if (list['albumIds'] is! List) {
-              list['albumIds'] = [];
-            }
-
-            // Clean up album IDs (remove nulls and duplicates)
-            List<String> albumIds = [];
-            for (var id in list['albumIds']) {
-              if (id != null && id.toString().isNotEmpty) {
-                albumIds.add(id.toString());
-              }
-            }
-
-            // Remove duplicates
-            list['albumIds'] = albumIds.toSet().toList();
-
-            // Add timestamps if missing
-            if (!list.containsKey('createdAt')) {
-              list['createdAt'] = DateTime.now().toIso8601String();
-            }
-
-            if (!list.containsKey('updatedAt')) {
-              list['updatedAt'] = DateTime.now().toIso8601String();
-            }
-
-            newCustomLists.add(jsonEncode(list));
-            Logging.severe(
-                "Processed custom list: ${list['name']} with ${list['albumIds'].length} albums");
+            final listData = jsonDecode(listJson);
+            final albumIds = listData['albumIds'] ?? [];
+            newCustomLists.add({
+              'id': listData['id'],
+              'name': listData['name'],
+              'description': listData['description'] ?? '',
+              'albumIds': albumIds,
+            });
           } catch (e) {
-            Logging.severe("Error processing custom list ${i + 1}: $e");
-            // Keep original on error
-            newCustomLists.add(customLists[i]);
+            Logging.severe('Error processing custom list: $e');
           }
         }
 
@@ -782,10 +769,31 @@ class BackupConverter {
 
   /// Import everything from SharedPreferences-style backup
   static Future<void> importAll(String filePath) async {
-    await importSavedAlbumsAndRatings(filePath);
-    await importCustomLists(filePath);
-    await importAlbumOrder(filePath);
-    Logging.severe('Completed full import from SharedPreferences backup');
+    try {
+      // Read file content first
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Logging.severe('Backup file not found: $filePath');
+        return;
+      }
+      final jsonString = await file.readAsString();
+
+      // Use smartImport instead of individual methods to ensure the best method is chosen
+      final success = await smartImport(jsonString);
+
+      if (success) {
+        Logging.severe('Completed full import using smart detection');
+      } else {
+        // Fall back to traditional methods if smart import failed
+        await importSavedAlbumsAndRatings(filePath);
+        await importCustomLists(filePath);
+        await importAlbumOrder(filePath);
+        Logging.severe(
+            'Completed fallback full import from SharedPreferences backup');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error importing everything', e, stack);
+    }
   }
 
   /// Import from a SharedPreferences-style JSON string.
@@ -830,27 +838,72 @@ class BackupConverter {
     }
     Logging.severe('Imported $importedRatings ratings from backup');
 
-    // Custom lists
-    final List<String> customLists =
-        List<String>.from(prefs['custom_lists'] ?? []);
+    // Custom lists - improved handling
+    final List<dynamic> customListsRaw = prefs['custom_lists'] ?? [];
     int importedLists = 0;
-    for (final listJson in customLists) {
+    int importedListAlbums = 0;
+
+    Logging.severe('Starting import of ${customListsRaw.length} custom lists');
+
+    for (final listRaw in customListsRaw) {
       try {
-        final listMap = json.decode(listJson);
-        await db.insertCustomList(listMap);
-        // Insert album-list relationships if present
-        if (listMap['albumIds'] is List) {
-          final albumIds = List<String>.from(listMap['albumIds']);
-          for (int i = 0; i < albumIds.length; i++) {
-            await db.addAlbumToList(albumIds[i], listMap['id'], i);
+        // Handle both Map and String formats
+        Map<String, dynamic> listMap;
+
+        if (listRaw is String) {
+          listMap = json.decode(listRaw);
+        } else if (listRaw is Map) {
+          listMap = Map<String, dynamic>.from(listRaw);
+        } else {
+          continue; // Skip invalid format
+        }
+
+        // Extract albumIds with better parsing
+        List<String> albumIds = [];
+
+        // Process albumIds as either List or String
+        if (listMap.containsKey('albumIds')) {
+          final rawAlbumIds = listMap['albumIds'];
+
+          if (rawAlbumIds is List) {
+            albumIds = rawAlbumIds.map((id) => id.toString()).toList();
+          } else if (rawAlbumIds is String) {
+            try {
+              // Try to parse as JSON
+              final parsed = json.decode(rawAlbumIds);
+              if (parsed is List) {
+                albumIds = parsed.map((id) => id.toString()).toList();
+              }
+            } catch (_) {
+              // Not valid JSON, maybe comma-separated
+              albumIds = rawAlbumIds
+                  .split(',')
+                  .map((id) => id.trim())
+                  .where((id) => id.isNotEmpty)
+                  .toList();
+            }
           }
         }
+
+        // Make sure albumIds is explicitly set in the map
+        listMap['albumIds'] = albumIds;
+
+        // Log what we're going to import
+        Logging.severe(
+            'Importing custom list "${listMap['name']}" with ${albumIds.length} albums');
+
+        // Use the enhanced insertCustomList method
+        await db.insertCustomList(listMap);
+
         importedLists++;
+        importedListAlbums += albumIds.length;
       } catch (e) {
         Logging.severe('Failed to import custom list: $e');
       }
     }
-    Logging.severe('Imported $importedLists custom lists from custom_lists');
+
+    Logging.severe(
+        'Imported $importedLists custom lists with $importedListAlbums album relationships');
 
     // Album order
     final List<String> albumOrder =
@@ -928,26 +981,82 @@ class BackupConverter {
       stats['ratings'] = ratingCount;
       Logging.severe('Imported $ratingCount ratings');
 
-      // 3. Import custom lists
+      // 3. Import custom lists - completely rewritten with transaction support
       if (data.containsKey('custom_lists')) {
-        final List<dynamic> listJsons = data['custom_lists'];
         int listCount = 0;
+        int albumRelationships = 0;
 
-        for (final listJson in listJsons) {
+        Logging.severe('Processing custom lists from backup');
+        final customListsData = data['custom_lists'];
+        final List<dynamic> customLists =
+            customListsData is List ? customListsData : [];
+
+        for (final listData in customLists) {
           try {
-            // Handle both string (old format) and map (new format) list entries
-            final Map<String, dynamic> listData =
-                listJson is String ? json.decode(listJson) : listJson;
+            // Handle both string (old format) and map (new format)
+            Map<String, dynamic> list;
 
-            await db.insertCustomList(listData);
+            if (listData is String) {
+              // Parse JSON string to Map
+              list = json.decode(listData);
+            } else if (listData is Map) {
+              // Already a Map, just ensure it's the right type
+              list = Map<String, dynamic>.from(listData);
+            } else {
+              // Unexpected format, skip
+              Logging.severe('Skipping custom list with unexpected format');
+              continue;
+            }
+
+            // Ensure list has required fields
+            if (!list.containsKey('id') || !list.containsKey('name')) {
+              Logging.severe('Skipping invalid custom list missing id or name');
+              continue;
+            }
+
+            // Extract albumIds list from the custom list
+            List<String> albumIds = [];
+
+            // Check different ways albumIds might be stored
+            if (list.containsKey('albumIds')) {
+              if (list['albumIds'] is List) {
+                albumIds = List<String>.from(list['albumIds']);
+              } else if (list['albumIds'] is String) {
+                try {
+                  final parsed = json.decode(list['albumIds']);
+                  if (parsed is List) {
+                    albumIds = List<String>.from(parsed);
+                  }
+                } catch (_) {
+                  // Not valid JSON, could be comma-separated
+                  final rawIds = list['albumIds'] as String;
+                  if (rawIds.isNotEmpty) {
+                    albumIds = rawIds.split(',').map((e) => e.trim()).toList();
+                  }
+                }
+              }
+            }
+
+            Logging.severe(
+                'Processed custom list "${list['name']}" with ${albumIds.length} albums');
+
+            // Add albumIds back to the list object (ensuring it's a proper List<String>)
+            list['albumIds'] = albumIds;
+
+            // Use the enhanced insertCustomList method which handles transaction and relationships
+            await db.insertCustomList(list);
+
             listCount++;
+            albumRelationships += albumIds.length;
           } catch (e) {
             Logging.severe('Error importing custom list: $e');
           }
         }
 
         stats['lists'] = listCount;
-        Logging.severe('Imported $listCount custom lists');
+        stats['album_list_relationships'] = albumRelationships;
+        Logging.severe(
+            'Imported $listCount custom lists with $albumRelationships album relationships');
       }
 
       // 4. Import album order
@@ -987,6 +1096,42 @@ class BackupConverter {
       stats['settings'] = settingsCount;
       Logging.severe('Imported $settingsCount settings');
 
+      // 6. After import, verify and log empty lists (but don't use undefined diagnostic class)
+      try {
+        // Check for any empty lists (lists with no albums) and log them
+        final db = await DatabaseHelper.instance.database;
+
+        // Get all custom lists
+        final lists = await db.query('custom_lists');
+
+        // For each list, check if it has any albums in the album_lists table
+        int emptyListsCount = 0;
+        for (final list in lists) {
+          final listId = list['id'].toString();
+          final listName = list['name'].toString();
+
+          // Count albums for this list
+          final albumCountResult = await db.rawQuery(
+              'SELECT COUNT(*) as count FROM album_lists WHERE list_id = ?',
+              [listId]);
+
+          final albumCount = Sqflite.firstIntValue(albumCountResult) ?? 0;
+
+          if (albumCount == 0) {
+            emptyListsCount++;
+            Logging.severe(
+                'Empty list found after import: "$listName" ($listId)');
+          }
+        }
+
+        if (emptyListsCount > 0) {
+          Logging.severe('Found $emptyListsCount empty lists after import');
+        }
+      } catch (e) {
+        // Silent catch - don't fail the import if verification fails
+        Logging.severe('Error checking for empty lists after import: $e');
+      }
+
       // Log overall import stats
       Logging.severe('Import completed: $stats');
       return true;
@@ -1007,6 +1152,9 @@ class BackupConverter {
       // Track import stats
       final stats = <String, int>{};
 
+      // Add track counter
+      int trackCount = 0;
+
       // 1. Import albums
       if (backup.containsKey('albums')) {
         final List<dynamic> albums = backup['albums'];
@@ -1017,20 +1165,51 @@ class BackupConverter {
             final album = Album.fromJson(albumData);
             await db.insertAlbum(album);
 
-            // Import tracks if present
+            // Import tracks if present - ENHANCED TO BE MORE ROBUST
             if (albumData.containsKey('tracks') &&
                 albumData['tracks'] is List) {
-              await db.insertTracks(album.id,
-                  List<Map<String, dynamic>>.from(albumData['tracks']));
+              final albumTracks =
+                  List<Map<String, dynamic>>.from(albumData['tracks']);
+
+              if (albumTracks.isNotEmpty) {
+                // Process each track to ensure it has the right format
+                final processedTracks = albumTracks.map((track) {
+                  // Make sure required fields are present
+                  return {
+                    'trackId': track['trackId'] ?? track['id'] ?? '',
+                    'trackName': track['trackName'] ??
+                        track['name'] ??
+                        track['title'] ??
+                        'Unknown Track',
+                    'trackNumber':
+                        track['trackNumber'] ?? track['position'] ?? 0,
+                    'trackTimeMillis': track['trackTimeMillis'] ??
+                        track['durationMs'] ??
+                        track['duration'] ??
+                        0,
+                    // Include any other fields
+                    ...track,
+                  };
+                }).toList();
+
+                // Insert tracks into database
+                await db.insertTracks(album.id.toString(), processedTracks);
+                trackCount += processedTracks.length;
+                Logging.severe(
+                    'Imported ${processedTracks.length} tracks for album ${album.name}');
+              }
             }
+
             albumCount++;
-          } catch (e) {
-            Logging.severe('Error importing album: $e');
+          } catch (e, stack) {
+            Logging.severe('Error importing album: $e', e, stack);
           }
         }
 
         stats['albums'] = albumCount;
-        Logging.severe('Imported $albumCount albums from SQLite format');
+        stats['tracks'] = trackCount;
+        Logging.severe(
+            'Imported $albumCount albums with $trackCount tracks from SQLite format');
       }
 
       // 2. Import ratings
@@ -1061,18 +1240,58 @@ class BackupConverter {
       if (backup.containsKey('custom_lists')) {
         final List<dynamic> lists = backup['custom_lists'];
         int listCount = 0;
+        int albumListRelationships = 0;
+
+        Logging.severe('Found ${lists.length} custom lists to import');
 
         for (final list in lists) {
           try {
+            // Extract list ID and album IDs before inserting
+            final String listId = list['id']?.toString() ?? '';
+            final String listName = list['name']?.toString() ?? 'Unknown list';
+            List<String> albumIds = [];
+
+            // Handle different ways albumIds might be stored
+            if (list.containsKey('albumIds') && list['albumIds'] is List) {
+              albumIds = List<String>.from(list['albumIds']);
+            }
+
+            Logging.severe(
+                'Importing custom list "$listName" (id: $listId) with ${albumIds.length} albums: ${albumIds.take(5).join(", ")}${albumIds.length > 5 ? "..." : ""}');
+
+            // Insert the list first
             await db.insertCustomList(list);
+
+            // Then explicitly insert all album-list relationships
+            for (int i = 0; i < albumIds.length; i++) {
+              try {
+                await db.addAlbumToList(albumIds[i], listId, i);
+                albumListRelationships++;
+              } catch (e) {
+                Logging.severe(
+                    'Error adding album ${albumIds[i]} to list $listId: $e');
+              }
+            }
+
             listCount++;
+            Logging.severe(
+                'Imported custom list: $listName with ${albumIds.length} albums');
           } catch (e) {
             Logging.severe('Error importing custom list: $e');
           }
         }
 
+        // Verify that all lists were imported correctly
+        final importedLists = await db.getAllCustomLists();
+        Logging.severe(
+            'After import: ${importedLists.length} lists in database (expected $listCount)');
+
         stats['lists'] = listCount;
-        Logging.severe('Imported $listCount custom lists from SQLite format');
+        stats['album_list_relationships'] = albumListRelationships;
+        Logging.severe(
+            'Imported $listCount custom lists with $albumListRelationships album relationships from SQLite format');
+      } else {
+        Logging.severe('No custom_lists found in backup');
       }
 
       // 4. Import album order
@@ -1082,7 +1301,8 @@ class BackupConverter {
           final List<String> albumIds =
               albumOrder.map((id) => id.toString()).toList();
           await db.saveAlbumOrder(albumIds);
-          stats['album_order'] = albumIds.length;
+          // Fix: Cast num to int using toInt()
+          stats['album_order'] = albumIds.length.toInt();
           Logging.severe('Imported album order from SQLite format');
         }
       }
@@ -1122,21 +1342,36 @@ class BackupConverter {
 
       final Map<String, dynamic> data = json.decode(jsonString);
 
-      // Detect format based on structure
-      bool isSqliteFormat =
-          data.containsKey('albums') && data.containsKey('ratings');
-      bool isSharedPrefsFormat = data.containsKey('saved_albums') ||
+      // ENHANCED FORMAT DETECTION
+      // Check for various indicators of format types
+      final bool hasSqliteTables = data.containsKey('albums') &&
+          (data.containsKey('ratings') || data.containsKey('tracks'));
+      final bool hasSharedPrefsFormat = data.containsKey('saved_albums') ||
           data.keys.any((key) => key.startsWith('saved_ratings_'));
 
-      if (isSqliteFormat) {
+      // Additional check for tracks embedded inside albums
+      bool hasEmbeddedTracks = false;
+      if (data.containsKey('albums') &&
+          data['albums'] is List &&
+          (data['albums'] as List).isNotEmpty) {
+        final firstAlbum = (data['albums'] as List).first;
+        if (firstAlbum is Map && firstAlbum.containsKey('tracks')) {
+          hasEmbeddedTracks = true;
+          Logging.severe('Detected embedded tracks in albums');
+        }
+      }
+
+      if (hasSqliteTables || hasEmbeddedTracks) {
         Logging.severe('Detected SQLite format backup');
         return importFromSqliteJson(jsonString);
-      } else if (isSharedPrefsFormat) {
+      } else if (hasSharedPrefsFormat) {
         Logging.severe('Detected SharedPreferences format backup');
         return importFromSharedPrefsJson(jsonString);
       } else {
-        Logging.severe('Unknown backup format');
-        return false;
+        Logging.severe(
+            'Unknown backup format, attempting to parse as SQLite format');
+        // Try SQLite format as default for unknown formats since it's more flexible
+        return importFromSqliteJson(jsonString);
       }
     } catch (e, stack) {
       Logging.severe('Error in smart import', e, stack);
