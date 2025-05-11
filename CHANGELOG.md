@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced import process to properly handle duplicate entries in custom lists
 - Improved error handling during backup import to ensure all data is properly processed
 - Added better logging for database constraints during import operations
+- Import themeMode and primaryColor from backup
+- Theme color updates properly when imported from backup
+- Added updateThemeModeFromImport to ThemeService
+- Ensure primary color correctly persists across app restarts
+- Improved settings page UI updates for theme changes
+- Enhanced color_reset_utility to properly update theme service
 
 ## [1.1.1-1] - 2025-05-07
 

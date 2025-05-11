@@ -108,6 +108,17 @@ class ColorUtility {
         .toUpperCase();
   }
 
+  /// Convert Color to hex string (with alpha)
+  static String colorToHexString(Color color) {
+    // Replace deprecated color.value with component-based approach
+    final int a = color.a.round();
+    final int r = color.r.round();
+    final int g = color.g.round();
+    final int b = color.b.round();
+    final int argb = (a << 24) | (r << 16) | (g << 8) | b;
+    return '#${argb.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+  }
+
   /// Create a Color from RGB components
   static Color fromRGB(int r, int g, int b) {
     return Color.fromRGBO(r, g, b, 1.0);

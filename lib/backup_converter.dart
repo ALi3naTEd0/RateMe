@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'database/database_helper.dart'; // Add database helper import
 import 'album_model.dart';
 import 'logging.dart';
+import 'theme_service.dart';
 
 /// Tool for converting old backup files to new model format
 class BackupConverter {
@@ -1072,29 +1073,39 @@ class BackupConverter {
       }
 
       // 5. Import settings
-      int settingsCount = 0;
-      for (final key in data.keys) {
-        // Skip known list/array keys we've already processed
-        if (key == 'saved_albums' ||
-            key == 'custom_lists' ||
-            key == 'album_order' ||
-            key.startsWith('saved_ratings_')) {
-          continue;
-        }
+      if (data.containsKey('settings')) {
+        final List<dynamic> settings = data['settings'];
+        int settingsCount = 0;
 
-        try {
-          final value = data[key];
-          if (value != null) {
-            await db.saveSetting(key, value.toString());
+        for (final setting in settings) {
+          try {
+            final key = setting['key'].toString();
+            final value = setting['value'].toString();
+            await db.saveSetting(key, value);
+
+            // Special handling for primaryColor to ensure theme updates
+            if (key == 'primaryColor') {
+              Logging.severe('Found primaryColor in backup: $value');
+              // Update theme system with imported color
+              await ThemeService.updatePrimaryColorFromImport(value);
+            }
+
+            // Special handling for themeMode to ensure theme updates
+            if (key == 'themeMode') {
+              Logging.severe('Found themeMode in backup: $value');
+              // Update theme system with imported mode
+              await ThemeService.updateThemeModeFromImport(value);
+            }
+
             settingsCount++;
+          } catch (e) {
+            Logging.severe('Error importing setting: $e');
           }
-        } catch (e) {
-          Logging.severe('Error importing setting $key: $e');
         }
-      }
 
-      stats['settings'] = settingsCount;
-      Logging.severe('Imported $settingsCount settings');
+        stats['settings'] = settingsCount;
+        Logging.severe('Imported $settingsCount settings from SQLite format');
+      }
 
       // 6. After import, verify and log empty lists (but don't use undefined diagnostic class)
       try {
@@ -1317,6 +1328,21 @@ class BackupConverter {
             final key = setting['key'].toString();
             final value = setting['value'].toString();
             await db.saveSetting(key, value);
+
+            // Special handling for primaryColor to ensure theme updates
+            if (key == 'primaryColor') {
+              Logging.severe('Found primaryColor in backup: $value');
+              // Update theme system with imported color
+              await ThemeService.updatePrimaryColorFromImport(value);
+            }
+
+            // Special handling for themeMode to ensure theme updates
+            if (key == 'themeMode') {
+              Logging.severe('Found themeMode in backup: $value');
+              // Update theme system with imported mode
+              await ThemeService.updateThemeModeFromImport(value);
+            }
+
             settingsCount++;
           } catch (e) {
             Logging.severe('Error importing setting: $e');

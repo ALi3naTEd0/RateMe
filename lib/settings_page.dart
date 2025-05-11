@@ -84,6 +84,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _primaryColor = SettingsService.primaryColor;
     _useDarkButtonText = SettingsService.useDarkButtonText;
 
+    // Subscribe to theme changes
+    ts.ThemeService.addGlobalListener(_updateTheme);
+
     // Still load settings to ensure everything is up to date
     _loadSettings();
     _checkDatabaseSize();
@@ -93,13 +96,42 @@ class _SettingsPageState extends State<SettingsPage> {
 
     // Add a listener for primary color changes
     SettingsService.addPrimaryColorListener(_updatePrimaryColor);
+
+    // Add a global theme listener that will refresh the entire UI when theme changes
+    ts.ThemeService.addGlobalListener(_forceRefresh);
+
+    // Add ThemeService listener to update UI when theme changes
+    ts.ThemeService.addGlobalListener(_updateThemeState);
+
+    // Log for debugging
+    Logging.severe('Refreshing settings page');
+    Logging.severe(
+        'Current theme mode in settings page: ${ts.ThemeService.themeMode}');
   }
 
   @override
   void dispose() {
+    // Unsubscribe when the page is disposed
+    ts.ThemeService.removeGlobalListener(_updateTheme);
+
     // Remove the listener when the widget is disposed
     SettingsService.removePrimaryColorListener(_updatePrimaryColor);
+
+    // Remove listener when widget is disposed
+    ts.ThemeService.removeGlobalListener(_forceRefresh);
+
+    // Remove listener when the widget is disposed
+    ts.ThemeService.removeGlobalListener(_updateThemeState);
     super.dispose();
+  }
+
+  // This method will be called when the theme changes
+  void _updateTheme() {
+    if (mounted) {
+      setState(() {
+        // No need to update _currentColor, just trigger a rebuild
+      });
+    }
   }
 
   // Method to update primary color when it changes elsewhere
@@ -107,6 +139,24 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       setState(() {
         _primaryColor = color;
+      });
+    }
+  }
+
+  // Force a complete UI refresh when theme changes
+  void _forceRefresh() {
+    if (mounted) {
+      setState(() {
+        // This will rebuild the entire widget tree with the new theme
+      });
+    }
+  }
+
+  // Callback for theme changes
+  void _updateThemeState() {
+    if (mounted) {
+      setState(() {
+        // This will rebuild the UI when theme changes occur
       });
     }
   }
@@ -1185,700 +1235,739 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pageWidth = MediaQuery.of(context).size.width * 0.85;
-    final horizontalPadding =
-        (MediaQuery.of(context).size.width - pageWidth) / 2;
+    // Use AnimatedBuilder to ensure theme changes trigger rebuilds
+    return AnimatedBuilder(
+      animation: ts.ThemeService.instance,
+      builder: (context, _) {
+        final pageWidth = MediaQuery.of(context).size.width * 0.85;
+        final horizontalPadding =
+            (MediaQuery.of(context).size.width - pageWidth) / 2;
 
-    // Get the correct icon color based on theme brightness
-    final iconColor = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : Colors.black;
+        // Get the correct icon color based on theme brightness
+        final iconColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : Colors.black;
 
-    // Log current theme mode for debugging
-    Logging.severe(
-        'Current theme mode in settings page: ${widget.currentTheme}');
+        // Log current theme mode for debugging
+        Logging.severe(
+            'Current theme mode in settings page: ${widget.currentTheme}');
 
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        automaticallyImplyLeading: false,
-        leadingWidth: horizontalPadding + 48,
-        title: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: Text(
-            'Settings',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black, // Add explicit color for visibility
+        return Scaffold(
+          appBar: AppBar(
+            centerTitle: false,
+            automaticallyImplyLeading: false,
+            leadingWidth: horizontalPadding + 48,
+            title: Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Text(
+                'Settings',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black, // Add explicit color for visibility
+                ),
+              ),
+            ),
+            leading: Padding(
+              padding: EdgeInsets.only(left: horizontalPadding),
+              child: IconButton(
+                icon: Icon(Icons.arrow_back, color: iconColor),
+                padding: const EdgeInsets.all(8.0),
+                constraints: const BoxConstraints(),
+                iconSize: 24.0,
+                splashRadius: 28.0,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
           ),
-        ),
-        leading: Padding(
-          padding: EdgeInsets.only(left: horizontalPadding),
-          child: IconButton(
-            icon: Icon(Icons.arrow_back, color: iconColor),
-            padding: const EdgeInsets.all(8.0),
-            constraints: const BoxConstraints(),
-            iconSize: 24.0,
-            splashRadius: 28.0,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-      ),
-      body: _isProcessing
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: SizedBox(
-                width: pageWidth,
-                child: isLoading
-                    ? _buildSkeletonSettings()
-                    : RefreshIndicator(
-                        key: _refreshIndicatorKey,
-                        onRefresh: _refreshData,
-                        child: ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            // Theme Section
-                            Card(
-                              margin: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      'Theme',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  RadioListTile<ThemeMode>(
-                                    title: const Text('System'),
-                                    value: ThemeMode.system,
-                                    groupValue: widget.currentTheme,
-                                    onChanged: (ThemeMode? mode) {
-                                      if (mode != null) {
-                                        widget.onThemeChanged(mode);
-                                        setState(() {});
-                                      }
-                                    },
-                                  ),
-                                  RadioListTile<ThemeMode>(
-                                    title: const Text('Light'),
-                                    value: ThemeMode.light,
-                                    groupValue: widget.currentTheme,
-                                    onChanged: (ThemeMode? mode) {
-                                      if (mode != null) {
-                                        widget.onThemeChanged(mode);
-                                        setState(() {});
-                                      }
-                                    },
-                                  ),
-                                  RadioListTile<ThemeMode>(
-                                    title: const Text('Dark'),
-                                    value: ThemeMode.dark,
-                                    groupValue: widget.currentTheme,
-                                    onChanged: (ThemeMode? mode) {
-                                      if (mode != null) {
-                                        widget.onThemeChanged(mode);
-                                        setState(() {});
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Color Section
-                            Card(
-                              margin: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          'App Colors',
+          body: _isProcessing
+              ? const Center(child: CircularProgressIndicator())
+              : Center(
+                  child: SizedBox(
+                    width: pageWidth,
+                    child: isLoading
+                        ? _buildSkeletonSettings()
+                        : RefreshIndicator(
+                            key: _refreshIndicatorKey,
+                            onRefresh: _refreshData,
+                            child: ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                // Theme Section
+                                Card(
+                                  margin: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Text(
+                                          'Theme',
                                           style: TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.restore),
-                                          tooltip: 'Restore default colors',
-                                          onPressed: () async {
-                                            // Update UI first, synchronously
+                                      ),
+                                      RadioListTile<ThemeMode>(
+                                        title: const Text('System'),
+                                        value: ThemeMode.system,
+                                        groupValue: widget.currentTheme,
+                                        onChanged: (ThemeMode? mode) {
+                                          if (mode != null) {
+                                            widget.onThemeChanged(mode);
+                                            setState(() {});
+                                          }
+                                        },
+                                      ),
+                                      RadioListTile<ThemeMode>(
+                                        title: const Text('Light'),
+                                        value: ThemeMode.light,
+                                        groupValue: widget.currentTheme,
+                                        onChanged: (ThemeMode? mode) {
+                                          if (mode != null) {
+                                            widget.onThemeChanged(mode);
+                                            setState(() {});
+                                          }
+                                        },
+                                      ),
+                                      RadioListTile<ThemeMode>(
+                                        title: const Text('Dark'),
+                                        value: ThemeMode.dark,
+                                        groupValue: widget.currentTheme,
+                                        onChanged: (ThemeMode? mode) {
+                                          if (mode != null) {
+                                            widget.onThemeChanged(mode);
+                                            setState(() {});
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Color Section
+                                Card(
+                                  margin: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text(
+                                              'App Colors',
+                                              style: TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.restore),
+                                              tooltip: 'Restore default colors',
+                                              onPressed: () async {
+                                                // Update UI first, synchronously
+                                                setState(() {
+                                                  _primaryColor =
+                                                      defaultPurpleColor;
+                                                  _useDarkButtonText = false;
+                                                });
+
+                                                // Call a separate method to handle all async operations
+                                                await _resetColorsToDefault();
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.color_lens),
+                                        title: const Text('Primary Color'),
+                                        subtitle: const Text(
+                                            'Change app accent color'),
+                                        trailing: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: _primaryColor,
+                                            shape: BoxShape.circle,
+                                            border:
+                                                Border.all(color: Colors.grey),
+                                          ),
+                                        ),
+                                        onTap: _showColorPickerDialog,
+                                      ),
+                                      ListTile(
+                                        title: const Text('Button Text Color'),
+                                        trailing: Switch(
+                                          value: useDarkText,
+                                          thumbIcon: WidgetStateProperty
+                                              .resolveWith<Icon?>((states) {
+                                            return Icon(
+                                              useDarkText
+                                                  ? Icons.format_color_text
+                                                  : Icons.format_color_reset,
+                                              size: 16,
+                                              color: useDarkText
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                            );
+                                          }),
+                                          inactiveTrackColor:
+                                              HSLColor.fromColor(
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .primary)
+                                                  .withAlpha(0.5)
+                                                  .toColor(),
+                                          activeTrackColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          activeColor: Colors
+                                              .black, // When active, always black
+                                          inactiveThumbColor: Colors
+                                              .white, // When inactive, always white
+                                          onChanged: (bool value) async {
+                                            // Update local state immediately for UI feedback
                                             setState(() {
-                                              _primaryColor =
-                                                  defaultPurpleColor;
-                                              _useDarkButtonText = false;
+                                              useDarkText = value;
+                                              _useDarkButtonText =
+                                                  value; // Also update this variable for the preview
                                             });
 
-                                            // Call a separate method to handle all async operations
-                                            await _resetColorsToDefault();
+                                            // Then save to database and notify services
+                                            final settingsService =
+                                                SettingsService();
+                                            await settingsService.saveSetting(
+                                                'useDarkButtonText', value);
+
+                                            // Call the notification method to ensure ThemeService is updated
+                                            SettingsService
+                                                .notifyButtonTextColorChanged(
+                                                    value);
                                           },
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.color_lens),
-                                    title: const Text('Primary Color'),
-                                    subtitle:
-                                        const Text('Change app accent color'),
-                                    trailing: Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: _primaryColor,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.grey),
+                                        subtitle: Text(useDarkText
+                                            ? 'Dark text'
+                                            : 'Light text'),
                                       ),
-                                    ),
-                                    onTap: _showColorPickerDialog,
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text('Preview:'),
+                                            const SizedBox(height: 8),
+                                            Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context)
+                                                    .scaffoldBackgroundColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: Theme.of(context)
+                                                      .dividerColor,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Align(
+                                                    alignment:
+                                                        Alignment.centerLeft,
+                                                    child: SizedBox(
+                                                      width: 150,
+                                                      child: ElevatedButton(
+                                                        style: ElevatedButton
+                                                            .styleFrom(
+                                                          backgroundColor:
+                                                              _primaryColor,
+                                                          foregroundColor:
+                                                              _useDarkButtonText
+                                                                  ? Colors.black
+                                                                  : Colors
+                                                                      .white,
+                                                        ),
+                                                        onPressed: () {},
+                                                        child: const Text(
+                                                            'Sample Text'),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  ListTile(
-                                    title: const Text('Button Text Color'),
-                                    trailing: Switch(
-                                      value: useDarkText,
-                                      thumbIcon: WidgetStateProperty
-                                          .resolveWith<Icon?>((states) {
-                                        return Icon(
-                                          useDarkText
-                                              ? Icons.format_color_text
-                                              : Icons.format_color_reset,
-                                          size: 16,
-                                          color: useDarkText
-                                              ? Colors.black
-                                              : Colors.white,
-                                        );
-                                      }),
-                                      inactiveTrackColor: HSLColor.fromColor(
-                                              Theme.of(context)
-                                                  .colorScheme
-                                                  .primary)
-                                          .withAlpha(0.5)
-                                          .toColor(),
-                                      activeTrackColor:
-                                          Theme.of(context).colorScheme.primary,
-                                      activeColor: Colors
-                                          .black, // When active, always black
-                                      inactiveThumbColor: Colors
-                                          .white, // When inactive, always white
-                                      onChanged: (bool value) async {
-                                        // Update local state immediately for UI feedback
-                                        setState(() {
-                                          useDarkText = value;
-                                          _useDarkButtonText =
-                                              value; // Also update this variable for the preview
-                                        });
+                                ),
 
-                                        // Then save to database and notify services
-                                        final settingsService =
-                                            SettingsService();
-                                        await settingsService.saveSetting(
-                                            'useDarkButtonText', value);
-
-                                        // Call the notification method to ensure ThemeService is updated
-                                        SettingsService
-                                            .notifyButtonTextColorChanged(
-                                                value);
-                                      },
-                                    ),
-                                    subtitle: Text(useDarkText
-                                        ? 'Dark text'
-                                        : 'Light text'),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
+                                // Search Preferences Section
+                                Card(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Preview:'),
-                                        const SizedBox(height: 8),
-                                        Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .scaffoldBackgroundColor,
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: Theme.of(context)
-                                                  .dividerColor,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: SizedBox(
-                                                  width: 150,
-                                                  child: ElevatedButton(
-                                                    style: ElevatedButton
-                                                        .styleFrom(
-                                                      backgroundColor:
-                                                          _primaryColor,
-                                                      foregroundColor:
-                                                          _useDarkButtonText
-                                                              ? Colors.black
-                                                              : Colors.white,
-                                                    ),
-                                                    onPressed: () {},
-                                                    child: const Text(
-                                                        'Sample Text'),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                        const Text(
+                                          'Search Preferences',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                        const SizedBox(height: 16),
 
-                            // Search Preferences Section
-                            Card(
-                              margin: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Search Preferences',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-
-                                    // Default search platform dropdown
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Default Search Platform:',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 8),
-                                        DropdownButton<SearchPlatform>(
-                                          isExpanded:
-                                              true, // Make dropdown expand to fill width
-                                          value: _defaultSearchPlatform,
-                                          underline: Container(),
-                                          onChanged:
-                                              (SearchPlatform? platform) {
-                                            if (platform != null) {
-                                              _saveDefaultSearchPlatform(
-                                                  platform);
-                                            }
-                                          },
-                                          items: [
-                                            SearchPlatform.itunes,
-                                            SearchPlatform.spotify,
-                                            SearchPlatform.deezer,
-                                            SearchPlatform.discogs,
-                                          ].map((platform) {
-                                            return DropdownMenuItem<
-                                                SearchPlatform>(
-                                              value: platform,
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  SvgPicture.asset(
-                                                    _getPlatformIconPath(
-                                                        platform),
-                                                    width: 30,
-                                                    height: 30,
-                                                    // Fix icon colors for both themes
-                                                    colorFilter: ColorFilter.mode(
-                                                        Theme.of(context)
-                                                                    .brightness ==
-                                                                Brightness.dark
-                                                            ? Colors.white
-                                                            : Colors.black,
-                                                        BlendMode.srcIn),
+                                        // Default search platform dropdown
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                                'Default Search Platform:',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold)),
+                                            const SizedBox(height: 8),
+                                            DropdownButton<SearchPlatform>(
+                                              isExpanded:
+                                                  true, // Make dropdown expand to fill width
+                                              value: _defaultSearchPlatform,
+                                              underline: Container(),
+                                              onChanged:
+                                                  (SearchPlatform? platform) {
+                                                if (platform != null) {
+                                                  _saveDefaultSearchPlatform(
+                                                      platform);
+                                                }
+                                              },
+                                              items: [
+                                                SearchPlatform.itunes,
+                                                SearchPlatform.spotify,
+                                                SearchPlatform.deezer,
+                                                SearchPlatform.discogs,
+                                              ].map((platform) {
+                                                return DropdownMenuItem<
+                                                    SearchPlatform>(
+                                                  value: platform,
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      SvgPicture.asset(
+                                                        _getPlatformIconPath(
+                                                            platform),
+                                                        width: 30,
+                                                        height: 30,
+                                                        // Fix icon colors for both themes
+                                                        colorFilter: ColorFilter.mode(
+                                                            Theme.of(context)
+                                                                        .brightness ==
+                                                                    Brightness
+                                                                        .dark
+                                                                ? Colors.white
+                                                                : Colors.black,
+                                                            BlendMode.srcIn),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                          _getDisplayNameForPlatform(
+                                                              platform)),
+                                                    ],
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                      _getDisplayNameForPlatform(
-                                                          platform)),
-                                                ],
-                                              ),
-                                            );
-                                          }).toList(),
-                                        ),
-                                        const SizedBox(
-                                            height: 8), // Add bottom spacing
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // API Keys Section
-                            _buildApiKeysSection(),
-
-                            // Data Management Section
-                            Card(
-                              margin: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      'Data Management',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.file_download),
-                                    title: const Text('Import Backup'),
-                                    subtitle: const Text(
-                                        'Restore data from a backup file'),
-                                    onTap: _importBackup,
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.file_upload),
-                                    title: const Text('Export Backup'),
-                                    subtitle: const Text(
-                                        'Save all your data as a backup file'),
-                                    onTap: _exportBackup,
-                                  ),
-                                  const Divider(),
-                                  ListTile(
-                                    title: const Text('Recover Missing Tracks'),
-                                    subtitle: const Text(
-                                        'Find and fix albums missing track data'),
-                                    leading: const Icon(Icons.construction),
-                                    onTap: isLoading ? null : _runTrackRecovery,
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Database Management Section
-                            Card(
-                              margin: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      'Database Maintenance',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  // Move the database size display to here (top of the section)
-                                  FutureBuilder<int>(
-                                    future: UserData.getDatabaseSize(),
-                                    builder: (context, snapshot) {
-                                      final size = snapshot.data ?? 0;
-                                      final sizeText = size > 0
-                                          ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
-                                          : 'Unknown';
-
-                                      return Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: Text(
-                                          'Current database size: $sizeText',
-                                          style: const TextStyle(
-                                            fontStyle: FontStyle.italic,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons
-                                        .storage), // Changed to storage icon
-                                    title: const Text(
-                                        'Migrate to SQLite Database'),
-                                    subtitle: const Text(
-                                        'Update database and convert albums to new model format'),
-                                    onTap: () async {
-                                      final shouldMigrate =
-                                          await showDialog<bool>(
-                                                context: context,
-                                                builder: (context) =>
-                                                    AlertDialog(
-                                                  title: const Text(
-                                                      'Database Migration'),
-                                                  content: const Text(
-                                                    'This will migrate your data to the SQLite database and update album models to the latest format. '
-                                                    'This step is required for all users upgrading from older versions.\n\n'
-                                                    'The app will show a progress indicator during migration.',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(context)
-                                                              .pop(false),
-                                                      child:
-                                                          const Text('Cancel'),
-                                                    ),
-                                                    ElevatedButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(context)
-                                                              .pop(true),
-                                                      child:
-                                                          const Text('Migrate'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ) ??
-                                              false;
-
-                                      if (shouldMigrate) {
-                                        _migrateToSqliteDatabase();
-                                      }
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.healing),
-                                    title:
-                                        const Text('Fix Platform Duplicates'),
-                                    subtitle: const Text(
-                                        'Clean up duplicate iTunes/Apple Music entries'),
-                                    onTap: _cleanupDuplicates,
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.rocket_launch),
-                                    title: const Text('Optimize Database'),
-                                    subtitle: const Text(
-                                        'Clean and optimize the database for better performance'),
-                                    onTap: _performDatabaseMaintenance,
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons
-                                        .update), // or Icons.sync_alt, Icons.upgrade, Icons.format_paint
-                                    title: const Text(
-                                        'Convert Albums to New Format'),
-                                    subtitle: const Text(
-                                        'Update album data for compatibility'),
-                                    onTap: () async {
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Convert Albums?'),
-                                          content: const Text(
-                                              'This will update album data to the latest format for compatibility. '
-                                              'This operation is safe but might take some time for large libraries.'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.of(context)
-                                                      .pop(false),
-                                              child: const Text('Cancel'),
+                                                );
+                                              }).toList(),
                                             ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.of(context)
-                                                      .pop(true),
-                                              child: const Text('Convert'),
-                                            ),
+                                            const SizedBox(
+                                                height:
+                                                    8), // Add bottom spacing
                                           ],
                                         ),
-                                      );
-
-                                      if (confirmed == true) {
-                                        // Show loading
-                                        setState(() {
-                                          isLoading = true;
-                                        });
-
-                                        try {
-                                          // Do async operations
-                                          await JsonFixer.fixAlbumDataFields();
-                                          await JsonFixer
-                                              .fixIdsAndMetadataInAlbumData();
-
-                                          // After async gap, check if widget is still mounted
-                                          if (!mounted) return;
-                                          _showAlbumConversionSuccessSnackBar(
-                                              'Albums converted successfully!');
-                                        } catch (e) {
-                                          // Log error
-                                          Logging.severe(
-                                              'Error converting albums', e);
-
-                                          // After async gap, check if widget is still mounted
-                                          if (!mounted) return;
-                                          _showAlbumConversionErrorSnackBar(
-                                              'Error converting albums: $e');
-                                        } finally {
-                                          // Hide loading indicator only if still mounted
-                                          if (mounted) {
-                                            setState(() {
-                                              isLoading = false;
-                                            });
-                                          }
-                                        }
-                                      }
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: SvgPicture.asset(
-                                      'lib/icons/bandcamp.svg',
-                                      width: 24,
-                                      height: 24,
-                                      colorFilter: ColorFilter.mode(
-                                        Theme.of(context).brightness ==
-                                                Brightness.dark
-                                            ? Colors.white
-                                            : Colors.black,
-                                        BlendMode.srcIn,
-                                      ),
+                                      ],
                                     ),
-                                    title: const Text('Update Bandcamp Albums'),
-                                    subtitle: const Text(
-                                        'Refresh track data for Bandcamp albums'),
-                                    onTap: _fixBandcampTrackIds,
                                   ),
-                                  // Add the Fix Album Dates option right after the Bandcamp fix
-                                  ListTile(
-                                    leading: const Icon(Icons.calendar_today),
-                                    title:
-                                        const Text('Fix Album Release Dates'),
-                                    subtitle: const Text(
-                                      'Fix missing or incorrect release dates for albums',
-                                    ),
-                                    onTap: () async {
-                                      // Store the BuildContext before async operations
-                                      final currentContext = context;
+                                ),
 
-                                      // Store a reference to the ScaffoldMessenger before async gap
-                                      final scaffoldMessenger =
-                                          ScaffoldMessenger.of(currentContext);
+                                // API Keys Section
+                                _buildApiKeysSection(),
 
-                                      final results =
-                                          await DateFixerUtility.runWithDialog(
-                                        currentContext,
-                                        onlyDeezer: true,
-                                        onlyMissingDates: true,
-                                      );
-
-                                      // Check if still mounted before accessing scaffold messenger
-                                      if (mounted) {
-                                        scaffoldMessenger.showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                                'Date fixing completed: ${results.fixed} albums fixed, '
-                                                '${results.failed} failed, ${results.skipped} skipped'),
-                                            duration:
-                                                const Duration(seconds: 5),
+                                // Data Management Section
+                                Card(
+                                  margin: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Text(
+                                          'Data Management',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons
-                                        .cleaning_services), // Cleaning icon
-                                    title: const Text('Clean Platform Matches'),
-                                    subtitle: const Text(
-                                        'Find and fix incorrect platform links'),
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const PlatformMatchCleanerWidget(),
                                         ),
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: Icon(
-                                      Icons.warning_amber_rounded,
-                                      color:
-                                          Theme.of(context).colorScheme.error,
-                                    ),
-                                    title: const Text('Emergency Reset'),
-                                    subtitle: const Text(
-                                        'Reset database connection if problems occur'),
-                                    onTap: _performEmergencyDatabaseReset,
-                                  ),
-                                  const Divider(height: 32),
-                                ],
-                              ),
-                            ),
-
-                            // Debug & Development Section
-                            Card(
-                              margin: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      'Debug & Development',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
                                       ),
-                                    ),
+                                      ListTile(
+                                        leading:
+                                            const Icon(Icons.file_download),
+                                        title: const Text('Import Backup'),
+                                        subtitle: const Text(
+                                            'Restore data from a backup file'),
+                                        onTap: _importBackup,
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.file_upload),
+                                        title: const Text('Export Backup'),
+                                        subtitle: const Text(
+                                            'Save all your data as a backup file'),
+                                        onTap: _exportBackup,
+                                      ),
+                                      const Divider(),
+                                      ListTile(
+                                        title: const Text(
+                                            'Recover Missing Tracks'),
+                                        subtitle: const Text(
+                                            'Find and fix albums missing track data'),
+                                        leading: const Icon(Icons.construction),
+                                        onTap: isLoading
+                                            ? null
+                                            : _runTrackRecovery,
+                                      ),
+                                    ],
                                   ),
-                                  // Add About option
-                                  ListTile(
-                                    leading: const Icon(Icons.info_outline),
-                                    title: const Text('About Rate Me!'),
-                                    subtitle: const Text(
-                                        'View app information and links'),
-                                    onTap: () => _showAboutDialog(context),
+                                ),
+
+                                // Database Management Section
+                                Card(
+                                  margin: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Text(
+                                          'Database Maintenance',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      // Move the database size display to here (top of the section)
+                                      FutureBuilder<int>(
+                                        future: UserData.getDatabaseSize(),
+                                        builder: (context, snapshot) {
+                                          final size = snapshot.data ?? 0;
+                                          final sizeText = size > 0
+                                              ? '${(size / 1024 / 1024).toStringAsFixed(2)} MB'
+                                              : 'Unknown';
+
+                                          return Padding(
+                                            padding: const EdgeInsets.all(16.0),
+                                            child: Text(
+                                              'Current database size: $sizeText',
+                                              style: const TextStyle(
+                                                fontStyle: FontStyle.italic,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons
+                                            .storage), // Changed to storage icon
+                                        title: const Text(
+                                            'Migrate to SQLite Database'),
+                                        subtitle: const Text(
+                                            'Update database and convert albums to new model format'),
+                                        onTap: () async {
+                                          final shouldMigrate =
+                                              await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (context) =>
+                                                        AlertDialog(
+                                                      title: const Text(
+                                                          'Database Migration'),
+                                                      content: const Text(
+                                                        'This will migrate your data to the SQLite database and update album models to the latest format. '
+                                                        'This step is required for all users upgrading from older versions.\n\n'
+                                                        'The app will show a progress indicator during migration.',
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      context)
+                                                                  .pop(false),
+                                                          child: const Text(
+                                                              'Cancel'),
+                                                        ),
+                                                        ElevatedButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      context)
+                                                                  .pop(true),
+                                                          child: const Text(
+                                                              'Migrate'),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ) ??
+                                                  false;
+
+                                          if (shouldMigrate) {
+                                            _migrateToSqliteDatabase();
+                                          }
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.healing),
+                                        title: const Text(
+                                            'Fix Platform Duplicates'),
+                                        subtitle: const Text(
+                                            'Clean up duplicate iTunes/Apple Music entries'),
+                                        onTap: _cleanupDuplicates,
+                                      ),
+                                      ListTile(
+                                        leading:
+                                            const Icon(Icons.rocket_launch),
+                                        title: const Text('Optimize Database'),
+                                        subtitle: const Text(
+                                            'Clean and optimize the database for better performance'),
+                                        onTap: _performDatabaseMaintenance,
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons
+                                            .update), // or Icons.sync_alt, Icons.upgrade, Icons.format_paint
+                                        title: const Text(
+                                            'Convert Albums to New Format'),
+                                        subtitle: const Text(
+                                            'Update album data for compatibility'),
+                                        onTap: () async {
+                                          final confirmed =
+                                              await showDialog<bool>(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title:
+                                                  const Text('Convert Albums?'),
+                                              content: const Text(
+                                                  'This will update album data to the latest format for compatibility. '
+                                                  'This operation is safe but might take some time for large libraries.'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(context)
+                                                          .pop(false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(context)
+                                                          .pop(true),
+                                                  child: const Text('Convert'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+
+                                          if (confirmed == true) {
+                                            // Show loading
+                                            setState(() {
+                                              isLoading = true;
+                                            });
+
+                                            try {
+                                              // Do async operations
+                                              await JsonFixer
+                                                  .fixAlbumDataFields();
+                                              await JsonFixer
+                                                  .fixIdsAndMetadataInAlbumData();
+
+                                              // After async gap, check if widget is still mounted
+                                              if (!mounted) return;
+                                              _showAlbumConversionSuccessSnackBar(
+                                                  'Albums converted successfully!');
+                                            } catch (e) {
+                                              // Log error
+                                              Logging.severe(
+                                                  'Error converting albums', e);
+
+                                              // After async gap, check if widget is still mounted
+                                              if (!mounted) return;
+                                              _showAlbumConversionErrorSnackBar(
+                                                  'Error converting albums: $e');
+                                            } finally {
+                                              // Hide loading indicator only if still mounted
+                                              if (mounted) {
+                                                setState(() {
+                                                  isLoading = false;
+                                                });
+                                              }
+                                            }
+                                          }
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: SvgPicture.asset(
+                                          'lib/icons/bandcamp.svg',
+                                          width: 24,
+                                          height: 24,
+                                          colorFilter: ColorFilter.mode(
+                                            Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? Colors.white
+                                                : Colors.black,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        title: const Text(
+                                            'Update Bandcamp Albums'),
+                                        subtitle: const Text(
+                                            'Refresh track data for Bandcamp albums'),
+                                        onTap: _fixBandcampTrackIds,
+                                      ),
+                                      // Add the Fix Album Dates option right after the Bandcamp fix
+                                      ListTile(
+                                        leading:
+                                            const Icon(Icons.calendar_today),
+                                        title: const Text(
+                                            'Fix Album Release Dates'),
+                                        subtitle: const Text(
+                                          'Fix missing or incorrect release dates for albums',
+                                        ),
+                                        onTap: () async {
+                                          // Store the BuildContext before async operations
+                                          final currentContext = context;
+
+                                          // Store a reference to the ScaffoldMessenger before async gap
+                                          final scaffoldMessenger =
+                                              ScaffoldMessenger.of(
+                                                  currentContext);
+
+                                          final results = await DateFixerUtility
+                                              .runWithDialog(
+                                            currentContext,
+                                            onlyDeezer: true,
+                                            onlyMissingDates: true,
+                                          );
+
+                                          // Check if still mounted before accessing scaffold messenger
+                                          if (mounted) {
+                                            scaffoldMessenger.showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                    'Date fixing completed: ${results.fixed} albums fixed, '
+                                                    '${results.failed} failed, ${results.skipped} skipped'),
+                                                duration:
+                                                    const Duration(seconds: 5),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons
+                                            .cleaning_services), // Cleaning icon
+                                        title: const Text(
+                                            'Clean Platform Matches'),
+                                        subtitle: const Text(
+                                            'Find and fix incorrect platform links'),
+                                        onTap: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const PlatformMatchCleanerWidget(),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: Icon(
+                                          Icons.warning_amber_rounded,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                        ),
+                                        title: const Text('Emergency Reset'),
+                                        subtitle: const Text(
+                                            'Reset database connection if problems occur'),
+                                        onTap: _performEmergencyDatabaseReset,
+                                      ),
+                                      const Divider(height: 32),
+                                    ],
                                   ),
-                                  ListTile(
-                                    leading: const Icon(Icons.bug_report),
-                                    title: const Text('Show Debug Info'),
-                                    subtitle: const Text(
-                                        'View technical information'),
-                                    onTap: () =>
-                                        DebugUtil.showDebugReport(context),
+                                ),
+
+                                // Debug & Development Section
+                                Card(
+                                  margin: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Text(
+                                          'Debug & Development',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      // Add About option
+                                      ListTile(
+                                        leading: const Icon(Icons.info_outline),
+                                        title: const Text('About Rate Me!'),
+                                        subtitle: const Text(
+                                            'View app information and links'),
+                                        onTap: () => _showAboutDialog(context),
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.bug_report),
+                                        title: const Text('Show Debug Info'),
+                                        subtitle: const Text(
+                                            'View technical information'),
+                                        onTap: () =>
+                                            DebugUtil.showDebugReport(context),
+                                      ),
+                                      ListTile(
+                                        leading: Icon(
+                                          Icons.delete_forever,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                        ),
+                                        title: const Text('Clear Database'),
+                                        subtitle: const Text(
+                                            'Delete all saved data (cannot be undone)'),
+                                        onTap: () => _showClearDatabaseDialog(),
+                                      ),
+                                    ],
                                   ),
-                                  ListTile(
-                                    leading: Icon(
-                                      Icons.delete_forever,
-                                      color:
-                                          Theme.of(context).colorScheme.error,
-                                    ),
-                                    title: const Text('Clear Database'),
-                                    subtitle: const Text(
-                                        'Delete all saved data (cannot be undone)'),
-                                    onTap: () => _showClearDatabaseDialog(),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-              ),
-            ),
+                          ),
+                  ),
+                ),
+        );
+      },
     );
   }
 

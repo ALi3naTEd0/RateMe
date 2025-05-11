@@ -8,7 +8,15 @@ import 'color_utility.dart';
 import 'dart:io' show Platform;
 
 /// A clean, straightforward service to manage application themes
-class ThemeService {
+class ThemeService extends ChangeNotifier {
+  static final ThemeService _instance = ThemeService._();
+
+  // Constructor
+  ThemeService._();
+
+  // Singleton
+  static ThemeService get instance => _instance;
+
   // Store the current theme mode and primary color
   static ThemeMode _themeMode = ThemeMode.system;
   static Color _primaryColor = const Color(0xFF536DFE); // Use indigo as default
@@ -301,18 +309,31 @@ class ThemeService {
 
   /// Update the theme mode and save to database
   static Future<void> setThemeMode(ThemeMode mode) async {
-    // First update the internal value so it's immediately available
-    _themeMode = mode;
+    try {
+      final db = DatabaseHelper.instance;
+      // Store as a plain string without the 'ThemeMode.' prefix
+      String modeStr;
+      switch (mode) {
+        case ThemeMode.system:
+          modeStr = 'system';
+          break;
+        case ThemeMode.light:
+          modeStr = 'light';
+          break;
+        case ThemeMode.dark:
+          modeStr = 'dark';
+          break;
+      }
+      await db.saveSetting('themeMode', modeStr);
+      _themeMode = mode;
 
-    // Save to database
-    final modeStr = mode.toString();
-    await DatabaseHelper.instance.saveSetting('themeMode', modeStr);
+      // Notify listeners
+      instance.notifyListeners();
 
-    // One log for important user setting
-    Logging.severe('ThemeService: Theme mode set to $mode');
-
-    // Notify listeners
-    _notifyListeners();
+      Logging.severe('Theme mode set to $modeStr');
+    } catch (e, stack) {
+      Logging.severe('Error setting theme mode', e, stack);
+    }
   }
 
   /// Update the primary color and save to database
@@ -382,7 +403,7 @@ class ThemeService {
             _primaryColor = dbColor;
             _notifyListeners();
           } catch (e) {
-            // Fall back to default purple
+            // Fall back to default color
             Logging.severe(
                 'Error parsing database color, using default purple');
             _primaryColor = ColorUtility.defaultColor;
@@ -421,14 +442,222 @@ class ThemeService {
     }
   }
 
-  /// Add a listener to be notified when the theme changes
-  static void addListener(Function(ThemeMode, Color) listener) {
-    _listeners.add(listener);
+  /// Update the primary color from an imported value
+  static Future<void> updatePrimaryColorFromImport(String colorValue) async {
+    try {
+      Logging.severe(
+          'ThemeService: Updating primary color from import: $colorValue');
+
+      // Parse the color string to a Color object
+      Color? parsedColor;
+
+      if (colorValue.startsWith('#')) {
+        // Handle hex format like #RRGGBB or #AARRGGBB
+        String hexColor = colorValue.replaceFirst('#', '');
+
+        if (hexColor.length == 6) {
+          hexColor = 'FF$hexColor'; // Add alpha if not present
+        }
+
+        if (hexColor.length == 8) {
+          parsedColor = Color(int.parse('0x$hexColor'));
+        }
+      }
+
+      // If we couldn't parse it or it's not valid, just return
+      if (parsedColor == null) {
+        Logging.severe(
+            'ThemeService: Could not parse color value: $colorValue');
+        return;
+      }
+
+      // Update the database directly
+      final db = DatabaseHelper.instance;
+      await db.saveSetting('primaryColor', colorValue);
+
+      // Update the in-memory color right away
+      _primaryColor = parsedColor;
+
+      // Notify global listeners (which notify _MyAppState)
+      for (final listener in _listeners) {
+        listener(_themeMode, _primaryColor);
+      }
+
+      // Also notify instance listeners for AnimatedBuilder
+      instance.notifyListeners();
+
+      // Also notify ChangeNotifier listeners on the instance
+      instance._updateState();
+
+      // Add additional notification to ensure Settings page updates
+      notifyGlobalListeners();
+
+      Logging.severe(
+          'ThemeService: Primary color updated to $colorValue and applied immediately');
+    } catch (e, stack) {
+      Logging.severe(
+          'ThemeService: Error updating primary color from import', e, stack);
+    }
   }
 
-  /// Remove a listener
-  static void removeListener(Function(ThemeMode, Color) listener) {
-    _listeners.remove(listener);
+  /// Additional method to ensure all global listeners are notified
+  static void notifyGlobalListeners() {
+    // This ensures that _themeListener in _MyAppState gets called
+    for (final listener in _listeners) {
+      listener(_themeMode, _primaryColor);
+    }
+
+    // This ensures that AnimatedBuilder widgets get rebuilt
+    instance.notifyListeners();
+  }
+
+  // Make sure the instance._updateState method exists and works properly
+  void _updateState() {
+    // This method should trigger a rebuild of any widgets using this as a ChangeNotifier
+    notifyListeners();
+    // Explicitly log this to trace the notification flow
+    Logging.severe('ThemeService instance notified listeners of state change');
+  }
+
+  /// Update the theme mode from an imported value
+  static Future<void> updateThemeModeFromImport(String modeValue) async {
+    try {
+      Logging.severe(
+          'ThemeService: Updating theme mode from import: $modeValue');
+
+      // Parse the theme mode string
+      ThemeMode parsedMode = ThemeMode.system;
+
+      // Handle the value with or without the ThemeMode. prefix
+      String normalizedValue =
+          modeValue.replaceAll('ThemeMode.', '').toLowerCase();
+
+      switch (normalizedValue) {
+        case 'dark':
+          parsedMode = ThemeMode.dark;
+          break;
+        case 'light':
+          parsedMode = ThemeMode.light;
+          break;
+        case 'system':
+          parsedMode = ThemeMode.system;
+          break;
+        default:
+          Logging.severe(
+              'ThemeService: Unknown theme mode value: $modeValue, using system');
+          parsedMode = ThemeMode.system;
+      }
+
+      // Update the database
+      final db = DatabaseHelper.instance;
+      await db.saveSetting('themeMode', 'ThemeMode.$normalizedValue');
+
+      // Update in-memory value
+      _themeMode = parsedMode;
+
+      // Notify listeners
+      if (_listeners.isNotEmpty) {
+        for (final listener in _listeners) {
+          listener(_themeMode, _primaryColor);
+        }
+        Logging.severe(
+            'ThemeService: Notified ${_listeners.length} listeners of theme mode change');
+      }
+
+      // Also notify instance listeners to trigger UI rebuilds
+      instance.notifyListeners();
+
+      Logging.severe(
+          'ThemeService: Theme mode updated to $parsedMode and applied immediately');
+    } catch (e, stack) {
+      Logging.severe(
+          'ThemeService: Error updating theme mode from import', e, stack);
+    }
+  }
+
+  // Make sure this method is properly implemented to load themes from the database
+  static Future<void> loadSettings() async {
+    try {
+      final db = DatabaseHelper.instance;
+
+      // Load theme mode with better parsing
+      final themeModeValue = await db.getSetting('themeMode');
+      if (themeModeValue != null) {
+        // Support both formats: with or without 'ThemeMode.' prefix
+        final modeStr =
+            themeModeValue.replaceAll('ThemeMode.', '').toLowerCase();
+        switch (modeStr) {
+          case 'dark':
+            _themeMode = ThemeMode.dark;
+            break;
+          case 'light':
+            _themeMode = ThemeMode.light;
+            break;
+          default:
+            _themeMode = ThemeMode.system;
+            break;
+        }
+        Logging.severe('Loaded theme mode: $_themeMode');
+      }
+
+      // Load primary color
+      final primaryColorValue = await db.getSetting('primaryColor');
+      if (primaryColorValue != null && primaryColorValue.startsWith('#')) {
+        final parsedColor = ColorUtility.hexToColor(primaryColorValue);
+        _primaryColor = parsedColor;
+        Logging.severe('Loaded primary color: $primaryColorValue');
+      }
+
+      // Load dark button text flag
+      final useDarkButtonTextValue = await db.getSetting('useDarkButtonText');
+      if (useDarkButtonTextValue != null) {
+        _useDarkButtonText = useDarkButtonTextValue.toLowerCase() == 'true';
+        Logging.severe('Loaded use dark button text: $_useDarkButtonText');
+      }
+
+      // Notify listeners that settings have been loaded
+      instance.notifyListeners();
+    } catch (e, stack) {
+      Logging.severe('Error loading theme settings', e, stack);
+    }
+  }
+
+  // Change the name of the duplicate initialize method to avoid conflict
+  // New name: initializeSettings() instead of initialize()
+  static Future<void> initializeSettings() async {
+    try {
+      await loadSettings();
+      Logging.severe(
+          'ThemeService initialized with primaryColor: ${_primaryColor.toString()}');
+    } catch (e, stack) {
+      Logging.severe('Error initializing ThemeService', e, stack);
+    }
+  }
+
+  /// Add a theme listener to the theme change events
+  static void addThemeListener(VoidCallback listener) {
+    // If _listeners is static final, we need to initialize it differently
+    // Assuming _listeners is declared as: static final List<Function(ThemeMode, Color)> _listeners = [];
+
+    // Convert VoidCallback to Function(ThemeMode, Color) with a wrapper
+    // No null check needed if _listeners is a non-nullable final field
+    _listeners.add((mode, color) => listener());
+  }
+
+  /// Remove a theme listener from the theme change events
+  static void removeThemeListener(VoidCallback listener) {
+    // No null check needed if _listeners is a non-nullable final field
+    // Instead, we can just directly access the list methods
+    _listeners.removeWhere((fn) => fn.toString() == listener.toString());
+  }
+
+  // Static convenience wrapper methods for adding/removing listeners - renamed to avoid conflict
+  static void addGlobalListener(VoidCallback listener) {
+    instance.addListener(listener);
+  }
+
+  static void removeGlobalListener(VoidCallback listener) {
+    instance.removeListener(listener);
   }
 
   /// Notify all listeners of theme changes

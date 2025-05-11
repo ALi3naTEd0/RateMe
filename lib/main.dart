@@ -136,7 +136,7 @@ class _MyAppState extends State<MyApp> {
     Logging.severe('MAIN: Application initialized');
     _loadTheme();
     // Add a listener to ensure ThemeService changes are applied
-    ts.ThemeService.addListener(_themeListener);
+    ts.ThemeService.addGlobalListener(_updateThemeState);
     _loadSettings();
     _startClipboardDetection();
     _loadSearchPlatform();
@@ -176,11 +176,11 @@ class _MyAppState extends State<MyApp> {
       }
     });
     // Add a listener to ThemeService to update when theme changes
-    ts.ThemeService.addListener((mode, color) {
+    ts.ThemeService.addGlobalListener(() {
       if (mounted) {
         setState(() {
-          _themeMode = mode;
-          _primaryColor = color;
+          _themeMode = ts.ThemeService.themeMode;
+          _primaryColor = ts.ThemeService.primaryColor;
           // Reduce frequency of log messages
         });
       }
@@ -421,17 +421,16 @@ class _MyAppState extends State<MyApp> {
     searchController.dispose();
     _debounce?.cancel();
     GlobalNotifications.dispose();
-    ts.ThemeService.removeListener(_themeListener);
+    ts.ThemeService.removeGlobalListener(_updateThemeState);
     super.dispose();
   }
 
-  void _themeListener(ThemeMode mode, Color color) {
-    if (mounted) {
-      setState(() {
-        _themeMode = mode;
-        _primaryColor = color;
-      });
-    }
+  void _updateThemeState() {
+    setState(() {
+      // Update the UI when theme changes
+      _themeMode = ts.ThemeService.themeMode;
+      _primaryColor = ts.ThemeService.primaryColor;
+    });
   }
 
   @override
