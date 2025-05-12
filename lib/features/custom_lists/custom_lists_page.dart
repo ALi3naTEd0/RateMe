@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rateme/core/services/theme_service.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../core/services/user_data.dart';
 import '../albums/saved_album_page.dart';
@@ -471,7 +472,9 @@ class _CustomListsPageState extends State<CustomListsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    // Use responsive width factor
+    final pageWidth = MediaQuery.of(context).size.width *
+        ThemeService.getContentMaxWidthFactor(context);
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
@@ -1043,7 +1046,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    final pageWidth = MediaQuery.of(context).size.width *
+        ThemeService.getContentMaxWidthFactor(context);
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 

@@ -3,6 +3,7 @@ import 'dart:convert'; // <-- Add this line
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:rateme/core/services/theme_service.dart';
 import 'package:rateme/database/database_helper.dart';
 import 'package:rateme/platforms/platform_service_factory.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -796,8 +797,9 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate page width consistently with other pages (85% of screen width)
-    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    // Use the responsive width factor
+    final pageWidth = MediaQuery.of(context).size.width *
+        ThemeService.getContentMaxWidthFactor(context);
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
@@ -946,48 +948,54 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                             constraints: BoxConstraints(
                               maxWidth: dataTableWidth,
                             ),
-                            child: DataTable(
-                              columnSpacing: 12,
-                              columns: [
-                                const DataColumn(
-                                    label: SizedBox(
-                                        width: 35,
-                                        child: Center(child: Text('#')))),
-                                DataColumn(
-                                  label: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width *
-                                              _calculateTitleWidth(),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: DataTable(
+                                columnSpacing: 12,
+                                columns: [
+                                  const DataColumn(
+                                      label: SizedBox(
+                                          width: 35,
+                                          child: Center(child: Text('#')))),
+                                  DataColumn(
+                                    label: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth:
+                                            MediaQuery.of(context).size.width *
+                                                _calculateTitleWidth(),
+                                      ),
+                                      child: const Text('Title'),
                                     ),
-                                    child: const Text('Title'),
                                   ),
-                                ),
-                                const DataColumn(
-                                    label: SizedBox(
-                                        width: 65,
-                                        child: Center(child: Text('Length')))),
-                                const DataColumn(
-                                    label: SizedBox(
-                                        width: 160,
-                                        child: Center(child: Text('Rating')))),
-                              ],
-                              rows: tracks.map((track) {
-                                return DataRow(
-                                  cells: [
-                                    DataCell(Text(track.position.toString())),
-                                    DataCell(_buildTrackTitle(
-                                      track.name,
-                                      MediaQuery.of(context).size.width *
-                                          _calculateTitleWidth(),
-                                    )),
-                                    DataCell(
-                                        Text(formatDuration(track.durationMs))),
-                                    DataCell(_buildTrackSlider(track
-                                        .id)), // Use the fixed method directly
-                                  ],
-                                );
-                              }).toList(),
+                                  const DataColumn(
+                                      label: SizedBox(
+                                          width: 65,
+                                          child:
+                                              Center(child: Text('Length')))),
+                                  const DataColumn(
+                                      label: SizedBox(
+                                          width: 160,
+                                          child:
+                                              Center(child: Text('Rating')))),
+                                ],
+                                rows: tracks.map((track) {
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text(track.position.toString())),
+                                      DataCell(_buildTrackTitle(
+                                        track.name,
+                                        MediaQuery.of(context).size.width *
+                                            _calculateTitleWidth(),
+                                      )),
+                                      DataCell(Text(
+                                          formatDuration(track.durationMs))),
+                                      DataCell(_buildTrackSlider(track
+                                          .id)), // Use the fixed method directly
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),

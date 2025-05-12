@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified navigation and dependency management
 - Reduced coupling between modules through proper abstractions
 - Better testability with cleaner component isolation
+- Implemented responsive design with 95% width on mobile and 85% width on desktop
+- Added horizontal scrolling for tracklists to improve usability on smaller screens
+- Fixed search bar alignment and overflow issues across different device sizes
+- Optimized layout for various screen sizes with consistent width constraints
+- Enhanced platform icon display with improved overflow handling
 
 ### Fixed
 
@@ -43,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented consistent UI for reordering between custom lists and saved albums pages
 - Enhanced color_reset_utility to properly update theme service
 - Added better error handling and diagnostics
+- Fixed search bar alignment and width issues on both mobile and desktop platforms
+- Added responsive width handling across all app screens (95% on mobile, 85% on desktop)
+- Implemented horizontal scrolling for tracklists to prevent overflow on narrow screens
+- Optimized platform icon display with proper overflow handling
 
 #### Theme System
 - Ensured theme color and mode now update correctly when importing backups

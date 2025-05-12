@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import 'logging.dart';
@@ -40,6 +39,23 @@ class ThemeService extends ChangeNotifier {
 
   // Standard content max width factor - 85% of screen width (matching AppDimensions)
   static const double contentMaxWidthFactor = 0.85;
+
+  // Define this as a static method that takes context
+  static double getContentMaxWidthFactor(BuildContext context) {
+    // Use 95% width on mobile platforms, 85% on larger screens
+    return Platform.isAndroid ||
+            Platform.isIOS ||
+            MediaQuery.of(context).size.width < 600
+        ? 0.95
+        : 0.85;
+  }
+
+  // For backward compatibility, provide a property that uses a default width factor
+  // Rename this to avoid duplicate definition
+  static double get defaultContentMaxWidthFactor {
+    // For cases where we don't have a context, use the platform size
+    return Platform.isAndroid || Platform.isIOS ? 0.95 : 0.85;
+  }
 
   // Override getter methods to track when theme is requested
   static ThemeData get lightTheme {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:rateme/core/services/theme_service.dart';
 import 'dart:convert';
 import '../../database/database_helper.dart';
 import 'saved_album_page.dart';
@@ -512,7 +513,9 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    // Update to use the responsive width factor
+    final pageWidth = MediaQuery.of(context).size.width *
+        ThemeService.getContentMaxWidthFactor(context);
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 

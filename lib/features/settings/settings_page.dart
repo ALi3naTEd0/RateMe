@@ -1276,7 +1276,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return AnimatedBuilder(
       animation: ts.ThemeService.instance,
       builder: (context, _) {
-        final pageWidth = MediaQuery.of(context).size.width * 0.85;
+        final pageWidth = MediaQuery.of(context).size.width *
+            ts.ThemeService.getContentMaxWidthFactor(context);
         final horizontalPadding =
             (MediaQuery.of(context).size.width - pageWidth) / 2;
 

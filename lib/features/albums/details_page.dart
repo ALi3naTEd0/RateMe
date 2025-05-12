@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:rateme/core/services/theme_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/album_model.dart';
 import '../../database/database_helper.dart';
@@ -513,8 +514,9 @@ class _DetailsPageState extends State<DetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate page width consistently with other pages (85% of screen width)
-    final pageWidth = MediaQuery.of(context).size.width * 0.85;
+    // Use the responsive width factor
+    final pageWidth = MediaQuery.of(context).size.width *
+        ThemeService.getContentMaxWidthFactor(context);
     final horizontalPadding =
         (MediaQuery.of(context).size.width - pageWidth) / 2;
 
@@ -681,55 +683,7 @@ class _DetailsPageState extends State<DetailsPage> {
                             constraints: BoxConstraints(
                               maxWidth: dataTableWidth,
                             ),
-                            child: DataTable(
-                              columnSpacing: 12,
-                              columns: [
-                                const DataColumn(
-                                  label: SizedBox(
-                                    width: 35,
-                                    child: Center(child: Text('#')),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width *
-                                              _calculateTitleWidth(),
-                                    ),
-                                    child: const Text('Title'),
-                                  ),
-                                ),
-                                const DataColumn(
-                                  label: SizedBox(
-                                    width: 65,
-                                    child: Center(child: Text('Length')),
-                                  ),
-                                ),
-                                const DataColumn(
-                                  label: SizedBox(
-                                    width: 160,
-                                    child: Center(child: Text('Rating')),
-                                  ),
-                                ),
-                              ],
-                              rows: tracks.map((track) {
-                                final trackId = track.id;
-                                return DataRow(
-                                  cells: [
-                                    DataCell(Text(track.position.toString())),
-                                    DataCell(_buildTrackTitle(
-                                      track.name,
-                                      MediaQuery.of(context).size.width *
-                                          _calculateTitleWidth(),
-                                    )),
-                                    DataCell(
-                                        Text(formatDuration(track.durationMs))),
-                                    DataCell(_buildTrackSlider(trackId)),
-                                  ],
-                                );
-                              }).toList(),
-                            ),
+                            child: _buildTrackList(),
                           ),
 
                           // NOTES SECTION - MOVED TO HERE (below tracks, above RateYourMusic)
@@ -1815,6 +1769,64 @@ class _DetailsPageState extends State<DetailsPage> {
     // Show a success message
     scaffoldMessengerKey.currentState?.showSnackBar(
       const SnackBar(content: Text('Album refreshed')),
+    );
+  }
+
+  // When building the track list section
+  Widget _buildTrackList() {
+    // Wrap the DataTable in a SingleChildScrollView with horizontal scrolling
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: DataTable(
+        // Set a minimum width for the table to ensure it scrolls on small screens
+        // This should be wide enough to show all content properly
+        columnSpacing: 12.0,
+        horizontalMargin: 12.0,
+        columns: [
+          const DataColumn(
+            label: SizedBox(
+              width: 35,
+              child: Center(child: Text('#')),
+            ),
+          ),
+          DataColumn(
+            label: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth:
+                    MediaQuery.of(context).size.width * _calculateTitleWidth(),
+              ),
+              child: const Text('Title'),
+            ),
+          ),
+          const DataColumn(
+            label: SizedBox(
+              width: 65,
+              child: Center(child: Text('Length')),
+            ),
+          ),
+          const DataColumn(
+            label: SizedBox(
+              width: 160,
+              child: Center(child: Text('Rating')),
+            ),
+          ),
+        ],
+        rows: tracks.map((track) {
+          final trackId = track.id;
+          return DataRow(
+            cells: [
+              DataCell(Text(track.position.toString())),
+              DataCell(_buildTrackTitle(
+                track.name,
+                MediaQuery.of(context).size.width * _calculateTitleWidth(),
+              )),
+              DataCell(Text(formatDuration(track.durationMs))),
+              DataCell(_buildTrackSlider(trackId)),
+            ],
+          );
+        }).toList(),
+      ),
     );
   }
 }

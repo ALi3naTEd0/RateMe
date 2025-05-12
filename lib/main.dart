@@ -435,6 +435,13 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate responsive width based on device
+    final pageWidth = MediaQuery.of(context).size.width *
+        (Platform.isAndroid || Platform.isIOS ? 0.95 : 0.85);
+
+    // Always use a fixed 85% width for the search bar on all platforms
+    final searchBarWidth = MediaQuery.of(context).size.width * 0.85;
+
     // First, store the current values to ensure they don't change during build
     final currentThemeMode = _themeMode; // Make a local copy
     // Remove unused variable warning by not declaring it if we're not using it
@@ -624,7 +631,7 @@ class _MyAppState extends State<MyApp> {
                     ),
                     const SizedBox(width: 8),
                     SizedBox(
-                      width: searchWidth - 60,
+                      width: searchBarWidth - 60, // Use fixed 85% width for all platforms
                       child: TextField(
                         controller: searchController,
                         decoration: InputDecoration(
@@ -679,7 +686,7 @@ class _MyAppState extends State<MyApp> {
                         ? Center(child: Container())
                         : Center(
                             child: SizedBox(
-                              width: searchWidth,
+                              width: pageWidth, // Use responsive width for content
                               child: ListView.builder(
                                 itemCount: searchResults.length,
                                 itemBuilder: (context, index) {
