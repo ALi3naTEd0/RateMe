@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'color_utility.dart';
+import 'core/utils/color_utility.dart';
 import 'database/api_key_manager.dart';
-import 'saved_ratings_page.dart';
-import 'logging.dart';
-import 'details_page.dart';
-import 'search_service.dart';
-import 'settings_service.dart';
-import 'user_data.dart';
-import 'custom_lists_page.dart';
-import 'footer.dart';
-import 'settings_page.dart';
-import 'platform_ui.dart';
+import 'features/albums/saved_ratings_page.dart';
+import 'core/services/logging.dart';
+import 'features/albums/details_page.dart';
+import 'core/services/search_service.dart';
+import 'features/settings/settings_service.dart';
+import 'core/services/user_data.dart';
+import 'features/custom_lists/custom_lists_page.dart';
+import 'ui/widgets/footer.dart';
+import 'features/settings/settings_page.dart';
+import 'features/platforms/platform_ui.dart';
 import 'database/database_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'global_notifications.dart';
-import 'clipboard_detector.dart';
+import 'features/notifications/global_notifications.dart';
+import 'core/utils/clipboard_detector.dart';
 import 'database/cleanup_utility.dart';
-import 'theme_service.dart' as ts;
+import 'core/services/theme_service.dart' as ts;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
-import 'preload_service.dart';
-import 'discogs_middleware.dart';
-import 'deezer_middleware.dart'; // Add import for Deezer middleware
+import 'features/preload/preload_service.dart';
+import 'platforms/middleware/discogs_middleware.dart';
+import 'platforms/middleware/deezer_middleware.dart'; // Add import for Deezer middleware
 
 Future<void> main() async {
   try {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
-import '../logging.dart';
-import '../theme_service.dart'; // Change this import from theme.dart to theme_service.dart
+import '../core/services/logging.dart';
+import '../core/services/theme_service.dart'; // Change this import from theme.dart to theme_service.dart
 import 'migration_utility.dart';
 import 'database_helper.dart';
 

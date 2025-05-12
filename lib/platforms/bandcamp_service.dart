@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../logging.dart';
+import '../core/services/logging.dart';
 import 'platform_service_base.dart';
 
 class BandcampService extends PlatformServiceBase {

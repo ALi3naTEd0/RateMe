@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'database_helper.dart';
-import '../logging.dart';
-import '../album_model.dart';
+import '../core/services/logging.dart';
+import '../core/models/album_model.dart';
 import '../platforms/platform_service_factory.dart';
 
 /// Utility for recovering tracks for albums that don't have them

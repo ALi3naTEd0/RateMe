@@ -1,5 +1,5 @@
 import 'package:sqflite/sqflite.dart';
-import '../logging.dart';
+import '../core/services/logging.dart';
 import 'database_helper.dart';
 import '../platforms/platform_service_factory.dart';
 

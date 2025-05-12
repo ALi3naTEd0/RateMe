@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:rateme/database/database_helper.dart';
-import 'package:rateme/logging.dart';
+import 'package:rateme/core/services/logging.dart';
 
 /// Utility to fix albums with invalid JSON in the 'data' field.
 class JsonFixer {

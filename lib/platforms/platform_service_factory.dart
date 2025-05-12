@@ -3,7 +3,7 @@ import 'spotify_service.dart';
 import 'apple_music_service.dart';
 import 'deezer_service.dart';
 import 'discogs_service.dart';
-import '../logging.dart';
+import '../core/services/logging.dart';
 import 'bandcamp_service.dart';
 
 /// Factory to create platform-specific services

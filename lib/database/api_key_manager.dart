@@ -1,5 +1,5 @@
 import 'package:sqflite/sqflite.dart';
-import '../logging.dart';
+import '../core/services/logging.dart';
 import 'database_helper.dart';
 
 /// Manages API keys stored in the database

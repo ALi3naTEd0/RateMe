@@ -1,4 +1,4 @@
-import 'package:rateme/logging.dart';
+import 'package:rateme/core/services/logging.dart';
 import '../database/database_helper.dart';
 
 /// Helper class to manage search history in SQLite

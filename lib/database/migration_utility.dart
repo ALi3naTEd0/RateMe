@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
-import '../album_model.dart';
-import '../logging.dart';
+import '../core/models/album_model.dart';
+import '../core/services/logging.dart';
 import 'database_helper.dart';
 
 /// @deprecated This class is only used for one-time migration and will be removed in a future update

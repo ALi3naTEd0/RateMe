@@ -8,10 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Implemented clean architecture project structure with clear separation of concerns
+- Organized code into feature modules and layers for better maintainability
+- Added comprehensive project structure diagram in documentation
+- Restructured project with core, features, platforms, ui, database, and navigation layers
+- Created export files for backward compatibility during transition
 - Implemented album reordering feature in saved albums page with drag-and-drop functionality
 - Added dedicated reordering mode with clear visual indicators and improved user feedback
 - Enhanced UI with direct feedback during reordering operations
 - Added ability to save custom album order to database with proper persistence
+
+### Improved
+- Better code organization with domain-driven structure
+- Clearer separation between UI and business logic
+- Enhanced module boundaries with feature-based organization
+- Improved maintainability through standardized project structure
+- Simplified navigation and dependency management
+- Reduced coupling between modules through proper abstractions
+- Better testability with cleaner component isolation
 
 ### Fixed
 

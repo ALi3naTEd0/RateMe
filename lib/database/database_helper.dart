@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart';
-import 'package:rateme/backup_converter.dart';
+import 'package:rateme/database/backup_converter.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
-import '../logging.dart';
-import '../album_model.dart';
+import '../core/services/logging.dart';
+import '../core/models/album_model.dart';
 import '../platforms/platform_service_factory.dart';
 
 class DatabaseHelper {

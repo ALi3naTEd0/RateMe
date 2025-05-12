@@ -1,12 +1,9 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import '../logging.dart';
+import '../core/services/logging.dart';
 import 'database_helper.dart';
-import 'dart:convert';
 
 /// Utility class to completely migrate from SharedPreferences to SQLite
 class PreferencesMigration {
-  static const String migrationCompletedKey = 'sqlite_migration_completed';
-
   /// Migrate all remaining SharedPreferences to the database
   static Future<bool> migrateRemainingPreferences() async {
     try {
@@ -16,32 +13,26 @@ class PreferencesMigration {
 
       Logging.severe('Starting migration of remaining SharedPreferences...');
 
-      // Get all remaining keys
-      final allKeys = prefs.getKeys().toList();
-      Logging.severe(
-          'Found ${allKeys.length} keys to migrate: ${allKeys.join(", ")}');
+      // List of all keys to migrate
+      final keysToMigrate = [
+        'themeMode',
+        'local_music_directory',
+        'useDarkButtonText',
+        'primaryColor',
+        'album_sort_order',
+        'music_folder_path',
+        'spotify_access_token',
+        'spotify_token_expiry',
+        'default_platform',
+        'defaultSearchPlatform',
+        'searchPlatform',
+        // Add any others that might be discovered
+      ];
 
-      // Process all keys except the migration status key
-      for (final key in allKeys) {
-        // Skip the migration status key itself
-        if (key == migrationCompletedKey) continue;
-
+      for (final key in keysToMigrate) {
         if (prefs.containsKey(key)) {
-          // Get the value from SharedPreferences based on its type
-          dynamic value;
-
-          // Try to determine the type and get the appropriate value
-          if (prefs.getString(key) != null) {
-            value = prefs.getString(key);
-          } else if (prefs.getBool(key) != null) {
-            value = prefs.getBool(key).toString();
-          } else if (prefs.getInt(key) != null) {
-            value = prefs.getInt(key).toString();
-          } else if (prefs.getDouble(key) != null) {
-            value = prefs.getDouble(key).toString();
-          } else if (prefs.getStringList(key) != null) {
-            value = jsonEncode(prefs.getStringList(key));
-          }
+          // Get the value from SharedPreferences
+          final value = prefs.get(key);
 
           if (value != null) {
             // Save to database with the same key
@@ -53,46 +44,16 @@ class PreferencesMigration {
         }
       }
 
-      // After migrating, clear SharedPreferences to avoid duplication
-      // but keep the migration status key
-      final migrationCompleted = prefs.getBool(migrationCompletedKey) ?? false;
-      await prefs.clear();
-      await prefs.setBool(migrationCompletedKey, migrationCompleted);
+      // After migrating, optionally clear SharedPreferences to avoid duplication
+      for (final key in keysToMigrate) {
+        await prefs.remove(key);
+      }
 
       Logging.severe(
           'Migration complete. Migrated $migratedCount settings and cleared SharedPreferences.');
       return true;
     } catch (e, stack) {
       Logging.severe('Error migrating remaining preferences', e, stack);
-      return false;
-    }
-  }
-
-  /// Complete final cleanup of SharedPreferences after migration
-  static Future<bool> finalCleanup() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Log all remaining keys
-      final remainingKeys = prefs.getKeys();
-      if (remainingKeys.isNotEmpty) {
-        Logging.severe('Performing final cleanup of SharedPreferences');
-        Logging.severe('Remaining keys: ${remainingKeys.join(", ")}');
-
-        // Clear all SharedPreferences except migration status key
-        await prefs.clear();
-
-        // Set migration completed flag to true
-        await prefs.setBool(migrationCompletedKey, true);
-
-        Logging.severe('Final cleanup complete, all SharedPreferences removed');
-      } else {
-        Logging.severe('No SharedPreferences remain, nothing to clean up');
-      }
-
-      return true;
-    } catch (e, stack) {
-      Logging.severe('Error during final SharedPreferences cleanup', e, stack);
       return false;
     }
   }

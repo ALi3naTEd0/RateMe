@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
-import 'package:rateme/api_keys.dart';
-import '../logging.dart';
+import 'package:rateme/core/api/api_keys.dart';
+import '../core/services/logging.dart';
 import '../database/api_key_manager.dart';
 import 'platform_service_base.dart';
 

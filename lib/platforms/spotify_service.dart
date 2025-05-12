@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../database/database_helper.dart';
 import 'platform_service_base.dart';
-import '../api_keys.dart';
-import '../logging.dart';
-import '../search_service.dart';
+import '../core/api/api_keys.dart';
+import '../core/services/logging.dart';
+import '../core/services/search_service.dart';
 
 class SpotifyService extends PlatformServiceBase {
   // Token storage keys

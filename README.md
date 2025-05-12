@@ -272,7 +272,97 @@ RateMe respects your privacy:
 
 ## Project Architecture
 
-This Flutter project follows a modular architecture and uses the Provider pattern for state management. The main components are described below:
+This Flutter project follows a clean architecture pattern with clear separation of concerns. The main components are described below:
+
+```
+/home/x/RateMe/lib/
+├── core/                           # Core layer (domain & application logic)
+│   ├── api/
+│   │   └── api_keys.dart           # API key management abstraction
+│   ├── models/
+│   │   └── album_model.dart        # Domain entities and models
+│   ├── services/
+│   │   ├── logging.dart            # Application-wide logging service
+│   │   ├── search_service.dart     # Search functionality across platforms 
+│   │   ├── theme_service.dart      # Theme management
+│   │   └── user_data.dart          # Repository-like service for user data
+│   └── utils/
+│       ├── clipboard_detector.dart # URL detection from clipboard
+│       ├── color_utility.dart      # Color conversion and manipulation
+│       ├── date_fixer_utility.dart # Date standardization
+│       └── version_info.dart       # App version tracking
+│
+├── database/                       # Data persistence layer
+│   ├── api_key_manager.dart        # API credentials storage
+│   ├── backup_converter.dart       # Import/export functionality
+│   ├── cleanup_utility.dart        # Database maintenance
+│   ├── database_helper.dart        # SQLite abstraction
+│   ├── data_migration_service.dart # Data migration utilities
+│   ├── json_fixer.dart            # JSON repair tools
+│   ├── migration_utility.dart      # Schema migration
+│   ├── preferences_migration.dart  # Settings migration
+│   ├── search_history_db.dart      # Search history storage
+│   └── track_recovery_utility.dart # Track data recovery
+│
+├── features/                       # Feature modules
+│   ├── albums/
+│   │   ├── details_page.dart       # Album details screen
+│   │   ├── saved_album_page.dart   # Saved album view
+│   │   └── saved_ratings_page.dart # Album collection view
+│   ├── custom_lists/
+│   │   └── custom_lists_page.dart  # Custom collection management
+│   ├── notifications/
+│   │   └── global_notifications.dart # App-wide messaging
+│   ├── platforms/
+│   │   ├── model_mapping_service.dart # Platform data normalization
+│   │   ├── platform_data_analyzer.dart # Platform data analysis
+│   │   ├── platform_service.dart   # Platform service abstractions
+│   │   └── platform_ui.dart        # Platform-specific UI
+│   ├── preload/
+│   │   └── preload_service.dart    # Resource preloading
+│   ├── search/
+│   │   └── platform_match_widget.dart # Cross-platform matching UI
+│   └── settings/
+│       ├── migration_util.dart      # Settings migration utility
+│       ├── settings_page.dart       # App settings UI
+│       └── settings_service.dart    # Settings management
+│
+├── navigation/                      # Navigation layer
+│   └── navigation_util.dart         # Navigation service
+│
+├── platforms/                       # Platform integrations
+│   ├── middleware/
+│   │   ├── deezer_middleware.dart   # Deezer data enhancement
+│   │   └── discogs_middleware.dart  # Discogs data enhancement
+│   ├── apple_music_service.dart     # Apple Music integration
+│   ├── bandcamp_service.dart        # Bandcamp integration
+│   ├── deezer_service.dart          # Deezer integration
+│   ├── discogs_service.dart         # Discogs integration
+│   ├── platform_service_base.dart   # Base service class
+│   ├── platform_service_factory.dart # Service provider
+│   └── spotify_service.dart         # Spotify integration
+│
+├── ui/                              # UI layer
+│   ├── themes/
+│   │   └── color_reset_utility.dart # Theme color management
+│   └── widgets/
+│       ├── footer.dart              # App footer with version info
+│       ├── platform_match_cleaner.dart # Platform match fixing UI
+│       ├── share_widget.dart        # Rating sharing functionality
+│       └── skeleton_loading.dart    # Loading UI placeholders
+│
+└── main.dart                        # Application entry point
+```
+
+### Architecture Benefits
+
+The clean architecture provides several key advantages:
+
+1. **Separation of Concerns**: Each layer has distinct responsibilities, making the codebase more organized and maintainable
+2. **Testability**: Core business logic is isolated from external dependencies for easier testing
+3. **Modularity**: Features are encapsulated in their own modules for better code organization
+4. **Scalability**: Easy to add new features without disrupting existing functionality
+5. **Dependency Management**: Clear flow of dependencies from outer layers inward
 
 ### Main Components
 
