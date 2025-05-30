@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### Theme System & Color Management
+- Fixed primary color updates now propagate correctly across the entire application
+- Resolved theme service synchronization issues preventing color changes from applying consistently
+- Enhanced color notification system to ensure all UI components receive theme updates immediately
+- Fixed color picker dialog properly updating all app screens when new colors are selected
+- Improved theme state management to prevent color reversion during app navigation
+
 ## [1.1.2-1] - 2025-05-12
 
 ### Added

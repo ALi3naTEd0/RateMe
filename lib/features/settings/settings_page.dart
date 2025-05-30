@@ -1250,12 +1250,14 @@ class _SettingsPageState extends State<SettingsPage> {
                         _primaryColor = safeColor;
                       });
 
-                      // CRITICAL FIX: Directly set the color in ThemeService first
-                      ts.ThemeService.setPrimaryColorDirectly(safeColor);
-
-                      // Then save to database with our properly formatted hex string
+                      // Save to database first
                       DatabaseHelper.instance
                           .saveSetting('primaryColor', storageHex);
+
+                      // CRITICAL: Notify ThemeService and SettingsService listeners
+                      ts.ThemeService.setPrimaryColorDirectly(safeColor);
+                      ts.ThemeService.notifyGlobalListeners();
+                      SettingsService.notifyColorChangeOnly(safeColor);
 
                       // Close dialog
                       Navigator.of(context).pop();
