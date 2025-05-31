@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Custom Lists & UI
+- Fixed custom lists page not refreshing after exiting full list reordering mode
+- Improved UI refresh behavior when saving custom list order to ensure immediate visual feedback
+- Enhanced reordering mode state management to properly reload lists after order changes
+
 #### Theme System & Color Management
 - Fixed primary color updates now propagate correctly across the entire application
 - Resolved theme service synchronization issues preventing color changes from applying consistently

@@ -389,6 +389,8 @@ class _CustomListsPageState extends State<CustomListsPage> {
         final listIds = lists.map((list) => list.id).toList();
         DatabaseHelper.instance.saveCustomListOrder(listIds);
         _showSnackBar('List order saved');
+        // Refresh the lists to reflect the new order immediately
+        _loadLists();
       } else {
         _showSnackBar('Reordering all ${lists.length} lists');
       }
@@ -1521,7 +1523,6 @@ extension CustomListsUserDataExtension on UserData {
       final db = DatabaseHelper.instance;
 
       // Get all lists first
-      // Fix: Qualify the static method with UserData class name
       final lists = await UserData.getCustomLists();
 
       // Get saved order
