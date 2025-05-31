@@ -9,12 +9,15 @@ import 'package:rateme/platforms/platform_service_factory.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/user_data.dart';
 import '../../core/services/logging.dart';
+import '../../core/utils/color_utility.dart';
 import '../custom_lists/custom_lists_page.dart';
 import '../../core/models/album_model.dart';
 import '../../ui/widgets/share_widget.dart';
 import 'dart:io';
 import '../../ui/widgets/skeleton_loading.dart';
 import '../search/platform_match_widget.dart';
+import '../../core/utils/dominant_color.dart';
+import '../../ui/widgets/dominant_color_picker.dart';
 
 class SavedAlbumPage extends StatefulWidget {
   final Map<String, dynamic>? album;
@@ -51,6 +54,11 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       GlobalKey<RefreshIndicatorState>();
   String? albumNote;
 
+  List<Color> dominantColors = [];
+  Color? selectedDominantColor;
+  bool loadingPalette = false;
+  bool showColorPicker = false; // Add this line
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +94,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     _loadButtonPreference();
     _stepLoadAlbum();
     _loadAlbumNote(); // Load the note for the album
+    // Remove _loadDominantColors() from here - it will be called after album loads
   }
 
   Future<void> _loadButtonPreference() async {
@@ -229,10 +238,56 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         }
       }
       unifiedAlbum = Album.fromJson(_albumData);
+
+      // Load saved dominant color after album data is loaded
+      await _loadSavedDominantColor();
+
       await _stepLoadRatings();
     } catch (e, stack) {
       Logging.severe('Error loading album', e, stack);
       setState(() => isLoading = false);
+    }
+  }
+
+  // Add method to load saved dominant color
+  Future<void> _loadSavedDominantColor() async {
+    final albumId = widget.albumId ??
+        _albumData['id']?.toString() ??
+        _albumData['collectionId']?.toString() ??
+        '';
+    if (albumId.isNotEmpty) {
+      final dbHelper = DatabaseHelper.instance;
+      final savedColor = await dbHelper.getDominantColor(albumId);
+      if (savedColor != null && savedColor.isNotEmpty) {
+        try {
+          final colorValue =
+              int.parse(savedColor.replaceFirst('#', ''), radix: 16);
+          setState(() {
+            selectedDominantColor = Color(0xFF000000 | colorValue);
+          });
+          Logging.severe('Loaded saved dominant color: $savedColor');
+        } catch (e) {
+          Logging.severe('Error parsing saved color: $e');
+        }
+      }
+    }
+  }
+
+  // Add method to save dominant color to database
+  Future<void> _saveDominantColor(Color? color) async {
+    final albumId = widget.albumId ??
+        _albumData['id']?.toString() ??
+        _albumData['collectionId']?.toString() ??
+        '';
+    if (albumId.isNotEmpty) {
+      final dbHelper = DatabaseHelper.instance;
+      if (color != null) {
+        final colorHex =
+            '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
+        await dbHelper.saveDominantColor(albumId, colorHex);
+      } else {
+        await dbHelper.saveDominantColor(albumId, '');
+      }
     }
   }
 
@@ -434,6 +489,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   void _finishLoad() {
     calculateAlbumDuration();
     setState(() => isLoading = false);
+    // Add this line to load colors after album data is ready
+    _loadDominantColors();
   }
 
   Future<void> _loadAlbumFromDatabase(String albumId) async {
@@ -731,18 +788,27 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         children: [
           Expanded(
             child: SliderTheme(
-              // Override the SliderThemeData with the correct text color based on useDarkButtonText
+              // Use selectedDominantColor directly instead of Theme.of(context)
               data: SliderThemeData(
                 showValueIndicator: ShowValueIndicator.always,
-                activeTrackColor: Theme.of(context).colorScheme.primary,
-                inactiveTrackColor:
-                    Theme.of(context).colorScheme.primary.withAlpha(76),
-                thumbColor: Theme.of(context).colorScheme.primary,
-                overlayColor:
-                    Theme.of(context).colorScheme.primary.withAlpha(76),
-                valueIndicatorColor: Theme.of(context).colorScheme.primary,
+                activeTrackColor: selectedDominantColor ??
+                    Theme.of(context).colorScheme.primary,
+                inactiveTrackColor: (selectedDominantColor ??
+                        Theme.of(context).colorScheme.primary)
+                    .withAlpha(76),
+                thumbColor: selectedDominantColor ??
+                    Theme.of(context).colorScheme.primary,
+                overlayColor: (selectedDominantColor ??
+                        Theme.of(context).colorScheme.primary)
+                    .withAlpha(76),
+                valueIndicatorColor: selectedDominantColor ??
+                    Theme.of(context).colorScheme.primary,
                 valueIndicatorTextStyle: TextStyle(
-                  color: useDarkButtonText ? Colors.black : Colors.white,
+                  color: useDarkButtonText
+                      ? Colors.black
+                      : ColorUtility.getContrastingColor(
+                          selectedDominantColor ??
+                              Theme.of(context).colorScheme.primary),
                 ),
               ),
               child: Slider(
@@ -795,6 +861,24 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     );
   }
 
+  Future<void> _loadDominantColors() async {
+    setState(() => loadingPalette = true);
+    final url = _albumData['artworkUrl100'] ?? _albumData['artworkUrl'] ?? '';
+    if (url.isEmpty) {
+      setState(() {
+        dominantColors = [];
+        loadingPalette = false;
+      });
+      return;
+    }
+    final colors =
+        await getDominantColorsFromUrl(url.replaceAll('100x100', '600x600'));
+    setState(() {
+      dominantColors = colors;
+      loadingPalette = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Use the responsive width factor
@@ -811,440 +895,595 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     // Calculate DataTable width to fit within our constraints
     final dataTableWidth = pageWidth - 16; // Apply small padding
 
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      scaffoldMessengerKey: scaffoldMessengerKey,
-      debugShowCheckedModeBanner: false,
-      theme: Theme.of(context),
-      home: Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          automaticallyImplyLeading: false,
-          title: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_back, color: iconColor),
-                  padding: const EdgeInsets.all(
-                      8.0), // Increase padding for larger hit area
-                  constraints:
-                      const BoxConstraints(), // Remove constraints to allow more space
-                  iconSize: 24.0, // Explicit icon size
-                  splashRadius:
-                      28.0, // Add splash radius to improve visual feedback
-                  onPressed: () => Navigator.of(context).pop(),
+    // Create a custom theme with the selected dominant color if available
+    final effectiveTheme = selectedDominantColor != null
+        ? Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: selectedDominantColor!,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _albumData['collectionName'] ??
-                        _albumData['name'] ??
-                        'Unknown Album',
-                    overflow: TextOverflow.ellipsis,
+          )
+        : Theme.of(context);
+
+    return Theme(
+      data: effectiveTheme, // Apply the custom theme to the entire page
+      child: Builder(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            centerTitle: false,
+            automaticallyImplyLeading: false,
+            title: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.arrow_back, color: iconColor),
+                    padding: const EdgeInsets.all(8.0),
+                    constraints: const BoxConstraints(),
+                    iconSize: 24.0,
+                    splashRadius: 28.0,
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.more_vert, color: iconColor),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _showOptionsDialog,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _albumData['collectionName'] ??
+                          _albumData['name'] ??
+                          'Unknown Album',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.more_vert, color: iconColor),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _showOptionsDialog,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        body: Center(
-          child: isLoading
-              ? _buildSkeletonAlbumDetails()
-              : SizedBox(
-                  width: pageWidth,
-                  child: RefreshIndicator(
-                    key: _refreshIndicatorKey,
-                    onRefresh: _refreshData,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 16),
-                          // Album Info Section
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                // --- FIX: Use the best available artwork field ---
-                                Builder(
-                                  builder: (context) {
-                                    final artwork =
-                                        _albumData['artworkUrl100'] ??
-                                            _albumData['artworkUrl'] ??
-                                            '';
-                                    if (artwork.isNotEmpty) {
-                                      return Image.network(
-                                        artwork.replaceAll(
-                                            '100x100', '600x600'),
-                                        width: 300,
-                                        height: 300,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error,
-                                                stackTrace) =>
-                                            const Icon(Icons.album, size: 300),
-                                      );
-                                    } else {
-                                      return const Icon(Icons.album, size: 300);
-                                    }
-                                  },
-                                ),
-
-                                // Add PlatformMatchWidget with 8px top padding
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: unifiedAlbum != null
-                                      ? PlatformMatchWidget(
-                                          album: unifiedAlbum!)
-                                      : const SizedBox.shrink(),
-                                ),
-
-                                const SizedBox(height: 16),
-                                _buildInfoRow(
-                                    "Artist",
-                                    unifiedAlbum?.artistName ??
-                                        'Unknown Artist'),
-                                _buildInfoRow("Album",
-                                    unifiedAlbum?.name ?? 'Unknown Album'),
-                                _buildInfoRow(
-                                    "Release Date", _formatReleaseDate()),
-                                _buildInfoRow("Duration",
-                                    formatDuration(albumDurationMillis)),
-                                const SizedBox(height: 8),
-                                _buildInfoRow(
-                                    "Rating", averageRating.toStringAsFixed(2),
-                                    fontSize: 20),
-                                const SizedBox(height: 16),
-
-                                // Buttons row
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    FilledButton(
-                                      onPressed: _showAddToListDialog,
-                                      child: const Text('Manage Lists'),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    FilledButton.icon(
-                                      onPressed: _showOptionsDialog,
-                                      icon: const Icon(Icons.settings),
-                                      label: const Text('Options'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(),
-                          // Track List with Ratings - Wrap in ConstrainedBox
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: dataTableWidth,
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              child: DataTable(
-                                columnSpacing: 12,
-                                columns: [
-                                  const DataColumn(
-                                      label: SizedBox(
-                                          width: 35,
-                                          child: Center(child: Text('#')))),
-                                  DataColumn(
-                                    label: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxWidth:
-                                            MediaQuery.of(context).size.width *
-                                                _calculateTitleWidth(),
-                                      ),
-                                      child: const Text('Title'),
-                                    ),
-                                  ),
-                                  const DataColumn(
-                                      label: SizedBox(
-                                          width: 65,
-                                          child:
-                                              Center(child: Text('Length')))),
-                                  const DataColumn(
-                                      label: SizedBox(
-                                          width: 160,
-                                          child:
-                                              Center(child: Text('Rating')))),
-                                ],
-                                rows: tracks.map((track) {
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(Text(track.position.toString())),
-                                      DataCell(_buildTrackTitle(
-                                        track.name,
-                                        MediaQuery.of(context).size.width *
-                                            _calculateTitleWidth(),
-                                      )),
-                                      DataCell(Text(
-                                          formatDuration(track.durationMs))),
-                                      DataCell(_buildTrackSlider(track
-                                          .id)), // Use the fixed method directly
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Display note if exists
-                          if (albumNote != null && albumNote!.isNotEmpty)
+          body: Center(
+            child: isLoading
+                ? _buildSkeletonAlbumDetails()
+                : SizedBox(
+                    width: pageWidth,
+                    child: RefreshIndicator(
+                      key: _refreshIndicatorKey,
+                      onRefresh: _refreshData,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 16),
+                            // Album Info Section
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 16.0),
-                              child: Container(
-                                width:
-                                    dataTableWidth, // Match the width of the track table
-                                padding: const EdgeInsets.all(12.0),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.grey.shade800.withAlpha(128)
-                                      : Colors.grey.shade200.withAlpha(179),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withAlpha(77),
-                                    width: 1,
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: [
+                                  // --- FIX: Use the best available artwork field ---
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final artwork =
+                                            _albumData['artworkUrl100'] ??
+                                                _albumData['artworkUrl'] ??
+                                                '';
+                                        if (artwork.isNotEmpty) {
+                                          return Image.network(
+                                            artwork.replaceAll(
+                                                '100x100', '600x600'),
+                                            width: 300,
+                                            height: 300,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    const Icon(Icons.album,
+                                                        size: 300),
+                                          );
+                                        } else {
+                                          return const Icon(Icons.album,
+                                              size: 300);
+                                        }
+                                      },
+                                    ),
                                   ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+
+                                  // --- Collapsible Dominant Color Picker ---
+                                  if (loadingPalette)
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 8.0),
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  else if (dominantColors.isNotEmpty)
+                                    Column(
                                       children: [
-                                        Text(
-                                          'Notes',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
+                                        // Color picker button
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 8.0),
+                                          child: OutlinedButton.icon(
+                                            onPressed: () {
+                                              setState(() {
+                                                showColorPicker =
+                                                    !showColorPicker;
+                                              });
+                                            },
+                                            icon: Icon(
+                                              showColorPicker
+                                                  ? Icons.palette_outlined
+                                                  : Icons.palette,
+                                              size: 16,
+                                              color: selectedDominantColor ??
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                            ),
+                                            label: Text(
+                                              showColorPicker
+                                                  ? 'Hide Colors'
+                                                  : 'Pick Color',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: selectedDominantColor ??
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
+                                              ),
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              side: BorderSide(
+                                                color: selectedDominantColor ??
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
+                                                width: 1,
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 4),
+                                              minimumSize: const Size(0, 28),
+                                            ),
                                           ),
                                         ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // Add Copy button
-                                            InkWell(
-                                              onTap: () {
-                                                Clipboard.setData(ClipboardData(
-                                                    text: albumNote!));
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                        'Notes copied to clipboard'),
-                                                    duration:
-                                                        Duration(seconds: 1),
-                                                  ),
-                                                );
-                                              },
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                child: Icon(
-                                                  Icons.copy,
-                                                  size: 16,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
-                                                ),
-                                              ),
-                                            ),
-                                            // Edit button
-                                            InkWell(
-                                              onTap: _editAlbumNote,
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                child: Icon(
-                                                  Icons.edit,
-                                                  size: 16,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
-                                                ),
-                                              ),
-                                            ),
-                                            // Add Delete button
-                                            InkWell(
-                                              onTap: () {
-                                                // Show confirmation dialog
-                                                // Fix: Use showDialog directly with context instead of scaffoldMessengerKey
-                                                showDialog(
-                                                  context: context,
-                                                  builder: (context) =>
-                                                      AlertDialog(
-                                                    title: const Text(
-                                                        'Delete Notes'),
-                                                    content: const Text(
-                                                        'Are you sure you want to delete these notes?'),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.of(
-                                                                    context)
-                                                                .pop(),
-                                                        child: const Text(
-                                                            'Cancel'),
-                                                      ),
-                                                      FilledButton(
-                                                        onPressed: () async {
-                                                          Navigator.of(context)
-                                                              .pop();
-                                                          // Get album ID
-                                                          final id = widget
-                                                                  .albumId ??
-                                                              _albumData[
-                                                                  'id'] ??
-                                                              _albumData[
-                                                                  'collectionId'] ??
-                                                              '';
-
-                                                          if (id.isNotEmpty) {
-                                                            // Save empty note (effectively deleting it)
-                                                            await UserData
-                                                                .saveAlbumNote(
-                                                                    id, '');
-                                                            setState(() {
-                                                              albumNote = null;
-                                                            });
-                                                            scaffoldMessengerKey
-                                                                .currentState
-                                                                ?.showSnackBar(
-                                                              const SnackBar(
-                                                                content: Text(
-                                                                    'Notes deleted'),
-                                                                duration:
-                                                                    Duration(
-                                                                        seconds:
-                                                                            1),
-                                                              ),
-                                                            );
-                                                          }
-                                                        },
-                                                        child: const Text(
-                                                            'Delete'),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                child: Icon(
-                                                  Icons.delete_outline,
-                                                  size: 16,
-                                                  // Change from error color to primary color
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        // Expandable color picker
+                                        AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 300),
+                                          height: showColorPicker ? null : 0,
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(
+                                                milliseconds: 300),
+                                            opacity:
+                                                showColorPicker ? 1.0 : 0.0,
+                                            child: showColorPicker
+                                                ? Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            bottom: 8.0),
+                                                    child: DominantColorPicker(
+                                                      colors: dominantColors,
+                                                      selected:
+                                                          selectedDominantColor,
+                                                      onSelect: (color) {
+                                                        setState(() {
+                                                          selectedDominantColor =
+                                                              color;
+                                                          showColorPicker =
+                                                              false;
+                                                        });
+                                                        // Save the selected color to database
+                                                        _saveDominantColor(
+                                                            color);
+                                                      },
+                                                    ),
+                                                  )
+                                                : const SizedBox.shrink(),
+                                          ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      albumNote!,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Theme.of(context).brightness ==
-                                                Brightness.dark
-                                            ? Colors.grey.shade300
-                                            : Colors.grey.shade800,
+
+                                  // Add PlatformMatchWidget with 8px top padding
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: unifiedAlbum != null
+                                        ? PlatformMatchWidget(
+                                            album: unifiedAlbum!)
+                                        : const SizedBox.shrink(),
+                                  ),
+
+                                  const SizedBox(height: 16),
+                                  _buildInfoRow(
+                                      "Artist",
+                                      unifiedAlbum?.artistName ??
+                                          'Unknown Artist'),
+                                  _buildInfoRow("Album",
+                                      unifiedAlbum?.name ?? 'Unknown Album'),
+                                  _buildInfoRow(
+                                      "Release Date", _formatReleaseDate()),
+                                  _buildInfoRow("Duration",
+                                      formatDuration(albumDurationMillis)),
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow("Rating",
+                                      averageRating.toStringAsFixed(2),
+                                      fontSize: 20),
+                                  const SizedBox(height: 16),
+
+                                  // Buttons row
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      FilledButton(
+                                        onPressed: _showAddToListDialog,
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary, // Will use effective theme
+                                          foregroundColor: useDarkButtonText
+                                              ? Colors.black
+                                              : ColorUtility
+                                                  .getContrastingColor(
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .primary),
+                                        ),
+                                        child: const Text('Manage Lists'),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      FilledButton.icon(
+                                        onPressed: _showOptionsDialog,
+                                        icon: Icon(Icons.settings,
+                                            color: useDarkButtonText
+                                                ? Colors.black
+                                                : ColorUtility
+                                                    .getContrastingColor(
+                                                        Theme.of(context)
+                                                            .colorScheme
+                                                            .primary)),
+                                        label: Text('Options',
+                                            style: TextStyle(
+                                                color: useDarkButtonText
+                                                    ? Colors.black
+                                                    : ColorUtility
+                                                        .getContrastingColor(
+                                                            Theme.of(context)
+                                                                .colorScheme
+                                                                .primary))),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          foregroundColor: useDarkButtonText
+                                              ? Colors.black
+                                              : ColorUtility
+                                                  .getContrastingColor(
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .primary),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(),
+                            // Track List with Ratings - Wrap in ConstrainedBox
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: dataTableWidth,
+                              ),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: DataTable(
+                                  columnSpacing: 12,
+                                  columns: [
+                                    const DataColumn(
+                                        label: SizedBox(
+                                            width: 35,
+                                            child: Center(child: Text('#')))),
+                                    DataColumn(
+                                      label: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxWidth: MediaQuery.of(context)
+                                                  .size
+                                                  .width *
+                                              _calculateTitleWidth(),
+                                        ),
+                                        child: const Text('Title'),
                                       ),
                                     ),
+                                    const DataColumn(
+                                        label: SizedBox(
+                                            width: 65,
+                                            child:
+                                                Center(child: Text('Length')))),
+                                    const DataColumn(
+                                        label: SizedBox(
+                                            width: 160,
+                                            child:
+                                                Center(child: Text('Rating')))),
                                   ],
+                                  rows: tracks.map((track) {
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(
+                                            Text(track.position.toString())),
+                                        DataCell(_buildTrackTitle(
+                                          track.name,
+                                          MediaQuery.of(context).size.width *
+                                              _calculateTitleWidth(),
+                                        )),
+                                        DataCell(Text(
+                                            formatDuration(track.durationMs))),
+                                        DataCell(_buildTrackSlider(track
+                                            .id)), // Use the fixed method directly
+                                      ],
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 20),
 
-                          // Add notes button
-                          if (albumNote == null || albumNote!.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 16.0),
-                              child: InkWell(
-                                onTap: _editAlbumNote,
-                                borderRadius: BorderRadius.circular(12),
+                            // Display note if exists
+                            if (albumNote != null && albumNote!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12.0, vertical: 6.0),
+                                  width:
+                                      dataTableWidth, // Match the width of the track table
+                                  padding: const EdgeInsets.all(12.0),
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).brightness ==
                                             Brightness.dark
                                         ? Colors.grey.shade800.withAlpha(128)
                                         : Colors.grey.shade200.withAlpha(179),
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withAlpha(77),
+                                      width: 1,
+                                    ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        Icons.note_add,
-                                        size: 16,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Notes',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
+                                            ),
+                                          ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              // Add Copy button
+                                              InkWell(
+                                                onTap: () {
+                                                  Clipboard.setData(
+                                                      ClipboardData(
+                                                          text: albumNote!));
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                          'Notes copied to clipboard'),
+                                                      duration:
+                                                          Duration(seconds: 1),
+                                                    ),
+                                                  );
+                                                },
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(8.0),
+                                                  child: Icon(
+                                                    Icons.copy,
+                                                    size: 16,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
+                                                  ),
+                                                ),
+                                              ),
+                                              // Edit button
+                                              InkWell(
+                                                onTap: _editAlbumNote,
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(8.0),
+                                                  child: Icon(
+                                                    Icons.edit,
+                                                    size: 16,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
+                                                  ),
+                                                ),
+                                              ),
+                                              // Add Delete button
+                                              InkWell(
+                                                onTap: () {
+                                                  // Show confirmation dialog
+                                                  // Fix: Use showDialog directly with context instead of scaffoldMessengerKey
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) =>
+                                                        AlertDialog(
+                                                      title: const Text(
+                                                          'Delete Notes'),
+                                                      content: const Text(
+                                                          'Are you sure you want to delete these notes?'),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      context)
+                                                                  .pop(),
+                                                          child: const Text(
+                                                              'Cancel'),
+                                                        ),
+                                                        FilledButton(
+                                                          onPressed: () async {
+                                                            Navigator.of(
+                                                                    context)
+                                                                .pop();
+                                                            // Get album ID
+                                                            final id = widget
+                                                                    .albumId ??
+                                                                _albumData[
+                                                                    'id'] ??
+                                                                _albumData[
+                                                                    'collectionId'] ??
+                                                                '';
+
+                                                            if (id.isNotEmpty) {
+                                                              // Save empty note (effectively deleting it)
+                                                              await UserData
+                                                                  .saveAlbumNote(
+                                                                      id, '');
+                                                              setState(() {
+                                                                albumNote =
+                                                                    null;
+                                                              });
+                                                              scaffoldMessengerKey
+                                                                  .currentState
+                                                                  ?.showSnackBar(
+                                                                const SnackBar(
+                                                                  content: Text(
+                                                                      'Notes deleted'),
+                                                                  duration:
+                                                                      Duration(
+                                                                          seconds:
+                                                                              1),
+                                                                ),
+                                                              );
+                                                            }
+                                                          },
+                                                          child: const Text(
+                                                              'Delete'),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(8.0),
+                                                  child: Icon(
+                                                    Icons.delete_outline,
+                                                    size: 16,
+                                                    // Change from error color to primary color
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 6),
+                                      const SizedBox(height: 4),
                                       Text(
-                                        'Add notes',
+                                        albumNote!,
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 14,
                                           color: Theme.of(context).brightness ==
                                                   Brightness.dark
                                               ? Colors.grey.shade300
-                                              : Colors.grey.shade700,
+                                              : Colors.grey.shade800,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                            ),
 
-                          const SizedBox(height: 20),
-                          FilledButton(
-                            // Changed from ElevatedButton
-                            onPressed: _launchRateYourMusic,
-                            style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              foregroundColor: useDarkButtonText
-                                  ? Colors.black
-                                  : Colors.white,
-                              minimumSize: const Size(150, 45),
+                            // Add notes button
+                            if (albumNote == null || albumNote!.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: InkWell(
+                                  onTap: _editAlbumNote,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12.0, vertical: 6.0),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.grey.shade800.withAlpha(128)
+                                          : Colors.grey.shade200.withAlpha(179),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.note_add,
+                                          size: 16,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Add notes',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.grey.shade300
+                                                    : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            const SizedBox(height: 20),
+                            FilledButton(
+                              // Changed from ElevatedButton
+                              onPressed: _launchRateYourMusic,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .primary, // Will use effective theme
+                                foregroundColor: useDarkButtonText
+                                    ? Colors.black
+                                    : ColorUtility.getContrastingColor(
+                                        Theme.of(context).colorScheme.primary),
+                                minimumSize: const Size(150, 45),
+                              ),
+                              child: const Text('Rate on RateYourMusic'),
                             ),
-                            child: const Text('Rate on RateYourMusic'),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
+                            const SizedBox(height: 40),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
+          ),
         ),
       ),
     );

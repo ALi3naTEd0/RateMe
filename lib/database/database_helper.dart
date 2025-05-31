@@ -226,6 +226,16 @@ class DatabaseHelper {
     try {
       Logging.severe('Updating database schema internally');
 
+      // Check if dominant_color column exists in albums table
+      final albumsTableInfo = await db.rawQuery('PRAGMA table_info(albums)');
+      final columnNames =
+          albumsTableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columnNames.contains('dominant_color')) {
+        Logging.severe('Adding dominant_color column to albums table');
+        await db.execute('ALTER TABLE albums ADD COLUMN dominant_color TEXT');
+      }
+
       // Check if master_release_map table exists
       final masterReleaseTableCheck = await db.rawQuery(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='master_release_map'");
@@ -1444,5 +1454,44 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getSampleAlbums(int limit) async {
     final db = await database;
     return await db.query('albums', limit: limit);
+  }
+
+  // Add method to save dominant color for an album
+  Future<void> saveDominantColor(String albumId, String colorValue) async {
+    try {
+      final db = await database;
+      await db.update(
+        'albums',
+        {'dominant_color': colorValue},
+        where: 'id = ?',
+        whereArgs: [albumId],
+      );
+      Logging.severe('Saved dominant color for album $albumId: $colorValue');
+    } catch (e, stack) {
+      Logging.severe('Error saving dominant color', e, stack);
+    }
+  }
+
+  // Add method to get dominant color for an album
+  Future<String?> getDominantColor(String albumId) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'albums',
+        columns: ['dominant_color'],
+        where: 'id = ?',
+        whereArgs: [albumId],
+      );
+      if (result.isNotEmpty && result.first['dominant_color'] != null) {
+        final colorValue = result.first['dominant_color'] as String;
+        Logging.severe(
+            'Retrieved dominant color for album $albumId: $colorValue');
+        return colorValue;
+      }
+      return null;
+    } catch (e, stack) {
+      Logging.severe('Error getting dominant color', e, stack);
+      return null;
+    }
   }
 }

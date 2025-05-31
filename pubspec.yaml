@@ -29,6 +29,7 @@ dependencies:
   html: ^0.15.4
   intl: ^0.20.0
   logging: ^1.2.0
+  image: ^4.1.3  # Add this line for image pixel processing
   flutter_launcher_icons: ^0.14.3
   flex_color_picker: ^3.7.0  # Add this line for a more reliable color picker
   flutter_svg: ^2.0.9  # Add this for SVG icons

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Dynamic Theme & Color Features
+- **Album Artwork Color Picker**: Extract and select dominant colors from album artwork to personalize the app theme
+- Interactive color selection with visual preview of extracted palette colors
+- Persistent color storage per album with automatic restoration when viewing saved albums
+- Seamless theme integration that updates sliders, buttons, and UI elements with selected colors
+- Collapsible color picker interface for clean, unobtrusive user experience
+- Real-time theme updates without requiring app restart
+
 ### Fixed
 
 #### Custom Lists & UI

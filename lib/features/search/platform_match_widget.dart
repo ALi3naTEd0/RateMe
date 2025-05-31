@@ -52,11 +52,29 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   bool _disposed = false;
   bool _isInitialLoading = true;
 
+  // Add this to track if we've already initialized for this album
+  String? _lastInitializedAlbumId;
+  bool _hasInitialized = false;
+
   @override
   void initState() {
     super.initState();
     _initializePlatforms();
     _loadPlatformMatches();
+  }
+
+  @override
+  void didUpdateWidget(PlatformMatchWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Only re-initialize if the album actually changed
+    final currentAlbumId = widget.album.id.toString();
+    if (_lastInitializedAlbumId != currentAlbumId) {
+      _hasInitialized = false;
+      _lastInitializedAlbumId = currentAlbumId;
+      _initializePlatforms();
+      _loadPlatformMatches();
+    }
   }
 
   void _initializePlatforms() {
@@ -110,6 +128,15 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   }
 
   Future<void> _loadPlatformMatches() async {
+    // Prevent redundant initialization
+    final currentAlbumId = widget.album.id.toString();
+    if (_hasInitialized && _lastInitializedAlbumId == currentAlbumId) {
+      return;
+    }
+
+    _hasInitialized = true;
+    _lastInitializedAlbumId = currentAlbumId;
+
     try {
       final albumId = widget.album.id.toString();
 
