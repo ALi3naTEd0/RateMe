@@ -1122,7 +1122,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                         style: FilledButton.styleFrom(
                                           backgroundColor: Theme.of(context)
                                               .colorScheme
-                                              .primary, // Will use effective theme
+                                              .primary,
                                           foregroundColor: useDarkButtonText
                                               ? Colors.black
                                               : ColorUtility
@@ -1320,8 +1320,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                               // Add Delete button
                                               InkWell(
                                                 onTap: () {
-                                                  // Show confirmation dialog
-                                                  // Fix: Use showDialog directly with context instead of scaffoldMessengerKey
                                                   showDialog(
                                                     context: context,
                                                     builder: (context) =>
@@ -1344,7 +1342,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                                             Navigator.of(
                                                                     context)
                                                                 .pop();
-                                                            // Get album ID
                                                             final id = widget
                                                                     .albumId ??
                                                                 _albumData[
@@ -1354,7 +1351,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                                                 '';
 
                                                             if (id.isNotEmpty) {
-                                                              // Save empty note (effectively deleting it)
                                                               await UserData
                                                                   .saveAlbumNote(
                                                                       id, '');
@@ -1389,7 +1385,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                                   child: Icon(
                                                     Icons.delete_outline,
                                                     size: 16,
-                                                    // Change from error color to primary color
                                                     color: Theme.of(context)
                                                         .colorScheme
                                                         .primary,
@@ -1703,21 +1698,20 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     );
   }
 
-  void _showAddToListDialog() {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
+  // Replace _showAddToListDialog with a version matching DetailsPage logic
+  Future<void> _showAddToListDialog() async {
+    final navigator = navigatorKey.currentState ?? Navigator.of(context);
 
     // Track selected lists
     Map<String, bool> selectedLists = {};
 
-    navigator
-        .push(
+    final result = await navigator.push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Add to List'),
+            title: const Text('Save to Lists'),
             content: SizedBox(
               width: MediaQuery.of(context).size.width * 0.5,
               height: MediaQuery.of(context).size.height * 0.5,
@@ -1750,22 +1744,16 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                         }
 
                         final lists = snapshot.data!;
-                        // Replace detailed logging with a simple summary
                         Logging.info(
                             'Dialog loaded ${lists.length} custom lists');
-
-                        // Remove all these individual list logs
-                        // for (int i = 0; i < lists.length; i++) {
-                        //   Logging.severe('SavedAlbumPage dialog list $i: ${lists[i].name}');
-                        // }
 
                         // Initialize selected state for lists containing the album
                         for (var list in lists) {
                           if (!selectedLists.containsKey(list.id)) {
                             selectedLists[list.id] = list.albumIds.contains(
                                 unifiedAlbum?.id.toString() ??
-                                    _albumData['id'] ??
-                                    _albumData['collectionId'] ??
+                                    _albumData['id']?.toString() ??
+                                    _albumData['collectionId']?.toString() ??
                                     '');
                           }
                         }
@@ -1809,12 +1797,43 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           ),
         ),
       ),
-    )
-        .then((result) async {
-      if (result == null) return;
+    );
 
-      if (result == 'new') {
-        _showCreateListDialog();
+    if (result == null) return; // Dialog cancelled
+
+    if (result == 'new') {
+      await _showCreateListDialog();
+      return;
+    }
+
+    try {
+      // Save the album first since user made selections
+      final albumToSave = unifiedAlbum?.toJson() ?? _albumData;
+
+      // First make sure the album is saved to database
+      final saveResult = await UserData.addToSavedAlbums(albumToSave);
+      if (!saveResult) {
+        Logging.severe('Failed to save album before adding to list');
+        if (mounted) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(content: Text('Error saving album to database')),
+          );
+        }
+        return;
+      }
+
+      // Get the album ID as string
+      String? albumIdStr = unifiedAlbum?.id.toString() ??
+          albumToSave['id']?.toString() ??
+          albumToSave['collectionId']?.toString();
+
+      if (albumIdStr == null || albumIdStr.isEmpty) {
+        Logging.severe('Cannot add to list - album ID is null or empty');
+        if (mounted) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(content: Text('Error: Album has no ID')),
+          );
+        }
         return;
       }
 
@@ -1826,18 +1845,31 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
 
       for (var list in lists) {
         final isSelected = selections[list.id] ?? false;
-        final hasAlbum = list.albumIds.contains(unifiedAlbum?.id.toString());
+        final hasAlbum = list.albumIds.contains(albumIdStr);
+
+        Logging.severe(
+            'List ${list.name}: selected=$isSelected, hasAlbum=$hasAlbum');
 
         if (isSelected && !hasAlbum) {
           // Add to list
-          list.albumIds.add(unifiedAlbum?.id.toString() ?? '');
-          await UserData.saveCustomList(list);
-          addedCount++;
+          list.albumIds.add(albumIdStr);
+          final success = await UserData.saveCustomList(list);
+          if (success) {
+            addedCount++;
+            Logging.severe('Added album to list ${list.name}');
+          } else {
+            Logging.severe('Failed to add album to list ${list.name}');
+          }
         } else if (!isSelected && hasAlbum) {
           // Remove from list
-          list.albumIds.remove(unifiedAlbum?.id.toString());
-          await UserData.saveCustomList(list);
-          removedCount++;
+          list.albumIds.remove(albumIdStr);
+          final success = await UserData.saveCustomList(list);
+          if (success) {
+            removedCount++;
+            Logging.severe('Removed album from list ${list.name}');
+          } else {
+            Logging.severe('Failed to remove album from list ${list.name}');
+          }
         }
       }
 
@@ -1849,83 +1881,98 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(content: Text(message.trim())),
           );
+        } else {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(content: Text('No changes to lists')),
+          );
         }
       }
-    });
+    } catch (e, stack) {
+      Logging.severe('Error while updating lists', e, stack);
+      if (mounted) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
-  void _showCreateListDialog() async {
+  // Update _showCreateListDialog to match DetailsPage logic
+  Future<void> _showCreateListDialog() async {
+    final navigator = navigatorKey.currentState ?? Navigator.of(context);
     final nameController = TextEditingController();
     final descController = TextEditingController();
 
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-
-    final createResult = await navigator.push<bool>(
+    await navigator.push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) => AlertDialog(
           title: const Text('Create New List'),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.4,
-              maxWidth: MediaQuery.of(context).size.width * 0.85,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'List Name',
-                      hintText: 'e.g. Progressive Rock',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: descController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
-                      hintText: 'e.g. My favorite prog rock albums',
-                    ),
-                  ),
-                ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'List Name',
+                  hintText: 'e.g. Progressive Rock',
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'e.g. My favorite prog rock albums',
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
-              onPressed: () => navigator.pop(false),
+              onPressed: () => navigator.pop(),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => navigator.pop(true),
+              onPressed: () async {
+                if (nameController.text.isNotEmpty) {
+                  // Save the album first
+                  final albumToSave = unifiedAlbum?.toJson() ?? _albumData;
+                  await UserData.addToSavedAlbums(albumToSave);
+
+                  // Get album ID
+                  final albumIdStr = unifiedAlbum?.id.toString() ??
+                      albumToSave['id']?.toString() ??
+                      albumToSave['collectionId']?.toString() ??
+                      '';
+
+                  // Create the list with the album
+                  final newList = CustomList(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: nameController.text,
+                    description: descController.text,
+                    albumIds: [albumIdStr],
+                  );
+                  await UserData.saveCustomList(newList);
+                  if (mounted) {
+                    scaffoldMessengerKey.currentState?.showSnackBar(
+                      SnackBar(content: Text('Created list "${newList.name}"')),
+                    );
+                  }
+                }
+                navigator.pop();
+              },
               child: const Text('Create'),
             ),
           ],
         ),
       ),
     );
-
-    if (createResult == true && nameController.text.isNotEmpty) {
-      final newList = CustomList(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: nameController.text,
-        description: descController.text,
-        albumIds: [_albumData['collectionId'].toString()],
-      );
-      await UserData.saveCustomList(newList);
-      if (mounted) {
-        _showSnackBar('Added to new list');
-      }
-    }
   }
 
   void _showOptionsDialog() {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
+    final navigator = navigatorKey.currentState ?? Navigator.of(context);
 
     navigator.push(
       PageRouteBuilder(
@@ -1943,7 +1990,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   navigator.pop();
                   final album = await UserData.importAlbum();
                   if (album != null && mounted) {
-                    navigator.pushReplacement(
+                    Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
                         builder: (_) => SavedAlbumPage(
                           album: album,
