@@ -16,6 +16,7 @@ class ShareWidget extends StatefulWidget {
   final double? averageRating;
   final String? title;
   final List<Map<String, dynamic>>? albums;
+  final Color? selectedDominantColor; // Add this parameter
 
   const ShareWidget({
     super.key, // Convert to super parameter
@@ -25,6 +26,7 @@ class ShareWidget extends StatefulWidget {
     this.averageRating,
     this.title,
     this.albums,
+    this.selectedDominantColor, // Add this parameter
   });
 
   @override
@@ -181,9 +183,10 @@ class ShareWidgetState extends State<ShareWidget> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    'Average Rating: ${widget.averageRating?.toStringAsFixed(1) ?? 'N/A'}',
+                    'Rating: ${widget.averageRating?.toStringAsFixed(1) ?? 'N/A'}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: widget.selectedDominantColor ??
+                              Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -194,32 +197,27 @@ class ShareWidgetState extends State<ShareWidget> {
         ),
         const Divider(height: 32),
 
-        // Track list with improved error handling
+        // Track list - use selectedDominantColor for rating colors
         ...widget.tracks?.map((track) {
-              // Safely get the track ID as string for ratings lookup
-              String trackIdStr = track.id.toString();
+              // Get rating from track metadata first, then fallback to ratings map
+              double rating = 0.0;
 
-              // Debug the actual value in the ratings map
-              var rawValue = widget.ratings?[trackIdStr];
-              debugPrint(
-                  "Raw rating value for track $trackIdStr: $rawValue (type: ${rawValue?.runtimeType})");
-
-              // Try to extract the actual integer rating without any rounding
-              int rating = 0;
-
-              // Handle different possible formats of rating data
-              if (rawValue is int) {
-                rating = rawValue;
-              } else if (rawValue is double) {
-                // Use floor to avoid rounding up
-                rating = rawValue.round();
-              } else if (rawValue is String) {
-                // Try parsing as a number if it's stored as a string
-                rating = int.tryParse(rawValue) ?? 0;
+              // Priority 1: Check track metadata for rating
+              if (track.metadata != null &&
+                  track.metadata.containsKey('rating')) {
+                var metaRating = track.metadata['rating'];
+                if (metaRating is num) {
+                  rating = metaRating.toDouble();
+                }
               }
-
-              debugPrint(
-                  "Final displayed rating for track $trackIdStr: $rating");
+              // Priority 2: Check ratings map
+              else if (widget.ratings != null) {
+                String trackIdStr = track.id.toString();
+                var rawValue = widget.ratings![trackIdStr];
+                if (rawValue is num) {
+                  rating = rawValue.toDouble();
+                }
+              }
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -249,18 +247,16 @@ class ShareWidgetState extends State<ShareWidget> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Rating
+                    // Rating - Use selectedDominantColor if available, otherwise primary color
                     SizedBox(
                       width: 40,
                       child: Text(
-                        rating.toString(), // Display rating as an integer
+                        rating.toStringAsFixed(0),
                         textAlign: TextAlign.right,
                         style: TextStyle(
-                          color: rating > 0
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                          fontWeight:
-                              rating > 0 ? FontWeight.bold : FontWeight.normal,
+                          color: widget.selectedDominantColor ??
+                              Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),

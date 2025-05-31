@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Share Widget & Rating Display
+- Fixed ShareWidget to display all track ratings including zero ratings with proper app color theming
+- Enhanced ShareWidget to use selected dominant colors from album details pages
+- Fixed track rating metadata attachment to ensure proper rating display in share images
+- Improved rating color consistency between main app and share widget display
+- Fixed ShareWidget rating extraction to prioritize track metadata over ratings map
+
 #### Custom Lists & UI
 - Fixed custom lists page not refreshing after exiting full list reordering mode
 - Improved UI refresh behavior when saving custom list order to ensure immediate visual feedback
