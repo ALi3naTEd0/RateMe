@@ -1462,6 +1462,20 @@ class _DetailsPageState extends State<DetailsPage> {
 
         // First make sure the album is saved to database
         final saveResult = await UserData.addToSavedAlbums(albumToSave);
+
+        // --- Save dominant color if selected ---
+        final albumIdStr = unifiedAlbum?.id.toString() ??
+            albumToSave['id']?.toString() ??
+            albumToSave['collectionId']?.toString();
+        if (albumIdStr != null &&
+            albumIdStr.isNotEmpty &&
+            selectedDominantColor != null) {
+          await DatabaseHelper.instance.saveDominantColor(albumIdStr,
+              '#${selectedDominantColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}');
+          Logging.severe('Saved dominant color for album $albumIdStr');
+        }
+        // --- end dominant color save ---
+
         if (!saveResult) {
           Logging.severe('Failed to save album before adding to list');
           if (mounted) {
@@ -1473,11 +1487,11 @@ class _DetailsPageState extends State<DetailsPage> {
         }
 
         // Get the album ID as string
-        String? albumIdStr = unifiedAlbum?.id.toString() ??
+        String? albumId = unifiedAlbum?.id.toString() ??
             albumToSave['id']?.toString() ??
             albumToSave['collectionId']?.toString();
 
-        if (albumIdStr == null || albumIdStr.isEmpty) {
+        if (albumId == null || albumId.isEmpty) {
           Logging.severe('Cannot add to list - album ID is null or empty');
           if (mounted) {
             scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1495,14 +1509,14 @@ class _DetailsPageState extends State<DetailsPage> {
 
         for (var list in lists) {
           final isSelected = selections[list.id] ?? false;
-          final hasAlbum = list.albumIds.contains(albumIdStr);
+          final hasAlbum = list.albumIds.contains(albumId);
 
           Logging.severe(
               'List ${list.name}: selected=$isSelected, hasAlbum=$hasAlbum');
 
           if (isSelected && !hasAlbum) {
             // Add to list
-            list.albumIds.add(albumIdStr);
+            list.albumIds.add(albumId);
             final success = await UserData.saveCustomList(list);
             if (success) {
               addedCount++;
@@ -1512,7 +1526,7 @@ class _DetailsPageState extends State<DetailsPage> {
             }
           } else if (!isSelected && hasAlbum) {
             // Remove from list
-            list.albumIds.remove(albumIdStr);
+            list.albumIds.remove(albumId);
             final success = await UserData.saveCustomList(list);
             if (success) {
               removedCount++;
@@ -1596,6 +1610,15 @@ class _DetailsPageState extends State<DetailsPage> {
                       albumToSave['id']?.toString() ??
                       albumToSave['collectionId']?.toString() ??
                       '';
+
+                  // --- Save dominant color if selected ---
+                  if (albumIdStr.isNotEmpty && selectedDominantColor != null) {
+                    await DatabaseHelper.instance.saveDominantColor(albumIdStr,
+                        '#${selectedDominantColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}');
+                    Logging.severe(
+                        'Saved dominant color for album $albumIdStr');
+                  }
+                  // --- end dominant color save ---
 
                   // Create the list with the album
                   final newList = CustomList(

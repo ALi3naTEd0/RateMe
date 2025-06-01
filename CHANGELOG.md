@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Seamless theme integration that updates sliders, buttons, and UI elements with selected colors
 - Collapsible color picker interface for clean, unobtrusive user experience
 - Real-time theme updates without requiring app restart
+- Persistent color selection saved per album in database
+- Dynamic theme updates affecting buttons, sliders, and UI elements
+- Available in both album details and saved album pages
 
 ### Fixed
 
