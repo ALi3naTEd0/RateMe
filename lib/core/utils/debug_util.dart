@@ -4,8 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:rateme/database/database_helper.dart';
 import 'package:rateme/database/cleanup_utility.dart';
-import 'package:rateme/database/json_fixer.dart';
-import 'package:rateme/core/services/logging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import for Clipboard
 
@@ -166,41 +164,28 @@ class DebugUtil {
     result.writeln('=== RateMe Database Cleanup Report ===');
 
     try {
-      // 1. Run the database JSON fixer
-      result.writeln('Fixing invalid JSON in albums...');
-      await JsonFixer.fixAlbumDataFields();
-
-      // 2. Fix .0 issues in IDs
-      result.writeln('Fixing .0 issues in IDs...');
-      await JsonFixer.ultimateFixIdsEverywhere();
-
-      // 3. Run platform matches cleanup
+      // 1. Run platform matches cleanup
       result.writeln('Cleaning up platform matches...');
       final removedMatches = await CleanupUtility.cleanupPlatformMatches();
       result.writeln('- Removed $removedMatches duplicate platform matches');
 
-      // 4. Run track ID cleanup
+      // 2. Run track ID cleanup
       result.writeln('Cleaning up track IDs...');
       final removedTracks =
           await CleanupUtility.removeNumericIdTracksIfStringIdExists();
       result.writeln('- Removed $removedTracks numeric-ID tracks');
 
-      // 5. Fix Bandcamp tracks
+      // 3. Fix Bandcamp tracks
       result.writeln('Fixing Bandcamp track IDs...');
       await CleanupUtility.fixBandcampTrackIds();
 
-      // 6. Fix .0 issues in all database tables
+      // 4. Fix .0 issues in all database tables
       result.writeln('Fixing .0 issues in all database tables...');
       await CleanupUtility.fixDotZeroIssues();
 
-      // 7. Vacuum database
+      // 5. Vacuum database
       result.writeln('Vacuuming database...');
       await DatabaseHelper.instance.vacuumDatabase();
-
-      // 8. Upgrade album formats to new format
-      result.writeln('Upgrading album formats to new format...');
-      final migratedAlbums = await _migrateAlbumFormats();
-      result.writeln('- Migrated $migratedAlbums albums to new format');
 
       result.writeln('\nCleanup completed successfully!');
     } catch (e, stack) {
@@ -209,178 +194,6 @@ class DebugUtil {
     }
 
     return result.toString();
-  }
-
-  /// Migrate all albums from legacy format to new format
-  /// Returns the number of albums migrated
-  static Future<int> _migrateAlbumFormats() async {
-    final db = await DatabaseHelper.instance.database;
-    final albums = await db.query('albums');
-    int migrated = 0;
-
-    for (final album in albums) {
-      final albumId = album['id'].toString();
-      final data = album['data'] as String?;
-
-      if (data == null || data.isEmpty) continue;
-
-      try {
-        final json = jsonDecode(data);
-
-        // Skip if already in new format
-        if (json.containsKey('format_version') && json['format_version'] == 2) {
-          continue;
-        }
-
-        // Convert to new format
-        final newFormatJson = _convertToNewFormat(json, album);
-
-        // Save back to database
-        await db.update(
-          'albums',
-          {'data': jsonEncode(newFormatJson)},
-          where: 'id = ?',
-          whereArgs: [albumId],
-        );
-
-        migrated++;
-      } catch (e) {
-        Logging.severe('Error migrating album $albumId to new format: $e');
-      }
-    }
-
-    return migrated;
-  }
-
-  /// Migrate all albums from legacy format to new format
-  /// Returns the number of albums migrated
-  static Future<int> migrateAlbumFormats() async {
-    final db = await DatabaseHelper.instance.database;
-    final albums = await db.query('albums');
-    int migrated = 0;
-
-    for (final album in albums) {
-      final albumId = album['id'].toString();
-      final data = album['data'] as String?;
-
-      if (data == null || data.isEmpty) continue;
-
-      try {
-        final json = jsonDecode(data);
-
-        // Skip if already in new format
-        if (json.containsKey('format_version') && json['format_version'] == 2) {
-          continue;
-        }
-
-        // Convert to new format
-        final newFormatJson = _convertToNewFormat(json, album);
-
-        // Save back to database
-        await db.update(
-          'albums',
-          {'data': jsonEncode(newFormatJson)},
-          where: 'id = ?',
-          whereArgs: [albumId],
-        );
-
-        migrated++;
-
-        if (migrated % 10 == 0) {
-          Logging.severe('Migrated $migrated albums to new format...');
-        }
-      } catch (e) {
-        Logging.severe('Error migrating album $albumId to new format: $e');
-      }
-    }
-
-    Logging.severe(
-        'Album format migration complete: $migrated albums migrated');
-    return migrated;
-  }
-
-  /// Convert legacy format album data to new format
-  static Map<String, dynamic> _convertToNewFormat(
-      Map<String, dynamic> legacyJson, Map<String, dynamic> albumRow) {
-    // Create a new format JSON
-    final newFormat = <String, dynamic>{
-      // Set the format version to indicate this is new format
-      'format_version': 2,
-      // Creation timestamp
-      'created_at': DateTime.now().toIso8601String(),
-      // Last updated timestamp
-      'updated_at': DateTime.now().toIso8601String(),
-    };
-
-    // Copy essential fields from legacy format
-    _copyIfExists(legacyJson, newFormat, 'id');
-    _copyIfExists(legacyJson, newFormat, 'collectionId');
-    _copyIfExists(legacyJson, newFormat, 'name');
-    _copyIfExists(legacyJson, newFormat, 'collectionName');
-    _copyIfExists(legacyJson, newFormat, 'artist');
-    _copyIfExists(legacyJson, newFormat, 'artistName');
-    _copyIfExists(legacyJson, newFormat, 'artworkUrl');
-    _copyIfExists(legacyJson, newFormat, 'artworkUrl100');
-    _copyIfExists(legacyJson, newFormat, 'releaseDate');
-    _copyIfExists(legacyJson, newFormat, 'url');
-    _copyIfExists(legacyJson, newFormat, 'platform');
-
-    // Add metadata section for any additional fields in legacy format
-    final metadata = <String, dynamic>{};
-    legacyJson.forEach((key, value) {
-      if (!newFormat.containsKey(key) && key != 'tracks') {
-        metadata[key] = value;
-      }
-    });
-
-    if (metadata.isNotEmpty) {
-      newFormat['metadata'] = metadata;
-    }
-
-    // Copy tracks with minimal required fields
-    if (legacyJson.containsKey('tracks') && legacyJson['tracks'] is List) {
-      final legacyTracks = legacyJson['tracks'] as List;
-      final newTracks = <Map<String, dynamic>>[];
-
-      for (final track in legacyTracks) {
-        if (track is Map) {
-          final newTrack = <String, dynamic>{};
-
-          // Copy essential track fields
-          _copyIfExists(track, newTrack, 'trackId');
-          _copyIfExists(track, newTrack, 'trackName');
-          _copyIfExists(track, newTrack, 'trackNumber');
-          _copyIfExists(track, newTrack, 'trackTimeMillis');
-
-          // Add track metadata section
-          final trackMetadata = <String, dynamic>{};
-          track.forEach((key, value) {
-            if (!newTrack.containsKey(key)) {
-              trackMetadata[key] = value;
-            }
-          });
-
-          if (trackMetadata.isNotEmpty) {
-            newTrack['metadata'] = trackMetadata;
-          }
-
-          newTracks.add(newTrack);
-        }
-      }
-
-      if (newTracks.isNotEmpty) {
-        newFormat['tracks'] = newTracks;
-      }
-    }
-
-    return newFormat;
-  }
-
-  /// Helper to copy a field from source to target if it exists
-  static void _copyIfExists(Map source, Map target, String key) {
-    if (source.containsKey(key) && source[key] != null) {
-      target[key] = source[key];
-    }
   }
 
   /// Show a debug report in a dialog

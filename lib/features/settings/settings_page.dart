@@ -9,7 +9,6 @@ import '../../core/utils/color_utility.dart';
 import '../../database/api_key_manager.dart';
 import '../../database/cleanup_utility.dart';
 import '../../database/database_helper.dart';
-import '../../database/json_fixer.dart';
 import '../../database/migration_progress_page.dart';
 import '../../database/track_recovery_utility.dart';
 import '../../core/services/theme_service.dart' as ts;
@@ -25,6 +24,7 @@ import '../../core/utils/version_info.dart';
 import 'package:flutter/services.dart'; // Add this for TextInputFormatter
 import '../../ui/widgets/platform_match_cleaner.dart';
 import '../../core/utils/date_fixer_utility.dart'; // Add this import
+import '../../core/utils/album_migration_utility.dart';
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -931,23 +931,19 @@ class _SettingsPageState extends State<SettingsPage> {
                       ColorPicker(
                         color: dialogColor,
                         onColorChanged: (Color color) {
-                          dialogColor = color;
-                          // Update the hex text field when color changes
-                          hexController.text =
-                              "${(color.r * 255).round().toRadixString(16).padLeft(2, '0')}${(color.g * 255).round().toRadixString(16).padLeft(2, '0')}${(color.b * 255).round().toRadixString(16).padLeft(2, '0').toUpperCase()}";
-                          setDialogState(() {}); // Update sample button
-
-                          // DIAGNOSTICS: Log every color change during selection
-                          final int r = (color.r * 255).round();
-                          final int g = (color.g * 255).round();
-                          final int b = (color.b * 255).round();
-
-                          // Log both the raw and properly converted values
-                          Logging.severe('COLOR PICKER: Changed to new color: '
-                              'RawValues(${color.r}, ${color.g}, ${color.b}) → '
-                              'IntRGB($r, $g, $b) → HEX: #FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}');
+                          setDialogState(() {
+                            dialogColor = color;
+                          });
+                          // Update hex input field
+                          final r = (color.r * 255).round();
+                          final g = (color.g * 255).round();
+                          final b = (color.b * 255).round();
+                          final hexPart = "${r.toRadixString(16).padLeft(2, '0')}"
+                                  "${g.toRadixString(16).padLeft(2, '0')}"
+                                  "${b.toRadixString(16).padLeft(2, '0')}"
+                              .toUpperCase();
+                          hexController.text = hexPart;
                         },
-                        // ...existing color picker properties...
                         width: 40,
                         height: 40,
                         borderRadius: 4,
@@ -957,8 +953,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         showMaterialName: true,
                         showColorName: true,
                         pickersEnabled: const <ColorPickerType, bool>{
-                          ColorPickerType.primary: true,
-                          ColorPickerType.accent: true,
                           ColorPickerType.wheel: true,
                         },
                       ),
@@ -973,101 +967,40 @@ class _SettingsPageState extends State<SettingsPage> {
                       // Use a Row with two text fields - one disabled for FF, one for RGB
                       Row(
                         children: [
-                          // Non-editable alpha part
-                          Container(
+                          SizedBox(
                             width: 50,
-                            height: 48, // Match height with the other field
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              // FIX: Replace deprecated withOpacity with withAlpha
-                              color: Theme.of(context)
-                                  .disabledColor
-                                  .withAlpha(25), // 0.1 opacity = ~25/255
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(4),
-                                bottomLeft: Radius.circular(4),
-                              ),
-                              border: Border.all(
-                                color: Theme.of(context).dividerColor,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              '#FF',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                            child: TextField(
+                              controller: TextEditingController(text: 'FF'),
+                              enabled: false,
+                              decoration: InputDecoration(
+                                labelText: 'Alpha',
+                                border: OutlineInputBorder(),
                               ),
                             ),
                           ),
-
-                          // Editable RGB part
+                          SizedBox(width: 8),
                           Expanded(
                             child: TextField(
                               controller: hexController,
-                              decoration: const InputDecoration(
-                                hintText: '864AF9',
-                                helperText: '',
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 0),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.only(
-                                    topRight: Radius.circular(4),
-                                    bottomRight: Radius.circular(4),
-                                  ),
-                                  borderSide: BorderSide(width: 1),
-                                ),
-                              ),
-                              style: const TextStyle(
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                              decoration: InputDecoration(
+                                labelText: 'RGB (RRGGBB)',
+                                border: OutlineInputBorder(),
                               ),
                               inputFormatters: [
-                                // Only allow hex characters
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9a-fA-F]')),
-                                // Force uppercase
                                 UpperCaseTextFormatter(),
+                                FilteringTextInputFormatter.allow(RegExp(r'[0-9A-F]')),
+                                LengthLimitingTextInputFormatter(6),
                               ],
-                              maxLength: 6,
-                              buildCounter: (_,
-                                      {required currentLength,
-                                      required maxLength,
-                                      required isFocused}) =>
-                                  Text('$currentLength/$maxLength',
-                                      style: const TextStyle(fontSize: 12)),
                               onChanged: (value) {
-                                // Process only if we have a complete 6-digit hex
                                 if (value.length == 6) {
                                   try {
-                                    // CRITICAL FIX: Explicitly log and parse RGB components
-                                    Logging.severe(
-                                        'COLOR PICKER: Processing manual hex input: #$value');
-
-                                    // Parse each component separately for maximum reliability
-                                    final int r = int.parse(
-                                        value.substring(0, 2),
-                                        radix: 16);
-                                    final int g = int.parse(
-                                        value.substring(2, 4),
-                                        radix: 16);
-                                    final int b = int.parse(
-                                        value.substring(4, 6),
-                                        radix: 16);
-
-                                    // Create color with full alpha
-                                    final newColor =
-                                        Color.fromARGB(255, r, g, b);
-
-                                    // Log successful creation and update UI
-                                    Logging.severe(
-                                        'COLOR PICKER: Manual hex processed: #$value → RGB($r,$g,$b)');
-                                    dialogColor = newColor;
-                                    setDialogState(() {});
+                                    final colorValue = int.parse('FF$value', radix: 16);
+                                    final newColor = Color(colorValue);
+                                    setDialogState(() {
+                                      dialogColor = newColor;
+                                    });
                                   } catch (e) {
-                                    Logging.severe(
-                                        'COLOR PICKER: Invalid hex input: $value, error: $e');
+                                    // Invalid hex, ignore
                                   }
                                 }
                               },
@@ -1080,12 +1013,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       const Padding(
                         padding: EdgeInsets.only(top: 4),
                         child: Text(
-                          "Alpha channel (FF) is fixed for full opacity",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey,
-                          ),
+                          'Alpha is fixed at FF (fully opaque)',
+                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                         ),
                       ),
 
@@ -1096,24 +1025,21 @@ class _SettingsPageState extends State<SettingsPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).scaffoldBackgroundColor,
+                          color: dialogColor,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
-                          ),
+                          border: Border.all(color: Colors.grey),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: dialogColor,
-                                foregroundColor: _useDarkButtonText
-                                    ? Colors.black
-                                    : Colors.white,
+                            Text(
+                              'Sample Text',
+                              style: TextStyle(
+                                color: ThemeData.estimateBrightnessForColor(dialogColor) == Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black,
+                                fontWeight: FontWeight.bold,
                               ),
-                              onPressed: () {},
-                              child: const Text('Sample Text'),
                             ),
                           ],
                         ),
@@ -1146,37 +1072,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       // Try to get color from hex input first in case it was manually entered
                       try {
                         if (hexController.text.length == 6) {
-                          // CRITICAL FIX: Always add FF prefix for alpha channel
-                          final String hexValue = hexController.text;
-                          Logging.severe(
-                              'COLOR PICKER: Processing final hex: $hexValue');
-
-                          // Parse each component separately for reliability
-                          final int r =
-                              int.parse(hexValue.substring(0, 2), radix: 16);
-                          final int g =
-                              int.parse(hexValue.substring(2, 4), radix: 16);
-                          final int b =
-                              int.parse(hexValue.substring(4, 6), radix: 16);
-
-                          // Create color with full alpha and assign it to dialogColor
-                          dialogColor = Color.fromARGB(255, r, g, b);
-
-                          // PLATFORM SAFETY: Verify this is not black (0,0,0)
-                          // If all components are near-zero, use default purple instead
-                          if (r < 3 && g < 3 && b < 3) {
-                            Logging.severe(
-                                'COLOR PICKER: Near-black color detected, using default purple');
-                            dialogColor = ColorUtility.defaultColor;
-                          }
-
-                          // Log the color values for diagnostics
-                          Logging.severe(
-                              'COLOR PICKER: Manual hex parsed: #$hexValue → RGB($r,$g,$b)');
+                          final colorValue = int.parse('FF${hexController.text}', radix: 16);
+                          dialogColor = Color(colorValue);
                         }
                       } catch (e) {
-                        Logging.severe(
-                            'COLOR PICKER: Error parsing final hex: ${hexController.text}, error: $e');
+                        Logging.severe('Error parsing hex input: $e');
                       }
 
                       // CRITICAL FIX: Use the correct float to int conversion here!
@@ -1191,9 +1091,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         Logging.severe(
                             'COLOR PICKER: Black color detected in final values, using default purple');
                         final defaultPurple = ColorUtility.defaultColor;
-                        final safeR = defaultPurple.r.round();
-                        final safeG = defaultPurple.g.round();
-                        final safeB = defaultPurple.b.round();
+                        final safeR = (defaultPurple.r * 255).round();
+                        final safeG = (defaultPurple.g * 255).round();
+                        final safeB = (defaultPurple.b * 255).round();
 
                         // Use safe values with proper RGB conversion
                         final safeColor =
@@ -1205,11 +1105,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                         // Create hex string for storage
                         final String storageHex =
-                            '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
-                                    '${safeG.toRadixString(16).padLeft(2, '0')}'
-                                    '${safeB.toRadixString(16).padLeft(2, '0')}'
-                                .toUpperCase();
-
+                            '#FF${safeR.toRadixString(16).padLeft(2, '0')}${safeG.toRadixString(16).padLeft(2, '0')}${safeB.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
                         DatabaseHelper.instance
                             .saveSetting('primaryColor', storageHex);
                         Navigator.of(context).pop();
@@ -1237,9 +1133,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       // Create hex string with alpha channel - Use proper values!
                       final String storageHex =
                           '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
-                                  '${safeG.toRadixString(16).padLeft(2, '0')}'
-                                  '${safeB.toRadixString(16).padLeft(2, '0')}'
-                              .toUpperCase();
+                          '${safeG.toRadixString(16).padLeft(2, '0')}'
+                          '${safeB.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
 
                       // DIAGNOSTICS: Log the final hex value that will be stored
                       Logging.severe(
@@ -1469,10 +1364,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                           activeTrackColor: Theme.of(context)
                                               .colorScheme
                                               .primary,
-                                          activeColor: Colors
-                                              .black, // When active, always black
-                                          inactiveThumbColor: Colors
-                                              .white, // When inactive, always white
+                                          activeColor: Colors.black, // When active, always black
+                                          inactiveThumbColor: Colors.white, // When inactive, always white
                                           onChanged: (bool value) async {
                                             // Update local state immediately for UI feedback
                                             setState(() {
@@ -1799,8 +1692,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         subtitle: const Text(
                                             'Update album data for compatibility'),
                                         onTap: () async {
-                                          final confirmed =
-                                              await showDialog<bool>(
+                                          final confirmed = await showDialog<bool>(
                                             context: context,
                                             builder: (context) => AlertDialog(
                                               title:
@@ -1826,33 +1718,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                           );
 
                                           if (confirmed == true) {
-                                            // Show loading
                                             setState(() {
                                               isLoading = true;
                                             });
 
                                             try {
-                                              // Do async operations
-                                              await JsonFixer
-                                                  .fixAlbumDataFields();
-                                              await JsonFixer
-                                                  .fixIdsAndMetadataInAlbumData();
-
-                                              // After async gap, check if widget is still mounted
+                                              final migratedCount = await AlbumMigrationUtility.migrateAlbumFormats();
                                               if (!mounted) return;
                                               _showAlbumConversionSuccessSnackBar(
-                                                  'Albums converted successfully!');
+                                                  'Successfully converted $migratedCount albums to new format!');
                                             } catch (e) {
-                                              // Log error
-                                              Logging.severe(
-                                                  'Error converting albums', e);
-
-                                              // After async gap, check if widget is still mounted
+                                              Logging.severe('Error converting albums', e);
                                               if (!mounted) return;
-                                              _showAlbumConversionErrorSnackBar(
-                                                  'Error converting albums: $e');
+                                              _showAlbumConversionErrorSnackBar('Error converting albums: $e');
                                             } finally {
-                                              // Hide loading indicator only if still mounted
                                               if (mounted) {
                                                 setState(() {
                                                   isLoading = false;
@@ -2569,10 +2448,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: TextStyle(
                     color: Colors.blue,
                     decoration: TextDecoration.underline,
-                  ),
+                                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+                                                     const SizedBox(height: 16),
               // Add guidance about the callback URL
               Container(
                 padding: EdgeInsets.all(12),

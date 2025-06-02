@@ -20,6 +20,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dynamic theme updates affecting buttons, sliders, and UI elements
 - Available in both album details and saved album pages
 
+#### Code Architecture & Data Management
+- **Album Migration Utility**: New dedicated utility for converting albums from legacy format to new format with `format_version: 2`
+- Automatic database schema migration with `format_version` column creation when needed
+- Clean separation of concerns between debugging, migration, and JSON repair functionality
+
+### Improved
+
+#### Settings & Debug Tools
+- **Cleaned Debug Utility**: Streamlined `DebugUtil` to focus solely on debugging and diagnostic reporting
+- Removed migration logic from debug tools and moved to dedicated `AlbumMigrationUtility`
+- Enhanced settings page organization with dedicated "Convert Albums to New Format" button
+- **Simplified Database Operations**: Removed unused `JsonFixer` class that was causing confusion
+
+#### Data Architecture
+- Clear distinction between album format migration and database cleanup operations
+- Enhanced album conversion process with proper metadata preservation and format validation
+
 ### Fixed
 
 #### Share Widget & Rating Display
@@ -40,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced color notification system to ensure all UI components receive theme updates immediately
 - Fixed color picker dialog properly updating all app screens when new colors are selected
 - Improved theme state management to prevent color reversion during app navigation
+
+#### Album Format Migration
+- Fixed album migration to properly update both JSON `data` field and database column with `format_version: 2`
+- Enhanced migration detection to check actual data format rather than just column values
+- Fixed database constraints during migration by ensuring `format_version` column exists before updates
 
 ## [1.1.2-1] - 2025-05-12
 
