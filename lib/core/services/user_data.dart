@@ -194,8 +194,7 @@ class UserData {
         'artworkUrl100',
         'platform',
         'release_date',
-        'url',
-        'data'
+        'url'
       ];
 
       for (final field in compatibleFields) {
@@ -256,7 +255,76 @@ class UserData {
         albumEntry['name'] = album['collectionName'];
       }
 
-      // CRITICAL FIX: Check for tracks and save them to the database
+      // Make sure the album ID is ready for database
+      albumEntry['id'] = albumEntry['id'].toString();
+
+      // CRITICAL FIX: ALWAYS save in NEW FORMAT with format_version: 2
+      if (columnNames.contains('data')) {
+        // Create a deep copy of the album to modify
+        Map<String, dynamic> dataToStore = Map<String, dynamic>.from(album);
+
+        // FORCE NEW FORMAT: Add format_version: 2 to the data
+        dataToStore['format_version'] = 2;
+
+        // Ensure all required fields are present in the data
+        dataToStore['id'] = albumEntry['id'];
+        dataToStore['collectionId'] = albumEntry['id'];
+        
+        // Map standard field names
+        if (!dataToStore.containsKey('collectionName') && albumEntry.containsKey('name')) {
+          dataToStore['collectionName'] = albumEntry['name'];
+        }
+        if (!dataToStore.containsKey('artistName') && albumEntry.containsKey('artist')) {
+          dataToStore['artistName'] = albumEntry['artist'];
+        }
+        if (!dataToStore.containsKey('artworkUrl100') && albumEntry.containsKey('artwork_url')) {
+          dataToStore['artworkUrl100'] = albumEntry['artwork_url'];
+        }
+
+        // Make sure release date is included in data field
+        if (!dataToStore.containsKey('releaseDate') &&
+            albumEntry.containsKey('release_date')) {
+          dataToStore['releaseDate'] = albumEntry['release_date'];
+          Logging.severe(
+              'Added missing releaseDate to data field: ${albumEntry['release_date']}');
+        }
+
+        albumEntry['data'] = jsonEncode(dataToStore);
+        Logging.severe('Saved album in NEW FORMAT with format_version: 2');
+      }
+
+      // ALSO set the format_version column if it exists
+      if (columnNames.contains('format_version')) {
+        albumEntry['format_version'] = 2;
+        Logging.severe('Set format_version column to 2');
+      }
+
+      Logging.severe(
+          'Saving album with compatible fields: ${albumEntry.keys.join(", ")}');
+
+      // Check if album already exists
+      final existingAlbum = await db.query(
+        'albums',
+        where: 'id = ?',
+        whereArgs: [albumEntry['id']],
+      );
+
+      if (existingAlbum.isNotEmpty) {
+        // Update existing album
+        await db.update(
+          'albums',
+          albumEntry,
+          where: 'id = ?',
+          whereArgs: [albumEntry['id']],
+        );
+        Logging.severe('Updated existing album: ${albumEntry['id']} in NEW FORMAT');
+      } else {
+        // Insert new album
+        await db.insert('albums', albumEntry);
+        Logging.severe('Inserted new album: ${albumEntry['id']} in NEW FORMAT');
+      }
+
+      // CRITICAL FIX: If we have tracks, save them to the tracks table
       List<Map<String, dynamic>>? tracks;
 
       // Try to extract tracks from various locations
@@ -285,51 +353,6 @@ class UserData {
         }
       }
 
-      // Make sure the album ID is ready for database
-      albumEntry['id'] = albumEntry['id'].toString();
-
-      // IMPORTANT: Always save a complete data field to ensure all metadata is preserved
-      if (columnNames.contains('data')) {
-        // Create a deep copy of the album to modify
-        Map<String, dynamic> dataToStore = Map<String, dynamic>.from(album);
-
-        // Make sure release date is included in data field
-        if (!dataToStore.containsKey('releaseDate') &&
-            albumEntry.containsKey('release_date')) {
-          dataToStore['releaseDate'] = albumEntry['release_date'];
-          Logging.severe(
-              'Added missing releaseDate to data field: ${albumEntry['release_date']}');
-        }
-
-        albumEntry['data'] = jsonEncode(dataToStore);
-      }
-
-      Logging.severe(
-          'Saving album with compatible fields: ${albumEntry.keys.join(", ")}');
-
-      // Check if album already exists
-      final existingAlbum = await db.query(
-        'albums',
-        where: 'id = ?',
-        whereArgs: [albumEntry['id']],
-      );
-
-      if (existingAlbum.isNotEmpty) {
-        // Update existing album
-        await db.update(
-          'albums',
-          albumEntry,
-          where: 'id = ?',
-          whereArgs: [albumEntry['id']],
-        );
-        Logging.severe('Updated existing album: ${albumEntry['id']}');
-      } else {
-        // Insert new album
-        await db.insert('albums', albumEntry);
-        Logging.severe('Inserted new album: ${albumEntry['id']}');
-      }
-
-      // CRITICAL FIX: If we have tracks, save them to the tracks table
       if (tracks != null && tracks.isNotEmpty) {
         await dbHelper.insertTracks(albumEntry['id'].toString(), tracks);
         Logging.severe(
