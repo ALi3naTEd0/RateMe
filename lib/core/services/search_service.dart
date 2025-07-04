@@ -912,7 +912,7 @@ class SearchService {
 
       // Get album tracks
       final tracksUrl =
-          Uri.parse('https://api.deezer.com/album/$albumId/tracks');
+          Uri.parse('https://api.deezer.com/album/$albumId/tracks?limit=1000');
       final tracksResponse = await http.get(tracksUrl);
       List<Map<String, dynamic>> tracks = [];
 

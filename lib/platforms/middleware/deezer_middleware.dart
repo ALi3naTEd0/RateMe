@@ -160,9 +160,9 @@ class DeezerMiddleware {
             (album['tracks'] is List && (album['tracks'] as List).isEmpty)) {
           Logging.severe('Fetching tracks for Deezer album');
 
-          // Get track information
+          // Get track information with NO LIMIT to fetch ALL tracks
           final tracksUrl =
-              Uri.parse('https://api.deezer.com/album/$albumId/tracks');
+              Uri.parse('https://api.deezer.com/album/$albumId/tracks?limit=1000'); // Increased limit
           final tracksResponse = await http.get(tracksUrl);
 
           if (tracksResponse.statusCode == 200) {
@@ -183,7 +183,7 @@ class DeezerMiddleware {
               }).toList();
 
               result['tracks'] = tracks;
-              Logging.severe('Added ${tracks.length} tracks to Deezer album');
+              Logging.severe('Added ${tracks.length} tracks to Deezer album (no limit applied)');
             }
           }
         }
