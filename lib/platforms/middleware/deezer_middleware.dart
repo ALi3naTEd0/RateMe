@@ -154,6 +154,22 @@ class DeezerMiddleware {
           result['artworkUrl100'] = data['cover_medium'];
         }
 
+        // CRITICAL FIX: Always ensure we have the highest quality artwork
+        // Prioritize cover_big over cover_medium over cover_small
+        if (data['cover_big'] != null && data['cover_big'].toString().isNotEmpty) {
+          result['artworkUrl'] = data['cover_big'];
+          result['artworkUrl100'] = data['cover_big']; // Use high-res for both fields
+          Logging.severe('Updated Deezer artwork to high-res: ${data['cover_big']}');
+        } else if (data['cover_medium'] != null && data['cover_medium'].toString().isNotEmpty) {
+          result['artworkUrl'] = data['cover_medium'];
+          result['artworkUrl100'] = data['cover_medium'];
+          Logging.severe('Updated Deezer artwork to medium-res: ${data['cover_medium']}');
+        } else if (data['cover_small'] != null && data['cover_small'].toString().isNotEmpty) {
+          result['artworkUrl'] = data['cover_small'];
+          result['artworkUrl100'] = data['cover_small'];
+          Logging.severe('Updated Deezer artwork to small-res: ${data['cover_small']}');
+        }
+
         // Check if we need to get tracks information too
         if (!album.containsKey('tracks') ||
             album['tracks'] == null ||

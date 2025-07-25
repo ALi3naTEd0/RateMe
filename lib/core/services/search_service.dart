@@ -672,13 +672,22 @@ class SearchService {
               'collectionName': albumData['title'],
               'artist': albumData['artist']?['name'] ?? 'Unknown Artist',
               'artistName': albumData['artist']?['name'] ?? 'Unknown Artist',
-              'artworkUrl':
-                  albumData['cover_big'] ?? albumData['cover_medium'] ?? '',
-              'artworkUrl100': albumData['cover_medium'] ?? '',
+              // PRIORITIZE HIGH-RES ARTWORK: Use cover_big first, then fallback
+              'artworkUrl': albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
+              'artworkUrl100': albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
               'url': query,
               'platform': 'deezer',
-              // Flag to indicate this album should use the Deezer middleware
-              'useDeezerMiddleware': true
+              'releaseDate': albumData['release_date'] ?? 'unknown',
+              'tracks': albumData['tracks']['items']
+                  .map<Map<String, dynamic>>((track) {
+                return {
+                  'trackId': track['id'],
+                  'trackName': track['name'],
+                  'trackNumber': track['track_number'],
+                  'trackTimeMillis': track['duration_ms'],
+                  'artistName': track['artists'][0]['name'],
+                };
+              }).toList(),
             };
             // Return the single album
             Logging.severe(
@@ -735,6 +744,21 @@ class SearchService {
         final String albumTitle = album['title'] ?? 'Unknown Title';
         final String artistName = album['artist']['name'] ?? 'Unknown Artist';
 
+        // PRIORITIZE HIGH-RES ARTWORK: Always use cover_big first, then fallback to medium/small
+        String artworkUrl = '';
+        String artworkUrl100 = '';
+        
+        if (album['cover_big'] != null && album['cover_big'].toString().isNotEmpty) {
+          artworkUrl = album['cover_big'];
+          artworkUrl100 = album['cover_big']; // Use high-res for both
+        } else if (album['cover_medium'] != null && album['cover_medium'].toString().isNotEmpty) {
+          artworkUrl = album['cover_medium'];
+          artworkUrl100 = album['cover_medium'];
+        } else if (album['cover_small'] != null && album['cover_small'].toString().isNotEmpty) {
+          artworkUrl = album['cover_small'];
+          artworkUrl100 = album['cover_small'];
+        }
+
         // Create album entry with minimal information - middleware will enhance it
         final albumResult = {
           'id': album['id'],
@@ -743,10 +767,8 @@ class SearchService {
           'collectionName': albumTitle,
           'artist': artistName,
           'artistName': artistName,
-          'artworkUrl': album['cover_big'] ??
-              album['cover_medium'] ??
-              album['cover_small'],
-          'artworkUrl100': album['cover_medium'] ?? album['cover_small'],
+          'artworkUrl': artworkUrl,
+          'artworkUrl100': artworkUrl100,
           'url': album['link'],
           'platform': 'deezer',
           // Add flag to use middleware for accurate date fetching
@@ -760,6 +782,87 @@ class SearchService {
     } catch (e, stack) {
       Logging.severe('Error searching Deezer', e, stack);
       return null;
+    }
+  }
+
+  /// Update existing Deezer albums with high-res artwork
+  static Future<bool> updateDeezerAlbumArtwork(String albumId) async {
+    try {
+      Logging.severe('Updating artwork for Deezer album ID: $albumId');
+      
+      final albumDetailsUrl = Uri.parse('https://api.deezer.com/album/$albumId');
+      final albumResponse = await http.get(albumDetailsUrl);
+      
+      if (albumResponse.statusCode == 200) {
+        final albumData = jsonDecode(albumResponse.body);
+        
+        // Get the highest quality artwork available
+        String highResArtwork = '';
+        if (albumData['cover_big'] != null && albumData['cover_big'].toString().isNotEmpty) {
+          highResArtwork = albumData['cover_big'];
+        } else if (albumData['cover_medium'] != null && albumData['cover_medium'].toString().isNotEmpty) {
+          highResArtwork = albumData['cover_medium'];
+        } else if (albumData['cover_small'] != null && albumData['cover_small'].toString().isNotEmpty) {
+          highResArtwork = albumData['cover_small'];
+        }
+        
+        if (highResArtwork.isNotEmpty) {
+          // Update the album in the database
+          final db = await DatabaseHelper.instance.database;
+          
+          // Update the artwork_url column if it exists
+          final tableInfo = await db.rawQuery("PRAGMA table_info(albums)");
+          final columnNames = tableInfo.map((col) => col['name'] as String).toList();
+          
+          if (columnNames.contains('artwork_url')) {
+            await db.update(
+              'albums',
+              {'artwork_url': highResArtwork},
+              where: 'id = ? AND platform = ?',
+              whereArgs: [albumId, 'deezer'],
+            );
+          }
+          
+          // Also update the data JSON field if it exists
+          if (columnNames.contains('data')) {
+            final albumRows = await db.query(
+              'albums',
+              where: 'id = ? AND platform = ?',
+              whereArgs: [albumId, 'deezer'],
+            );
+            
+            if (albumRows.isNotEmpty) {
+              final albumRow = albumRows.first;
+              final dataString = albumRow['data'] as String?;
+              
+              if (dataString != null && dataString.isNotEmpty) {
+                try {
+                  final data = jsonDecode(dataString);
+                  data['artworkUrl'] = highResArtwork;
+                  data['artworkUrl100'] = highResArtwork;
+                  
+                  await db.update(
+                    'albums',
+                    {'data': jsonEncode(data)},
+                    where: 'id = ? AND platform = ?',
+                    whereArgs: [albumId, 'deezer'],
+                  );
+                  
+                  Logging.severe('Updated Deezer album $albumId with high-res artwork: $highResArtwork');
+                  return true;
+                } catch (e) {
+                  Logging.severe('Error updating album data JSON: $e');
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      return false;
+    } catch (e, stack) {
+      Logging.severe('Error updating Deezer album artwork', e, stack);
+      return false;
     }
   }
 

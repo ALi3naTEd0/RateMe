@@ -25,6 +25,7 @@ import 'package:flutter/services.dart'; // Add this for TextInputFormatter
 import '../../ui/widgets/platform_match_cleaner.dart';
 import '../../core/utils/date_fixer_utility.dart'; // Add this import
 import '../../core/utils/album_migration_utility.dart';
+import '../../core/utils/deezer_artwork_fixer.dart';
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -1760,6 +1761,118 @@ class _SettingsPageState extends State<SettingsPage> {
                                             'Refresh track data for Bandcamp albums'),
                                         onTap: _fixBandcampTrackIds,
                                       ),
+                                      ListTile(
+                                        leading: SvgPicture.asset(
+                                          'lib/icons/deezer.svg',
+                                          width: 24,
+                                          height: 24,
+                                          colorFilter: ColorFilter.mode(
+                                            Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.white
+                                                : Colors.black,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        title: const Text('Fix Deezer Album Artwork'),
+                                        subtitle: const Text(
+                                          'Update low-quality artwork to high-resolution versions',
+                                        ),
+                                        onTap: () async {
+                                          // Store the current context to avoid async gaps
+                                          final currentContext = context;
+                                          
+                                          // Show confirmation dialog
+                                          final confirmed = await showDialog<bool>(
+                                            context: currentContext,
+                                            builder: (dialogContext) => AlertDialog(
+                                              title: const Text('Fix Deezer Artwork'),
+                                              content: const Text(
+                                                'This will check all your saved Deezer albums and update any that have low-quality artwork with high-resolution versions.\n\n'
+                                                'This may take a few minutes depending on how many Deezer albums you have saved.',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                                                  child: const Text('Fix Artwork'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          
+                                          if (confirmed == true) {
+                                            // Show progress dialog
+                                            if (!mounted) return;
+                                            showDialog(
+                                              context: currentContext,
+                                              barrierDismissible: false,
+                                              builder: (progressContext) => const AlertDialog(
+                                                title: Text('Fixing Deezer Artwork'),
+                                                content: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    CircularProgressIndicator(),
+                                                    SizedBox(height: 16),
+                                                    Text('Updating album artwork...'),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                            
+                                            try {
+                                              final result = await DeezerArtworkFixer.fixAllDeezerArtwork();
+                                              
+                                              if (!mounted) return;
+                                              Navigator.of(currentContext).pop(); // Close progress dialog
+                                              
+                                              // Show results
+                                              if (!mounted) return;
+                                              await showDialog(
+                                                context: currentContext,
+                                                builder: (resultsContext) => AlertDialog(
+                                                  title: const Text('Artwork Fix Complete'),
+                                                  content: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text('Albums checked: ${result['totalChecked']}'),
+                                                      Text('Albums updated: ${result['updated']}'),
+                                                      if (result['errors'] > 0)
+                                                        Text('Errors: ${result['errors']}', 
+                                                             style: const TextStyle(color: Colors.orange)),
+                                                      if ((result['updatedAlbums'] as List).isNotEmpty) ...[
+                                                        const SizedBox(height: 8),
+                                                        const Text('Updated albums:', 
+                                                                   style: TextStyle(fontWeight: FontWeight.bold)),
+                                                        const SizedBox(height: 4),
+                                                        Text('Updated album names not shown (too many to display).',
+                                                             style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13)),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.of(resultsContext).pop(),
+                                                      child: const Text('Close'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                              
+                                              if (!mounted) return;
+                                              _showSnackBar('Deezer artwork fix completed: ${result['updated']} albums updated');
+                                              
+                                            } catch (e) {
+                                              if (!mounted) return;
+                                              Navigator.of(currentContext).pop(); // Close progress dialog
+                                              _showSnackBar('Error fixing Deezer artwork: $e');
+                                            }
+                                          }
+                                        },
+                                      ),
                                       // Add the Fix Album Dates option right after the Bandcamp fix
                                       ListTile(
                                         leading:
@@ -1800,8 +1913,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                         },
                                       ),
                                       ListTile(
-                                        leading: const Icon(Icons
-                                            .cleaning_services), // Cleaning icon
+                                        leading: Icon(
+                                          Icons.cleaning_services,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                        ),
                                         title: const Text(
                                             'Clean Platform Matches'),
                                         subtitle: const Text(
@@ -2327,14 +2444,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ],
                   ),
-                ],
+                                                             ],
               ),
             ),
             const SizedBox(height: 16),
             FutureBuilder<String?>(
                 future: ApiKeys.spotifyClientId,
                 builder: (context, snapshot) {
-                  final hasKeys = snapshot.hasData &&
+                                   final hasKeys = snapshot.hasData &&
                       snapshot.data != null &&
                       snapshot.data!.isNotEmpty;
                   return ListTile(
@@ -2448,7 +2565,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: TextStyle(
                     color: Colors.blue,
                     decoration: TextDecoration.underline,
-                                   ),
+                  ),
                 ),
               ),
                                                      const SizedBox(height: 16),

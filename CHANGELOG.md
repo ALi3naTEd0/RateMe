@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic database schema migration with `format_version` column creation when needed
 - Clean separation of concerns between debugging, migration, and JSON repair functionality
 
+#### Album Artwork & Cover Management
+- **Deezer High-Resolution Cover Fix**: Enhanced Deezer album artwork fetching to retrieve high-resolution covers
+- Automatic upgrade from low-resolution placeholder covers to full-quality artwork during album loading
+- Bulk cover fixing utility in settings for upgrading all existing Deezer albums to high-resolution covers
+- Background processing to fetch missing or low-quality Deezer album artwork with progress tracking
+- Improved artwork URL extraction from Deezer API with fallback mechanisms for maximum coverage
+
 ### Improved
 
 #### Settings & Debug Tools
