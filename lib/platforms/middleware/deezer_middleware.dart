@@ -155,11 +155,15 @@ class DeezerMiddleware {
         }
 
         // CRITICAL FIX: Always ensure we have the highest quality artwork
-        // Prioritize cover_big over cover_medium over cover_small
-        if (data['cover_big'] != null && data['cover_big'].toString().isNotEmpty) {
+        // Prioritize cover_xl (1000x1000) over cover_big (500x500) over cover_medium over cover_small
+        if (data['cover_xl'] != null && data['cover_xl'].toString().isNotEmpty) {
+          result['artworkUrl'] = data['cover_xl'];
+          result['artworkUrl100'] = data['cover_xl']; // Use highest-res for both fields
+          Logging.severe('Updated Deezer artwork to XL-res (1000x1000): ${data['cover_xl']}');
+        } else if (data['cover_big'] != null && data['cover_big'].toString().isNotEmpty) {
           result['artworkUrl'] = data['cover_big'];
           result['artworkUrl100'] = data['cover_big']; // Use high-res for both fields
-          Logging.severe('Updated Deezer artwork to high-res: ${data['cover_big']}');
+          Logging.severe('Updated Deezer artwork to big-res (500x500): ${data['cover_big']}');
         } else if (data['cover_medium'] != null && data['cover_medium'].toString().isNotEmpty) {
           result['artworkUrl'] = data['cover_medium'];
           result['artworkUrl100'] = data['cover_medium'];

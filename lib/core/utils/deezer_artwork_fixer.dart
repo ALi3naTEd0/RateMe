@@ -24,6 +24,7 @@ class DeezerArtworkFixer {
       
       int updatedCount = 0;
       int errorCount = 0;
+      int skippedCount = 0; // Add counter for skipped albums
       final List<String> updatedAlbums = [];
       
       for (final album in deezerAlbums) {
@@ -49,11 +50,20 @@ class DeezerArtworkFixer {
             }
           }
           
-          // Check if artwork needs updating (if it's small/medium size or missing)
+          // NEW: Check if artwork already has cover_xl quality (1000x1000)
+          bool alreadyHasHighQuality = currentArtwork.contains('cover_xl');
+          
+          if (alreadyHasHighQuality) {
+            skippedCount++;
+            Logging.severe('Skipping $albumName - already has cover_xl quality artwork');
+            continue; // Skip this album
+          }
+          
+          // Check if artwork needs updating (if it's small/medium/big size or missing)
           bool needsUpdate = currentArtwork.isEmpty || 
                             currentArtwork.contains('cover_small') ||
                             currentArtwork.contains('cover_medium') ||
-                            !currentArtwork.contains('cover_big');
+                            currentArtwork.contains('cover_big');
           
           if (needsUpdate) {
             Logging.severe('Updating artwork for: $albumName (ID: $albumId)');
@@ -69,7 +79,8 @@ class DeezerArtworkFixer {
               Logging.severe('✗ Failed to update artwork for: $albumName');
             }
           } else {
-            Logging.severe('Skipping $albumName - already has high-res artwork');
+            skippedCount++;
+            Logging.severe('Skipping $albumName - already has good quality artwork');
           }
           
           // Small delay to avoid rate limiting
@@ -84,6 +95,7 @@ class DeezerArtworkFixer {
       final result = {
         'totalChecked': deezerAlbums.length,
         'updated': updatedCount,
+        'skipped': skippedCount, // Include skipped count in results
         'errors': errorCount,
         'updatedAlbums': updatedAlbums,
       };
@@ -96,6 +108,7 @@ class DeezerArtworkFixer {
       return {
         'totalChecked': 0,
         'updated': 0,
+        'skipped': 0,
         'errors': 1,
         'updatedAlbums': <String>[],
         'error': e.toString(),

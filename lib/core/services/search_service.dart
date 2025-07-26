@@ -672,9 +672,9 @@ class SearchService {
               'collectionName': albumData['title'],
               'artist': albumData['artist']?['name'] ?? 'Unknown Artist',
               'artistName': albumData['artist']?['name'] ?? 'Unknown Artist',
-              // PRIORITIZE HIGH-RES ARTWORK: Use cover_big first, then fallback
-              'artworkUrl': albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
-              'artworkUrl100': albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
+              // PRIORITIZE HIGHEST-RES ARTWORK: Use cover_xl first, then fallback
+              'artworkUrl': albumData['cover_xl'] ?? albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
+              'artworkUrl100': albumData['cover_xl'] ?? albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
               'url': query,
               'platform': 'deezer',
               'releaseDate': albumData['release_date'] ?? 'unknown',
@@ -744,11 +744,14 @@ class SearchService {
         final String albumTitle = album['title'] ?? 'Unknown Title';
         final String artistName = album['artist']['name'] ?? 'Unknown Artist';
 
-        // PRIORITIZE HIGH-RES ARTWORK: Always use cover_big first, then fallback to medium/small
+        // PRIORITIZE HIGHEST-RES ARTWORK: Always use cover_xl first, then fallback to big/medium/small
         String artworkUrl = '';
         String artworkUrl100 = '';
         
-        if (album['cover_big'] != null && album['cover_big'].toString().isNotEmpty) {
+        if (album['cover_xl'] != null && album['cover_xl'].toString().isNotEmpty) {
+          artworkUrl = album['cover_xl'];
+          artworkUrl100 = album['cover_xl']; // Use highest-res for both
+        } else if (album['cover_big'] != null && album['cover_big'].toString().isNotEmpty) {
           artworkUrl = album['cover_big'];
           artworkUrl100 = album['cover_big']; // Use high-res for both
         } else if (album['cover_medium'] != null && album['cover_medium'].toString().isNotEmpty) {
@@ -796,14 +799,20 @@ class SearchService {
       if (albumResponse.statusCode == 200) {
         final albumData = jsonDecode(albumResponse.body);
         
-        // Get the highest quality artwork available
+        // Get the highest quality artwork available - prioritize cover_xl
         String highResArtwork = '';
-        if (albumData['cover_big'] != null && albumData['cover_big'].toString().isNotEmpty) {
+        if (albumData['cover_xl'] != null && albumData['cover_xl'].toString().isNotEmpty) {
+          highResArtwork = albumData['cover_xl'];
+          Logging.severe('Using cover_xl (1000x1000) for album $albumId: $highResArtwork');
+        } else if (albumData['cover_big'] != null && albumData['cover_big'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_big'];
+          Logging.severe('Using cover_big (500x500) for album $albumId: $highResArtwork');
         } else if (albumData['cover_medium'] != null && albumData['cover_medium'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_medium'];
+          Logging.severe('Using cover_medium (250x250) for album $albumId: $highResArtwork');
         } else if (albumData['cover_small'] != null && albumData['cover_small'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_small'];
+          Logging.severe('Using cover_small (56x56) for album $albumId: $highResArtwork');
         }
         
         if (highResArtwork.isNotEmpty) {
@@ -848,7 +857,7 @@ class SearchService {
                     whereArgs: [albumId, 'deezer'],
                   );
                   
-                  Logging.severe('Updated Deezer album $albumId with high-res artwork: $highResArtwork');
+                  Logging.severe('Updated Deezer album $albumId with highest quality artwork: $highResArtwork');
                   return true;
                 } catch (e) {
                   Logging.severe('Error updating album data JSON: $e');

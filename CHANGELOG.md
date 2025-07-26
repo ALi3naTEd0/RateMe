@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Album Artwork & Cover Management
 - **Deezer High-Resolution Cover Fix**: Enhanced Deezer album artwork fetching to retrieve high-resolution covers
+  - Prioritized cover_xl (1000x1000px) quality over lower resolutions for maximum image quality
+  - Smart skipping logic to avoid re-fetching albums that already have cover_xl quality artwork
+  - Optimized performance by reducing unnecessary API calls for high-quality albums
 - Automatic upgrade from low-resolution placeholder covers to full-quality artwork during album loading
 - Bulk cover fixing utility in settings for upgrading all existing Deezer albums to high-resolution covers
 - Background processing to fetch missing or low-quality Deezer album artwork with progress tracking

@@ -1778,99 +1778,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           'Update low-quality artwork to high-resolution versions',
                                         ),
                                         onTap: () async {
-                                          // Store the current context to avoid async gaps
-                                          final currentContext = context;
-                                          
-                                          // Show confirmation dialog
-                                          final confirmed = await showDialog<bool>(
-                                            context: currentContext,
-                                            builder: (dialogContext) => AlertDialog(
-                                              title: const Text('Fix Deezer Artwork'),
-                                              content: const Text(
-                                                'This will check all your saved Deezer albums and update any that have low-quality artwork with high-resolution versions.\n\n'
-                                                'This may take a few minutes depending on how many Deezer albums you have saved.',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                                                  child: const Text('Cancel'),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                                                  child: const Text('Fix Artwork'),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          
-                                          if (confirmed == true) {
-                                            // Show progress dialog
-                                            if (!mounted) return;
-                                            showDialog(
-                                              context: currentContext,
-                                              barrierDismissible: false,
-                                              builder: (progressContext) => const AlertDialog(
-                                                title: Text('Fixing Deezer Artwork'),
-                                                content: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    CircularProgressIndicator(),
-                                                    SizedBox(height: 16),
-                                                    Text('Updating album artwork...'),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                            
-                                            try {
-                                              final result = await DeezerArtworkFixer.fixAllDeezerArtwork();
-                                              
-                                              if (!mounted) return;
-                                              Navigator.of(currentContext).pop(); // Close progress dialog
-                                              
-                                              // Show results
-                                              if (!mounted) return;
-                                              await showDialog(
-                                                context: currentContext,
-                                                builder: (resultsContext) => AlertDialog(
-                                                  title: const Text('Artwork Fix Complete'),
-                                                  content: Column(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text('Albums checked: ${result['totalChecked']}'),
-                                                      Text('Albums updated: ${result['updated']}'),
-                                                      if (result['errors'] > 0)
-                                                        Text('Errors: ${result['errors']}', 
-                                                             style: const TextStyle(color: Colors.orange)),
-                                                      if ((result['updatedAlbums'] as List).isNotEmpty) ...[
-                                                        const SizedBox(height: 8),
-                                                        const Text('Updated albums:', 
-                                                                   style: TextStyle(fontWeight: FontWeight.bold)),
-                                                        const SizedBox(height: 4),
-                                                        Text('Updated album names not shown (too many to display).',
-                                                             style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13)),
-                                                      ],
-                                                    ],
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.of(resultsContext).pop(),
-                                                      child: const Text('Close'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              
-                                              if (!mounted) return;
-                                              _showSnackBar('Deezer artwork fix completed: ${result['updated']} albums updated');
-                                              
-                                            } catch (e) {
-                                              if (!mounted) return;
-                                              Navigator.of(currentContext).pop(); // Close progress dialog
-                                              _showSnackBar('Error fixing Deezer artwork: $e');
-                                            }
-                                          }
+                                          await _fixDeezerArtwork();
                                         },
                                       ),
                                       // Add the Fix Album Dates option right after the Bandcamp fix
@@ -2971,6 +2879,87 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     }
   }
+
+  // Add this method to _SettingsPageState
+  Future<void> _fixDeezerArtwork() async {
+    // Step 1: Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Fix Deezer Artwork'),
+        content: const Text(
+          'This will check all your saved Deezer albums and update any that have low-quality artwork with high-resolution versions.\n\n'
+          'Albums that already have cover_xl quality (1000x1000) will be skipped to avoid unnecessary API calls.\n\n'
+          'This may take a few minutes depending on how many Deezer albums need updating.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Fix Artwork'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Step 2: Show progress dialog
+      if (!mounted) return;
+      _showProgressDialog('Fixing Deezer Artwork', 'Updating album artwork...');
+
+      try {
+        // Step 3: Run the async fix
+        final result = await DeezerArtworkFixer.fixAllDeezerArtwork();
+
+        // Step 4: Dismiss progress dialog and show results
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close progress dialog
+
+        await showDialog(
+          context: context,
+          builder: (resultsContext) => AlertDialog(
+            title: const Text('Artwork Fix Complete'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Albums checked: ${result['totalChecked']}'),
+                Text('Albums updated: ${result['updated']}'),
+                Text('Albums skipped: ${result['skipped']} (already high-quality)'), // Show skipped count
+                if (result['errors'] > 0)
+                  Text('Errors: ${result['errors']}',
+                      style: const TextStyle(color: Colors.orange)),
+                if ((result['updatedAlbums'] as List).isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Updated albums:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('${result['updated']} albums were upgraded to cover_xl quality (1000x1000px).',
+                      style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13)),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(resultsContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+
+        if (!mounted) return;
+        _showSnackBar('Deezer artwork fix completed: ${result['updated']} updated, ${result['skipped']} skipped');
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close progress dialog
+        _showSnackBar('Error fixing Deezer artwork: $e');
+      }
+    }
+  }
 }
 
 // Fix the ColorExtension implementation to use integer value before calling toRadixString
@@ -2997,3 +2986,4 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     );
   }
 }
+
