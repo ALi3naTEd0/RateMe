@@ -1,6 +1,6 @@
 # Maintainer: ALi3naTEd0 <ali3nated0@protonmail.com>
 pkgname=rateme
-pkgver=1.1.4
+pkgver=1.1.3
 pkgrel=1
 pkgdesc="Rate Me! - A music album rating application"  # Note the exclamation mark here
 arch=('x86_64')
