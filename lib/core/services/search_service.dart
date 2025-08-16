@@ -432,7 +432,7 @@ class SearchService {
       }
     }
 
-    // Sort by release date (newest first)
+    // Sort by release date (newest first) - restored to original working version
     sortByDate(dynamic a, dynamic b) {
       final DateTime dateA = DateTime.parse(a['releaseDate']);
       final DateTime dateB = DateTime.parse(b['releaseDate']);
@@ -644,7 +644,7 @@ class SearchService {
     }
   }
 
-  // Search on Deezer - Simplified to avoid pre-fetching, will use middleware instead
+  // Search on Deezer - Enhanced to properly handle URL detection and previews
   static Future<Map<String, dynamic>?> searchDeezer(String query,
       {int limit = 25}) async {
     try {
@@ -658,58 +658,67 @@ class SearchService {
         if (match != null && match.groupCount >= 1) {
           final albumId = match.group(1);
           Logging.severe('Extracted Deezer album ID from URL: $albumId');
-          // Get album details
-          final albumDetailsUrl =
-              Uri.parse('https://api.deezer.com/album/$albumId');
-          final albumResponse = await http.get(albumDetailsUrl);
-          if (albumResponse.statusCode == 200) {
-            final albumData = jsonDecode(albumResponse.body);
-            // Create a preview of the album with basic info
-            final album = {
-              'id': albumData['id'],
-              'collectionId': albumData['id'],
-              'name': albumData['title'],
-              'collectionName': albumData['title'],
-              'artist': albumData['artist']?['name'] ?? 'Unknown Artist',
-              'artistName': albumData['artist']?['name'] ?? 'Unknown Artist',
-              // PRIORITIZE HIGHEST-RES ARTWORK: Use cover_xl first, then fallback
-              'artworkUrl': albumData['cover_xl'] ?? albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
-              'artworkUrl100': albumData['cover_xl'] ?? albumData['cover_big'] ?? albumData['cover_medium'] ?? albumData['cover_small'] ?? '',
-              'url': query,
-              'platform': 'deezer',
-              'releaseDate': albumData['release_date'] ?? 'unknown',
-              'tracks': albumData['tracks']['items']
-                  .map<Map<String, dynamic>>((track) {
-                return {
-                  'trackId': track['id'],
-                  'trackName': track['name'],
-                  'trackNumber': track['track_number'],
-                  'trackTimeMillis': track['duration_ms'],
-                  'artistName': track['artists'][0]['name'],
-                };
-              }).toList(),
-            };
-            // Return the single album
-            Logging.severe(
-                'Found Deezer album from URL: ${album['name']} by ${album['artist']}');
-            return {
-              'results': [album]
-            };
-          } else {
-            Logging.severe('Deezer API error: ${albumResponse.statusCode}');
+          
+          try {
+            // Get album details for preview
+            final albumDetailsUrl =
+                Uri.parse('https://api.deezer.com/album/$albumId');
+            final albumResponse = await http.get(albumDetailsUrl);
+            
+            if (albumResponse.statusCode == 200) {
+              final albumData = jsonDecode(albumResponse.body);
+              
+              // Create a complete preview of the album with basic info
+              final album = {
+                'id': albumData['id'],
+                'collectionId': albumData['id'],
+                'name': albumData['title'],
+                'collectionName': albumData['title'],
+                'artist': albumData['artist']?['name'] ?? 'Unknown Artist',
+                'artistName': albumData['artist']?['name'] ?? 'Unknown Artist',
+                // PRIORITIZE HIGHEST-RES ARTWORK: Use cover_xl first, then fallback
+                'artworkUrl': albumData['cover_xl'] ?? 
+                             albumData['cover_big'] ?? 
+                             albumData['cover_medium'] ?? 
+                             albumData['cover_small'] ?? '',
+                'artworkUrl100': albumData['cover_xl'] ?? 
+                                albumData['cover_big'] ?? 
+                                albumData['cover_medium'] ?? 
+                                albumData['cover_small'] ?? '',
+                'url': query,
+                'platform': 'deezer',
+                'releaseDate': albumData['release_date'] ?? 'unknown',
+                'isDirectUrl': true, // Add this flag to indicate direct URL loading
+                'useDeezerMiddleware': true // Flag for middleware processing
+              };
+              
+              // Return the single album with preview data
+              Logging.severe(
+                  'Found Deezer album from URL: ${album['name']} by ${album['artist']}');
+              return {
+                'results': [album]
+              };
+            } else {
+              Logging.severe('Deezer API error: ${albumResponse.statusCode}');
+            }
+          } catch (e) {
+            Logging.severe('Error fetching Deezer album preview: $e');
           }
         }
-        // If we couldn't parse the URL properly, return a generic placeholder
+        
+        // If we couldn't parse the URL properly or API failed, return a generic placeholder
         return {
           'results': [
             {
-              'collectionId': DateTime.now().millisecondsSinceEpoch,
+              'collectionId': match?.group(1) ?? DateTime.now().millisecondsSinceEpoch.toString(),
               'collectionName': 'Deezer Album',
               'artistName': 'Loading details...',
+              'artworkUrl': '',
               'artworkUrl100': '',
               'url': query,
               'platform': 'deezer',
-              'useDeezerMiddleware': true
+              'useDeezerMiddleware': true,
+              'isDirectUrl': true
             }
           ]
         };

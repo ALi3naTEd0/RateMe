@@ -329,14 +329,28 @@ class ClipboardDetector {
 
           if (match != null) {
             Logging.severe('Valid Deezer album URL detected');
+            onSnackBarMessage('Deezer album found');
           } else {
             Logging.severe(
                 'Could not extract album ID from Deezer URL - handling as is');
+            onSnackBarMessage('Deezer link detected');
           }
 
-          // Just show a notification and use the URL as-is
-          onSnackBarMessage('Deezer album found');
-          onDetected(text); // Use the original URL directly
+          // Use the original URL directly for consistent behavior with other platforms
+          onDetected(text);
+          
+          // Complete search processing immediately like other platforms
+          onSearchCompleted(true);
+          
+          // Set a timer to reset state after some time
+          _resetTimer?.cancel();
+          _resetTimer = Timer(Duration(seconds: _autoResetSeconds), () {
+            Logging.severe('Resetting clipboard detector state');
+            _isProcessingClipboard = false;
+          });
+
+          _isProcessingClipboard = false;
+          return true;
         } else if (isBandcamp) {
           // For Bandcamp, we also want to use the direct URL
           Logging.severe(

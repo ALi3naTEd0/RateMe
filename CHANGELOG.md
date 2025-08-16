@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced migration detection to check actual data format rather than just column values
 - Fixed database constraints during migration by ensuring `format_version` column exists before updates
 
+#### Clipboard Detection & URL Processing
+- Fixed Deezer album URL detection in clipboard for automatic album import
+- Enhanced clipboard processing to properly handle Deezer album URLs with immediate recognition
+- Improved Deezer URL pattern matching for more reliable automatic search triggering
+- Fixed clipboard detector to correctly identify and process Deezer album links without manual intervention
+
 ## [1.1.2-1] - 2025-05-12
 
 ### Added
