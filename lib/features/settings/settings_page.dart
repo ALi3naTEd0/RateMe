@@ -1247,38 +1247,58 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ),
                                         ),
                                       ),
-                                      RadioListTile<ThemeMode>(
-                                        title: const Text('System'),
-                                        value: ThemeMode.system,
-                                        groupValue: widget.currentTheme,
-                                        onChanged: (ThemeMode? mode) {
-                                          if (mode != null) {
-                                            widget.onThemeChanged(mode);
-                                            setState(() {});
-                                          }
-                                        },
-                                      ),
-                                      RadioListTile<ThemeMode>(
-                                        title: const Text('Light'),
-                                        value: ThemeMode.light,
-                                        groupValue: widget.currentTheme,
-                                        onChanged: (ThemeMode? mode) {
-                                          if (mode != null) {
-                                            widget.onThemeChanged(mode);
-                                            setState(() {});
-                                          }
-                                        },
-                                      ),
-                                      RadioListTile<ThemeMode>(
-                                        title: const Text('Dark'),
-                                        value: ThemeMode.dark,
-                                        groupValue: widget.currentTheme,
-                                        onChanged: (ThemeMode? mode) {
-                                          if (mode != null) {
-                                            widget.onThemeChanged(mode);
-                                            setState(() {});
-                                          }
-                                        },
+                                      // Replace deprecated Radio widgets with clean icon selection
+                                      Column(
+                                        children: [
+                                          ListTile(
+                                            leading: Icon(
+                                              widget.currentTheme == ThemeMode.system 
+                                                ? Icons.radio_button_checked 
+                                                : Icons.radio_button_unchecked,
+                                              color: widget.currentTheme == ThemeMode.system
+                                                ? _primaryColor
+                                                : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                                            ),
+                                            title: const Text('System'),
+                                            selected: widget.currentTheme == ThemeMode.system,
+                                            onTap: () {
+                                              widget.onThemeChanged(ThemeMode.system);
+                                              setState(() {});
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: Icon(
+                                              widget.currentTheme == ThemeMode.light 
+                                                ? Icons.radio_button_checked 
+                                                : Icons.radio_button_unchecked,
+                                              color: widget.currentTheme == ThemeMode.light
+                                                ? _primaryColor
+                                                : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                                            ),
+                                            title: const Text('Light'),
+                                            selected: widget.currentTheme == ThemeMode.light,
+                                            onTap: () {
+                                              widget.onThemeChanged(ThemeMode.light);
+                                              setState(() {});
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: Icon(
+                                              widget.currentTheme == ThemeMode.dark 
+                                                ? Icons.radio_button_checked 
+                                                : Icons.radio_button_unchecked,
+                                              color: widget.currentTheme == ThemeMode.dark
+                                                ? _primaryColor
+                                                : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                                            ),
+                                            title: const Text('Dark'),
+                                            selected: widget.currentTheme == ThemeMode.dark,
+                                            onTap: () {
+                                              widget.onThemeChanged(ThemeMode.dark);
+                                              setState(() {});
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -1365,7 +1385,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           activeTrackColor: Theme.of(context)
                                               .colorScheme
                                               .primary,
-                                          activeColor: Colors.black, // When active, always black
+                                          activeThumbColor: Colors.black, // When active, always black
                                           inactiveThumbColor: Colors.white, // When inactive, always white
                                           onChanged: (bool value) async {
                                             // Update local state immediately for UI feedback
@@ -2430,7 +2450,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                         Icon(Icons.keyboard_arrow_right),
-                      ],
+                                           ],
                     ),
                     onTap: () => _showDiscogsApiKeyDialog(),
                   );

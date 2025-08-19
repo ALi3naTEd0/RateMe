@@ -94,6 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed deprecated widget warnings by implementing modern Flutter UI patterns for album track displays
 - Enhanced track list responsiveness with proper constraints and responsive width handling
 - Improved touch targets and visual hierarchy in track listing components
+- **Fixed deprecated CheckboxListTile parameters**: Replaced deprecated `activeColor` with `activeThumbColor` in custom list dialogs
+- **Migrated theme selector from deprecated Radio widgets**: Replaced deprecated Radio buttons with modern ListTile and Icon-based selection
+- **Enhanced theme selector visual feedback**: Theme options now show primary color only when selected, with clean white/black icons for unselected options
+- **Improved code quality**: Cleaned up static analysis warnings and removed redundant code patterns
 
 #### Theme Color Persistence
 - Fixed dominant color theme persistence across album dialogs and UI components
