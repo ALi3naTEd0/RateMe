@@ -26,6 +26,7 @@ import '../../ui/widgets/platform_match_cleaner.dart';
 import '../../core/utils/date_fixer_utility.dart'; // Add this import
 import '../../core/utils/album_migration_utility.dart';
 import '../../core/utils/deezer_artwork_fixer.dart';
+import '../../core/utils/update_checker.dart'; // Add this import
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode currentTheme;
@@ -1902,6 +1903,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                             'View app information and links'),
                                         onTap: () => _showAboutDialog(context),
                                       ),
+                                      // Add the update checker button here
+                                      ListTile(
+                                        leading: const Icon(Icons.system_update),
+                                        title: const Text('Check for Updates'),
+                                        subtitle: const Text('Check for new app versions on GitHub'),
+                                        onTap: _checkForUpdates,
+                                      ),
                                       ListTile(
                                         leading: const Icon(Icons.bug_report),
                                         title: const Text('Show Debug Info'),
@@ -2442,7 +2450,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       children: [
                         if (hasKeys)
                           Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
+                              padding: const EdgeInsets.only(right: 8.0),
                             child: Icon(
                               Icons.check_circle,
                               color: Colors.green,
@@ -2450,7 +2458,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                         Icon(Icons.keyboard_arrow_right),
-                                           ],
+                      ],
                     ),
                     onTap: () => _showDiscogsApiKeyDialog(),
                   );
@@ -2572,8 +2580,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     SizedBox(height: 8),
                     Text(
                       'Note: This URL is just for registration purposes. The app uses client credentials flow which doesn\'t require a real callback.',
-                      style:
-                          TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                      style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
                     ),
                   ],
                 ),
@@ -2979,6 +2986,132 @@ class _SettingsPageState extends State<SettingsPage> {
         _showSnackBar('Error fixing Deezer artwork: $e');
       }
     }
+  }
+
+  // Add this method to handle update checking
+  Future<void> _checkForUpdates() async {
+    try {
+      _showProgressDialog('Checking for Updates', 'Contacting GitHub...');
+
+      final updateInfo = await UpdateChecker.checkForUpdates();
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close progress dialog
+
+      if (updateInfo != null) {
+        await _showUpdateAvailableDialog(updateInfo);
+      } else {
+        _showSnackBar('You are using the latest version!');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close progress dialog
+      _showSnackBar('Error checking for updates: $e');
+    }
+  }
+
+  Future<void> _showUpdateAvailableDialog(UpdateInfo updateInfo) async {
+    final osInfo = UpdateChecker.detectOS();
+    final recommendedAssets = UpdateChecker.getRecommendedAssets(updateInfo.assets, osInfo);
+
+    return showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Update Available'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('A new version is available!'),
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  Text('Current: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(updateInfo.currentVersion),
+                ],
+              ),
+              Row(
+                children: [
+                  Text('Latest: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(updateInfo.latestVersion, style: TextStyle(color: Colors.green)),
+                ],
+              ),
+              SizedBox(height: 16),
+              Text('Release Date: ${updateInfo.publishedAt.toString().split(' ')[0]}'),
+              if (updateInfo.releaseNotes.isNotEmpty) ...[
+                SizedBox(height: 16),
+                Text('Release Notes:', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    updateInfo.releaseNotes,
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+              if (recommendedAssets.isNotEmpty) ...[
+                SizedBox(height: 16),
+                Text('Recommended Downloads for ${osInfo.name}:', 
+                     style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                ...recommendedAssets.map((asset) => Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(asset.name, style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(asset.formattedSize, style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          try {
+                            await UpdateChecker.openReleaseDownload(asset.downloadUrl);
+                          } catch (e) {
+                            if (!mounted) return;
+                            _showSnackBar('Error opening download: $e');
+                          }
+                        },
+                        child: Text('Download'),
+                      ),
+                    ],
+                  ),
+                )),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Later'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await UpdateChecker.openReleasePage(updateInfo.releaseUrl);
+              } catch (e) {
+                if (!mounted) return;
+                _showSnackBar('Error opening release page: $e');
+              }
+            },
+            child: Text('View Release'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

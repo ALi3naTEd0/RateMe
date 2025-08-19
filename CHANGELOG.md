@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### App Update Management
+- **Automatic Update Checker**: Integrated GitHub releases API to check for new versions automatically on app start
+- **Smart OS Detection**: Automatically detects user's operating system (Windows, macOS, Linux distributions, Android) for targeted download recommendations
+- **Platform-Specific Downloads**: Recommends appropriate installation packages based on detected OS (DEB for Debian/Ubuntu, RPM for Fedora/openSUSE, AppImage for universal Linux, etc.)
+- **Update Notification UI**: Clean update dialog showing version comparison, release notes preview, and direct download links
+- **Manual Update Check**: Settings page button to manually check for updates with progress indication
+- **Release Asset Management**: Displays available download formats with file sizes and platform-appropriate icons
+
 ### Fixed
 
 #### Clipboard Detection & URL Processing
