@@ -7,83 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-#### Dynamic Theme & Color Features
-
-- **Album Artwork Color Picker**: Extract and select dominant colors from album artwork to personalize the app theme
-- Interactive color selection with visual preview of extracted palette colors
-- Persistent color storage per album with automatic restoration when viewing saved albums
-- Seamless theme integration that updates sliders, buttons, and UI elements with selected colors
-- Collapsible color picker interface for clean, unobtrusive user experience
-- Real-time theme updates without requiring app restart
-- Persistent color selection saved per album in database
-- Dynamic theme updates affecting buttons, sliders, and UI elements
-- Available in both album details and saved album pages
-
-#### Code Architecture & Data Management
-
-- **Album Migration Utility**: New dedicated utility for converting albums from legacy format to new format with `format_version: 2`
-- Automatic database schema migration with `format_version` column creation when needed
-- Clean separation of concerns between debugging, migration, and JSON repair functionality
-
-#### Album Artwork & Cover Management
-
-- **Deezer High-Resolution Cover Fix**: Enhanced Deezer album artwork fetching to retrieve high-resolution covers
-  - Prioritized cover_xl (1000x1000px) quality over lower resolutions for maximum image quality
-  - Smart skipping logic to avoid re-fetching albums that already have cover_xl quality artwork
-  - Optimized performance by reducing unnecessary API calls for high-quality albums
-- Automatic upgrade from low-resolution placeholder covers to full-quality artwork during album loading
-- Bulk cover fixing utility in settings for upgrading all existing Deezer albums to high-resolution covers
-- Background processing to fetch missing or low-quality Deezer album artwork with progress tracking
-- Improved artwork URL extraction from Deezer API with fallback mechanisms for maximum coverage
-
-### Improved
-
-#### Settings & Debug Tools
-
-- **Cleaned Debug Utility**: Streamlined `DebugUtil` to focus solely on debugging and diagnostic reporting
-- Removed migration logic from debug tools and moved to dedicated `AlbumMigrationUtility`
-- Enhanced settings page organization with dedicated "Convert Albums to New Format" button
-- **Simplified Database Operations**: Removed unused `JsonFixer` class that was causing confusion
-
-#### Data Architecture
-
-- Clear distinction between album format migration and database cleanup operations
-- Enhanced album conversion process with proper metadata preservation and format validation
-
 ### Fixed
 
-#### Share Widget & Rating Display
-
-- Fixed ShareWidget to display all track ratings including zero ratings with proper app color theming
-- Enhanced ShareWidget to use selected dominant colors from album details pages
-- Fixed track rating metadata attachment to ensure proper rating display in share images
-- Improved rating color consistency between main app and share widget display
-- Fixed ShareWidget rating extraction to prioritize track metadata over ratings map
-
-#### Custom Lists & UI
-
-- Fixed custom lists page not refreshing after exiting full list reordering mode
-- Improved UI refresh behavior when saving custom list order to ensure immediate visual feedback
-- Enhanced reordering mode state management to properly reload lists after order changes
-
-#### Theme System & Color Management
-
-- Fixed primary color updates now propagate correctly across the entire application
-- Resolved theme service synchronization issues preventing color changes from applying consistently
-- Enhanced color notification system to ensure all UI components receive theme updates immediately
-- Fixed color picker dialog properly updating all app screens when new colors are selected
-- Improved theme state management to prevent color reversion during app navigation
-
-#### Album Format Migration
-
-- Fixed album migration to properly update both JSON `data` field and database column with `format_version: 2`
-- Enhanced migration detection to check actual data format rather than just column values
-- Fixed database constraints during migration by ensuring `format_version` column exists before updates
-
 #### Clipboard Detection & URL Processing
-
 - Fixed Deezer album URL detection in clipboard for automatic album import
 - Enhanced clipboard processing to properly handle Deezer album URLs with immediate recognition
 - Improved Deezer URL pattern matching for more reliable automatic search triggering
@@ -108,7 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.3-1] - 2025-07-26
 
 ### Added
-
 #### Dynamic Theme & Color Features
 - **Album Artwork Color Picker**: Extract and select dominant colors from album artwork to personalize the app theme
 - Interactive color selection with visual preview of extracted palette colors
@@ -119,12 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persistent color selection saved per album in database
 - Dynamic theme updates affecting buttons, sliders, and UI elements
 - Available in both album details and saved album pages
-
 #### Code Architecture & Data Management
 - **Album Migration Utility**: New dedicated utility for converting albums from legacy format to new format with `format_version: 2`
 - Automatic database schema migration with `format_version` column creation when needed
 - Clean separation of concerns between debugging, migration, and JSON repair functionality
-
 #### Album Artwork & Cover Management
 - **Deezer High-Resolution Cover Fix**: Enhanced Deezer album artwork fetching to retrieve high-resolution covers
   - Prioritized cover_xl (1000x1000px) quality over lower resolutions for maximum image quality
@@ -134,62 +57,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bulk cover fixing utility in settings for upgrading all existing Deezer albums to high-resolution covers
 - Background processing to fetch missing or low-quality Deezer album artwork with progress tracking
 - Improved artwork URL extraction from Deezer API with fallback mechanisms for maximum coverage
-
 ### Improved
-
 #### Settings & Debug Tools
 - **Cleaned Debug Utility**: Streamlined `DebugUtil` to focus solely on debugging and diagnostic reporting
 - Removed migration logic from debug tools and moved to dedicated `AlbumMigrationUtility`
 - Enhanced settings page organization with dedicated "Convert Albums to New Format" button
 - **Simplified Database Operations**: Removed unused `JsonFixer` class that was causing confusion
-
 #### Data Architecture
 - Clear distinction between album format migration and database cleanup operations
 - Enhanced album conversion process with proper metadata preservation and format validation
-
 ### Fixed
-
 #### Share Widget & Rating Display
 - Fixed ShareWidget to display all track ratings including zero ratings with proper app color theming
 - Enhanced ShareWidget to use selected dominant colors from album details pages
 - Fixed track rating metadata attachment to ensure proper rating display in share images
 - Improved rating color consistency between main app and share widget display
 - Fixed ShareWidget rating extraction to prioritize track metadata over ratings map
-
 #### Custom Lists & UI
 - Fixed custom lists page not refreshing after exiting full list reordering mode
 - Improved UI refresh behavior when saving custom list order to ensure immediate visual feedback
 - Enhanced reordering mode state management to properly reload lists after order changes
-
 #### Theme System & Color Management
 - Fixed primary color updates now propagate correctly across the entire application
 - Resolved theme service synchronization issues preventing color changes from applying consistently
 - Enhanced color notification system to ensure all UI components receive theme updates immediately
 - Fixed color picker dialog properly updating all app screens when new colors are selected
 - Improved theme state management to prevent color reversion during app navigation
-
 #### Album Format Migration
 - Fixed album migration to properly update both JSON `data` field and database column with `format_version: 2`
 - Enhanced migration detection to check actual data format rather than just column values
 - Fixed database constraints during migration by ensuring `format_version` column exists before updates
-
-#### Clipboard Detection & URL Processing
-- Fixed Deezer album URL detection in clipboard for automatic album import
-- Enhanced clipboard processing to properly handle Deezer album URLs with immediate recognition
-- Improved Deezer URL pattern matching for more reliable automatic search triggering
-- Fixed clipboard detector to correctly identify and process Deezer album links without manual intervention
-
-#### UI Migration & Deprecated Components
-- **Migrated from deprecated DataTable to modern ListView**: Replaced deprecated DataTable widgets with responsive ListView implementation for track listings
-- Fixed deprecated widget warnings by implementing modern Flutter UI patterns for album track displays
-- Enhanced track list responsiveness with proper constraints and responsive width handling
-- Improved touch targets and visual hierarchy in track listing components
-
-#### Theme Color Persistence
-- Fixed dominant color theme persistence across album dialogs and UI components
-- Resolved missing selected color applications in SavedAlbumPage dialog elements
-- Enhanced color inheritance in nested dialog components for consistent theming
-- Fixed ShareWidget color parameter passing to ensure exported images use selected album colors
 
 ## [1.1.2-1] - 2025-05-12
 
