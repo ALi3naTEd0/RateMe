@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:rateme/core/services/search_service.dart';
 import 'package:rateme/core/services/theme_service.dart';
 import 'package:rateme/database/database_helper.dart';
 import 'package:rateme/platforms/platform_service_factory.dart';
@@ -317,78 +318,104 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     }
   }
 
+  // Add this new method for proper track ordering (especially for multi-disk albums)
+  void _sortTracks() {
+    if (tracks.isEmpty) return;
+    
+    Logging.severe('Sorting ${tracks.length} tracks...');
+    
+    // Debug: Log track info before sorting
+    for (int i = 0; i < tracks.length && i < 10; i++) {
+      final track = tracks[i];
+      Logging.severe('Before sort - Track $i: "${track.name}" - Position: ${track.position}, Metadata: ${track.metadata}');
+    }
+    
+    tracks.sort((a, b) {
+      // ENHANCED: Handle all platforms' disc number fields with correct priority
+      dynamic aDiskRaw = a.metadata['disc_number'] ??         // Spotify format (MAIN for Spotify)
+                        a.metadata['discNumber'] ??           // iTunes format
+                        a.metadata['disk_number'] ??          // Deezer format
+                        a.metadata['disc'] ??                 // Short form
+                        a.metadata['diskNumber'] ?? 1;        // Alternative
+                        
+      dynamic bDiskRaw = b.metadata['disc_number'] ??         // Spotify format (MAIN for Spotify)
+                        b.metadata['discNumber'] ??           // iTunes format
+                        b.metadata['disk_number'] ??          // Deezer format
+                        b.metadata['disc'] ??                 // Short form
+                        b.metadata['diskNumber'] ?? 1;        // Alternative
+      
+      // Ensure disk numbers are integers
+      int aDisk = aDiskRaw is int ? aDiskRaw : (int.tryParse(aDiskRaw.toString()) ?? 1);
+      int bDisk = bDiskRaw is int ? bDiskRaw : (int.tryParse(bDiskRaw.toString()) ?? 1);
+      
+      // First sort by disk number
+      if (aDisk != bDisk) {
+        Logging.severe('Sorting by disk: Track "${a.name}" (disk $aDisk) vs "${b.name}" (disk $bDisk)');
+        return aDisk.compareTo(bDisk);
+      }
+      
+      // Then sort by track position within the same disk
+      final result = a.position.compareTo(b.position);
+      if (result != 0) {
+        Logging.severe('Sorting by position: Track "${a.name}" (pos ${a.position}) vs "${b.name}" (pos ${b.position})');
+      }
+      return result;
+    });
+    
+    // Debug: Log track info after sorting
+    Logging.severe('After sorting:');
+    for (int i = 0; i < tracks.length && i < 10; i++) {
+      final track = tracks[i];
+      final diskNum = track.metadata['disc_number'] ??         // Spotify format (MAIN)
+                     track.metadata['discNumber'] ??           // iTunes format
+                     track.metadata['disk_number'] ??          // Deezer format
+                     track.metadata['diskNumber'] ?? 1;        // Alternative
+      Logging.severe('After sort - Track $i: "${track.name}" - Disk: $diskNum, Position: ${track.position}');
+    }
+    
+    Logging.severe('Sorted ${tracks.length} tracks by disk and position');
+  }
+
   // Step 3: Load tracks (DB -> metadata -> API -> fallback)
   Future<void> _stepLoadTracks() async {
     try {
       final albumId =
           unifiedAlbum?.id ?? _albumData['id'] ?? _albumData['collectionId'];
       final dbHelper = DatabaseHelper.instance;
+      
       // Try DB
       final dbTracks = await dbHelper.getTracksForAlbum(albumId.toString());
       if (dbTracks.isNotEmpty) {
         tracks = dbTracks.map((t) => Track.fromJson(t)).toList();
-        Logging.severe('Loaded ${tracks.length} tracks from DB');
-        _attachRatingsToTracks();
-        return _finishLoad();
-      }
-
-      // --- IMPROVED METADATA EXTRACTION ---
-      // Check multiple sources for track data
-      List<Track> metaTracks = [];
-
-      // First check if tracks are directly in the album data
-      if (_albumData['tracks'] is List) {
-        final rawTracks = _albumData['tracks'] as List;
-        Logging.severe(
-            'Found ${rawTracks.length} tracks directly in album data');
-        for (var t in rawTracks) {
-          try {
-            metaTracks.add(Track.fromJson(t));
-          } catch (e) {
-            Logging.severe('Error parsing track: $e');
-          }
+        
+        // SIMPLE FIX: Check if tracks have disc numbers
+        bool hasDiscNumbers = tracks.any((track) => 
+          track.metadata.containsKey('disc_number') && 
+          track.metadata['disc_number'] != null);
+        
+        if (!hasDiscNumbers && unifiedAlbum?.platform == 'spotify') {
+          Logging.severe('DB tracks missing disc numbers, refetching from API');
+          // Clear tracks and let it fall through to API fetch
+          tracks = [];
+        } else {
+          _sortTracks();
+          Logging.severe('Loaded ${tracks.length} tracks from DB');
+          _attachRatingsToTracks();
+          return _finishLoad();
         }
       }
 
-      // If no tracks found, check the data field
-      if (metaTracks.isEmpty && _albumData['data'] != null) {
-        Map<String, dynamic>? dataMap;
-
-        // Parse the data field if it's a string
-        if (_albumData['data'] is String) {
-          try {
-            dataMap = jsonDecode(_albumData['data']);
-            Logging.severe('Successfully parsed data field as JSON');
-          } catch (e) {
-            Logging.severe('Error parsing data field as JSON: $e');
-          }
-        } else if (_albumData['data'] is Map) {
-          dataMap = _albumData['data'] as Map<String, dynamic>;
-        }
-
-        // Extract tracks from the data map
-        if (dataMap != null &&
-            dataMap.containsKey('tracks') &&
-            dataMap['tracks'] is List) {
-          final rawTracks = dataMap['tracks'] as List;
-          Logging.severe('Found ${rawTracks.length} tracks in data field');
-          for (var t in rawTracks) {
-            try {
-              metaTracks.add(Track.fromJson(t));
-            } catch (e) {
-              Logging.severe('Error parsing track from data field: $e');
-            }
-          }
-        }
-      }
-
-      // If we found tracks from metadata, use them and save to DB
-      if (metaTracks.isNotEmpty) {
-        tracks = metaTracks;
+      // USE THE EXACT SAME METHOD AS DETAILS_PAGE - NO MODIFICATIONS
+      tracks = _extractTracksFromAlbum(_albumData);
+      
+      if (tracks.isNotEmpty) {
+        Logging.severe('Extracted ${tracks.length} tracks using details_page approach');
+        _sortTracks();
+        
+        // Save to database
         await dbHelper.insertTracks(
-            albumId.toString(), metaTracks.map((t) => t.toJson()).toList());
-        Logging.severe(
-            'Saved ${tracks.length} tracks from metadata to database');
+            albumId.toString(), tracks.map((t) => t.toJson()).toList());
+        Logging.severe('Saved ${tracks.length} tracks to database');
         _attachRatingsToTracks();
         return _finishLoad();
       }
@@ -411,6 +438,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
             ));
             pos++;
           }
+          _sortTracks();
           Logging.severe('Created ${tracks.length} tracks from ratings');
           _attachRatingsToTracks();
         }
@@ -433,6 +461,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
             }
             if (fetchedTracks.isNotEmpty) {
               tracks = fetchedTracks;
+              _sortTracks();
               await dbHelper.insertTracks(albumId.toString(),
                   fetchedTracks.map((t) => t.toJson()).toList());
               Logging.severe(
@@ -456,6 +485,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           ));
           pos++;
         }
+        _sortTracks();
         Logging.severe('Created ${tracks.length} tracks from ratings');
         _attachRatingsToTracks();
       }
@@ -464,6 +494,89 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       Logging.severe('Error loading tracks', e, stack);
       setState(() => isLoading = false);
     }
+  }
+
+  // FIX: Use the EXACT SAME method as details_page.dart
+  List<Track> _extractTracksFromAlbum(Map<String, dynamic> album) {
+    List<Track> result = [];
+
+    try {
+      if (album['tracks'] is List) {
+        final tracksList = album['tracks'] as List;
+        Logging.severe('=== SAVED_ALBUM_PAGE TRACK EXTRACTION DEBUG ===');
+        Logging.severe('Album: ${album['name'] ?? album['collectionName']}');
+        Logging.severe('Platform: ${album['platform']}');
+        Logging.severe('Extracting ${tracksList.length} tracks from album data');
+
+        for (var i = 0; i < tracksList.length; i++) {
+          try {
+            final trackData = tracksList[i];
+            if (trackData is Map<String, dynamic>) {
+              
+              // MASSIVE DEBUG: Print ALL track data for first 5 tracks
+              if (i < 5) {
+                Logging.severe('=== RAW TRACK $i DEBUG ===');
+                Logging.severe('All keys: ${trackData.keys.toList()}');
+                Logging.severe('trackId: ${trackData['trackId']}');
+                Logging.severe('trackName: ${trackData['trackName']}');
+                Logging.severe('trackNumber: ${trackData['trackNumber']}');
+                Logging.severe('disc_number: ${trackData['disc_number']}');
+                Logging.severe('disk_number: ${trackData['disk_number']}');
+                Logging.severe('discNumber: ${trackData['discNumber']}');
+                Logging.severe('Full track data: $trackData');
+                Logging.severe('=== END RAW TRACK $i ===');
+              }
+
+              final track = Track(
+                id: trackData['trackId'] ??
+                    trackData['id'] ??
+                    (album['id'] * 1000 + i + 1),
+                name: trackData['trackName'] ??
+                    trackData['name'] ??
+                    'Track ${i + 1}',
+                position:
+                    trackData['trackNumber'] ?? trackData['position'] ?? i + 1,
+                durationMs: trackData['trackTimeMillis'] ??
+                    trackData['durationMs'] ??
+                    0,
+                metadata: trackData, // CRITICAL: Keep original metadata with disc_number
+              );
+              
+              result.add(track);
+              
+              // DEBUG: Print the created Track object
+              if (i < 5) {
+                Logging.severe('=== CREATED TRACK $i DEBUG ===');
+                Logging.severe('Track ID: ${track.id}');
+                Logging.severe('Track name: ${track.name}');
+                Logging.severe('Track position: ${track.position}');
+                Logging.severe('Metadata keys: ${track.metadata.keys.toList()}');
+                Logging.severe('Metadata disc_number: ${track.metadata['disc_number']}');
+                Logging.severe('Metadata disk_number: ${track.metadata['disk_number']}');
+                Logging.severe('Metadata discNumber: ${track.metadata['discNumber']}');
+                Logging.severe('=== END CREATED TRACK $i ===');
+              }
+            }
+          } catch (e) {
+            Logging.severe('Error parsing track at index $i: $e');
+          }
+        }
+        
+        Logging.severe('=== FINAL TRACK SUMMARY ===');
+        Logging.severe('Total tracks created: ${result.length}');
+        for (int i = 0; i < result.length && i < 10; i++) {
+          final track = result[i];
+          final discNum = track.metadata['disc_number'] ?? track.metadata['disk_number'] ?? track.metadata['discNumber'] ?? 1;
+          Logging.severe('Track $i: "${track.name}" - Position: ${track.position}, Disc: $discNum');
+        }
+        Logging.severe('=== END SAVED_ALBUM_PAGE EXTRACTION ===');
+      }
+    } catch (e, stack) {
+      Logging.severe('Error extracting tracks from album', e, stack);
+    }
+
+    Logging.severe('Extracted ${result.length} tracks from album');
+    return result;
   }
 
   // Attach ratings to tracks by id or position
@@ -741,6 +854,68 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       });
     }
 
+    // CRITICAL FIX: Use the correct method name that actually exists
+    try {
+      final albumId = unifiedAlbum?.id ?? _albumData['id'] ?? _albumData['collectionId'];
+      final platform = unifiedAlbum?.platform ?? _albumData['platform'] ?? '';
+      
+      Logging.severe('=== FORCING SPOTIFY REFRESH FOR DISC NUMBERS ===');
+      Logging.severe('Album ID: $albumId, Platform: $platform');
+      
+      if (platform.toLowerCase() == 'spotify') {
+        // CRITICAL FIX: Use fetchAlbumTracks instead of fetchSpotifyAlbumDetails
+        final enhancedAlbum = await SearchService.fetchAlbumTracks(_albumData);
+        
+        if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
+          final freshTracks = enhancedAlbum['tracks'] as List;
+          Logging.severe('Got ${freshTracks.length} fresh tracks from Spotify API with disc numbers');
+          
+          // Debug first few tracks
+          for (int i = 0; i < freshTracks.length && i < 5; i++) {
+            final track = freshTracks[i];
+            Logging.severe('Fresh Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
+          }
+          
+          // Convert to Track objects
+          tracks = freshTracks.map<Track>((trackData) {
+            return Track(
+              id: trackData['trackId'] ?? trackData['id'] ?? 0,
+              name: trackData['trackName'] ?? trackData['name'] ?? 'Unknown',
+              position: trackData['trackNumber'] ?? trackData['position'] ?? 0,
+              durationMs: trackData['trackTimeMillis'] ?? trackData['durationMs'] ?? 0,
+              metadata: trackData, // This now includes disc_number!
+            );
+          }).toList();
+          
+          // Convert tracks to proper format for database
+          final tracksForDb = freshTracks.map<Map<String, dynamic>>((trackData) {
+            return Map<String, dynamic>.from(trackData);
+          }).toList();
+          
+          // Update database with fresh tracks that have disc_number
+          final dbHelper = DatabaseHelper.instance;
+          await dbHelper.insertTracks(albumId.toString(), tracksForDb);
+          Logging.severe('Updated database with ${tracksForDb.length} tracks including disc_number');
+          
+          // Now sort with proper disc numbers
+          _sortTracks();
+          _attachRatingsToTracks();
+          
+          setState(() {
+            isLoading = false;
+          });
+          
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(content: Text('Album refreshed with disc numbers')),
+          );
+          return;
+        }
+      }
+    } catch (e, stack) {
+      Logging.severe('Error during forced refresh', e, stack);
+    }
+
+    // Fallback to original refresh logic
     await _stepLoadAlbum();
 
     scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1508,7 +1683,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
           final shareWidget = ShareWidget(
             key: ShareWidget.shareKey,
             album: _albumData,
-            tracks: tracks, // Already List<Track>, no conversion needed
+            tracks: tracks // Already List<Track>, no conversion needed
+            ,
             ratings: stringRatings, // Using stringRatings for consistency
             averageRating: averageRating,
             selectedDominantColor: selectedDominantColor, // Add this line
@@ -1981,6 +2157,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       if (ratedTracks.isNotEmpty) {
         double total = ratedTracks.reduce((a, b) => a + b);
         double average = total / ratedTracks.length;
+
 
         if (mounted) {
           setState(() {

@@ -1493,10 +1493,45 @@ class _DetailsPageState extends State<DetailsPage> {
       }
 
       try {
-        // Save the album first since user made selections
-        final albumToSave = unifiedAlbum?.toJson() ?? widget.album;
+        // CRITICAL FIX: Ensure Spotify albums get disc numbers before saving
+        Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
+        
+        // If this is a Spotify album, ensure we have proper disc numbers in tracks
+        if (albumToSave['platform'] == 'spotify') {
+          Logging.severe('=== ENSURING SPOTIFY DISC NUMBERS BEFORE SAVE ===');
+          
+          // Check if tracks already have disc_number data
+          bool hasDiscNumbers = false;
+          if (albumToSave['tracks'] is List && (albumToSave['tracks'] as List).isNotEmpty) {
+            final firstTrack = (albumToSave['tracks'] as List)[0];
+            if (firstTrack is Map<String, dynamic> && firstTrack.containsKey('disc_number')) {
+              hasDiscNumbers = true;
+              Logging.severe('Tracks already have disc_number data');
+            }
+          }
+          
+          // If no disc numbers, fetch fresh data from Spotify API
+          if (!hasDiscNumbers) {
+            Logging.severe('No disc numbers found, fetching fresh Spotify data');
+            final enhancedAlbum = await SearchService.fetchAlbumTracks(albumToSave);
+            
+            if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
+              albumToSave = enhancedAlbum;
+              Logging.severe('Updated album with ${(enhancedAlbum['tracks'] as List).length} tracks including disc numbers');
+              
+              // Debug first few tracks
+              final tracksList = enhancedAlbum['tracks'] as List;
+              for (int i = 0; i < tracksList.length && i < 3; i++) {
+                final track = tracksList[i];
+                Logging.severe('Enhanced Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
+              }
+            } else {
+              Logging.severe('Failed to enhance Spotify album with disc numbers');
+            }
+          }
+        }
 
-        // First make sure the album is saved to database
+        // First make sure the album is saved to database (now with disc numbers)
         final saveResult = await UserData.addToSavedAlbums(albumToSave);
 
         // --- Save dominant color if selected ---
@@ -1636,8 +1671,32 @@ class _DetailsPageState extends State<DetailsPage> {
             TextButton(
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
-                  // Save the album first
-                  final albumToSave = unifiedAlbum?.toJson() ?? widget.album;
+                  // CRITICAL FIX: Ensure Spotify albums have disc numbers before saving
+                  Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
+                  
+                  // If this is a Spotify album, ensure we have proper disc numbers in tracks
+                  if (albumToSave['platform'] == 'spotify') {
+                    Logging.severe('=== ENSURING SPOTIFY DISC NUMBERS FOR NEW LIST ===');
+                    
+                    // Check if tracks already have disc_number data
+                    bool hasDiscNumbers = false;
+                    if (albumToSave['tracks'] is List && (albumToSave['tracks'] as List).isNotEmpty) {
+                      final firstTrack = (albumToSave['tracks'] as List)[0];
+                      if (firstTrack is Map<String, dynamic> && firstTrack.containsKey('disc_number')) {
+                        hasDiscNumbers = true;
+                      }
+                    }
+                    
+                    // If no disc numbers, fetch fresh data from Spotify API
+                    if (!hasDiscNumbers) {
+                      final enhancedAlbum = await SearchService.fetchAlbumTracks(albumToSave);
+                      if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
+                        albumToSave = enhancedAlbum;
+                        Logging.severe('Enhanced album for new list with disc numbers');
+                      }
+                    }
+                  }
+
                   await UserData.addToSavedAlbums(albumToSave);
 
                   // Get album ID
@@ -1941,14 +2000,31 @@ class _DetailsPageState extends State<DetailsPage> {
     try {
       if (album['tracks'] is List) {
         final tracksList = album['tracks'] as List;
-        Logging.severe(
-            'Extracting ${tracksList.length} tracks from album data');
+        Logging.severe('=== DETAILS_PAGE TRACK EXTRACTION DEBUG ===');
+        Logging.severe('Album: ${album['name'] ?? album['collectionName']}');
+        Logging.severe('Platform: ${album['platform']}');
+        Logging.severe('Extracting ${tracksList.length} tracks from album data');
 
         for (var i = 0; i < tracksList.length; i++) {
           try {
             final trackData = tracksList[i];
             if (trackData is Map<String, dynamic>) {
-              result.add(Track(
+              
+              // MASSIVE DEBUG: Print ALL track data for first 5 tracks
+              if (i < 5) {
+                Logging.severe('=== RAW TRACK $i DEBUG ===');
+                Logging.severe('All keys: ${trackData.keys.toList()}');
+                Logging.severe('trackId: ${trackData['trackId']}');
+                Logging.severe('trackName: ${trackData['trackName']}');
+                Logging.severe('trackNumber: ${trackData['trackNumber']}');
+                Logging.severe('disc_number: ${trackData['disc_number']}');
+                Logging.severe('disk_number: ${trackData['disk_number']}');
+                Logging.severe('discNumber: ${trackData['discNumber']}');
+                Logging.severe('Full track data: $trackData');
+                Logging.severe('=== END RAW TRACK $i ===');
+              }
+
+              final track = Track(
                 id: trackData['trackId'] ??
                     trackData['id'] ??
                     (album['id'] * 1000 + i + 1),
@@ -1961,12 +2037,36 @@ class _DetailsPageState extends State<DetailsPage> {
                     trackData['durationMs'] ??
                     0,
                 metadata: trackData,
-              ));
+              );
+              
+              result.add(track);
+              
+              // DEBUG: Print the created Track object
+              if (i < 5) {
+                Logging.severe('=== CREATED TRACK $i DEBUG ===');
+                Logging.severe('Track ID: ${track.id}');
+                Logging.severe('Track name: ${track.name}');
+                Logging.severe('Track position: ${track.position}');
+                Logging.severe('Metadata keys: ${track.metadata.keys.toList()}');
+                Logging.severe('Metadata disc_number: ${track.metadata['disc_number']}');
+                Logging.severe('Metadata disk_number: ${track.metadata['disk_number']}');
+                Logging.severe('Metadata discNumber: ${track.metadata['discNumber']}');
+                Logging.severe('=== END CREATED TRACK $i ===');
+              }
             }
           } catch (e) {
             Logging.severe('Error parsing track at index $i: $e');
           }
         }
+        
+        Logging.severe('=== FINAL TRACK SUMMARY ===');
+        Logging.severe('Total tracks created: ${result.length}');
+        for (int i = 0; i < result.length && i < 10; i++) {
+          final track = result[i];
+          final discNum = track.metadata['disc_number'] ?? track.metadata['disk_number'] ?? track.metadata['discNumber'] ?? 1;
+          Logging.severe('Track $i: "${track.name}" - Position: ${track.position}, Disc: $discNum');
+        }
+        Logging.severe('=== END DETAILS_PAGE EXTRACTION ===');
       }
     } catch (e, stack) {
       Logging.severe('Error extracting tracks from album', e, stack);

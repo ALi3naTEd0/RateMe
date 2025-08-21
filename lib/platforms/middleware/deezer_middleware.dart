@@ -199,11 +199,25 @@ class DeezerMiddleware {
                   'trackTimeMillis': track['duration'] *
                       1000, // Convert seconds to milliseconds
                   'artistName': track['artist']['name'],
+                  // CRITICAL FIX: Add disk number for proper multi-disk sorting
+                  'disc_number': track['disk_number'] ?? 1,
+                  'disk_number': track['disk_number'] ?? 1, // Alternative field name
+                  'diskNumber': track['disk_number'] ?? 1, // Camel case variant
+                  'position': track['track_position'],
+                  'id': track['id'],
+                  'name': track['title'],
+                  'durationMs': track['duration'] * 1000,
                 };
               }).toList();
 
               result['tracks'] = tracks;
-              Logging.severe('Added ${tracks.length} tracks to Deezer album (no limit applied)');
+              Logging.severe('Added ${tracks.length} tracks to Deezer album with disk numbers');
+              
+              // Log first few tracks to verify disk numbering
+              for (int i = 0; i < tracks.length && i < 5; i++) {
+                final track = tracks[i];
+                Logging.severe('Track ${i + 1}: "${track['trackName']}" - Disk: ${track['disc_number']}, Position: ${track['trackNumber']}');
+              }
             }
           }
         }

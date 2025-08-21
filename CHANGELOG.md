@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Multi-Disc Album Track Sorting
+- **Fixed multi-disc album track ordering across all platforms**: Resolved critical issue where multi-disc albums (2+ discs) displayed tracks in incorrect order (1,1,2,2,3,3 instead of proper 1,2,3,1,2,3 sequence)
+- **Enhanced disc number preservation for all platforms**: Updated track extraction to properly preserve disc number metadata from Spotify (`disc_number`), iTunes (`discNumber`), Deezer (`disk_number`), and other platform APIs for accurate multi-disc sorting
+- **Improved database track metadata storage**: Fixed track metadata persistence to ensure disc numbers are properly stored and retrieved from database across all music platforms
+- **Added automatic disc number detection**: Implemented fallback logic to refetch fresh track data when saved tracks are missing disc number information for any platform
+- **Standardized disc number field handling**: Enhanced sorting algorithm to handle multiple disc number field variants (`disc_number`, `discNumber`, `disk_number`, `disc`, `diskNumber`) across Spotify, iTunes, Deezer, and all supported platforms
+- **Fixed saved album track loading**: Resolved issue where saved albums would lose proper disc-based sorting due to missing metadata in database regardless of original platform
+- **Enhanced track extraction consistency**: Ensured both details page and saved album page use identical track processing logic for consistent disc number handling across all music services
+
 #### Clipboard Detection & URL Processing
 - Fixed Deezer album URL detection in clipboard for automatic album import
 - Enhanced clipboard processing to properly handle Deezer album URLs with immediate recognition

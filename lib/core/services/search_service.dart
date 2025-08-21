@@ -513,6 +513,18 @@ class SearchService {
               .get(albumUrl, headers: {'Authorization': 'Bearer $accessToken'});
           if (albumResponse.statusCode == 200) {
             final albumData = jsonDecode(albumResponse.body);
+            
+            // CRITICAL FIX: Add debugging for direct URL album fetching
+            Logging.severe('=== SPOTIFY DIRECT URL FETCH DEBUG ===');
+            Logging.severe('Album: ${albumData['name']} by ${albumData['artists'][0]['name']}');
+            Logging.severe('Total tracks: ${albumData['tracks']['items'].length}');
+            
+            // Debug first few tracks
+            for (int i = 0; i < albumData['tracks']['items'].length && i < 5; i++) {
+              final track = albumData['tracks']['items'][i];
+              Logging.severe('Direct URL Track $i: "${track['name']}" - disc_number: ${track['disc_number']}, track_number: ${track['track_number']}');
+            }
+            
             // Format as a single result with complete information
             final album = {
               'id': albumData['id'],
@@ -536,9 +548,20 @@ class SearchService {
                   'trackNumber': track['track_number'],
                   'trackTimeMillis': track['duration_ms'],
                   'artistName': track['artists'][0]['name'],
+                  // CRITICAL FIX: Include disc_number for direct URL fetches too
+                  'disc_number': track['disc_number'] ?? 1,
+                  'disk_number': track['disc_number'] ?? 1,
+                  'discNumber': track['disc_number'] ?? 1,
                 };
               }).toList(),
             };
+            
+            Logging.severe('=== DIRECT URL PROCESSED TRACKS DEBUG ===');
+            for (int i = 0; i < album['tracks'].length && i < 5; i++) {
+              final track = album['tracks'][i];
+              Logging.severe('Direct URL Processed Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
+            }
+            
             // Return only this single album with full track information
             Logging.severe(
                 'Found exact Spotify album from URL with ${album['tracks'].length} tracks: ${album['collectionName']}');
@@ -940,29 +963,63 @@ class SearchService {
     try {
       final albumId = album['id'] ?? album['collectionId'];
       if (albumId == null) return null;
-      // Get access token with the correct method
+      
+      // Get access token
       final accessToken = await _getSpotifyAccessToken();
+      
       // Get album details
       final url = Uri.parse('https://api.spotify.com/v1/albums/$albumId');
       final response = await http
           .get(url, headers: {'Authorization': 'Bearer $accessToken'});
+      
       if (response.statusCode != 200) {
         throw 'Spotify API error: ${response.statusCode}';
       }
+      
       final data = jsonDecode(response.body);
-      // Parse tracks
+      
+      // CRITICAL FIX: Properly extract tracks with ALL disc number variants
+      Logging.severe('=== SPOTIFY FETCHALBUMDETAILS DEBUG ===');
+      Logging.severe('Album: ${data['name']} by ${data['artists'][0]['name']}');
+      Logging.severe('Total tracks: ${data['tracks']['items'].length}');
+      
+      // Parse tracks with proper disc number handling
       final tracks = data['tracks']['items'].map<Map<String, dynamic>>((track) {
+        final discNumber = track['disc_number'] ?? 1;
+        
         return {
           'trackId': track['id'],
           'trackName': track['name'],
           'trackNumber': track['track_number'],
           'trackTimeMillis': track['duration_ms'],
           'artistName': track['artists'][0]['name'],
+          // CRITICAL: Set ALL disc number field variants
+          'disc_number': discNumber,        // Spotify API format (PRIMARY)
+          'disk_number': discNumber,        // Alternative spelling
+          'discNumber': discNumber,         // CamelCase variant
+          'diskNumber': discNumber,         // CamelCase alternative
+          'disc': discNumber,               // Short form
+          'disk': discNumber,               // Short form alternative
+          'position': track['track_number'],
+          'id': track['id'],
+          'name': track['name'],
+          'durationMs': track['duration_ms'],
         };
       }).toList();
-      // Return album with tracks
+      
+      // Debug the processed tracks
+      Logging.severe('=== PROCESSED TRACKS WITH DISC NUMBERS ===');
+      for (int i = 0; i < tracks.length && i < 5; i++) {
+        final track = tracks[i];
+        Logging.severe('Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}, track_number: ${track['trackNumber']}');
+      }
+      
+      // Return album with tracks containing proper disc numbers
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
+      result['platform'] = 'spotify';
+      
+      Logging.severe('Returning Spotify album with ${tracks.length} tracks including disc_number fields');
       return result;
     } catch (e, stack) {
       Logging.severe('Error fetching Spotify album details', e, stack);
