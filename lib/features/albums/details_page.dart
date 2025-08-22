@@ -1648,17 +1648,35 @@ class _DetailsPageState extends State<DetailsPage> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'List Name',
                   hintText: 'e.g. Progressive Rock',
+                  labelStyle: TextStyle(
+                    color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: descController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Description (optional)',
                   hintText: 'e.g. My favorite prog rock albums',
+                  labelStyle: TextStyle(
+                    color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1666,9 +1684,12 @@ class _DetailsPageState extends State<DetailsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+              ),
               child: const Text('Cancel'),
             ),
-            TextButton(
+            FilledButton(
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
                   // CRITICAL FIX: Ensure Spotify albums have disc numbers before saving
@@ -1734,8 +1755,12 @@ class _DetailsPageState extends State<DetailsPage> {
                   Navigator.of(context).pop();
                 }
               },
-              style: TextButton.styleFrom(
-                foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+              style: FilledButton.styleFrom(
+                backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                foregroundColor: useDarkButtonText
+                    ? Colors.black
+                    : ColorUtility.getContrastingColor(
+                        selectedDominantColor ?? Theme.of(context).colorScheme.primary),
               ),
               child: const Text('Create'),
             ),
