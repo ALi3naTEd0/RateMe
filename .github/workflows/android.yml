@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
@@ -32,10 +32,10 @@ jobs:
         run: |
           mkdir -p $HOME/.gradle
           echo "org.gradle.java.home=$JAVA_HOME" >> $HOME/.gradle/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8" >> $HOME/.gradle/gradle.properties
           echo "Current gradle.properties:"
           cat $HOME/.gradle/gradle.properties
 
-      # Improved cache strategy with correct dependency paths
       - name: Cache Gradle and Android dependencies
         uses: actions/cache@v4
         with:
@@ -53,9 +53,8 @@ jobs:
         with:
           flutter-version: '3.35.1'
           channel: 'stable'
-          cache: true # Enable Flutter caching
+          cache: true
 
-      # Cache pub dependencies separately (more efficient than general cache)
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
@@ -72,7 +71,6 @@ jobs:
           curl -o assets/app-icon.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
           curl -o assets/rateme.png https://raw.githubusercontent.com/ALi3naTEd0/RateMe/main/assets/rateme.png
 
-      # Get dependencies before building
       - name: Install Flutter dependencies
         run: flutter pub get
 
@@ -88,18 +86,17 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
-      # Optimize build by using --no-pub option since we already ran pub get
       - name: Build Universal APK
         run: |
-          flutter build apk --release --no-pub
+          flutter build apk --release --no-pub --dart-define=CI=true
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
-          
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: RateMe-universal
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
-          
+
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -107,21 +104,17 @@ jobs:
             aapt \
             android-sdk-build-tools
 
-      # Use split per ABI without repeating pub get
       - name: Build Split APKs
         run: |
-          flutter build apk --release --split-per-abi --no-pub
-          
-          # Find aapt location and use full path
+          flutter build apk --release --split-per-abi --no-pub --dart-define=CI=true
+
           AAPT_PATH=$(which aapt)
           echo "Using aapt from: $AAPT_PATH"
-          
-          # Verify package ID
+
           PACKAGE_ID=$($AAPT_PATH dump badging build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep package | awk '{print $2}' | sed "s/name='\([^']*\)'.*/\1/")
           echo "Package ID: $PACKAGE_ID"
           [ "$PACKAGE_ID" = "com.ali3nated0.rateme" ] || exit 1
-          
-          # Rename APKs
+
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
