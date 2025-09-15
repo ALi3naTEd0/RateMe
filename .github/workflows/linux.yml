@@ -16,7 +16,7 @@ on:
         description: 'Version number'
 
 env:
-  FLUTTER_VERSION: 'stable'
+  FLUTTER_VERSION: '3.35.1'
 
 jobs:
   build:

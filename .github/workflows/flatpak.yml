@@ -54,7 +54,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.35.1'
           channel: 'stable'
           cache: true # Add caching for better performance
 
