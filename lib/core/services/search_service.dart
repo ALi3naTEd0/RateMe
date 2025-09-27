@@ -73,7 +73,16 @@ class SearchService {
 
   /// Search for an album on a given platform
   static Future<Map<String, dynamic>?> searchAlbum(
-      String query, SearchPlatform platform) async {
+      String albumName, String artistName, [SearchPlatform? platform]) async {
+    // If platform is not provided, use spotify as default
+    final SearchPlatform effectivePlatform = platform ?? SearchPlatform.spotify;
+
+    // Compose a query string for platform APIs that expect a single query
+    String query = albumName;
+    if (artistName.isNotEmpty) {
+      query = '$artistName $albumName';
+    }
+
     // Check if the query is a URL first
     String lowerQuery = query.toLowerCase();
     // Override platform based on URL detection
@@ -206,7 +215,7 @@ class SearchService {
       return await searchITunes(query);
     }
     // If it's not a URL, use the specified platform
-    switch (platform) {
+    switch (effectivePlatform) {
       case SearchPlatform.spotify:
         return await searchSpotify(query);
       case SearchPlatform.itunes:

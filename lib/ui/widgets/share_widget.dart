@@ -56,12 +56,13 @@ class ShareWidgetState extends State<ShareWidget> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'RateMe_album_$timestamp.png';
 
+      String? savedPath;
       if (Platform.isAndroid) {
         final tempDir = await getTemporaryDirectory();
         final tempPath = '${tempDir.path}/$fileName';
         final tempFile = File(tempPath);
         await tempFile.writeAsBytes(pngBytes);
-        return tempPath;
+        savedPath = tempPath;
       } else {
         // For desktop platforms, use file picker
         final String? savePath = await FilePicker.platform.saveFile(
@@ -75,10 +76,18 @@ class ShareWidgetState extends State<ShareWidget> {
         if (savePath != null) {
           final file = File(savePath);
           await file.writeAsBytes(pngBytes);
-          return savePath;
+          savedPath = savePath;
         }
-        return null;
       }
+
+      // Guard context usage with a mounted check
+      if (mounted && savedPath != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image saved to: $savedPath')),
+        );
+      }
+
+      return savedPath;
     } catch (e) {
       debugPrint('Error saving image: $e');
       return null;

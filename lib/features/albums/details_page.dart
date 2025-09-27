@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:rateme/core/services/theme_service.dart';
+import 'package:rateme/platforms/platform_service_factory.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/album_model.dart';
 import '../../core/utils/color_utility.dart';
@@ -611,6 +612,7 @@ class _DetailsPageState extends State<DetailsPage> {
         appBar: AppBar(
           centerTitle: false,
           automaticallyImplyLeading: false,
+          // Remove the reload button from AppBar actions
           title: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
@@ -630,9 +632,16 @@ class _DetailsPageState extends State<DetailsPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Move the reload button here, inside the width constraint
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 22),
+                  tooltip: 'Fetch Release Date from Spotify/iTunes/Deezer',
+                  onPressed: _fetchAndCompareReleaseDate,
+                ),
               ],
             ),
           ),
+          // Remove actions: [...] (no reload button here)
         ),
         body: Center(
           child: isLoading
@@ -2121,6 +2130,226 @@ class _DetailsPageState extends State<DetailsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Album refreshed')),
       );
+    }
+  }
+
+  // Implement the method to fetch and compare release date
+  Future<void> _fetchAndCompareReleaseDate() async {
+    if (unifiedAlbum == null) return;
+
+    final albumName = unifiedAlbum?.name ?? '';
+    final artistName = unifiedAlbum?.artistName ?? '';
+    final albumUrl = unifiedAlbum?.url ?? '';
+    final platform = (unifiedAlbum?.platform ?? '').toLowerCase();
+
+    String? spotifyDate;
+    String? itunesDate;
+    String? deezerDate;
+    String? usedDate;
+    String? message;
+
+    String? spotifyUrl;
+    String? itunesUrl;
+    String? deezerUrl;
+
+    setState(() => isLoading = true);
+
+    try {
+      Logging.severe('=== RELEASE DATE DEBUG START ===');
+      Logging.severe('Platform: $platform');
+      Logging.severe('Album URL: $albumUrl');
+      Logging.severe('Album Name: $albumName');
+      Logging.severe('Artist Name: $artistName');
+
+      // --- 1. Try to get URLs from platform matches (if available in DB) ---
+      final db = await DatabaseHelper.instance.database;
+      final albumId = unifiedAlbum?.id.toString() ?? '';
+      Future<String?> getPlatformUrl(String plat) async {
+        final rows = await db.query(
+          'platform_matches',
+          columns: ['url'],
+          where: 'album_id = ? AND platform = ?',
+          whereArgs: [albumId, plat],
+          limit: 1,
+        );
+        return rows.isNotEmpty ? rows.first['url'] as String? : null;
+      }
+
+      spotifyUrl = await getPlatformUrl('spotify');
+      itunesUrl = await getPlatformUrl('apple_music');
+      deezerUrl = await getPlatformUrl('deezer');
+
+      Logging.severe('PlatformMatch URLs:');
+      Logging.severe('Spotify: $spotifyUrl');
+      Logging.severe('Apple Music: $itunesUrl');
+      Logging.severe('Deezer: $deezerUrl');
+
+      // --- 2. Fetch release dates from each platform using URL if possible, else search ---
+      // --- Spotify ---
+      try {
+        if (spotifyUrl == null) {
+          // Search for the album on Spotify
+          final searchResult = await SearchService.searchSpotify('$artistName $albumName');
+          if (searchResult != null && searchResult['results'] is List && searchResult['results'].isNotEmpty) {
+            spotifyUrl = searchResult['results'][0]['url'];
+            Logging.severe('Spotify: Found album URL by search: $spotifyUrl');
+          }
+        }
+        if (spotifyUrl != null) {
+          final spotify = PlatformServiceFactory().getService('spotify');
+          final details = await spotify.fetchAlbumDetails(spotifyUrl);
+          spotifyDate = details?['release_date'] ?? details?['releaseDate'];
+          Logging.severe('Spotify API returned date: $spotifyDate');
+          if (spotifyDate != null && spotifyDate.length > 10) {
+            spotifyDate = spotifyDate.substring(0, 10);
+          }
+        } else {
+          Logging.severe('Spotify: Could not determine album URL for fetch');
+        }
+      } catch (e, stack) {
+        Logging.severe('Spotify fetch error: $e', stack);
+      }
+
+      // --- iTunes / Apple Music ---
+      try {
+        if (itunesUrl == null) {
+          // Search for the album on iTunes
+          final searchResult = await SearchService.searchITunes('$artistName $albumName');
+          if (searchResult != null && searchResult['results'] is List && searchResult['results'].isNotEmpty) {
+            itunesUrl = searchResult['results'][0]['collectionViewUrl'];
+            Logging.severe('iTunes: Found album URL by search: $itunesUrl');
+          }
+        }
+        if (itunesUrl != null) {
+          final itunes = PlatformServiceFactory().getService('itunes');
+          final details = await itunes.fetchAlbumDetails(itunesUrl);
+          itunesDate = details?['release_date'] ?? details?['releaseDate'];
+          Logging.severe('iTunes API returned date: $itunesDate');
+          if (itunesDate != null && itunesDate.length > 10) {
+            itunesDate = itunesDate.substring(0, 10);
+          }
+        } else {
+          Logging.severe('iTunes: Could not determine album URL for fetch');
+        }
+      } catch (e, stack) {
+        Logging.severe('iTunes fetch error: $e', stack);
+      }
+
+      // --- Deezer ---
+      try {
+        if (deezerUrl == null) {
+          // Search for the album on Deezer
+          final searchResult = await SearchService.searchDeezer('$artistName $albumName');
+          if (searchResult != null && searchResult['results'] is List && searchResult['results'].isNotEmpty) {
+            deezerUrl = searchResult['results'][0]['url'];
+            Logging.severe('Deezer: Found album URL by search: $deezerUrl');
+          }
+        }
+        if (deezerUrl != null) {
+          final deezer = PlatformServiceFactory().getService('deezer');
+          final details = await deezer.fetchAlbumDetails(deezerUrl);
+          deezerDate = details?['release_date'] ?? details?['releaseDate'];
+          Logging.severe('Deezer API returned date: $deezerDate');
+          if (deezerDate != null && deezerDate.length > 10) {
+            deezerDate = deezerDate.substring(0, 10);
+          }
+        } else {
+          Logging.severe('Deezer: Could not determine album URL for fetch');
+        }
+      } catch (e, stack) {
+        Logging.severe('Deezer fetch error: $e', stack);
+      }
+
+      Logging.severe('Fetched release dates:');
+      Logging.severe('Spotify: $spotifyDate');
+      Logging.severe('Apple Music: $itunesDate');
+      Logging.severe('Deezer: $deezerDate');
+
+      // --- Consensus logic: use the date that matches at least 2 sources (normalized) ---
+      List<String> allDates = [spotifyDate, itunesDate, deezerDate]
+          .where((d) => d != null && d.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      // Count occurrences of each date
+      Map<String, int> dateCounts = {};
+      for (var d in allDates) {
+        dateCounts[d] = (dateCounts[d] ?? 0) + 1;
+      }
+      Logging.severe('Date counts: $dateCounts');
+
+      // Find the date that appears at least twice
+      String? consensusDate;
+      dateCounts.forEach((date, count) {
+        if (count >= 2) consensusDate = date;
+      });
+
+      // If no consensus, prefer Spotify > iTunes > Deezer, but only if not empty
+      if (consensusDate != null) {
+        usedDate = consensusDate;
+        message =
+            'Consensus release date: $usedDate\n(Spotify: $spotifyDate, Apple: $itunesDate, Deezer: $deezerDate)';
+      } else if (spotifyDate != null && spotifyDate.isNotEmpty) {
+        usedDate = spotifyDate;
+        message =
+            'No consensus, using Spotify: $spotifyDate\n(Apple: $itunesDate, Deezer: $deezerDate)';
+      } else if (itunesDate != null && itunesDate.isNotEmpty) {
+        usedDate = itunesDate;
+        message =
+            'No consensus, using Apple: $itunesDate\n(Spotify: $spotifyDate, Deezer: $deezerDate)';
+      } else if (deezerDate != null && deezerDate.isNotEmpty) {
+        usedDate = deezerDate;
+        message =
+            'No consensus, using Deezer: $deezerDate\n(Spotify: $spotifyDate, Apple: $itunesDate)';
+      } else {
+        message = 'Could not fetch release date from Spotify, Apple, or Deezer.';
+      }
+
+      Logging.severe('USED DATE: $usedDate | MESSAGE: $message');
+
+      // Save and update UI if found
+      if (usedDate != null) {
+        if (unifiedAlbum != null) {
+          try {
+            final dt = DateTime.tryParse(usedDate);
+            if (dt != null) {
+              unifiedAlbum = Album(
+                id: unifiedAlbum!.id,
+                name: unifiedAlbum!.name,
+                artist: unifiedAlbum!.artist,
+                artworkUrl: unifiedAlbum!.artworkUrl,
+                releaseDate: dt,
+                platform: unifiedAlbum!.platform,
+                url: unifiedAlbum!.url,
+                tracks: unifiedAlbum!.tracks,
+                metadata: unifiedAlbum!.metadata,
+              );
+            }
+          } catch (_) {}
+        }
+        // Save to DB
+        final db = await DatabaseHelper.instance.database;
+        await db.update(
+          'albums',
+          {'release_date': usedDate},
+          where: 'id = ?',
+          whereArgs: [unifiedAlbum?.id.toString()],
+        );
+      }
+
+      setState(() {});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      Logging.severe('=== RELEASE DATE DEBUG END ===');
+    } catch (e, stack) {
+      Logging.severe('Error in _fetchAndCompareReleaseDate: $e', stack);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching release date: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 }

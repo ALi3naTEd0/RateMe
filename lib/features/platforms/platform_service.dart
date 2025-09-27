@@ -103,7 +103,11 @@ class PlatformService {
       Logging.severe('Searching albums on platform: ${platform.name}');
 
       // Search using the specified platform
-      final results = await SearchService.searchAlbum(query, platform);
+      final results = await SearchService.searchAlbum(
+        query,
+        '', // artistName is empty for generic search
+        platform,
+      );
 
       // Return the results list or an empty list if null
       if (results != null && results['results'] is List) {

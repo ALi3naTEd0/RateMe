@@ -297,7 +297,7 @@ class _MyAppState extends State<MyApp> {
     setState(() => _isLoading = true);
     try {
       final results =
-          await SearchService.searchAlbum(query, _selectedSearchPlatform);
+          await SearchService.searchAlbum(query, '', _selectedSearchPlatform);
       if (mounted) {
         setState(() {
           if (results != null && results['results'] != null) {

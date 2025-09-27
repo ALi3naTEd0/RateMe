@@ -1,7 +1,7 @@
 /// Contains version information for the app
 class VersionInfo {
   /// Current app version string
-  static const String versionString = '1.1.4';
+  static const String versionString = '1.1.5';
 
   /// Build number for internal tracking
   static const int buildNumber = 1;
