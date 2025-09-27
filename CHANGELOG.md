@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Platform Button Visuals:** Improved platform button visuals for both light and dark themes. Selected buttons now use a high-contrast fill and dominant color for icons/borders, ensuring consistent, visually appealing, and accessible UI across themes.
+
 ### Fixed
 
 - **Release Date Consensus & Cross-Platform Fetching**: The release date refresh now fetches and compares dates from Spotify, Apple Music, and Deezer for every album, regardless of its original platform. This ensures the most accurate date is used and logged.

@@ -1,10 +1,6 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../core/models/album_model.dart';
 import '../../core/services/logging.dart';
 import '../../ui/widgets/skeleton_loading.dart';
@@ -582,10 +578,6 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
   }
 
   Widget _buildPlatformButton(String platform) {
-    // Get URL for this platform
-    final platformUrl = _platformUrls[platform];
-    final bool hasMatch = platformUrl != null && platformUrl.isNotEmpty;
-
     // FIXED approach for platform comparison
     final currentPlatform = widget.album.platform.toLowerCase().trim();
     final normalizedPlatform = platform.toLowerCase().trim();
@@ -638,210 +630,87 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         iconPath = '';
     }
 
-    // Determine icon color based on theme and selection state
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final iconColor = isSelected
-        ? Theme.of(context).colorScheme.primary
-        : (isDarkTheme ? Colors.white : Colors.black);
+    final double iconSize = widget.buttonSize * 0.8;
+    final Color dominantColor = Theme.of(context).colorScheme.primary;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Log when Bandcamp is selected
-    if (normalizedPlatform == 'bandcamp' && isSelected) {
-      Logging.severe(
-          'Bandcamp icon IS selected! Using primary color: ${Theme.of(context).colorScheme.primary}');
+    Widget content;
+
+    if (isSelected) {
+      if (isDark) {
+        // Dark theme: black fill, dominant color icon, dominant border
+        content = Container(
+          width: widget.buttonSize,
+          height: widget.buttonSize,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: dominantColor, width: 2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: SvgPicture.asset(
+            iconPath,
+            width: iconSize,
+            height: iconSize,
+            colorFilter: ColorFilter.mode(
+              dominantColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      } else {
+        // Light theme: dominant color fill, black icon, no border
+        content = Container(
+          width: widget.buttonSize,
+          height: widget.buttonSize,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: dominantColor, width: 2),
+            borderRadius: BorderRadius.circular(8),
+            // No border
+          ),
+          alignment: Alignment.center,
+          child: SvgPicture.asset(
+            iconPath,
+            width: iconSize,
+            height: iconSize,
+            colorFilter: ColorFilter.mode(
+              dominantColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      }
+    } else {
+      content = Center(
+        child: SvgPicture.asset(
+          iconPath,
+          width: iconSize,
+          height: iconSize,
+          colorFilter: ColorFilter.mode(
+            isDark ? Colors.white : Colors.black,
+            BlendMode.srcIn,
+          ),
+        ),
+      );
     }
 
-    // Create button content
-    final buttonContent = SizedBox(
+    // Example usage of TextButton with custom text color:
+    TextButton(
+      onPressed: () {
+        // Your onPressed logic
+      },
+      style: TextButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.primary, // <-- Set your desired text/icon color here
+      ),
+      child: const Text('Your Button'),
+    );
+
+    return SizedBox(
       width: widget.buttonSize,
       height: widget.buttonSize,
-      child: iconPath.isNotEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: SvgPicture.asset(
-                iconPath,
-                height: widget.buttonSize - 8,
-                width: widget.buttonSize - 8,
-                colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-              ),
-            )
-          : Icon(
-              Icons.music_note,
-              size: widget.buttonSize - 8,
-              color: iconColor,
-            ),
+      child: content,
     );
-
-    return Opacity(
-      opacity: hasMatch ? 1.0 : 0.5,
-      child: Tooltip(
-        message: hasMatch
-            ? (isSelected
-                ? _getPlatformName(platform)
-                : _getPlatformName(platform))
-            : 'No match found in ${_getPlatformName(platform)}',
-        child: GestureDetector(
-          onLongPress: hasMatch
-              ? () => _showContextMenu(platform, _platformUrls[platform]!)
-              : null,
-          child: InkWell(
-            onTap: hasMatch ? () => _openUrl(_platformUrls[platform]!) : null,
-            borderRadius: BorderRadius.circular(widget.buttonSize / 2),
-            onSecondaryTap: hasMatch
-                ? () => _showContextMenu(platform, _platformUrls[platform]!)
-                : null,
-            child: buttonContent,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Show context menu for mobile platforms via long press
-  void _showContextMenu(String platform, String url) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final Offset position = button.localToGlobal(Offset.zero);
-    final Size buttonSize = button.size;
-
-    const double menuWidth = 200;
-    final double centerX = position.dx + (buttonSize.width / 2);
-    final double leftPosition = centerX - (menuWidth / 2);
-    final RelativeRect rect = RelativeRect.fromLTRB(
-      leftPosition,
-      position.dy + buttonSize.height + 5,
-      MediaQuery.of(context).size.width - leftPosition - menuWidth,
-      0,
-    );
-
-    showMenu<String>(
-      context: context,
-      position: rect,
-      items: [
-        PopupMenuItem<String>(
-          value: 'copy',
-          height: 26,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Row(
-            children: [
-              const Icon(Icons.copy, size: 26),
-              const SizedBox(width: 6),
-              Text('Copy ${_getPlatformName(platform)} URL'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'open',
-          height: 26,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Row(
-            children: [
-              const Icon(Icons.open_in_new, size: 26),
-              const SizedBox(width: 6),
-              Text(_getPlatformName(platform)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'share',
-          height: 26,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Row(
-            children: [
-              const Icon(Icons.share, size: 26),
-              const SizedBox(width: 6),
-              Text('Share ${_getPlatformName(platform)} Link'),
-            ],
-          ),
-        ),
-      ],
-    ).then((value) {
-      if (value == 'copy') {
-        _copyUrlToClipboard(platform, url);
-      } else if (value == 'open') {
-        _openUrl(url);
-      } else if (value == 'share') {
-        _shareUrl(platform, url);
-      }
-    });
-  }
-
-  // Copy URL to clipboard and show feedback
-  void _copyUrlToClipboard(String platform, String url) async {
-    try {
-      await Clipboard.setData(ClipboardData(text: url));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('${_getPlatformName(platform)} URL copied to clipboard'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      Logging.severe('Error copying URL to clipboard', e);
-    }
-  }
-
-  // Add new method to handle sharing
-  void _shareUrl(String platform, String url) async {
-    try {
-      // For desktop platforms, copy to clipboard and show a message
-      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-        await Clipboard.setData(ClipboardData(text: url));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  '${_getPlatformName(platform)} URL copied to clipboard for sharing'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        // For mobile platforms, use the share plugin
-        Share.share(
-          'Check out this album on ${_getPlatformName(platform)}: $url',
-          subject: 'Album link from RateMe',
-        );
-      }
-    } catch (e) {
-      Logging.severe('Error sharing URL', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error sharing: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
-  String _getPlatformName(String platform) {
-    // Fix: Ensure consistent normalization for platform names
-    switch (platform.toLowerCase()) {
-      case 'spotify':
-        return 'Spotify';
-      case 'apple_music':
-        return 'Apple Music';
-      case 'deezer':
-        return 'Deezer';
-      case 'bandcamp':
-        return 'Bandcamp';
-      case 'discogs':
-        return 'Discogs';
-      default:
-        return platform.split('_').map((s) => s.capitalize()).join(' ');
-    }
-  }
-
-  Future<void> _openUrl(String url) async {
-    try {
-      final uri = Uri.parse(url);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      Logging.severe('Error opening URL: $url', e);
-    }
   }
 
   // Refresh platform matches method - optimized version
