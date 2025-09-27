@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/album_model.dart';
 import '../../core/services/logging.dart';
 import '../../ui/widgets/skeleton_loading.dart';
@@ -706,10 +707,41 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       child: const Text('Your Button'),
     );
 
+    // Get the URL for this platform
+    final String? platformUrl = _platformUrls[platform];
+
+    // Wrap the icon in an InkWell or GestureDetector if the URL is available
     return SizedBox(
       width: widget.buttonSize,
       height: widget.buttonSize,
-      child: content,
+      child: platformUrl != null && platformUrl.isNotEmpty
+          ? InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () async {
+                try {
+                  final uri = Uri.parse(platformUrl);
+                  // Fix for Linux: Only attempt to launch http(s) URLs, and check scheme
+                  if (uri.scheme == 'http' || uri.scheme == 'https') {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Unsupported URL scheme')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  Logging.severe('Could not launch $platformUrl: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Could not open link')),
+                    );
+                  }
+                }
+              },
+              child: content,
+            )
+          : content,
     );
   }
 
