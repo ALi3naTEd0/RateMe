@@ -1880,7 +1880,6 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   void _showShareDialog() {
-    // Attach ratings to tracks INSIDE the dialog builder to ensure fresh data
     _attachRatingsToTracks();
 
     Logging.severe('Share dialog: tracks with ratings attached');
@@ -1891,60 +1890,105 @@ class _DetailsPageState extends State<DetailsPage> {
       }
     }
 
-    // Define a local key for the ShareWidget instance
     final shareWidgetKey = GlobalKey<ShareWidgetState>();
+    bool exportDarkTheme = true;
 
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) {
-          final shareWidget = ShareWidget(
-            key: shareWidgetKey,
-            album: unifiedAlbum?.toJson() ?? widget.album,
-            tracks: tracks,
-            ratings: ratings,
-            averageRating: averageRating,
-            selectedDominantColor: selectedDominantColor,
-          );
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final theme = exportDarkTheme ? ThemeData.dark() : ThemeData.light();
+            return Theme(
+              data: theme,
+              child: AlertDialog(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Export theme toggle at the top (single location)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Text('Export Theme:'),
+                        const SizedBox(width: 8),
+                        ToggleButtons(
+                          isSelected: [exportDarkTheme, !exportDarkTheme],
+                          onPressed: (index) {
+                            setState(() {
+                              exportDarkTheme = index == 0;
+                            });
+                          },
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Dark'),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Light'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SingleChildScrollView(
+                      child: ShareWidget(
+                        key: shareWidgetKey,
+                        album: unifiedAlbum?.toJson() ?? widget.album,
+                        tracks: tracks,
+                        ratings: ratings,
+                        averageRating: averageRating,
+                        selectedDominantColor: selectedDominantColor,
+                        exportDarkTheme: exportDarkTheme, // Pass to ShareWidget
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      // Capture the context at startup to avoid access problems
+                      final navigator = Navigator.of(context);
+                      final scaffoldMessenger = scaffoldMessengerKey.currentState;
+                      
+                      try {
+                        final path = await shareWidgetKey.currentState?.saveAsImage();
 
-          return AlertDialog(
-            content: SingleChildScrollView(child: shareWidget),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                ),
-                child: const Text('Cancel'),
+                        // Check if the widget is still mounted before using navigator
+                        if (!mounted) return;
+                        
+                        if (path != null) {
+                          navigator.pop();
+                          _showShareOptions(path);
+                        }
+                      } catch (e) {
+                        // Check if the widget is still mounted before showing the error
+                        if (mounted) {
+                          navigator.pop();
+                          scaffoldMessenger?.showSnackBar(
+                            SnackBar(content: Text('Error saving image: $e')),
+                          );
+                        }
+                      }
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                    ),
+                    child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final path =
-                        await shareWidgetKey.currentState?.saveAsImage();
-                    if (mounted && path != null) {
-                      Navigator.of(context).pop();
-                      _showShareOptions(path);
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                      scaffoldMessengerKey.currentState?.showSnackBar(
-                        SnackBar(content: Text('Error saving image: $e')),
-                      );
-                    }
-                  }
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                ),
-                child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
-              ),
-            ],
-          );
-        },
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1964,37 +2008,36 @@ class _DetailsPageState extends State<DetailsPage> {
                   onTap: () async {
                     Navigator.of(bottomSheetContext).pop();
                     try {
-                      final downloadDir =
-                          Directory('/storage/emulated/0/Download');
-                      final fileName =
-                          'RateMe_${DateTime.now().millisecondsSinceEpoch}.png';
+                      final downloadDir = Directory('/storage/emulated/0/Download');
+                      // --- Begin filename fix ---
+                      final artist = unifiedAlbum?.artist ?? widget.album['artistName'] ?? widget.album['artist'] ?? 'UnknownArtist';
+                      final albumName = unifiedAlbum?.name ?? widget.album['collectionName'] ?? widget.album['name'] ?? 'UnknownAlbum';
+                      String sanitize(String s) =>
+                          s.replaceAll(RegExp(r'[\\/:*?"<>|]'), '').replaceAll(' ', '_');
+                      final fileName = '${sanitize(artist)}_${sanitize(albumName)}.png';
+                      // --- End filename fix ---
                       final newPath = '${downloadDir.path}/$fileName';
 
                       // Copy from temp to Downloads
                       await File(path).copy(newPath);
 
                       // Scan file with MediaScanner
-                      const platform =
-                          MethodChannel('com.example.rateme/media_scanner');
+                      const platform = MethodChannel('com.example.rateme/media_scanner');
                       try {
-                        await platform
-                            .invokeMethod('scanFile', {'path': newPath});
+                        await platform.invokeMethod('scanFile', {'path': newPath});
                       } catch (e) {
                         Logging.severe('MediaScanner error: $e');
                       }
 
-                      if (mounted) {
-                        scaffoldMessengerKey.currentState?.showSnackBar(
-                          SnackBar(
-                              content: Text('Saved to Downloads: $fileName')),
-                        );
-                      }
+                      if (!mounted) return;
+                      scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                      );
                     } catch (e) {
-                      if (mounted) {
-                        scaffoldMessengerKey.currentState?.showSnackBar(
-                          SnackBar(content: Text('Error saving file: $e')),
-                        );
-                      }
+                      if (!mounted) return;
+                      scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('Error saving file: $e')),
+                      );
                     }
                   },
                 ),
@@ -2004,16 +2047,14 @@ class _DetailsPageState extends State<DetailsPage> {
                   onTap: () async {
                     Navigator.of(bottomSheetContext).pop();
                     try {
-                      // Use Share.shareXFiles for file sharing (share_plus API)
                       await SharePlus.instance.share(ShareParams(
                         files: [XFile(path)],
                       ));
                     } catch (e) {
-                      if (mounted) {
-                        scaffoldMessengerKey.currentState?.showSnackBar(
-                          SnackBar(content: Text('Error sharing: $e')),
-                        );
-                      }
+                      if (!mounted) return;
+                      scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('Error sharing: $e')),
+                      );
                     }
                   },
                 ),
@@ -2023,6 +2064,7 @@ class _DetailsPageState extends State<DetailsPage> {
         },
       );
     } else {
+      if (!mounted) return;
       scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Image saved to: $path')),
       );
@@ -2247,7 +2289,7 @@ class _DetailsPageState extends State<DetailsPage> {
             Logging.severe('Deezer: Found album URL by search: $deezerUrl');
           }
         }
-        if (deezerUrl != null) {
+ if (deezerUrl != null) {
           final deezer = PlatformServiceFactory().getService('deezer');
           final details = await deezer.fetchAlbumDetails(deezerUrl);
           deezerDate = details?['release_date'] ?? details?['releaseDate'];

@@ -13,6 +13,8 @@ class ShareWidget extends StatefulWidget {
   final String? title;
   final List<Map<String, dynamic>>? albums;
   final Color? selectedDominantColor;
+  final bool exportDarkTheme; // Add this parameter
+  final String? exportFileName; // Add this parameter (optional)
 
   const ShareWidget({
     super.key,
@@ -23,6 +25,8 @@ class ShareWidget extends StatefulWidget {
     this.title,
     this.albums,
     this.selectedDominantColor,
+    this.exportDarkTheme = true, // Default to dark
+    this.exportFileName,
   });
 
   @override
@@ -45,8 +49,13 @@ class ShareWidgetState extends State<ShareWidget> {
         throw Exception('Could not generate image data');
       }
       final pngBytes = byteData.buffer.asUint8List();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'RateMe_album_$timestamp.png';
+
+      // Use artist_album.png naming:
+      final artist = widget.album['artistName'] ?? widget.album['artist'] ?? 'UnknownArtist';
+      final albumName = widget.album['collectionName'] ?? widget.album['name'] ?? 'UnknownAlbum';
+      String sanitize(String s) =>
+          s.replaceAll(RegExp(r'[\\/:*?"<>|]'), '').replaceAll(' ', '_');
+      final fileName = '${sanitize(artist)}_${sanitize(albumName)}.png';
 
       String? savedPath;
       if (Platform.isAndroid) {
@@ -89,20 +98,30 @@ class ShareWidgetState extends State<ShareWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color textColor = isDark ? Colors.white : Colors.black;
+    // Use the exportDarkTheme value to determine theme
+    final theme = widget.exportDarkTheme ? ThemeData.dark() : ThemeData.light();
 
-    return RepaintBoundary(
-      key: _boundaryKey,
-      child: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        padding: const EdgeInsets.all(16),
-        child: widget.albums != null ? _buildCollectionView(textColor) : _buildAlbumView(textColor),
+    return Theme(
+      data: theme,
+      child: RepaintBoundary(
+        key: _boundaryKey,
+        child: Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              widget.albums != null ? _buildCollectionView() : _buildAlbumView(),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildCollectionView(Color textColor) {
+  Widget _buildCollectionView() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -153,7 +172,10 @@ class ShareWidgetState extends State<ShareWidget> {
     );
   }
 
-  Widget _buildAlbumView(Color textColor) {
+  Widget _buildAlbumView() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

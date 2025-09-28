@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Platform Button Visuals:** Improved platform button visuals for both light and dark themes. Selected buttons now use a high-contrast fill and dominant color for icons/borders, ensuring consistent, visually appealing, and accessible UI across themes.
+- **Export Theme Selection:** Added a dark/light theme toggle to the export/share as image dialog. Users can now choose the appearance of exported album images for sharing or saving.
+- **Export File Naming:** Exported album images now use the format `Artist_Album.png` for file names instead of a generic or timestamp-based name.
 
 ### Fixed
 

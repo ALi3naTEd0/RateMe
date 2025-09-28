@@ -1668,7 +1668,6 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   }
 
   void _showShareDialog() {
-    // First debug what we have
     Logging.severe(
         'SavedAlbumPage: Showing share dialog with ${tracks.length} tracks');
     Logging.severe(
@@ -1676,69 +1675,167 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     Logging.severe(
         'Ratings map size: ${ratings.length}, with key type: ${ratings.isNotEmpty ? ratings.keys.first.runtimeType : "unknown"}');
 
-    // Convert ratings map to ensure all keys are strings
     final stringRatings = <String, double>{};
     ratings.forEach((key, value) {
       stringRatings[key.toString()] = value;
     });
 
-    // Use a local GlobalKey for ShareWidget instead of ShareWidget.shareKey
     final shareWidgetKey = GlobalKey<ShareWidgetState>();
+    bool exportDarkTheme = true;
 
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) {
-          final shareWidget = ShareWidget(
-            key: shareWidgetKey,
-            album: _albumData,
-            tracks: tracks,
-            ratings: stringRatings,
-            averageRating: averageRating,
-            selectedDominantColor: selectedDominantColor,
-          );
-
-          return AlertDialog(
-            content: SingleChildScrollView(child: shareWidget),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final theme = exportDarkTheme ? ThemeData.dark() : ThemeData.light();
+            return Theme(
+              data: theme,
+              child: AlertDialog(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Export theme toggle at the top
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Text('Export Theme:'),
+                        const SizedBox(width: 8),
+                        ToggleButtons(
+                          isSelected: [exportDarkTheme, !exportDarkTheme],
+                          onPressed: (index) {
+                            setState(() {
+                              exportDarkTheme = index == 0;
+                            });
+                          },
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Dark'),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Light'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SingleChildScrollView(
+                      child: ShareWidget(
+                        key: shareWidgetKey,
+                        album: _albumData,
+                        tracks: tracks,
+                        ratings: stringRatings,
+                        averageRating: averageRating,
+                        selectedDominantColor: selectedDominantColor,
+                        exportDarkTheme: exportDarkTheme, // Pass to ShareWidget
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('Cancel'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      // Capture the context at startup to avoid access problems
+                      final navigator = Navigator.of(context);
+                      
+                      try {
+                        final path = await shareWidgetKey.currentState?.saveAsImage();
+                        
+                        if (mounted && path != null) {
+                          navigator.pop();
+                          _showShareOptions(path);
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          navigator.pop();
+                          _showSnackBar('Error saving image: $e');
+                        }
+                      }
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                    ),
+                    child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final path =
-                        await shareWidgetKey.currentState?.saveAsImage();
-                    if (mounted && path != null) {
-                      Navigator.of(context).pop();
-                      _showShareOptions(path);
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                      _showSnackBar('Error saving image: $e');
-                    }
-                  }
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                ),
-                child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
-              ),
-            ],
-          );
-        },
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
   void _showShareOptions(String path) {
-    // ...existing code...
+    if (Platform.isAndroid) {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        builder: (BuildContext bottomSheetContext) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.download),
+                  title: const Text('Save to Downloads'),
+                  onTap: () async {
+                    Navigator.of(bottomSheetContext).pop();
+                    try {
+                      final downloadDir = Directory('/storage/emulated/0/Download');
+                      // --- Begin filename fix ---
+                      final artist = unifiedAlbum?.artist ?? _albumData['artistName'] ?? _albumData['artist'] ?? 'UnknownArtist';
+                      final albumName = unifiedAlbum?.name ?? _albumData['collectionName'] ?? _albumData['name'] ?? 'UnknownAlbum';
+                      String sanitize(String s) =>
+                          s.replaceAll(RegExp(r'[\\/:*?"<>|]'), '').replaceAll(' ', '_');
+                      final fileName = '${sanitize(artist)}_${sanitize(albumName)}.png';
+                      // --- End filename fix ---
+                      final newPath = '${downloadDir.path}/$fileName';
+
+                      // Copy from temp to Downloads
+                      await File(path).copy(newPath);
+
+                      // Scan file with MediaScanner
+                      const platform = MethodChannel('com.example.rateme/media_scanner');
+                      try {
+                        await platform.invokeMethod('scanFile', {'path': newPath});
+                      } catch (e) {
+                        Logging.severe('MediaScanner error: $e');
+                      }
+
+                      if (!mounted) return;
+                      scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('Error saving file: $e')),
+                      );
+                    }
+                  },
+                ),
+                // ...existing code...
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      if (!mounted) return;
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Image saved to: $path')),
+      );
+    }
   }
 
   Widget _buildInfoRow(String label, String value, {double fontSize = 16}) {
