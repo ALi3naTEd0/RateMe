@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:sqflite/sqflite.dart';
 import '../../database/database_helper.dart';
 import '../../core/services/logging.dart';
 
@@ -45,7 +46,7 @@ class AlbumMigrationUtility {
   }
 
   /// Ensures the format_version column exists in the albums table
-  static Future<void> _ensureFormatVersionColumn(db) async {
+  static Future<void> _ensureFormatVersionColumn(Database db) async {
     try {
       // Check if format_version column exists
       final tableInfo = await db.rawQuery("PRAGMA table_info(albums)");

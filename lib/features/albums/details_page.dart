@@ -1891,19 +1891,21 @@ class _DetailsPageState extends State<DetailsPage> {
       }
     }
 
+    // Define a local key for the ShareWidget instance
+    final shareWidgetKey = GlobalKey<ShareWidgetState>();
+
     Navigator.of(context).push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) {
           final shareWidget = ShareWidget(
-            key: ShareWidget.shareKey,
+            key: shareWidgetKey,
             album: unifiedAlbum?.toJson() ?? widget.album,
             tracks: tracks,
-            ratings: ratings, // Keep this for backward compatibility
+            ratings: ratings,
             averageRating: averageRating,
-            selectedDominantColor:
-                selectedDominantColor, // Pass the selected color
+            selectedDominantColor: selectedDominantColor,
           );
 
           return AlertDialog(
@@ -1920,7 +1922,7 @@ class _DetailsPageState extends State<DetailsPage> {
                 onPressed: () async {
                   try {
                     final path =
-                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                        await shareWidgetKey.currentState?.saveAsImage();
                     if (mounted && path != null) {
                       Navigator.of(context).pop();
                       _showShareOptions(path);
@@ -1981,7 +1983,6 @@ class _DetailsPageState extends State<DetailsPage> {
                         Logging.severe('MediaScanner error: $e');
                       }
 
-                      // Use scaffoldMessengerKey instead of context after async gap
                       if (mounted) {
                         scaffoldMessengerKey.currentState?.showSnackBar(
                           SnackBar(
@@ -1989,7 +1990,6 @@ class _DetailsPageState extends State<DetailsPage> {
                         );
                       }
                     } catch (e) {
-                      // Use scaffoldMessengerKey instead of context after async gap
                       if (mounted) {
                         scaffoldMessengerKey.currentState?.showSnackBar(
                           SnackBar(content: Text('Error saving file: $e')),
@@ -2004,9 +2004,11 @@ class _DetailsPageState extends State<DetailsPage> {
                   onTap: () async {
                     Navigator.of(bottomSheetContext).pop();
                     try {
-                      await Share.shareXFiles([XFile(path)]);
+                      // Use Share.shareXFiles for file sharing (share_plus API)
+                      await SharePlus.instance.share(ShareParams(
+                        files: [XFile(path)],
+                      ));
                     } catch (e) {
-                      // Use scaffoldMessengerKey instead of context after async gap
                       if (mounted) {
                         scaffoldMessengerKey.currentState?.showSnackBar(
                           SnackBar(content: Text('Error sharing: $e')),
@@ -2254,16 +2256,16 @@ class _DetailsPageState extends State<DetailsPage> {
             deezerDate = deezerDate.substring(0, 10);
           }
         } else {
-          Logging.severe('Deezer: Could not determine album URL for fetch');
+          Logging.severe('Deezer: could not determine album URL for fetch');
         }
       } catch (e, stack) {
         Logging.severe('Deezer fetch error: $e', stack);
-      }
+           }
 
       Logging.severe('Fetched release dates:');
       Logging.severe('Spotify: $spotifyDate');
       Logging.severe('Apple Music: $itunesDate');
-      Logging.severe('Deezer: $deezerDate');
+           Logging.severe('Deezer: $deezerDate');
 
       // --- Consensus logic: use the date that matches at least 2 sources (normalized) ---
       List<String> allDates = [spotifyDate, itunesDate, deezerDate]

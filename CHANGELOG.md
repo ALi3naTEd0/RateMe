@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Consensus Logic**: The app now logs and compares all three dates, using the consensus if two or more platforms agree, or falling back to a preferred order (Spotify > Apple > Deezer).
 - **Date Persistence**: When a new date is found via refresh, it is saved to the database and immediately updates the album in the UI.
 - **Reload Option in Details Page**: Added a reload/refresh button to the album details page, allowing users to fetch and fix the release date before saving the album to their collection.
+- **Share Widget GlobalKey:** Replaced deprecated or missing static/global share keys with local `GlobalKey<ShareWidgetState>()` instances for all share dialogs, fixing "undefined getter 'shareKey'" errors and improving widget state management.
+- **Share API Update:** Updated file sharing logic to use `await SharePlus.instance.share(ShareParams(files: [XFile(path)]))` for compatibility with the latest `share_plus` API, replacing deprecated or incorrect usage.
 
 ## [1.1.4-1] - 2025-09-15
 

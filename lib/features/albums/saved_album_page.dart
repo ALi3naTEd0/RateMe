@@ -1682,19 +1682,21 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       stringRatings[key.toString()] = value;
     });
 
+    // Use a local GlobalKey for ShareWidget instead of ShareWidget.shareKey
+    final shareWidgetKey = GlobalKey<ShareWidgetState>();
+
     Navigator.of(context).push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) {
           final shareWidget = ShareWidget(
-            key: ShareWidget.shareKey,
+            key: shareWidgetKey,
             album: _albumData,
-            tracks: tracks // Already List<Track>, no conversion needed
-            ,
-            ratings: stringRatings, // Using stringRatings for consistency
+            tracks: tracks,
+            ratings: stringRatings,
             averageRating: averageRating,
-            selectedDominantColor: selectedDominantColor // Add this line
+            selectedDominantColor: selectedDominantColor,
           );
 
           return AlertDialog(
@@ -1711,7 +1713,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                 onPressed: () async {
                   try {
                     final path =
-                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                        await shareWidgetKey.currentState?.saveAsImage();
                     if (mounted && path != null) {
                       Navigator.of(context).pop();
                       _showShareOptions(path);

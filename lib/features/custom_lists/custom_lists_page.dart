@@ -959,13 +959,16 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
+    // Use a local GlobalKey for ShareWidget instead of ShareWidget.shareKey
+    final shareWidgetKey = GlobalKey<ShareWidgetState>();
+
     navigator.push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) {
           final shareWidget = ShareWidget(
-            key: ShareWidget.shareKey,
+            key: shareWidgetKey,
             album: albums.first, // Use first album as main album
             tracks: const [], // Empty tracks list for collection view
             ratings: const {}, // Empty ratings for collection view
@@ -985,7 +988,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                 onPressed: () async {
                   try {
                     final path =
-                        await ShareWidget.shareKey.currentState?.saveAsImage();
+                        await shareWidgetKey.currentState?.saveAsImage();
                     if (mounted && path != null) {
                       navigator.pop();
                       _showSnackBar('Image saved to: $path');

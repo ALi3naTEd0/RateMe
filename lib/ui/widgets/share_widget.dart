@@ -6,27 +6,23 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 
 class ShareWidget extends StatefulWidget {
-  static final GlobalKey<ShareWidgetState> shareKey =
-      GlobalKey<ShareWidgetState>();
-  static final GlobalKey _boundaryKey = GlobalKey(); // Add static boundary key
-
   final Map<String, dynamic> album;
   final List<dynamic>? tracks;
   final Map<String, dynamic>? ratings;
   final double? averageRating;
   final String? title;
   final List<Map<String, dynamic>>? albums;
-  final Color? selectedDominantColor; // Add this parameter
+  final Color? selectedDominantColor;
 
   const ShareWidget({
-    super.key, // Convert to super parameter
+    super.key,
     required this.album,
     this.tracks,
     this.ratings,
     this.averageRating,
     this.title,
     this.albums,
-    this.selectedDominantColor, // Add this parameter
+    this.selectedDominantColor,
   });
 
   @override
@@ -34,24 +30,20 @@ class ShareWidget extends StatefulWidget {
 }
 
 class ShareWidgetState extends State<ShareWidget> {
+  final GlobalKey _boundaryKey = GlobalKey();
+
   Future<String?> saveAsImage() async {
     try {
       await Future.delayed(const Duration(milliseconds: 200));
-
-      final boundary = ShareWidget._boundaryKey.currentContext
-          ?.findRenderObject() as RenderRepaintBoundary?;
-
+      final boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Could not find boundary widget');
       }
-
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
       if (byteData == null) {
         throw Exception('Could not generate image data');
       }
-
       final pngBytes = byteData.buffer.asUint8List();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'RateMe_album_$timestamp.png';
@@ -64,15 +56,12 @@ class ShareWidgetState extends State<ShareWidget> {
         await tempFile.writeAsBytes(pngBytes);
         savedPath = tempPath;
       } else {
-        // For desktop platforms, use file picker
         final String? savePath = await FilePicker.platform.saveFile(
           dialogTitle: 'Save image as',
           fileName: fileName,
           type: FileType.custom,
           allowedExtensions: ['png'],
-          lockParentWindow: true,
         );
-
         if (savePath != null) {
           final file = File(savePath);
           await file.writeAsBytes(pngBytes);
@@ -80,13 +69,11 @@ class ShareWidgetState extends State<ShareWidget> {
         }
       }
 
-      // Guard context usage with a mounted check
       if (mounted && savedPath != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Image saved to: $savedPath')),
         );
       }
-
       return savedPath;
     } catch (e) {
       debugPrint('Error saving image: $e');
@@ -102,25 +89,27 @@ class ShareWidgetState extends State<ShareWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+
     return RepaintBoundary(
-      key: ShareWidget._boundaryKey, // Use the static boundary key
+      key: _boundaryKey,
       child: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
         padding: const EdgeInsets.all(16),
-        child:
-            widget.albums != null ? _buildCollectionView() : _buildAlbumView(),
+        child: widget.albums != null ? _buildCollectionView(textColor) : _buildAlbumView(textColor),
       ),
     );
   }
 
-  Widget _buildCollectionView() {
+  Widget _buildCollectionView(Color textColor) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.title != null)
           Text(
             widget.title!,
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: textColor),
           ),
         const Divider(),
         if (widget.albums != null)
@@ -143,13 +132,14 @@ class ShareWidgetState extends State<ShareWidget> {
                         children: [
                           Text(
                             album['collectionName'] ?? 'Unknown Album',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
                           ),
-                          Text(album['artistName'] ?? 'Unknown Artist'),
+                          Text(album['artistName'] ?? 'Unknown Artist', style: TextStyle(color: textColor)),
                           Text(
                             'Rating: ${(album['averageRating'] ?? 0.0).toStringAsFixed(2)}',
                             style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
+                              color: widget.selectedDominantColor ??
+                                  Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -163,7 +153,7 @@ class ShareWidgetState extends State<ShareWidget> {
     );
   }
 
-  Widget _buildAlbumView() {
+  Widget _buildAlbumView(Color textColor) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -185,11 +175,11 @@ class ShareWidgetState extends State<ShareWidget> {
                 children: [
                   Text(
                     widget.album['collectionName'] ?? 'Unknown Album',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(color: textColor),
                   ),
                   Text(
                     widget.album['artistName'] ?? 'Unknown Artist',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: textColor),
                   ),
                   Text(
                     'Rating: ${widget.averageRating?.toStringAsFixed(1) ?? 'N/A'}',
@@ -208,55 +198,46 @@ class ShareWidgetState extends State<ShareWidget> {
 
         // Track list - use selectedDominantColor for rating colors
         ...widget.tracks?.map((track) {
-              // Get rating from track metadata first, then fallback to ratings map
               double rating = 0.0;
-
-              // Priority 1: Check track metadata for rating
-              if (track.metadata != null &&
-                  track.metadata.containsKey('rating')) {
+              if (track.metadata != null && track.metadata.containsKey('rating')) {
                 var metaRating = track.metadata['rating'];
                 if (metaRating is num) {
                   rating = metaRating.toDouble();
                 }
-              }
-              // Priority 2: Check ratings map
-              else if (widget.ratings != null) {
+              } else if (widget.ratings != null) {
                 String trackIdStr = track.id.toString();
                 var rawValue = widget.ratings![trackIdStr];
                 if (rawValue is num) {
                   rating = rawValue.toDouble();
                 }
               }
-
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
-                    // Track number
                     SizedBox(
                       width: 30,
                       child: Text(
                         track.position.toString(),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
                       ),
                     ),
-                    // Title
                     Expanded(
                       child: Text(
                         track.name,
                         overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: textColor),
                       ),
                     ),
-                    // Duration
                     SizedBox(
                       width: 70,
                       child: Text(
                         formatDuration(track.durationMs),
                         textAlign: TextAlign.right,
+                        style: TextStyle(color: textColor),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Rating - Use selectedDominantColor if available, otherwise primary color
                     SizedBox(
                       width: 40,
                       child: Text(
