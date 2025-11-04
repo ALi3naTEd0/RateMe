@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Track List Text Styling:** Fixed overly bold font weights in track list headers and improved text rendering across all album pages
+  - Changed header font weight from `bold` to `w600` (semi-bold) for cleaner appearance
+  - Changed track data font weight from `bold` to `normal` for better readability
+  - Reduced font size from 14px to 13px for more compact display
+  - Fixed "Duration" column text wrapping by increasing width from 60px to 70px
+  - Applied consistent styling across both details page and saved album page
 - **Deezer Cover Art Refetch:** Fixed Deezer album cover art refetch functionality to properly update artwork in saved_ratings_page by prioritizing the `artwork_url` database column
 - **Cover Art Refetch Button Positioning:** Moved the "Fix cover art" button to a more discrete location directly under the album artwork with smaller, grayed-out styling for better visual hierarchy
 - **Deezer Artwork Fallback Logic:** Enhanced Deezer cover art fetching to first try the CDN, then automatically fall back to Spotify and Apple Music search if CDN fails, with comprehensive logging for troubleshooting

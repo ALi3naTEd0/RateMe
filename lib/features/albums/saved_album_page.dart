@@ -1364,13 +1364,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                       ),
                                       child: Row(
                                         children: [
-                                          const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))),
+                                          const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
                                           const SizedBox(width: 8),
-                                          Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+                                          Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
                                           const SizedBox(width: 8),
-                                          const SizedBox(width: 50, child: Center(child: Text('Length', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))),
+                                          const SizedBox(width: 70, child: Center(child: Text('Duration', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
                                           const SizedBox(width: 8),
-                                          const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))),
+                                          const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
                                         ],
                                       ),
                                     ),
@@ -1390,7 +1390,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                         ),
                                         child: Row(
                                           children: [
-                                            SizedBox(width: 30, child: Center(child: Text(track.position.toString(), style: TextStyle(fontSize: 14)))),
+                                            SizedBox(width: 30, child: Center(child: Text(track.position.toString(), style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal)))),
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Tooltip(
@@ -1398,12 +1398,12 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                                 child: Text(
                                                   track.name,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(fontSize: 14),
+                                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
                                                 ),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            SizedBox(width: 50, child: Center(child: Text(formatDuration(track.durationMs), style: TextStyle(fontSize: 14)))),
+                                            SizedBox(width: 70, child: Center(child: Text(formatDuration(track.durationMs), style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal)))),
                                             const SizedBox(width: 8),
                                             SizedBox(width: 160, child: _buildCompactTrackSlider(track.id)),
                                           ],
