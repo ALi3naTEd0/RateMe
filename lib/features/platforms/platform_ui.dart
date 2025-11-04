@@ -143,65 +143,51 @@ class PlatformUI {
         album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      child: InkWell(
+      margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8), // Reduced from 4 to 2
+      child: ListTile(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            children: [
-              // Album artwork
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: artworkUrl.isNotEmpty
-                      ? Image.network(
-                          artworkUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                            color: Colors.grey.shade800,
-                            child:
-                                const Icon(Icons.album, color: Colors.white54),
-                          ),
-                        )
-                      : Container(
-                          color: Colors.grey.shade800,
-                          child: const Icon(Icons.album, color: Colors.white54),
-                        ),
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              // Album info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      albumName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0), // Reduced from all 8.0
+        dense: true, // Added dense property for more compact layout
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            width: 45, // Reduced from 50
+            height: 45, // Reduced from 50
+            child: artworkUrl.isNotEmpty
+                ? Image.network(
+                    artworkUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey.shade800,
+                      child:
+                          const Icon(Icons.album, color: Colors.white54, size: 20), // Reduced icon size
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      artistName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Platform icon
-              buildPlatformIcon(platform: platform, size: 20),
-            ],
+                  )
+                : Container(
+                    color: Colors.grey.shade800,
+                    child: const Icon(Icons.album, color: Colors.white54, size: 20), // Reduced icon size
+                  ),
           ),
         ),
+        title: Text(
+          albumName,
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          artistName,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: buildPlatformIcon(platform: platform, size: 18), // Reduced from 20
       ),
     );
   }

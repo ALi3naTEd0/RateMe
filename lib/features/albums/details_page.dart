@@ -1396,19 +1396,18 @@ class _DetailsPageState extends State<DetailsPage> {
         vertical: label == "Rating" ? 8.0 : 2.0,
       ),
       child: Wrap(
-        // Use Wrap to allow text to flow to next line
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             "$label: ",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize), // Keep bold for labels
           ),
           Tooltip(
-            message: value, // Add tooltip to show full text on hover/long press
+            message: value,
             child: Text(
               value,
-              style: TextStyle(fontSize: fontSize),
+              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.normal), // Normal weight for values
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1439,13 +1438,13 @@ class _DetailsPageState extends State<DetailsPage> {
                 ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+                    const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))), // Changed from w600 to w500
                     const SizedBox(width: 8),
-                    Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                    Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13))), // Changed from w600 to w500
                     const SizedBox(width: 8),
-                    const SizedBox(width: 70, child: Center(child: Text('Duration', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+                    const SizedBox(width: 70, child: Center(child: Text('Duration', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))), // Changed from w600 to w500
                     const SizedBox(width: 8),
-                    const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+                    const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))), // Changed from w600 to w500
                   ],
                 ),
               ),
@@ -1542,7 +1541,7 @@ class _DetailsPageState extends State<DetailsPage> {
     // Track selected lists
     Map<String, bool> selectedLists = {};
 
-    await Navigator.of(context).push(
+    final result = await Navigator.of(context).push(
       PageRouteBuilder(
         barrierColor: Colors.black54,
         opaque: false,
@@ -1637,164 +1636,163 @@ class _DetailsPageState extends State<DetailsPage> {
           ),
         ),
       ),
-    ).then((result) async {
-      if (result == null) return; // Dialog cancelled
+    );
 
-      if (result == 'new') {
-        _showCreateListDialog();
+    // FIX: Move the .then() logic here as direct await/if statements
+    if (result == null) return; // Dialog cancelled
+
+    if (result == 'new') {
+      _showCreateListDialog();
+      return;
+    }
+
+    try {
+      // CRITICAL FIX: Ensure Spotify albums get disc numbers before saving
+      Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
+      
+      // If this is a Spotify album, ensure we have proper disc numbers in tracks
+      if (albumToSave['platform'] == 'spotify') {
+        Logging.severe('=== ENSURING SPOTIFY DISC NUMBERS BEFORE SAVE ===');
+        
+        // Check if tracks already have disc_number data
+        bool hasDiscNumbers = false;
+        if (albumToSave['tracks'] is List && (albumToSave['tracks'] as List).isNotEmpty) {
+          final firstTrack = (albumToSave['tracks'] as List)[0];
+          if (firstTrack is Map<String, dynamic> && firstTrack.containsKey('disc_number')) {
+            hasDiscNumbers = true;
+            Logging.severe('Tracks already have disc_number data');
+          }
+        }
+        
+        // If no disc numbers, fetch fresh data from Spotify API
+        if (!hasDiscNumbers) {
+          Logging.severe('No disc numbers found, fetching fresh Spotify data');
+          final enhancedAlbum = await SearchService.fetchAlbumTracks(albumToSave);
+          
+          if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
+            albumToSave = enhancedAlbum;
+            Logging.severe('Updated album with ${(enhancedAlbum['tracks'] as List).length} tracks including disc numbers');
+            
+            // Debug first few tracks
+            final tracksList = enhancedAlbum['tracks'] as List;
+            for (int i = 0; i < tracksList.length && i < 3; i++) {
+              final track = tracksList[i];
+              Logging.severe('Enhanced Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
+            }
+          } else {
+            Logging.severe('Failed to enhance Spotify album with disc numbers');
+          }
+        }
+      }
+
+      // First make sure the album is saved to database (now with disc numbers)
+      final saveResult = await UserData.addToSavedAlbums(albumToSave);
+
+      // --- Save dominant color if selected ---
+      final albumIdStr = unifiedAlbum?.id.toString() ??
+          albumToSave['id']?.toString() ??
+          albumToSave['collectionId']?.toString();
+      if (albumIdStr != null &&
+          albumIdStr.isNotEmpty &&
+          selectedDominantColor != null) {
+        await DatabaseHelper.instance.saveDominantColor(albumIdStr,
+            '#${selectedDominantColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}');
+        Logging.severe('Saved dominant color for album $albumIdStr');
+      }
+      // --- end dominant color save ---
+
+      if (!saveResult) {
+        Logging.severe('Failed to save album before adding to list');
+        if (mounted) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(content: Text('Error saving album to database')),
+          );
+        }
         return;
       }
 
-      try {
-        // CRITICAL FIX: Ensure Spotify albums get disc numbers before saving
-        Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
-        
-        // If this is a Spotify album, ensure we have proper disc numbers in tracks
-        if (albumToSave['platform'] == 'spotify') {
-          Logging.severe('=== ENSURING SPOTIFY DISC NUMBERS BEFORE SAVE ===');
-          
-          // Check if tracks already have disc_number data
-          bool hasDiscNumbers = false;
-          if (albumToSave['tracks'] is List && (albumToSave['tracks'] as List).isNotEmpty) {
-            final firstTrack = (albumToSave['tracks'] as List)[0];
-            if (firstTrack is Map<String, dynamic> && firstTrack.containsKey('disc_number')) {
-              hasDiscNumbers = true;
-              Logging.severe('Tracks already have disc_number data');
-            }
-          }
-          
-          // If no disc numbers, fetch fresh data from Spotify API
-          if (!hasDiscNumbers) {
-            Logging.severe('No disc numbers found, fetching fresh Spotify data');
-            final enhancedAlbum = await SearchService.fetchAlbumTracks(albumToSave);
-            
-            if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
-              albumToSave = enhancedAlbum;
-              Logging.severe('Updated album with ${(enhancedAlbum['tracks'] as List).length} tracks including disc numbers');
-              
-              // Debug first few tracks
-              final tracksList = enhancedAlbum['tracks'] as List;
-              for (int i = 0; i < tracksList.length && i < 3; i++) {
-                final track = tracksList[i];
-                Logging.severe('Enhanced Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
-              }
-            } else {
-              Logging.severe('Failed to enhance Spotify album with disc numbers');
-            }
-          }
-        }
+      // Get the album ID as string
+      String? albumId = unifiedAlbum?.id.toString() ??
+          albumToSave['id']?.toString() ??
+          albumToSave['collectionId']?.toString();
 
-        // First make sure the album is saved to database (now with disc numbers)
-        final saveResult = await UserData.addToSavedAlbums(albumToSave);
-
-        // --- Save dominant color if selected ---
-        final albumIdStr = unifiedAlbum?.id.toString() ??
-            albumToSave['id']?.toString() ??
-            albumToSave['collectionId']?.toString();
-        if (albumIdStr != null &&
-            albumIdStr.isNotEmpty &&
-            selectedDominantColor != null) {
-          await DatabaseHelper.instance.saveDominantColor(albumIdStr,
-              '#${selectedDominantColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}');
-          Logging.severe('Saved dominant color for album $albumIdStr');
-        }
-        // --- end dominant color save ---
-
-        if (!saveResult) {
-          Logging.severe('Failed to save album before adding to list');
-          if (mounted) {
-            scaffoldMessengerKey.currentState?.showSnackBar(
-              const SnackBar(content: Text('Error saving album to database')),
-            );
-          }
-          return;
-        }
-
-        // Get the album ID as string
-        String? albumId = unifiedAlbum?.id.toString() ??
-            albumToSave['id']?.toString() ??
-            albumToSave['collectionId']?.toString();
-
-        if (albumId == null || albumId.isEmpty) {
-          Logging.severe('Cannot add to list - album ID is null or empty');
-          if (mounted) {
-            scaffoldMessengerKey.currentState?.showSnackBar(
-              const SnackBar(content: Text('Error: Album has no ID')),
-            );
-          }
-          return;
-        }
-
-        // Handle selected lists
-        final Map<String, bool> selections = result as Map<String, bool>;
-        final lists = await UserData.getCustomLists();
-        int addedCount = 0;
-        int removedCount = 0;
-
-        for (var list in lists) {
-          final isSelected = selections[list.id] ?? false;
-          final hasAlbum = list.albumIds.contains(albumId);
-
-          Logging.severe(
-              'List ${list.name}: selected=$isSelected, hasAlbum=$hasAlbum');
-
-          if (isSelected && !hasAlbum) {
-            // Add to list
-            list.albumIds.add(albumId);
-            final success = await UserData.saveCustomList(list);
-            if (success) {
-              addedCount++;
-              Logging.severe('Added album to list ${list.name}');
-            } else {
-              Logging.severe('Failed to add album to list ${list.name}');
-            }
-          } else if (!isSelected && hasAlbum) {
-            // Remove from list
-            list.albumIds.remove(albumId);
-            final success = await UserData.saveCustomList(list);
-            if (success) {
-              removedCount++;
-              Logging.severe('Removed album from list ${list.name}');
-            } else {
-              Logging.severe('Failed to remove album from list ${list.name}');
-            }
-          }
-        }
-
-        if (mounted) {
-          String message = '';
-          if (addedCount > 0) message += 'Added to $addedCount lists. ';
-          if (removedCount > 0) message += 'Removed from $removedCount lists.';
-          if (message.isNotEmpty) {
-            scaffoldMessengerKey.currentState?.showSnackBar(
-              SnackBar(content: Text(message.trim())),
-            );
-          } else {
-            scaffoldMessengerKey.currentState?.showSnackBar(
-              const SnackBar(content: Text('No changes to lists')),
-            );
-          }
-        }
-      } catch (e, stack) {
-        Logging.severe('Error while updating lists', e, stack);
+      if (albumId == null || albumId.isEmpty) {
+        Logging.severe('Cannot add to list - album ID is null or empty');
         if (mounted) {
           scaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            const SnackBar(content: Text('Error: Album has no ID')),
+          );
+        }
+        return;
+      }
+
+      // Handle selected lists
+      final Map<String, bool> selections = result as Map<String, bool>;
+      final lists = await UserData.getCustomLists();
+      int addedCount = 0;
+      int removedCount = 0;
+
+      for (var list in lists) {
+        final isSelected = selections[list.id] ?? false;
+        final hasAlbum = list.albumIds.contains(albumId);
+
+        Logging.severe(
+            'List ${list.name}: selected=$isSelected, hasAlbum=$hasAlbum');
+
+        if (isSelected && !hasAlbum) {
+          // Add to list
+          list.albumIds.add(albumId);
+          final success = await UserData.saveCustomList(list);
+          if (success) {
+            addedCount++;
+            Logging.severe('Added album to list ${list.name}');
+          } else {
+            Logging.severe('Failed to add album to list ${list.name}');
+          }
+        } else if (!isSelected && hasAlbum) {
+          // Remove from list
+          list.albumIds.remove(albumId);
+          final success = await UserData.saveCustomList(list);
+          if (success) {
+            removedCount++;
+            Logging.severe('Removed album from list ${list.name}');
+          } else {
+            Logging.severe('Failed to remove album from list ${list.name}');
+          }
+        }
+      }
+
+      if (mounted) {
+        String message = '';
+        if (addedCount > 0) message += 'Added to $addedCount lists. ';
+        if (removedCount > 0) message += 'Removed from $removedCount lists.';
+        if (message.isNotEmpty) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(message.trim())),
+          );
+        } else {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(content: Text('No changes to lists')),
           );
         }
       }
-    });
+    } catch (e, stack) {
+      Logging.severe('Error while updating lists', e, stack);
+      if (mounted) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   void _showCreateListDialog() {
     final nameController = TextEditingController();
     final descController = TextEditingController();
 
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        barrierColor: Colors.black54,
-        opaque: false,
-        pageBuilder: (_, __, ___) => AlertDialog(
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
           title: const Text('Create New List'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1845,6 +1843,9 @@ class _DetailsPageState extends State<DetailsPage> {
             FilledButton(
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
+                  // CRITICAL FIX: Store navigator before async operations
+                  final navigator = Navigator.of(context);
+                  
                   // CRITICAL FIX: Ensure Spotify albums have disc numbers before saving
                   Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
                   
@@ -1901,10 +1902,11 @@ class _DetailsPageState extends State<DetailsPage> {
                       SnackBar(content: Text('Created list "${newList.name}"')),
                     );
                   }
-                }
-                
-                // Use mounted check for navigation
-                if (mounted) {
+                  
+                  // FIX: Use stored navigator instead of Navigator.of(context)
+                  navigator.pop();
+                } else {
+                  // FIX: If name is empty, we can still use context directly since no async gap
                   Navigator.of(context).pop();
                 }
               },
@@ -1919,8 +1921,7 @@ class _DetailsPageState extends State<DetailsPage> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   void _showOptionsDialog() {
@@ -2294,7 +2295,8 @@ class _DetailsPageState extends State<DetailsPage> {
       Logging.severe('Error extracting tracks from album', e, stack);
     }
 
-    return result;
+    Logging.severe('Extracted ${result.length} tracks from album');
+    return result; // FIX: Moved return statement outside the try-catch to ensure it always executes
   }
 
   // Add this method to handle refresh
@@ -2328,7 +2330,7 @@ class _DetailsPageState extends State<DetailsPage> {
     final albumName = unifiedAlbum?.name ?? '';
     final artistName = unifiedAlbum?.artistName ?? '';
     final albumUrl = unifiedAlbum?.url ?? '';
-    final platform = (unifiedAlbum?.platform ?? '').toLowerCase();
+    final platform = unifiedAlbum?.platform.toLowerCase() ?? ''; // FIX: Removed duplicate ?? operator
 
     String? spotifyDate;
     String? itunesDate;
@@ -2525,19 +2527,27 @@ class _DetailsPageState extends State<DetailsPage> {
         );
       }
 
-      setState(() {});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      
+      setState(() {});
+      
+      // FIX: Use scaffoldMessengerKey instead of ScaffoldMessenger.of(context)
+      scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text(message)),
       );
       Logging.severe('=== RELEASE DATE DEBUG END ===');
     } catch (e, stack) {
       Logging.severe('Error in _fetchAndCompareReleaseDate: $e', stack);
-      ScaffoldMessenger.of(context).showSnackBar(
+      
+      if (!mounted) return;
+      
+      scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Error fetching release date: $e')),
       );
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 }

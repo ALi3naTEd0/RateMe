@@ -872,301 +872,225 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14, // Reduced from 16
+          fontWeight: FontWeight.w500, // Changed from bold to w500
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
   void _showColorPickerDialog() {
-    // CRITICAL FIX: Get the CURRENT color directly from the widget variable, not the state
-    final originalColor = _primaryColor;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Choose Primary Color',
+          style: TextStyle(
+            fontWeight: FontWeight.w500, // Changed from default bold
+            fontSize: 18, // Reduced from 20
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ColorPicker(
+                color: pickerColor,
+                onColorChanged: (Color color) {
+                  setState(() {
+                    pickerColor = color;
+                  });
+                },
+                width: 40,
+                height: 40,
+                borderRadius: 4,
+                spacing: 5,
+                runSpacing: 5,
+                wheelDiameter: 155,
+                showMaterialName: true,
+                showColorName: true,
+                pickersEnabled: const <ColorPickerType, bool>{
+                  ColorPickerType.wheel: true,
+                },
+              ),
 
-    // CRITICAL FIX: Create a fresh, exact copy of the color using integer-based approach
-    final int alpha = 255; // Always use full opacity
-    // Use r, g, b properties with proper conversion to integers
-    final int red = (originalColor.r * 255).round();
-    final int green = (originalColor.g * 255).round();
-    final int blue = (originalColor.b * 255).round();
-
-    // Create log showing exact values we're starting with
-    Logging.severe('COLOR PICKER: Starting with precise values: '
-        'RGB integers=($red, $green, $blue), '
-        'Float values=(${originalColor.r}, ${originalColor.g}, ${originalColor.b})');
-
-    // Create a new Color object from the integer RGB components
-    var dialogColor = Color.fromARGB(alpha, red, green, blue);
-
-    // Get proper hex string using exact integer values
-    final String properHex =
-        '#FF${red.toRadixString(16).padLeft(2, '0')}${green.toRadixString(16).padLeft(2, '0')}${blue.toRadixString(16).padLeft(2, '0')}'
-            .toUpperCase();
-
-    // Log only essential info without the confusing DEBUG prefix
-    Logging.severe(
-        'COLOR PICKER: Prepared color correctly: RGB($red, $green, $blue) - Hex: $properHex');
-
-    // Use the integer-based values for the hex string
-    final String rgbHexPart = "${red.toRadixString(16).padLeft(2, '0')}"
-            "${green.toRadixString(16).padLeft(2, '0')}"
-            "${blue.toRadixString(16).padLeft(2, '0')}"
-        .toUpperCase();
-
-    // Create controller for hex input with the correct RGB part
-    final TextEditingController hexController =
-        TextEditingController(text: rgbHexPart);
-
-    // Keep only essential logging - JUST ONE LINE IS ENOUGH
-    Logging.severe(
-        'COLOR PICKER: Opening color picker dialog with hex: #FF$rgbHexPart');
-
-    // We can still keep the raw floating point values debug log
-    Logging.severe('COLOR PICKER: Raw floating point values - '
-        'red=${originalColor.r}, green=${originalColor.g}, blue=${originalColor.b}');
-
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: const Text('Select Primary Color'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ColorPicker(
-                        color: dialogColor,
-                        onColorChanged: (Color color) {
-                          setDialogState(() {
-                            dialogColor = color;
-                          });
-                          // Update hex input field
-                          final r = (color.r * 255).round();
-                          final g = (color.g * 255).round();
-                          final b = (color.b * 255).round();
-                          final hexPart = "${r.toRadixString(16).padLeft(2, '0')}"
-                                  "${g.toRadixString(16).padLeft(2, '0')}"
-                                  "${b.toRadixString(16).padLeft(2, '0')}"
-                              .toUpperCase();
-                          hexController.text = hexPart;
-                        },
-                        width: 40,
-                        height: 40,
-                        borderRadius: 4,
-                        spacing: 5,
-                        runSpacing: 5,
-                        wheelDiameter: 155,
-                        showMaterialName: true,
-                        showColorName: true,
-                        pickersEnabled: const <ColorPickerType, bool>{
-                          ColorPickerType.wheel: true,
-                        },
-                      ),
-
-                      // Improved custom hex input field with better separation of alpha and RGB
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const Text("Hex Color Code (RGB):",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-
-                      // Use a Row with two text fields - one disabled for FF, one for RGB
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 50,
-                            child: TextField(
-                              controller: TextEditingController(text: 'FF'),
-                              enabled: false,
-                              decoration: InputDecoration(
-                                labelText: 'Alpha',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: hexController,
-                              decoration: InputDecoration(
-                                labelText: 'RGB (RRGGBB)',
-                                border: OutlineInputBorder(),
-                              ),
-                              inputFormatters: [
-                                UpperCaseTextFormatter(),
-                                FilteringTextInputFormatter.allow(RegExp(r'[0-9A-F]')),
-                                LengthLimitingTextInputFormatter(6),
-                              ],
-                              onChanged: (value) {
-                                if (value.length == 6) {
-                                  try {
-                                    final colorValue = int.parse('FF$value', radix: 16);
-                                    final newColor = Color(colorValue);
-                                    setDialogState(() {
-                                      dialogColor = newColor;
-                                    });
-                                  } catch (e) {
-                                    // Invalid hex, ignore
-                                  }
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // Add a note about the fixed alpha channel
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Alpha is fixed at FF (fully opaque)',
-                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                        ),
-                      ),
-
-                      // Preview section
-                      const SizedBox(height: 16),
-                      const Text('Preview:'),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: dialogColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Sample Text',
-                              style: TextStyle(
-                                color: ThemeData.estimateBrightnessForColor(dialogColor) == Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+              // Custom hex input field
+              const SizedBox(height: 16),
+              const Divider(),
+              const Text("Hex Color Code (RGB):",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: TextEditingController(
+                    text: colorToHex(pickerColor).substring(3)),
+                decoration: InputDecoration(
+                  labelText: 'Enter hex code',
+                  border: OutlineInputBorder(),
                 ),
-                actions: <Widget>[
-                  TextButton(
-                    child: const Text('Cancel'),
-                    onPressed: () {
-                      // DIAGNOSTICS: Log cancel operation
-                      Logging.severe(
-                          'COLOR PICKER: Canceled - restoring original color: '
-                          'RGB(${originalColor.r}, ${originalColor.g}, ${originalColor.b}) - '
-                          'HEX: ${ColorUtility.colorToHex(originalColor)}');
-
-                      // Cancel - restore the original color
-                      setState(() {
-                        _primaryColor = originalColor;
-                      });
-                      // Force UI update with original color
-                      ts.ThemeService.setPrimaryColorDirectly(originalColor);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                  TextButton(
-                    child: const Text('Save'),
-                    onPressed: () {
-                      // Try to get color from hex input first in case it was manually entered
-                      try {
-                        if (hexController.text.length == 6) {
-                          final colorValue = int.parse('FF${hexController.text}', radix: 16);
-                          dialogColor = Color(colorValue);
-                        }
-                      } catch (e) {
-                        Logging.severe('Error parsing hex input: $e');
-                      }
-
-                      // CRITICAL FIX: Use the correct float to int conversion here!
-                      // The flex_color_picker returns colors with .red/.green/.blue as 0.0-1.0 values
-                      // We must multiply by 255 and round for proper integer RGB values
-                      final int r = (dialogColor.r * 255).round();
-                      final int g = (dialogColor.g * 255).round();
-                      final int b = (dialogColor.b * 255).round();
-
-                      // PLATFORM SAFETY: After all calculations, verify we're not using pure black
-                      if (r < 3 && g < 3 && b < 3) {
-                        Logging.severe(
-                            'COLOR PICKER: Black color detected in final values, using default purple');
-                        final defaultPurple = ColorUtility.defaultColor;
-                        final safeR = (defaultPurple.r * 255).round();
-                        final safeG = (defaultPurple.g * 255).round();
-                        final safeB = (defaultPurple.b * 255).round();
-
-                        // Use safe values with proper RGB conversion
-                        final safeColor =
-                            Color.fromARGB(255, safeR, safeG, safeB);
-                        setState(() {
-                          _primaryColor = safeColor;
-                        });
-                        ts.ThemeService.setPrimaryColorDirectly(safeColor);
-
-                        // Create hex string for storage
-                        final String storageHex =
-                            '#FF${safeR.toRadixString(16).padLeft(2, '0')}${safeG.toRadixString(16).padLeft(2, '0')}${safeB.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
-                        DatabaseHelper.instance
-                            .saveSetting('primaryColor', storageHex);
-                        Navigator.of(context).pop();
-                        return;
-                      }
-
-                      // CRITICAL FIX: Add extra safeguards against very small values
-                      final int safeR = r < 3 ? 0 : r;
-                      final int safeG = g < 3 ? 0 : g;
-                      final int safeB = b < 3 ? 0 : b;
-
-                      // DIAGNOSTICS: Log post-safety check values
-                      Logging.severe(
-                          'COLOR PICKER: Post-safety check values: RGB($safeR, $safeG, $safeB)');
-
-                      // Use safe values for the color
-                      final Color safeColor =
-                          Color.fromARGB(255, safeR, safeG, safeB);
-
-                      // DIAGNOSTICS: Log the Color object values
-                      Logging.severe('COLOR PICKER: safeColor object values - '
-                          'RGB(${safeColor.r}, ${safeColor.g}, ${safeColor.b}) → '
-                          'Int(${(safeColor.r * 255).round()}, ${(safeColor.g * 255).round()}, ${(safeColor.b * 255).round()})');
-
-                      // Create hex string with alpha channel - Use proper values!
-                      final String storageHex =
-                          '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
-                          '${safeG.toRadixString(16).padLeft(2, '0')}'
-                          '${safeB.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
-
-                      // DIAGNOSTICS: Log the final hex value that will be stored
-                      Logging.severe(
-                          'COLOR PICKER: Final hex value for storage: $storageHex');
-
-                      // Update state (UI)
-                      setState(() {
-                        _primaryColor = safeColor;
-                      });
-
-                      // Save to database first
-                      DatabaseHelper.instance
-                          .saveSetting('primaryColor', storageHex);
-
-                      // CRITICAL: Notify ThemeService and SettingsService listeners
-                      ts.ThemeService.setPrimaryColorDirectly(safeColor);
-                      ts.ThemeService.notifyGlobalListeners();
-                      SettingsService.notifyColorChangeOnly(safeColor);
-
-                      // Close dialog
-                      Navigator.of(context).pop();
-                    },
-                  ),
+                inputFormatters: [
+                  UpperCaseTextFormatter(),
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9A-F]')),
+                  LengthLimitingTextInputFormatter(6),
                 ],
-              );
+                onChanged: (value) {
+                  if (value.length == 6) {
+                    try {
+                      final colorValue = int.parse('FF$value', radix: 16);
+                      final newColor = Color(colorValue);
+                      setState(() {
+                        pickerColor = newColor;
+                      });
+                    } catch (e) {
+                      // Invalid hex, ignore
+                    }
+                  }
+                },
+              ),
+
+              // Preview section
+              const SizedBox(height: 16),
+              const Text('Preview:'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: pickerColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Sample Text',
+                      style: TextStyle(
+                        color: ThemeData.estimateBrightnessForColor(pickerColor) == Brightness.dark
+                            ? Colors.white
+                            : Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () {
+              // Cancel - restore the original color
+              setState(() {
+                _primaryColor = widget.currentPrimaryColor;
+              });
+              // Force UI update with original color
+              ts.ThemeService.setPrimaryColorDirectly(widget.currentPrimaryColor);
+              Navigator.of(context).pop();
             },
-          );
-        },
-      );
-    }
+          ),
+          TextButton(
+            child: const Text('Save'),
+            onPressed: () {
+              // Try to get color from hex input first in case it was manually entered
+              try {
+                if (colorToHex(pickerColor).length == 6) {
+                  final colorValue = int.parse('FF${colorToHex(pickerColor)}', radix: 16);
+                  pickerColor = Color(colorValue);
+                }
+              } catch (e) {
+                Logging.severe('Error parsing hex input: $e');
+              }
+
+              // CRITICAL FIX: Use the correct float to int conversion here!
+              // The flex_color_picker returns colors with .red/.green/.blue as 0.0-1.0 values
+              // We must multiply by 255 and round for proper integer RGB values
+              final int r = (pickerColor.r * 255).round();
+              final int g = (pickerColor.g * 255).round();
+              final int b = (pickerColor.b * 255).round();
+
+              // PLATFORM SAFETY: After all calculations, verify we're not using pure black
+              if (r < 3 && g < 3 && b < 3) {
+                Logging.severe(
+                    'COLOR PICKER: Black color detected in final values, using default purple');
+                final defaultPurple = ColorUtility.defaultColor;
+                final safeR = (defaultPurple.r * 255).round();
+                final safeG = (defaultPurple.g * 255).round();
+                final safeB = (defaultPurple.b * 255).round();
+
+                // Use safe values with proper RGB conversion
+                final safeColor =
+                    Color.fromARGB(255, safeR, safeG, safeB);
+                setState(() {
+                  _primaryColor = safeColor;
+                });
+                ts.ThemeService.setPrimaryColorDirectly(safeColor);
+
+                // Create hex string for storage
+                final String storageHex =
+                    '#FF${safeR.toRadixString(16).padLeft(2, '0')}${safeG.toRadixString(16).padLeft(2, '0')}${safeB.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+                DatabaseHelper.instance
+                    .saveSetting('primaryColor', storageHex);
+                Navigator.of(context).pop();
+                return;
+              }
+
+              // CRITICAL FIX: Add extra safeguards against very small values
+              final int safeR = r < 3 ? 0 : r;
+              final int safeG = g < 3 ? 0 : g;
+              final int safeB = b < 3 ? 0 : b;
+
+              // DIAGNOSTICS: Log post-safety check values
+              Logging.severe(
+                  'COLOR PICKER: Post-safety check values: RGB($safeR, $safeG, $safeB)');
+
+              // Use safe values for the color
+              final Color safeColor =
+                  Color.fromARGB(255, safeR, safeG, safeB);
+
+              // DIAGNOSTICS: Log the Color object values
+              Logging.severe('COLOR PICKER: safeColor object values - '
+                  'RGB(${safeColor.r}, ${safeColor.g}, ${safeColor.b}) → '
+                  'Int(${(safeColor.r * 255).round()}, ${(safeColor.g * 255).round()}, ${(safeColor.b * 255).round()})');
+
+              // Create hex string with alpha channel - Use proper values!
+              final String storageHex =
+                  '#FF${safeR.toRadixString(16).padLeft(2, '0')}'
+                  '${safeG.toRadixString(16).padLeft(2, '0')}'
+                  '${safeB.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+
+              // DIAGNOSTICS: Log the final hex value that will be stored
+              Logging.severe(
+                  'COLOR PICKER: Final hex value for storage: $storageHex');
+
+              // Update state (UI)
+              setState(() {
+                _primaryColor = safeColor;
+              });
+
+              // Save to database first
+              DatabaseHelper.instance
+                  .saveSetting('primaryColor', storageHex);
+
+              // CRITICAL: Notify ThemeService and SettingsService listeners
+              ts.ThemeService.setPrimaryColorDirectly(safeColor);
+              ts.ThemeService.notifyGlobalListeners();
+              SettingsService.notifyColorChangeOnly(safeColor);
+
+              // Close dialog
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1200,9 +1124,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 'Settings',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
+                  fontSize: 20, // Reduced from 24
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Colors.white
-                      : Colors.black, // Add explicit color for visibility
+                      : Colors.black,
                 ),
               ),
             ),
@@ -1238,17 +1163,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Text(
-                                          'Theme',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      // Replace deprecated Radio widgets with clean icon selection
+                                      _buildSectionHeader('Theme'),
+                                      // Theme selection tiles
                                       Column(
                                         children: [
                                           ListTile(
@@ -1260,7 +1176,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ? _primaryColor
                                                 : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                                             ),
-                                            title: const Text('System'),
+                                            title: const Text('System', style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal)),
                                             selected: widget.currentTheme == ThemeMode.system,
                                             onTap: () {
                                               widget.onThemeChanged(ThemeMode.system);
@@ -1276,7 +1192,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ? _primaryColor
                                                 : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                                             ),
-                                            title: const Text('Light'),
+                                            title: const Text('Light', style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal)),
                                             selected: widget.currentTheme == ThemeMode.light,
                                             onTap: () {
                                               widget.onThemeChanged(ThemeMode.light);
@@ -1292,7 +1208,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ? _primaryColor
                                                 : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                                             ),
-                                            title: const Text('Dark'),
+                                            title: const Text('Dark', style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal)),
                                             selected: widget.currentTheme == ThemeMode.dark,
                                             onTap: () {
                                               widget.onThemeChanged(ThemeMode.dark);
@@ -1309,45 +1225,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                 Card(
                                   margin: const EdgeInsets.all(8),
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            const Text(
-                                              'App Colors',
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.restore),
-                                              tooltip: 'Restore default colors',
-                                              onPressed: () async {
-                                                // Update UI first, synchronously
-                                                setState(() {
-                                                  _primaryColor =
-                                                      defaultPurpleColor;
-                                                  _useDarkButtonText = false;
-                                                });
-
-                                                // Call a separate method to handle all async operations
-                                                await _resetColorsToDefault();
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                      _buildSectionHeader('App Colors'),
                                       ListTile(
                                         leading: const Icon(Icons.color_lens),
-                                        title: const Text('Primary Color'),
-                                        subtitle: const Text(
-                                            'Change app accent color'),
+                                        title: const Text('Primary Color', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                        subtitle: const Text('Change app accent color', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         trailing: Container(
                                           width: 24,
                                           height: 24,
@@ -1361,7 +1245,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                         onTap: _showColorPickerDialog,
                                       ),
                                       ListTile(
-                                        title: const Text('Button Text Color'),
+                                        title: const Text('Button Text Color', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                        subtitle: Text(
+                                          useDarkText ? 'Dark text' : 'Light text',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                                        ),
                                         trailing: Switch(
                                           value: useDarkText,
                                           thumbIcon: WidgetStateProperty
@@ -1408,9 +1296,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     value);
                                           },
                                         ),
-                                        subtitle: Text(useDarkText
-                                            ? 'Dark text'
-                                            : 'Light text'),
                                       ),
                                       Padding(
                                         padding: const EdgeInsets.all(16),
@@ -1468,33 +1353,27 @@ class _SettingsPageState extends State<SettingsPage> {
 
                                 // Search Preferences Section
                                 Card(
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 8.0),
+                                  margin: const EdgeInsets.symmetric(vertical: 8.0),
                                   child: Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text(
                                           'Search Preferences',
                                           style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16, // Reduced from 18
+                                            fontWeight: FontWeight.w500, // Changed from bold to w500
                                           ),
                                         ),
                                         const SizedBox(height: 16),
 
                                         // Default search platform dropdown
                                         Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            const Text(
-                                                'Default Search Platform:',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold)),
+                                            const Text('Default Search Platform:',
+                                                style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)), // Reduced size
                                             const SizedBox(height: 8),
                                             DropdownButton<SearchPlatform>(
                                               isExpanded:
@@ -1565,37 +1444,28 @@ class _SettingsPageState extends State<SettingsPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Text(
-                                          'Data Management',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
+                                      _buildSectionHeader('Data Management'),
                                       ListTile(
                                         leading:
                                             const Icon(Icons.file_download),
-                                        title: const Text('Import Backup'),
+                                        title: const Text('Import Backup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Restore data from a backup file'),
+                                            'Restore data from a backup file', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _importBackup,
                                       ),
                                       ListTile(
                                         leading: const Icon(Icons.file_upload),
-                                        title: const Text('Export Backup'),
+                                        title: const Text('Export Backup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Save all your data as a backup file'),
+                                            'Save all your data as a backup file', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _exportBackup,
                                       ),
                                       const Divider(),
                                       ListTile(
                                         title: const Text(
-                                            'Recover Missing Tracks'),
+                                            'Recover Missing Tracks', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Find and fix albums missing track data'),
+                                            'Find and fix albums missing track data', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         leading: const Icon(Icons.construction),
                                         onTap: isLoading
                                             ? null
@@ -1612,16 +1482,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Text(
-                                          'Database Maintenance',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
+                                      _buildSectionHeader('Database Maintenance'),
                                       // Move the database size display to here (top of the section)
                                       FutureBuilder<int>(
                                         future: UserData.getDatabaseSize(),
@@ -1644,12 +1505,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                         },
                                       ),
                                       ListTile(
-                                        leading: const Icon(Icons
-                                            .storage), // Changed to storage icon
+                                        leading: const Icon(Icons.storage),
                                         title: const Text(
-                                            'Migrate to SQLite Database'),
+                                            'Migrate to SQLite Database', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Update database and convert albums to new model format'),
+                                            'Update database and convert albums to new model format', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: () async {
                                           final shouldMigrate =
                                               await showDialog<bool>(
@@ -1693,26 +1553,25 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ListTile(
                                         leading: const Icon(Icons.healing),
                                         title: const Text(
-                                            'Fix Platform Duplicates'),
+                                            'Fix Platform Duplicates', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Clean up duplicate iTunes/Apple Music entries'),
+                                            'Clean up duplicate iTunes/Apple Music entries', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _cleanupDuplicates,
                                       ),
                                       ListTile(
                                         leading:
                                             const Icon(Icons.rocket_launch),
-                                        title: const Text('Optimize Database'),
+                                        title: const Text('Optimize Database', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Clean and optimize the database for better performance'),
+                                            'Clean and optimize the database for better performance', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _performDatabaseMaintenance,
                                       ),
                                       ListTile(
-                                        leading: const Icon(Icons
-                                            .update), // or Icons.sync_alt, Icons.upgrade, Icons.format_paint
+                                        leading: const Icon(Icons.update),
                                         title: const Text(
-                                            'Convert Albums to New Format'),
+                                            'Convert Albums to New Format', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Update album data for compatibility'),
+                                            'Update album data for compatibility', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: () async {
                                           final confirmed = await showDialog<bool>(
                                             context: context,
@@ -1777,9 +1636,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ),
                                         ),
                                         title: const Text(
-                                            'Update Bandcamp Albums'),
+                                            'Update Bandcamp Albums', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Refresh track data for Bandcamp albums'),
+                                            'Refresh track data for Bandcamp albums', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _fixBandcampTrackIds,
                                       ),
                                       ListTile(
@@ -1794,22 +1653,21 @@ class _SettingsPageState extends State<SettingsPage> {
                                             BlendMode.srcIn,
                                           ),
                                         ),
-                                        title: const Text('Fix Deezer Album Artwork'),
+                                        title: const Text('Fix Deezer Album Artwork', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                          'Update low-quality artwork to high-resolution versions',
+                                          'Update low-quality artwork to high-resolution versions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
                                         ),
                                         onTap: () async {
                                           await _fixDeezerArtwork();
                                         },
                                       ),
-                                      // Add the Fix Album Dates option right after the Bandcamp fix
                                       ListTile(
                                         leading:
                                             const Icon(Icons.calendar_today),
                                         title: const Text(
-                                            'Fix Album Release Dates'),
+                                            'Fix Album Release Dates', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                          'Fix missing or incorrect release dates for albums',
+                                          'Fix missing or incorrect release dates for albums', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
                                         ),
                                         onTap: () async {
                                           // Store the BuildContext before async operations
@@ -1849,9 +1707,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                               .error,
                                         ),
                                         title: const Text(
-                                            'Clean Platform Matches'),
+                                            'Clean Platform Matches', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Find and fix incorrect platform links'),
+                                            'Find and fix incorrect platform links', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: () {
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
@@ -1868,9 +1726,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                               .colorScheme
                                               .error,
                                         ),
-                                        title: const Text('Emergency Reset'),
+                                        title: const Text('Emergency Reset', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Reset database connection if problems occur'),
+                                            'Reset database connection if problems occur', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _performEmergencyDatabaseReset,
                                       ),
                                       const Divider(height: 32),
@@ -1885,36 +1743,25 @@ class _SettingsPageState extends State<SettingsPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Text(
-                                          'Debug & Development',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      // Add About option
+                                      _buildSectionHeader('Debug & Development'),
                                       ListTile(
                                         leading: const Icon(Icons.info_outline),
-                                        title: const Text('About Rate Me!'),
+                                        title: const Text('About Rate Me!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'View app information and links'),
+                                            'View app information and links', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: () => _showAboutDialog(context),
                                       ),
-                                      // Add the update checker button here
                                       ListTile(
                                         leading: const Icon(Icons.system_update),
-                                        title: const Text('Check for Updates'),
-                                        subtitle: const Text('Check for new app versions on GitHub'),
+                                        title: const Text('Check for Updates', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                        subtitle: const Text('Check for new app versions on GitHub', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: _checkForUpdates,
                                       ),
                                       ListTile(
                                         leading: const Icon(Icons.bug_report),
-                                        title: const Text('Show Debug Info'),
+                                        title: const Text('Show Debug Info', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'View technical information'),
+                                            'View technical information', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: () =>
                                             DebugUtil.showDebugReport(context),
                                       ),
@@ -1925,9 +1772,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                               .colorScheme
                                               .error,
                                         ),
-                                        title: const Text('Clear Database'),
+                                        title: const Text('Clear Database', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                         subtitle: const Text(
-                                            'Delete all saved data (cannot be undone)'),
+                                            'Delete all saved data (cannot be undone)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                                         onTap: () => _showClearDatabaseDialog(),
                                       ),
                                     ],
@@ -2204,68 +2051,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _resetColorsToDefault() async {
-    try {
-      // Log the start of the reset operation
-      Logging.severe('RESET COLORS: Starting color reset to default purple');
-
-      // Create the correct purple color directly
-      final Color correctPurpleColor = const Color(0xFF864AF9);
-      // Calculate integer RGB values from the Color object
-      final int r = (correctPurpleColor.r * 255).round();
-      final int g = (correctPurpleColor.g * 255).round();
-      final int b = (correctPurpleColor.b * 255).round();
-
-      // First update the UI state for immediate feedback
-      setState(() {
-        _primaryColor = correctPurpleColor;
-        _useDarkButtonText = false;
-        useDarkText = false;
-      });
-
-      // Create properly formatted hex string with correct values
-      final String colorHex =
-          '#FF${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
-              .toUpperCase();
-
-      // CRITICAL FIX: Add extra debugging to verify the actual color values
-      Logging.severe(
-          'RESET COLORS: Purple color - RGB($r,$g,$b) → Hex: $colorHex');
-
-      // Save directly to database first
-      await DatabaseHelper.instance.saveSetting('primaryColor', colorHex);
-
-      // Then reset the button text color to "light" (false)
-      await DatabaseHelper.instance.saveSetting('useDarkButtonText', 'false');
-
-      // Ensure ThemeService gets the direct update with a fresh color instance
-      // IMPORTANT: Create a completely new color instance with explicit integer values
-      final freshPurpleColor = Color.fromARGB(255, r, g, b);
-
-      // Notify UI about the color change with the fresh color instance - directly use the service
-      ts.ThemeService.setPrimaryColorDirectly(freshPurpleColor);
-
-      // Only after the ThemeService has been updated, notify SettingsService
-      // This changes the order of operations to avoid race conditions
-      SettingsService.notifyColorChangeOnly(freshPurpleColor);
-
-      // Notify about button text color change
-      SettingsService.notifyButtonTextColorChanged(false);
-
-      // Show confirmation
-      if (mounted) {
-        _showSnackBar('Restored default colors');
-      }
-
-      Logging.severe('RESET COLORS: Color reset completed successfully');
-    } catch (e) {
-      Logging.severe('Error resetting colors to default: $e');
-      if (mounted) {
-        _showSnackBar('Error restoring default colors: $e');
-      }
-    }
-  }
-
   // Add this new section to your settings page build method
   Widget _buildApiKeysSection() {
     return Card(
@@ -2282,8 +2067,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'API Keys',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16, // Reduced from 18
+                    fontWeight: FontWeight.w500, // Changed from bold to w500
                   ),
                 ),
               ],
@@ -2387,7 +2172,7 @@ class _SettingsPageState extends State<SettingsPage> {
             FutureBuilder<String?>(
                 future: ApiKeys.spotifyClientId,
                 builder: (context, snapshot) {
-                                   final hasKeys = snapshot.hasData &&
+                  final hasKeys = snapshot.hasData &&
                       snapshot.data != null &&
                       snapshot.data!.isNotEmpty;
                   return ListTile(
@@ -2402,9 +2187,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         BlendMode.srcIn,
                       ),
                     ),
-                    title: Text('Spotify API Keys'),
+                    title: Text('Spotify API Keys', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                        hasKeys ? 'Connected' : 'Required for Spotify search'),
+                        hasKeys ? 'Connected' : 'Required for Spotify search', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2442,9 +2227,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         BlendMode.srcIn,
                       ),
                     ),
-                    title: Text('Discogs API Keys'),
+                    title: Text('Discogs API Keys', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                        hasKeys ? 'Connected' : 'Required for Discogs search'),
+                        hasKeys ? 'Connected' : 'Required for Discogs search', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2597,7 +2382,7 @@ class _SettingsPageState extends State<SettingsPage> {
               TextField(
                 controller: clientSecretController,
                 decoration: InputDecoration(
-                  labelText: 'Client Secret',
+                                   labelText: 'Client Secret',
                   border: OutlineInputBorder(),
                 ),
                 obscureText: true, // Hide the secret
@@ -2955,7 +2740,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 Text('Albums checked: ${result['totalChecked']}'),
                 Text('Albums updated: ${result['updated']}'),
-                Text('Albums skipped: ${result['skipped']} (already high-quality)'), // Show skipped count
+                Text('Albums skipped: ${result['skipped']} (already high-quality)', style: const TextStyle(color: Colors.orange)),
                 if (result['errors'] > 0)
                   Text('Errors: ${result['errors']}',
                       style: const TextStyle(color: Colors.orange)),

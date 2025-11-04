@@ -1364,13 +1364,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                       ),
                                       child: Row(
                                         children: [
-                                          const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+                                          const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))),
                                           const SizedBox(width: 8),
-                                          Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                                          Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
                                           const SizedBox(width: 8),
-                                          const SizedBox(width: 70, child: Center(child: Text('Duration', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+                                          const SizedBox(width: 70, child: Center(child: Text('Duration', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))),
                                           const SizedBox(width: 8),
-                                          const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+                                          const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))),
                                         ],
                                       ),
                                     ),
@@ -1963,19 +1963,18 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         vertical: label == "Rating" ? 8.0 : 2.0,
       ),
       child: Wrap(
-        // Replace Row with Wrap to allow text to flow to next line
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             "$label: ",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize), // Keep bold for labels
           ),
           Tooltip(
-            message: value, // Add tooltip to show full text on hover/long press
+            message: value,
             child: Text(
               value,
-              style: TextStyle(fontSize: fontSize),
+              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.normal), // Normal weight for values
               overflow: TextOverflow.ellipsis,
             ),
           ),

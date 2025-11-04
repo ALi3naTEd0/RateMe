@@ -193,7 +193,13 @@ class _CustomListsPageState extends State<CustomListsPage> {
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Create New List'),
+          title: const Text(
+            'Create New List',
+            style: TextStyle(
+              fontWeight: FontWeight.w500, // Changed from default bold
+              fontSize: 18, // Reduced from 20
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -252,7 +258,13 @@ class _CustomListsPageState extends State<CustomListsPage> {
         barrierColor: Colors.black54,
         opaque: false,
         pageBuilder: (_, __, ___) => AlertDialog(
-          title: const Text('Edit List'),
+          title: const Text(
+            'Edit List',
+            style: TextStyle(
+              fontWeight: FontWeight.w500, // Changed from default bold
+              fontSize: 18, // Reduced from 20
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -339,25 +351,6 @@ class _CustomListsPageState extends State<CustomListsPage> {
       await UserData.deleteCustomList(list.id);
       _loadLists();
       _showSnackBar('List deleted');
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays < 1) {
-      return 'today';
-    } else if (difference.inDays < 2) {
-      return 'yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else if (difference.inDays < 30) {
-      return '${(difference.inDays / 7).floor()} weeks ago';
-    } else if (difference.inDays < 365) {
-      return '${(difference.inDays / 30).floor()} months ago';
-    } else {
-      return '${(difference.inDays / 365).floor()} years ago';
     }
   }
 
@@ -702,37 +695,22 @@ class _CustomListsPageState extends State<CustomListsPage> {
         title: Text(
           list.name,
           style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
+            fontWeight: FontWeight.w500, // Changed from bold to w500
+            fontSize: 15, // Reduced from 16
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Row(
-          children: [
-            Text(
-              '${list.albumIds.length} albums',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-            ),
-            const Text(' | '),
-            Expanded(
-              child: Text(
-                list.description.isEmpty
-                    ? 'Created ${_formatDate(list.createdAt)}'
-                    : list.description,
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                  fontSize: 13,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        subtitle: Text(
+          list.description.isNotEmpty
+              ? list.description
+              : '${list.albumIds.length} albums',
+          style: TextStyle(
+            fontSize: 13, // Reduced from 14
+            fontWeight: FontWeight.normal, // Added explicit normal weight
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         // Only show edit/delete buttons when not in reordering mode
         trailing: !isReorderingMode
@@ -1243,8 +1221,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                 child: Text(
                   rating > 0 ? rating.toStringAsFixed(1) : '-',
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w500, // Changed from bold to w500
+                    fontSize: 15, // Reduced from 16
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
@@ -1281,8 +1259,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
         title: Text(
           albumName,
           style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
+            fontWeight: FontWeight.w500, // Changed from bold to w500
+            fontSize: 14, // Reduced from 15
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -1291,7 +1269,8 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
           artistName,
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyMedium?.color,
-            fontSize: 13,
+            fontSize: 12, // Reduced from 13
+            fontWeight: FontWeight.normal, // Added explicit normal weight
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

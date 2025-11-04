@@ -82,42 +82,34 @@ class _FooterState extends State<Footer> {
             const Text('License: MIT'),
             const SizedBox(height: 24),
 
-            // Add sponsor button here inside the dialog - UPDATED WITH BETTER ALIGNMENT AND BOLD TEXT
+            // Add sponsor button here inside the dialog
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Sponsor button with adjusted text alignment
+                // Sponsor button with normal text weight
                 ElevatedButton.icon(
-                  icon:
-                      const Icon(Icons.favorite, color: Colors.pink, size: 16),
+                  icon: const Icon(Icons.favorite, color: Colors.pink, size: 16),
                   label: const Padding(
-                    padding: EdgeInsets.only(
-                        left: 0,
-                        bottom: 0), // Shift text slightly down and left
+                    padding: EdgeInsets.only(left: 0, bottom: 0),
                     child: Text(
                       'Support',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        height: 1.1, // Adjusted for better vertical alignment
+                        fontWeight: FontWeight.normal, // Changed from bold to normal
+                        height: 1.1,
                       ),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink
-                        .shade100, // Lighter background for better contrast
-                    foregroundColor:
-                        Colors.pink.shade700, // Darker text for contrast
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    backgroundColor: Colors.pink.shade100,
+                    foregroundColor: Colors.pink.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     textStyle: const TextStyle(fontSize: 14),
-                    alignment: Alignment.center, // Center alignment
+                    alignment: Alignment.center,
                   ),
                   onPressed: () async {
-                    final url =
-                        Uri.parse('https://github.com/sponsors/ALi3naTEd0');
+                    final url = Uri.parse('https://github.com/sponsors/ALi3naTEd0');
                     if (await canLaunchUrl(url)) {
-                      await launchUrl(url,
-                          mode: LaunchMode.externalApplication);
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
                     } else {
                       Logging.severe('Could not launch $url');
                     }
@@ -163,8 +155,8 @@ class _FooterState extends State<Footer> {
           isLoading ? 'Rate Me!' : 'Rate Me! ${VersionInfo.fullVersionString}',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
-            decoration: TextDecoration.underline,
+            fontSize: 12, // Reduced from 14
+            decoration: TextDecoration.none, // Changed from underline to none
             color: Theme.of(context)
                 .textTheme
                 .bodyLarge

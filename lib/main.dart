@@ -631,7 +631,7 @@ class _MyAppState extends State<MyApp> {
                     ),
                     const SizedBox(width: 8),
                     SizedBox(
-                      width: searchBarWidth - 60, // Use fixed 85% width for all platforms
+                      width: searchBarWidth - 60,
                       child: TextField(
                         controller: searchController,
                         decoration: InputDecoration(
@@ -686,7 +686,7 @@ class _MyAppState extends State<MyApp> {
                         ? Center(child: Container())
                         : Center(
                             child: SizedBox(
-                              width: pageWidth, // Use responsive width for content
+                              width: pageWidth,
                               child: ListView.builder(
                                 itemCount: searchResults.length,
                                 itemBuilder: (context, index) {

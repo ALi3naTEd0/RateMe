@@ -840,13 +840,13 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             ),
             // Rating display in a prominent box
             Container(
-              width: 48, // Rating box width
-              height: 48, // Rating box height
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: Theme.of(context)
                     .colorScheme
                     .primary
-                    .withAlpha(38), // Use withAlpha instead of withOpacity
+                    .withAlpha(38),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.primary,
@@ -857,8 +857,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
                 child: Text(
                   averageRating > 0 ? averageRating.toStringAsFixed(1) : '-',
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w500, // Changed from bold to w500
+                    fontSize: 15, // Reduced from 16
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
@@ -895,8 +895,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
         title: Text(
           albumName,
           style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
+            fontWeight: FontWeight.w500, // Changed from bold to w500
+            fontSize: 14, // Reduced from 15
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -905,7 +905,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
           artistName,
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyMedium?.color,
-            fontSize: 13,
+            fontSize: 12, // Reduced from 13
+            fontWeight: FontWeight.normal, // Added explicit normal weight
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

@@ -694,12 +694,30 @@ class ThemeService extends ChangeNotifier {
         Color.fromRGBO(18, 18, 18, 1.0); // Use RGBA format
     final darkSurfaceColor = Color.fromRGBO(30, 30, 30, 1.0); // Use RGBA format
 
-    // Remove excessive color logging during theme building
+    // Create base text theme with lighter font weights for EVERYTHING
+    final baseTextTheme = TextTheme(
+      displayLarge: TextStyle(fontSize: 96, fontWeight: FontWeight.w300, color: isDark ? Colors.white : Colors.black),
+      displayMedium: TextStyle(fontSize: 60, fontWeight: FontWeight.w300, color: isDark ? Colors.white : Colors.black),
+      displaySmall: TextStyle(fontSize: 48, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      headlineLarge: TextStyle(fontSize: 40, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      headlineMedium: TextStyle(fontSize: 34, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black),
+      titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black),
+      bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black),
+      labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+      labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w400, color: isDark ? Colors.white : Colors.black),
+    );
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       primaryColor: primaryColor,
+      textTheme: baseTextTheme, // Apply our lighter text theme globally
       colorScheme: ColorScheme(
         brightness: brightness,
         primary: primaryColor,
@@ -708,23 +726,23 @@ class ThemeService extends ChangeNotifier {
         onSecondary: _getContrastingColor(primaryColor),
         error: Colors.red.shade800,
         onError: Colors.white,
-        // Replace deprecated 'background' with 'surface'
         surface: isDark ? darkSurfaceColor : Colors.white,
         onSurface: isDark ? Colors.white : Colors.black,
-        // For Material 3, use surfaceTint instead of 'background'
         surfaceTint: isDark ? darkBackgroundColor : Colors.white,
       ),
       appBarTheme: AppBarTheme(
-        // Make app bar transparent with no elevation
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor:
             isDark ? Colors.white : _getContrastingColor(primaryColor),
         centerTitle: false,
-        // Add this to remove the app bar shadow
         shadowColor: Colors.transparent,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w400, // Regular weight
+          color: isDark ? Colors.white : Colors.black,
+        ),
       ),
-      // Use a transparent scaffold background color that picks up the colorScheme.background
       scaffoldBackgroundColor: isDark ? darkBackgroundColor : Colors.white,
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
@@ -737,7 +755,7 @@ class ThemeService extends ChangeNotifier {
               ? Colors.black
               : _getContrastingColor(primaryColor),
           textStyle: const TextStyle(
-            fontWeight: FontWeight.bold, // Make button text bold
+            fontWeight: FontWeight.w500, // Medium weight for buttons
           ),
         ),
       ),
@@ -748,21 +766,19 @@ class ThemeService extends ChangeNotifier {
               ? Colors.black
               : _getContrastingColor(primaryColor),
           textStyle: const TextStyle(
-            fontWeight: FontWeight.bold, // Make button text bold
+            fontWeight: FontWeight.w500, // Medium weight for buttons
           ),
         ),
       ),
-      // Add slider theme to respect the button text color preference
       sliderTheme: SliderThemeData(
         activeTrackColor: primaryColor,
-        // Replace deprecated withOpacity with withAlpha
-        inactiveTrackColor: primaryColor.withAlpha(76), // ~0.3 opacity = 76/255
+        inactiveTrackColor: primaryColor.withAlpha(76),
         thumbColor: primaryColor,
-        // Replace deprecated withOpacity with withAlpha
-        overlayColor: primaryColor.withAlpha(76), // ~0.3 opacity = 76/255
+        overlayColor: primaryColor.withAlpha(76),
         valueIndicatorColor: primaryColor,
         valueIndicatorTextStyle: TextStyle(
           color: _useDarkButtonText ? Colors.black : Colors.white,
+          fontWeight: FontWeight.w400, // Regular weight
         ),
       ),
     );

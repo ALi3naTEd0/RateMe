@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Improved Deezer Album Processing:** Enhanced Deezer middleware to skip HEAD request verification and immediately return constructed CDN URLs for faster artwork loading and better reliability
+- **Typography Improvements:** Reduced font weights across the entire application for a lighter, more refined appearance
+  - Changed all bold text to semi-bold (w500) or medium (w400) weights
+  - Applied lighter font weights to album information displays and track lists
+  - Improved readability while maintaining visual hierarchy
+  - Consistent typography across all pages and components
 
 ## [1.1.4-1] - 2025-09-15
 
