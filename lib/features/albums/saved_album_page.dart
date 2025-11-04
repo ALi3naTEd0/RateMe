@@ -1273,11 +1273,11 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                     children: [
                                       Text(
                                         "Release Date: ",
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                       ),
                                       Text(
                                         _formatReleaseDate(),
-                                        style: TextStyle(fontSize: 16),
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
                                       ),
                                       const SizedBox(width: 4),
                                       InkWell(
@@ -1299,8 +1299,8 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                     formatDuration(albumDurationMillis)),
                                 const SizedBox(height: 8),
                                 _buildInfoRow("Rating",
-                                    averageRating.toStringAsFixed(2),
-                                    fontSize: 20),
+                                    averageRating.toStringAsFixed(2)),
+
                                 const SizedBox(height: 16),
 
                                 // Buttons row
@@ -1957,7 +1957,10 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
     }
   }
 
-  Widget _buildInfoRow(String label, String value, {double fontSize = 16}) {
+  Widget _buildInfoRow(String label, String value, {double fontSize = 14}) {
+    // Special handling for Rating to make it bigger
+    final effectiveFontSize = label == "Rating" ? 18.0 : fontSize;
+    
     return Padding(
       padding: EdgeInsets.symmetric(
         vertical: label == "Rating" ? 8.0 : 2.0,
@@ -1968,13 +1971,13 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
         children: [
           Text(
             "$label: ",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize), // Keep bold for labels
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: effectiveFontSize),
           ),
           Tooltip(
             message: value,
             child: Text(
               value,
-              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.normal), // Normal weight for values
+              style: TextStyle(fontSize: effectiveFontSize, fontWeight: FontWeight.normal),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -2251,7 +2254,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
             ),
             FilledButton(
               onPressed: () async {
-                if (nameController.text.isNotEmpty) {
+                if ( nameController.text.isNotEmpty) {
                   // Save the album first
 
                   final albumToSave = unifiedAlbum?.toJson() ?? _albumData;
