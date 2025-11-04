@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:rateme/core/services/search_service.dart';
 import '../../core/services/logging.dart';
 import '../../features/albums/details_page.dart';
 
@@ -240,6 +241,77 @@ class DeezerMiddleware {
     }
   }
 
+  /// Fetches cover art from Deezer API or constructs URL from md5_image
+  /// Returns the highest quality cover URL available, or null if not found
+  static Future<String?> fetchCoverArt(String albumId) async {
+    try {
+      Logging.severe('=== FETCHING COVER ART FOR DEEZER ALBUM: $albumId ===');
+
+      final apiUrl = Uri.parse('https://api.deezer.com/album/$albumId');
+      Logging.severe('Calling API: $apiUrl');
+      
+      final response = await http.get(apiUrl);
+      Logging.severe('API Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Log EVERYTHING the API returns
+        Logging.severe('=== FULL API RESPONSE ===');
+        Logging.severe('Response keys: ${data.keys.toList()}');
+        Logging.severe('cover: ${data['cover']}');
+        Logging.severe('cover_small: ${data['cover_small']}');
+        Logging.severe('cover_medium: ${data['cover_medium']}');
+        Logging.severe('cover_big: ${data['cover_big']}');
+        Logging.severe('cover_xl: ${data['cover_xl']}');
+        Logging.severe('md5_image: ${data['md5_image']}');
+        Logging.severe('=== END FULL API RESPONSE ===');
+
+        // First try the direct URLs if available
+        if (data['cover_xl'] != null && data['cover_xl'].toString().isNotEmpty && data['cover_xl'].toString() != 'null') {
+          Logging.severe('Returning cover_xl: ${data['cover_xl']}');
+          return data['cover_xl'];
+        }
+        
+        if (data['cover_big'] != null && data['cover_big'].toString().isNotEmpty && data['cover_big'].toString() != 'null') {
+          Logging.severe('Returning cover_big: ${data['cover_big']}');
+          return data['cover_big'];
+        }
+
+        // If direct URLs are null/empty, construct from md5_image
+        if (data['md5_image'] != null && data['md5_image'].toString().isNotEmpty) {
+          final md5 = data['md5_image'].toString();
+          Logging.severe('Direct URLs are null/empty, constructing from md5_image: $md5');
+          
+          // Deezer CDN URL format: https://e-cdns-images.dzcdn.net/images/cover/{md5}/1000x1000.jpg
+          final cdnUrl = 'https://e-cdns-images.dzcdn.net/images/cover/$md5/1000x1000.jpg';
+          Logging.severe('Constructed CDN URL: $cdnUrl');
+          
+          // RETURN IT IMMEDIATELY - don't verify with HEAD request
+          Logging.severe('Returning constructed CDN URL without verification');
+          return cdnUrl;
+        }
+        
+        // Fallback to medium/small if available
+        if (data['cover_medium'] != null && data['cover_medium'].toString().isNotEmpty && data['cover_medium'].toString() != 'null') {
+          return data['cover_medium'];
+        }
+        if (data['cover_small'] != null && data['cover_small'].toString().isNotEmpty && data['cover_small'].toString() != 'null') {
+          return data['cover_small'];
+        }
+
+        Logging.severe('ERROR: API returned no usable cover data');
+        return null;
+      } else {
+        Logging.severe('API error: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e, stack) {
+      Logging.severe('Exception fetching Deezer cover art', e, stack);
+      return null;
+    }
+  }
+
   /// Fetch album details from Deezer API
   /// Returns a Map with album details including releaseDate
   Future<Map<String, dynamic>?> getAlbumInfo(String albumId) async {
@@ -269,6 +341,61 @@ class DeezerMiddleware {
       return null;
     } catch (e, stack) {
       Logging.severe('Error fetching Deezer album details', e, stack);
+      return null;
+    }
+  }
+
+  /// Fetches cover art with fallback to other platforms if Deezer fails
+  /// Returns the highest quality cover URL available, or null if not found
+  static Future<String?> fetchCoverArtWithFallback(String albumId, String albumName, String artistName) async {
+    try {
+      Logging.severe('=== FETCHING COVER ART WITH FALLBACK ===');
+      Logging.severe('Album ID: $albumId, Name: $albumName, Artist: $artistName');
+
+      // First try Deezer
+      final deezerArtwork = await fetchCoverArt(albumId);
+      if (deezerArtwork != null && deezerArtwork.isNotEmpty) {
+        Logging.severe('Successfully fetched from Deezer');
+        return deezerArtwork;
+      }
+
+      Logging.severe('Deezer failed, trying other platforms...');
+
+      // Try Spotify
+      try {
+        final spotifyResult = await SearchService.searchSpotify('$artistName $albumName');
+        if (spotifyResult != null && spotifyResult['results'] is List && spotifyResult['results'].isNotEmpty) {
+          final firstResult = spotifyResult['results'][0];
+          final artworkUrl = firstResult['artworkUrl'] ?? firstResult['artworkUrl100'];
+          if (artworkUrl != null && artworkUrl.toString().isNotEmpty) {
+            Logging.severe('Found artwork from Spotify: $artworkUrl');
+            return artworkUrl.toString();
+          }
+        }
+      } catch (e) {
+        Logging.severe('Spotify search failed: $e');
+      }
+
+      // Try Apple Music
+      try {
+        final itunesResult = await SearchService.searchITunes('$artistName $albumName');
+        if (itunesResult != null && itunesResult['results'] is List && itunesResult['results'].isNotEmpty) {
+          final firstResult = itunesResult['results'][0];
+          final artworkUrl = firstResult['artworkUrl100'] ?? firstResult['artworkUrl'];
+          if (artworkUrl != null && artworkUrl.toString().isNotEmpty) {
+            final highResUrl = artworkUrl.toString().replaceAll('100x100', '600x600');
+            Logging.severe('Found artwork from Apple Music: $highResUrl');
+            return highResUrl;
+          }
+        }
+      } catch (e) {
+        Logging.severe('Apple Music search failed: $e');
+      }
+
+      Logging.severe('All platforms failed to provide artwork');
+      return null;
+    } catch (e, stack) {
+      Logging.severe('Exception in fetchCoverArtWithFallback', e, stack);
       return null;
     }
   }

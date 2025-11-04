@@ -12,9 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Platform Button Visuals:** Improved platform button visuals for both light and dark themes. Selected buttons now use a high-contrast fill and dominant color for icons/borders, ensuring consistent, visually appealing, and accessible UI across themes.
 - **Export Theme Selection:** Added a dark/light theme toggle to the export/share as image dialog. Users can now choose the appearance of exported album images for sharing or saving.
 - **Export File Naming:** Exported album images now use the format `Artist_Album.png` for file names instead of a generic or timestamp-based name.
+- **Deezer Cover Art Recovery System:** Added fallback system for Deezer album artwork that automatically tries Spotify and Apple Music when Deezer CDN fails, ensuring albums always have cover art available
 
 ### Fixed
 
+- **Deezer Cover Art Refetch:** Fixed Deezer album cover art refetch functionality to properly update artwork in saved_ratings_page by prioritizing the `artwork_url` database column
+- **Cover Art Refetch Button Positioning:** Moved the "Fix cover art" button to a more discrete location directly under the album artwork with smaller, grayed-out styling for better visual hierarchy
+- **Deezer Artwork Fallback Logic:** Enhanced Deezer cover art fetching to first try the CDN, then automatically fall back to Spotify and Apple Music search if CDN fails, with comprehensive logging for troubleshooting
 - **Release Date Consensus & Cross-Platform Fetching**: The release date refresh now fetches and compares dates from Spotify, Apple Music, and Deezer for every album, regardless of its original platform. This ensures the most accurate date is used and logged.
 - **PlatformMatch Integration**: Uses URLs from platform_matches table for each platform, falling back to search if needed, for more reliable cross-platform album matching.
 - **Consensus Logic**: The app now logs and compares all three dates, using the consensus if two or more platforms agree, or falling back to a preferred order (Spotify > Apple > Deezer).
@@ -22,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reload Option in Details Page**: Added a reload/refresh button to the album details page, allowing users to fetch and fix the release date before saving the album to their collection.
 - **Share Widget GlobalKey:** Replaced deprecated or missing static/global share keys with local `GlobalKey<ShareWidgetState>()` instances for all share dialogs, fixing "undefined getter 'shareKey'" errors and improving widget state management.
 - **Share API Update:** Updated file sharing logic to use `await SharePlus.instance.share(ShareParams(files: [XFile(path)]))` for compatibility with the latest `share_plus` API, replacing deprecated or incorrect usage.
+
+### Changed
+
+- **Improved Deezer Album Processing:** Enhanced Deezer middleware to skip HEAD request verification and immediately return constructed CDN URLs for faster artwork loading and better reliability
 
 ## [1.1.4-1] - 2025-09-15
 

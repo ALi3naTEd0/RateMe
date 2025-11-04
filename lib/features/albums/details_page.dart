@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:rateme/core/services/theme_service.dart';
+import 'package:rateme/platforms/middleware/deezer_middleware.dart';
 import 'package:rateme/platforms/platform_service_factory.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/album_model.dart';
@@ -59,6 +60,7 @@ class _DetailsPageState extends State<DetailsPage> {
   Color? selectedDominantColor;
   bool loadingPalette = false;
   bool showColorPicker = false; // Add this line
+  bool _refetchingArtwork = false; // Add this line
 
   @override
   void initState() {
@@ -584,6 +586,87 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
+  // Add this method after _loadDominantColors
+  Future<void> _refetchArtwork() async {
+    final platform = widget.album['platform']?.toString().toLowerCase() ?? unifiedAlbum?.platform.toLowerCase() ?? '';
+    if (platform != 'deezer') {
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Cover art refetch is only available for Deezer albums')),
+      );
+      return;
+    }
+
+    final albumId = widget.album['id']?.toString() ?? widget.album['collectionId']?.toString();
+    final albumName = widget.album['name']?.toString() ?? widget.album['collectionName']?.toString() ?? '';
+    final artistName = widget.album['artist']?.toString() ?? widget.album['artistName']?.toString() ?? '';
+    
+    if (albumId == null || albumId.isEmpty) {
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Cannot refetch: No album ID found')),
+      );
+      return;
+    }
+
+    setState(() => _refetchingArtwork = true);
+
+    try {
+      // Use the new fallback method
+      final newArtworkUrl = await DeezerMiddleware.fetchCoverArtWithFallback(
+        albumId,
+        albumName,
+        artistName,
+      );
+      
+      if (newArtworkUrl != null && newArtworkUrl.isNotEmpty) {
+        widget.album['artworkUrl'] = newArtworkUrl;
+        widget.album['artworkUrl100'] = newArtworkUrl;
+
+        if (unifiedAlbum != null) {
+          unifiedAlbum = Album(
+            id: unifiedAlbum!.id,
+            name: unifiedAlbum!.name,
+            artist: unifiedAlbum!.artist,
+            artworkUrl: newArtworkUrl,
+            releaseDate: unifiedAlbum!.releaseDate,
+            platform: unifiedAlbum!.platform,
+            url: unifiedAlbum!.url,
+            tracks: unifiedAlbum!.tracks,
+            metadata: unifiedAlbum!.metadata,
+          );
+        }
+
+        final db = await DatabaseHelper.instance.database;
+        await db.update(
+          'albums',
+          {
+            'artwork_url': newArtworkUrl,
+          },
+          where: 'id = ?',
+          whereArgs: [albumId],
+        );
+
+        setState(() {});
+
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text('Cover art updated successfully')),
+        );
+        
+        _loadDominantColors();
+      } else {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text('Could not fetch cover art from any source')),
+        );
+      }
+    } catch (e) {
+      Logging.severe('Error refetching artwork', e);
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Error refetching cover art: $e')),
+      );
+    } finally {
+      setState(() => _refetchingArtwork = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Use the responsive width factor
@@ -612,7 +695,6 @@ class _DetailsPageState extends State<DetailsPage> {
         appBar: AppBar(
           centerTitle: false,
           automaticallyImplyLeading: false,
-          // Remove the reload button from AppBar actions
           title: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
@@ -632,27 +714,20 @@ class _DetailsPageState extends State<DetailsPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // Move the reload button here, inside the width constraint
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 22),
-                  tooltip: 'Fetch Release Date from Spotify/iTunes/Deezer',
-                  onPressed: _fetchAndCompareReleaseDate,
-                ),
+                // REMOVE the reload button from AppBar
               ],
             ),
           ),
-          // Remove actions: [...] (no reload button here)
         ),
         body: Center(
           child: isLoading
               ? _buildSkeletonAlbumDetails()
               : SizedBox(
-                  width: pageWidth, // Apply consistent width constraint
+                  width: pageWidth,
                   child: RefreshIndicator(
                     key: _refreshIndicatorKey,
                     onRefresh: _refreshData,
                     child: SingleChildScrollView(
-                      // To enable pull-to-refresh, we need to ensure there's enough content or that it's scrollable
                       physics: const AlwaysScrollableScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -672,6 +747,47 @@ class _DetailsPageState extends State<DetailsPage> {
                                   const Icon(Icons.album, size: 300),
                             ),
                           ),
+
+                          // MOVED HERE: Refetch button directly under artwork (only for Deezer)
+                          if ((widget.album['platform']?.toString().toLowerCase() ?? unifiedAlbum?.platform.toLowerCase() ?? '') == 'deezer')
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                              child: InkWell(
+                                onTap: _refetchingArtwork ? null : _refetchArtwork,
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (_refetchingArtwork)
+                                        const SizedBox(
+                                          width: 10,
+                                          height: 10,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                          ),
+                                        )
+                                      else
+                                        Icon(
+                                          Icons.refresh,
+                                          size: 12,
+                                          color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+                                        ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _refetchingArtwork ? 'Refetching...' : 'Fix cover art',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
                           // --- Collapsible Dominant Color Picker ---
                           if (loadingPalette)
                             const Padding(
@@ -761,7 +877,7 @@ class _DetailsPageState extends State<DetailsPage> {
                               ],
                             ),
 
-                          // Add PlatformMatchWidget below the artwork
+                          // Add PlatformMatchWidget below the color picker
                           if (unifiedAlbum != null)
                             Padding(
                               padding:
@@ -786,8 +902,36 @@ class _DetailsPageState extends State<DetailsPage> {
                                     "Album",
                                     unifiedAlbum?.collectionName ??
                                         'Unknown Album'),
-                                _buildInfoRow(
-                                    "Release Date", _formatReleaseDate()),
+                                // MODIFIED: Add refresh icon inline with release date
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "Release Date: ",
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      Text(
+                                        _formatReleaseDate(),
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      InkWell(
+                                        onTap: _fetchAndCompareReleaseDate,
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: Icon(
+                                            Icons.refresh,
+                                            size: 16,
+                                            color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 _buildInfoRow("Duration",
                                     formatDuration(albumDurationMillis)),
                                 const SizedBox(height: 8),
@@ -1939,7 +2083,7 @@ class _DetailsPageState extends State<DetailsPage> {
                         ratings: ratings,
                         averageRating: averageRating,
                         selectedDominantColor: selectedDominantColor,
-                        exportDarkTheme: exportDarkTheme, // Pass to ShareWidget
+                        exportDarkTheme: exportDarkTheme,
                       ),
                     ),
                   ],
@@ -1954,9 +2098,9 @@ class _DetailsPageState extends State<DetailsPage> {
                   ),
                   TextButton(
                     onPressed: () async {
-                      // Capture the context at startup to avoid access problems
+                      // Store references before async gap
                       final navigator = Navigator.of(context);
-                      final scaffoldMessenger = scaffoldMessengerKey.currentState;
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
                       
                       try {
                         final path = await shareWidgetKey.currentState?.saveAsImage();
@@ -1972,7 +2116,7 @@ class _DetailsPageState extends State<DetailsPage> {
                         // Check if the widget is still mounted before showing the error
                         if (mounted) {
                           navigator.pop();
-                          scaffoldMessenger?.showSnackBar(
+                          scaffoldMessenger.showSnackBar(
                             SnackBar(content: Text('Error saving image: $e')),
                           );
                         }
@@ -2289,7 +2433,7 @@ class _DetailsPageState extends State<DetailsPage> {
             Logging.severe('Deezer: Found album URL by search: $deezerUrl');
           }
         }
- if (deezerUrl != null) {
+        if (deezerUrl != null) {
           final deezer = PlatformServiceFactory().getService('deezer');
           final details = await deezer.fetchAlbumDetails(deezerUrl);
           deezerDate = details?['release_date'] ?? details?['releaseDate'];

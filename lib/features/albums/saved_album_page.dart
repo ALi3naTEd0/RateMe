@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:rateme/core/services/search_service.dart';
 import 'package:rateme/core/services/theme_service.dart';
 import 'package:rateme/database/database_helper.dart';
+import 'package:rateme/platforms/middleware/deezer_middleware.dart';
 import 'package:rateme/platforms/platform_service_factory.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/user_data.dart';
@@ -57,6 +58,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
   Color? selectedDominantColor;
   bool loadingPalette = false;
   bool showColorPicker = false;
+  bool _refetchingArtwork = false; // Add this line
 
   @override
   void initState() {
@@ -297,6 +299,62 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
       } else {
         await dbHelper.saveDominantColor(albumId, '');
       }
+    }
+  }
+
+  // Add this method after _saveDominantColor
+  Future<void> _refetchArtwork() async {
+    final platform = _albumData['platform']?.toString().toLowerCase() ?? '';
+    if (platform != 'deezer') {
+      _showSnackBar('Cover art refetch is only available for Deezer albums');
+      return;
+    }
+
+    final albumId = _albumData['id']?.toString() ?? _albumData['collectionId']?.toString();
+    final albumName = _albumData['name']?.toString() ?? _albumData['collectionName']?.toString() ?? '';
+    final artistName = _albumData['artist']?.toString() ?? _albumData['artistName']?.toString() ?? '';
+    
+    if (albumId == null || albumId.isEmpty) {
+      _showSnackBar('Cannot refetch: No album ID found');
+      return;
+    }
+
+    setState(() => _refetchingArtwork = true);
+
+    try {
+      // Use the new fallback method
+      final newArtworkUrl = await DeezerMiddleware.fetchCoverArtWithFallback(
+        albumId,
+        albumName,
+        artistName,
+      );
+      
+      if (newArtworkUrl != null && newArtworkUrl.isNotEmpty) {
+        setState(() {
+          _albumData['artworkUrl'] = newArtworkUrl;
+          _albumData['artworkUrl100'] = newArtworkUrl;
+        });
+
+        final db = await DatabaseHelper.instance.database;
+        await db.update(
+          'albums',
+          {
+            'artwork_url': newArtworkUrl,
+          },
+          where: 'id = ?',
+          whereArgs: [albumId],
+        );
+
+        _showSnackBar('Cover art updated successfully');
+        _loadDominantColors();
+      } else {
+        _showSnackBar('Could not fetch cover art from any source');
+      }
+    } catch (e) {
+      Logging.severe('Error refetching artwork', e);
+      _showSnackBar('Error refetching cover art: $e');
+    } finally {
+      setState(() => _refetchingArtwork = false);
     }
   }
 
@@ -994,12 +1052,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // Add refresh icon for release date
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 22),
-                  tooltip: 'Fetch Release Date from Spotify/iTunes',
-                  onPressed: _fetchAndCompareReleaseDate,
-                ),
+                // REMOVE the refresh icon from here
                 IconButton(
                   icon: Icon(Icons.more_vert, color: iconColor),
                   padding: EdgeInsets.zero,
@@ -1058,11 +1111,50 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                   ),
                                 ),
 
+                                // MOVED HERE: Refetch button directly under artwork (only for Deezer)
+                                if ((_albumData['platform']?.toString().toLowerCase() ?? '') == 'deezer')
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                                    child: InkWell(
+                                      onTap: _refetchingArtwork ? null : _refetchArtwork,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_refetchingArtwork)
+                                              const SizedBox(
+                                                width: 10,
+                                                height: 10,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 1.5,
+                                                ),
+                                              )
+                                            else
+                                              Icon(
+                                                Icons.refresh,
+                                                size: 12,
+                                                color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+                                              ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _refetchingArtwork ? 'Refetching...' : 'Fix cover art',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
                                 // Collapsible Dominant Color Picker
                                 if (loadingPalette)
                                   const Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(vertical: 8.0),
+                                    padding: EdgeInsets.symmetric(vertical: 8.0),
                                     child: CircularProgressIndicator(),
                                   )
                                 else if (dominantColors.isNotEmpty)
@@ -1157,7 +1249,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                     ],
                                   ),
 
-                                // Add PlatformMatchWidget with 8px top padding
+                                // Add PlatformMatchWidget
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: unifiedAlbum != null
@@ -1173,8 +1265,36 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                                         'Unknown Artist'),
                                 _buildInfoRow("Album",
                                     unifiedAlbum?.name ?? 'Unknown Album'),
-                                _buildInfoRow(
-                                    "Release Date", _formatReleaseDate()),
+                                // MODIFIED: Add refresh icon inline with release date
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "Release Date: ",
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      Text(
+                                        _formatReleaseDate(),
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      InkWell(
+                                        onTap: _fetchAndCompareReleaseDate,
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: Icon(
+                                            Icons.refresh,
+                                            size: 16,
+                                            color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 _buildInfoRow("Duration",
                                     formatDuration(albumDurationMillis)),
                                 const SizedBox(height: 8),
@@ -1301,8 +1421,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 16.0),
                               child: Container(
-                                width:
-                                    dataTableWidth, // Match the width of the track table
+                                width: dataTableWidth, // Match the width of the track table
                                 padding: const EdgeInsets.all(12.0),
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).brightness ==
@@ -1973,7 +2092,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
             ],
           ),
         ),
-      ),
+      )
     );
 
     if (result == null) return; // Dialog cancelled
@@ -2135,6 +2254,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
                   // Save the album first
+
                   final albumToSave = unifiedAlbum?.toJson() ?? _albumData;
                   await UserData.addToSavedAlbums(albumToSave);
 
@@ -2147,6 +2267,7 @@ class _SavedAlbumPageState extends State<SavedAlbumPage> {
                   // Create the list with the album
                   final newList = CustomList(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
+
                     name: nameController.text,
                     description: descController.text,
                     albumIds: [albumIdStr],

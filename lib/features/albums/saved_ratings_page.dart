@@ -155,24 +155,26 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             Logging.severe('No ratings found for album ID: $albumId');
           }
 
-          // FIXED: Try multiple locations for artwork URL to ensure proper logging
+          // ENHANCED: Better artwork URL extraction with database column priority
           String artworkUrl = '';
-          // First, check artwork_url column
+          
+          // Priority 1: artwork_url column from database (this is what gets updated by refetch)
           if (mutableAlbum['artwork_url'] != null &&
               mutableAlbum['artwork_url'].toString().isNotEmpty) {
             artworkUrl = mutableAlbum['artwork_url'].toString();
+            Logging.severe('Found artwork_url from database column for album $albumId');
           }
-          // Next, check artworkUrl field
+          // Priority 2: artworkUrl field
           else if (mutableAlbum['artworkUrl'] != null &&
               mutableAlbum['artworkUrl'].toString().isNotEmpty) {
             artworkUrl = mutableAlbum['artworkUrl'].toString();
           }
-          // Finally, check artworkUrl100 field
+          // Priority 3: artworkUrl100 field
           else if (mutableAlbum['artworkUrl100'] != null &&
               mutableAlbum['artworkUrl100'].toString().isNotEmpty) {
             artworkUrl = mutableAlbum['artworkUrl100'].toString();
           }
-          // Check data field if other methods failed
+          // Priority 4: Check data field if other methods failed
           else if (mutableAlbum['data'] != null &&
               mutableAlbum['data'].toString().isNotEmpty) {
             try {
@@ -187,14 +189,10 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
             }
           }
 
-          // Log with the comprehensive check result
-          Logging.severe(
-              'Album artwork URL: ${artworkUrl.isNotEmpty ? artworkUrl : "missing"}');
-
           // Count found artwork URLs
           if (artworkUrl.isNotEmpty) {
             artworkUrlsFound++;
-            // Store the artwork URL in the album for UI use to avoid redundant lookups
+            // Store the artwork URL in the album for UI use
             mutableAlbum['_processed_artwork_url'] = artworkUrl;
           }
 
