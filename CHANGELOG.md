@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.5-1] - 2025-11-14
+
 ### Added
 
 - **Platform Button Visuals:** Improved platform button visuals for both light and dark themes. Selected buttons now use a high-contrast fill and dominant color for icons/borders, ensuring consistent, visually appealing, and accessible UI across themes.
