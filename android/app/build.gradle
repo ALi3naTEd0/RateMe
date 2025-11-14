@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.ali3nated0.rateme"
-    compileSdk = 35  // Update this
+    compileSdk = 36  // Update from 35 to 36 to match plugin requirements
     ndkVersion "27.0.12077973"
 
     compileOptions {
