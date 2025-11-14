@@ -3,7 +3,7 @@
 
 # Rate Me!
 
-![Version](https://img.shields.io/github/v/release/ALi3naTEd0/RateMe?include_prereleases)
+![Version](https://img.shields.io/github/v/release/ALi3naTEd0/RateMe)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Downloads](https://img.shields.io/github/downloads/ALi3naTEd0/RateMe/total)
 ![Last Commit](https://img.shields.io/github/last-commit/ALi3naTEd0/RateMe)
