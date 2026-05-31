@@ -672,11 +672,8 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   Widget _buildReorderableFullListView() {
     return ReorderableListView.builder(
       buildDefaultDragHandles: false, // Disable default drag handles
-      onReorder: (oldIndex, newIndex) async {
+      onReorderItem: (oldIndex, newIndex) async {
         setState(() {
-          if (newIndex > oldIndex) {
-            newIndex -= 1;
-          }
           final item = albums.removeAt(oldIndex);
           albums.insert(newIndex, item);
 
@@ -700,11 +697,10 @@ class _SavedRatingsPageState extends State<SavedRatingsPage> {
   Widget _buildPaginatedReorderableListView() {
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
-      onReorder: (oldIndex, newIndex) async {
+      onReorderItem: (oldIndex, newIndex) async {
         // Convert display indices to global indices
         final globalOldIndex = currentPage * itemsPerPage + oldIndex;
-        final globalNewIndex = currentPage * itemsPerPage +
-            (newIndex > oldIndex ? newIndex - 1 : newIndex);
+        final globalNewIndex = currentPage * itemsPerPage + newIndex;
 
         setState(() {
           final album = albums.removeAt(globalOldIndex);

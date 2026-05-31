@@ -1068,7 +1068,7 @@ class UserData {
   /// Import album from JSON file
   static Future<Map<String, dynamic>?> importAlbum() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         dialogTitle: 'Import Album',
@@ -1099,7 +1099,7 @@ class UserData {
           albumData['name'] ?? albumData['collectionName'] ?? 'Unknown';
       final safeAlbumName = albumName.replaceAll(RegExp(r'[^\w\s-]'), '_');
 
-      final String? outputPath = await FilePicker.platform.saveFile(
+      final String? outputPath = await FilePicker.saveFile(
         dialogTitle: 'Export Album',
         fileName: '$safeAlbumName.json',
         type: FileType.custom,
@@ -1164,7 +1164,7 @@ class UserData {
       final jsonData = jsonEncode(backupData);
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
 
-      final String? outputPath = await FilePicker.platform.saveFile(
+      final String? outputPath = await FilePicker.saveFile(
         dialogTitle: 'Export All Data',
         fileName: 'rateme_backup_$timestamp.json',
         type: FileType.custom,
@@ -1200,7 +1200,7 @@ class UserData {
         Logging.severe('Importing directly from file: $fromFile');
       } else {
         // Use file picker as usual
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['json'],
           dialogTitle: 'Import Data',

@@ -87,7 +87,7 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
 
     String? filePath;
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-      filePath = await FilePicker.platform.saveFile(
+      filePath = await FilePicker.saveFile(
         dialogTitle: 'Save preferences as',
         fileName: defaultFileName,
         type: FileType.custom,
@@ -136,7 +136,7 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
 
   Future<void> importSharedPreferencesFromJson(BuildContext context) async {
     // We ask the user to select the JSON file to import.
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
       dialogTitle:
