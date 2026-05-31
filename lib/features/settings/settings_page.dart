@@ -786,6 +786,17 @@ class _SettingsPageState extends State<SettingsPage> {
       final albumOrder = await db.getAlbumOrder();
       exportMap['album_order'] = albumOrder;
 
+      // 4b. Export a COMPLETE custom-list order (saved order first, then any
+      // lists missing from it) so the destination restores the arrangement
+      // instead of falling back to insertion order. This key was previously
+      // omitted here, which is why imported lists came out shuffled.
+      final savedListOrder = await db.getCustomListOrder();
+      final allListIds = customLists.map((l) => l['id'].toString()).toList();
+      exportMap['custom_list_order'] = <String>[
+        ...savedListOrder.where(allListIds.contains),
+        ...allListIds.where((id) => !savedListOrder.contains(id)),
+      ];
+
       // 5. Export settings
       final settings = await db.database.then((db) => db.query('settings'));
       exportMap['settings'] = settings;
