@@ -40,8 +40,15 @@ sha256sums=('SKIP'
             'SKIP')
 
 prepare() {
-    # Make the bundled Flutter checkout usable and available on PATH.
-    git config --global --add safe.directory "$srcdir/flutter"
+    # makepkg may point HOME / the global git config at an unwritable path
+    # (e.g. /dev/null), which breaks `git config --global` and Flutter's own
+    # config/cache writes. Give them a writable HOME inside srcdir, and mark
+    # checkouts as safe via env vars instead of writing the global config.
+    export HOME="$srcdir/.home"
+    mkdir -p "$HOME"
+    export GIT_CONFIG_COUNT=1
+    export GIT_CONFIG_KEY_0=safe.directory
+    export GIT_CONFIG_VALUE_0='*'
     export PATH="$srcdir/flutter/bin:$PATH"
 
     echo "Using Flutter from $srcdir/flutter"
@@ -58,6 +65,10 @@ prepare() {
 }
 
 build() {
+    export HOME="$srcdir/.home"
+    export GIT_CONFIG_COUNT=1
+    export GIT_CONFIG_KEY_0=safe.directory
+    export GIT_CONFIG_VALUE_0='*'
     export PATH="$srcdir/flutter/bin:$PATH"
     cd "$srcdir/RateMe"
 
