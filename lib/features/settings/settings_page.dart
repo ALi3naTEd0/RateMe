@@ -370,11 +370,35 @@ class _SettingsPageState extends State<SettingsPage> {
                   final db = await DatabaseHelper.instance.database;
                   await db.transaction((txn) async {
                     await txn.delete('albums');
+                    await txn.delete('tracks');
                     await txn.delete('ratings');
                     await txn.delete('custom_lists');
                     await txn.delete('album_lists');
                     await txn.delete('album_order');
+                    // custom_list_order is created lazily; make sure it exists
+                    // before clearing so the transaction can't fail on it.
+                    await txn.execute(
+                        'CREATE TABLE IF NOT EXISTS custom_list_order (list_id TEXT PRIMARY KEY, position INTEGER)');
+                    await txn.delete('custom_list_order');
+                    // The dialog promises "All settings" are removed; this is
+                    // also what holds the chosen primaryColor/theme.
+                    await txn.delete('settings');
                   });
+
+                  // Settings were wiped, so restore the app's default theme
+                  // color and push it to the live UI immediately. Without this
+                  // the previously chosen color stayed applied after a clear.
+                  await ts.ThemeService.setPrimaryColor(
+                      ColorUtility.defaultColor);
+
+                  // Refresh this page's cached color so the swatch/picker
+                  // preview update right away instead of showing the old color.
+                  if (mounted) {
+                    setState(() {
+                      _primaryColor = ColorUtility.defaultColor;
+                      pickerColor = ColorUtility.defaultColor;
+                    });
+                  }
 
                   // Use if (!mounted) return pattern before using context after async gap
                   if (!mounted) return;
@@ -653,7 +677,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _importBackup() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         dialogTitle: 'Select backup file to import',
@@ -769,7 +793,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // Convert to pretty-printed JSON
       final jsonString = const JsonEncoder.withIndent('  ').convert(exportMap);
 
-      final savePath = await FilePicker.platform.saveFile(
+      final savePath = await FilePicker.saveFile(
         dialogTitle: 'Export Backup As',
         fileName: 'rateme_backup.json',
         type: FileType.custom,

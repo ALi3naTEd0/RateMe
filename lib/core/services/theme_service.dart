@@ -354,29 +354,22 @@ class ThemeService extends ChangeNotifier {
 
   /// Update the primary color and save to database
   static Future<void> setPrimaryColor(Color color) async {
-    // CRITICAL FIX: Prevent saving pure black on Android
-    if (Platform.isAndroid &&
-        color.r == 0 &&
-        color.g == 0 &&
-        color.b == 0 &&
-        color.a == 255) {
-      Logging.severe(
-          'ThemeService: Preventing pure black on Android, using safe black instead');
-      color = ColorUtility.safeBlack; // Use safe black from ColorUtility
-    }
-
-    // Ensure we're working with integer RGB values at storage boundaries only
-    final int r = color.r.round();
-    final int g = color.g.round();
-    final int b = color.b.round();
-
-    // FIX: Check for very small values that should be zero
-    final int safeR = r < 3 ? 0 : r;
-    final int safeG = g < 3 ? 0 : g;
-    final int safeB = b < 3 ? 0 : b;
+    // Color channels (.r/.g/.b) are 0.0–1.0 doubles in the current Flutter
+    // API, so they must be scaled by 255 to get integer RGB values. Using
+    // .round() directly (without *255) collapsed every color to near-black.
+    final int r = (color.r * 255).round();
+    final int g = (color.g * 255).round();
+    final int b = (color.b * 255).round();
 
     // Create a clean color with exact integer RGB values
-    final Color safeColor = Color.fromARGB(255, safeR, safeG, safeB);
+    Color safeColor = Color.fromARGB(255, r, g, b);
+
+    // Prevent saving pure black on Android (it makes the UI unusable)
+    if (Platform.isAndroid && r == 0 && g == 0 && b == 0) {
+      Logging.severe(
+          'ThemeService: Preventing pure black on Android, using safe black instead');
+      safeColor = ColorUtility.safeBlack;
+    }
 
     // Important: Update our local copy first
     _primaryColor = safeColor;
