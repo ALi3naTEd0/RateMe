@@ -615,11 +615,8 @@ class _CustomListsPageState extends State<CustomListsPage> {
   Widget _buildReorderableFullListView() {
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
-      onReorder: (oldIndex, newIndex) {
+      onReorderItem: (oldIndex, newIndex) {
         setState(() {
-          if (newIndex > oldIndex) {
-            newIndex -= 1;
-          }
           final item = lists.removeAt(oldIndex);
           lists.insert(newIndex, item);
         });
@@ -636,10 +633,7 @@ class _CustomListsPageState extends State<CustomListsPage> {
   Widget _buildPaginatedReorderableListView() {
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
-      onReorder: (oldIndex, newIndex) async {
-        if (newIndex > oldIndex) {
-          newIndex--;
-        }
+      onReorderItem: (oldIndex, newIndex) async {
         setState(() {
           // 1. Handle reordering within the current page first
           final item = displayedLists.removeAt(oldIndex);
@@ -664,8 +658,89 @@ class _CustomListsPageState extends State<CustomListsPage> {
     );
   }
 
+  // Move a list to an arbitrary position by typing the target number, instead
+  // of dragging it across many pages. Positions shown to the user are 1-based.
+  Future<void> _moveListToPosition(CustomList list) async {
+    if (lists.length <= 1) return;
+
+    final currentIndex = lists.indexWhere((l) => l.id == list.id);
+    if (currentIndex < 0) return;
+
+    final controller =
+        TextEditingController(text: (currentIndex + 1).toString());
+
+    final target = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        void submit() {
+          final parsed = int.tryParse(controller.text.trim());
+          Navigator.pop(dialogContext, parsed);
+        }
+
+        return AlertDialog(
+          title: Text(
+            'Move "${list.name}"',
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Position',
+                  helperText: 'Between 1 and ${lists.length}',
+                ),
+                onSubmitted: (_) => submit(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: submit,
+              child: const Text('Move'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (target == null) return;
+
+    // Clamp into a valid 1-based range, then convert to a 0-based index.
+    final newIndex = target.clamp(1, lists.length) - 1;
+    if (newIndex == currentIndex) return;
+
+    final moved = lists.removeAt(currentIndex);
+    lists.insert(newIndex, moved);
+
+    // Persist the new full order and refresh the displayed page so the moved
+    // list is visible where it landed.
+    final listIds = lists.map((l) => l.id).toList();
+    await DatabaseHelper.instance.saveCustomListOrder(listIds);
+
+    if (!mounted) return;
+    setState(() {
+      totalPages = (lists.length / itemsPerPage).ceil();
+      currentPage = newIndex ~/ itemsPerPage;
+      _updateDisplayedLists();
+    });
+    _showSnackBar('Moved "${list.name}" to position ${newIndex + 1}');
+  }
+
   // Modified card builder to show drag handles in both modes
   Widget _buildCompactListCard(CustomList list, int index) {
+    // Global 1-based position across all pages (not just the current page).
+    final globalPosition = currentPage * itemsPerPage + index + 1;
     return Card(
       key: ValueKey(list.id),
       margin: const EdgeInsets.symmetric(
@@ -677,6 +752,36 @@ class _CustomListsPageState extends State<CustomListsPage> {
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Position number — tap it to move this list to another position.
+            Tooltip(
+              message: isReorderingMode ? '' : 'Move to position',
+              child: InkWell(
+                onTap:
+                    isReorderingMode ? null : () => _moveListToPosition(list),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 28),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 4),
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondaryContainer
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$globalPosition',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
             // Show drag handles in both normal and reordering mode
             ReorderableDragStartListener(
               index: index,
@@ -717,6 +822,12 @@ class _CustomListsPageState extends State<CustomListsPage> {
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.low_priority, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _moveListToPosition(list),
+                    tooltip: 'Move to position',
+                  ),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 20),
                     visualDensity: VisualDensity.compact,
@@ -1152,8 +1263,7 @@ class _CustomListDetailsPageState extends State<CustomListDetailsPage> {
                     : ReorderableListView.builder(
                         buildDefaultDragHandles:
                             false, // Add this line to prevent automatic drag handles
-                        onReorder: (oldIndex, newIndex) async {
-                          if (newIndex > oldIndex) newIndex--;
+                        onReorderItem: (oldIndex, newIndex) async {
                           setState(() {
                             final album = albums.removeAt(oldIndex);
                             albums.insert(newIndex, album);
