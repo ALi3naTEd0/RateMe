@@ -385,6 +385,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     await txn.delete('settings');
                   });
 
+                  // Deleting rows leaves the freed pages reserved, so the
+                  // on-disk file size doesn't drop. VACUUM rebuilds the file
+                  // to actually reclaim the space (must run outside the
+                  // transaction above).
+                  await DatabaseHelper.instance.vacuumDatabase();
+
                   // Settings were wiped, so restore the app's default theme
                   // color and push it to the live UI immediately. Without this
                   // the previously chosen color stayed applied after a clear.
