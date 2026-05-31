@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Move Custom List to Position:** Each custom list now shows its position number, and tapping it (or the new move action) opens a dialog to type a target position. The list jumps there instantly without dragging across pages — practical for large collections. Drag-and-drop still works for fine adjustments.
+
+### Fixed
+
+- **Backup Preserves Colors & List Order:** Importing a backup on another machine now restores the per-album cover colors (they were dropped because the import never wrote the `dominant_color` column) and the custom-list ordering. The Export button now also writes a complete `custom_list_order`, which it previously omitted entirely — backups must be re-exported with this version for the order to carry over.
+- **Clear Database Now a True Reset:** Clearing the database now also wipes settings/tracks/list-order, resets the accent color to the app default and refreshes it live, and runs `VACUUM` so the on-disk database size actually shrinks instead of staying the same.
+- **Accent Color No Longer Turns Black:** Fixed `setPrimaryColor` reading color channels as 0–255 ints when the current Flutter API exposes them as 0.0–1.0 doubles, which collapsed every chosen color to near-black.
+
+### Changed
+
+- **Dependency & Tooling Update:** Bumped `file_picker` to 11 (migrated to its new static API) and migrated `ReorderableListView` to the non-deprecated `onReorderItem` callback. CI now builds with Flutter 3.44.0.
+- **Self-Contained Arch Packaging:** The `PKGBUILD` now fetches and pins its own Flutter SDK instead of relying on a system install, and the stale duplicate Kotlin-DSL Gradle files were removed (the maintained Groovy files are authoritative), which also fixes the Android `versionCode` inconsistency that caused update collisions.
+
 ## [1.1.5-1] - 2025-11-14
 
 ### Added
