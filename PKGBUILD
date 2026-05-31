@@ -1,6 +1,6 @@
 # Maintainer: ALi3naTEd0 <ali3nated0@protonmail.com>
 pkgname=rateme
-pkgver=1.1.5
+pkgver=1.1.6
 pkgrel=1
 pkgdesc="Rate Me! - A music album rating application"  # Note the exclamation mark here
 arch=('x86_64')
@@ -18,36 +18,49 @@ depends=(
     'xcursor-themes'
     'gnome-themes-extra'
 )
+# Flutter SDK is fetched and pinned here instead of relying on a system-wide
+# Flutter install. This keeps the build self-contained and reproducible, and
+# avoids `flutter upgrade` trying to write into a system directory it can't.
+_flutterver=3.44.0
 makedepends=(
     'git'
-    'flutter'
     'clang'
     'cmake'
     'ninja'
     'patchelf'
+    'unzip'
+    'xz'
+    'which'
 )
 # Remove options related to api_keys.dart protection
 options=('!strip' '!debug' '!lto' 'staticlibs')
-source=("git+$url.git#branch=main")
-sha256sums=('SKIP')
+source=("git+$url.git#branch=main"
+        "flutter::git+https://github.com/flutter/flutter.git#tag=$_flutterver")
+sha256sums=('SKIP'
+            'SKIP')
 
 prepare() {
+    # Make the bundled Flutter checkout usable and available on PATH.
+    git config --global --add safe.directory "$srcdir/flutter"
+    export PATH="$srcdir/flutter/bin:$PATH"
+
+    echo "Using Flutter from $srcdir/flutter"
+    flutter --version
+    flutter config --no-analytics --no-cli-animations --enable-linux-desktop
+    # Download the engine/tooling artifacts needed for Linux desktop builds.
+    flutter precache --linux
+
     cd "$srcdir/RateMe"
-    
-    # Handle Flutter upgrade with local changes
-    echo "Checking Flutter environment..."
-    if ! flutter upgrade --force; then
-        echo "Warning: Flutter upgrade failed, attempting to continue with existing Flutter version"
-    fi
-    
     flutter clean
-    
+    flutter pub get
+
     # Remove API keys generation - now handled by user input in the app
 }
 
 build() {
+    export PATH="$srcdir/flutter/bin:$PATH"
     cd "$srcdir/RateMe"
-    
+
     # Verify essential files
     [ ! -f "linux/runner/rateme.desktop" ] && { echo "Error: .desktop file not found"; exit 1; }
     [ ! -f "assets/rateme.png" ] && { echo "Error: rateme.png not found"; exit 1; }
