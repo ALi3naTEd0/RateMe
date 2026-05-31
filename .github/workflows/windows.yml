@@ -17,10 +17,9 @@ on:
 
 jobs:
   build:
-    # Pin to windows-2025 (what windows-latest points to today) so the build
-    # isn't auto-migrated to the new windows-2025-vs2026 image; bump
-    # deliberately once VS 2026 is verified against the Flutter Windows build.
-    runs-on: windows-2025
+    # Pin to the explicit image GitHub is redirecting windows-latest /
+    # windows-2025 to, so no runner-image redirect notice is emitted.
+    runs-on: windows-2025-vs2026
 
     steps:
       - uses: actions/checkout@v5
