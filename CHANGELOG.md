@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.6-1] - 2026-05-31
+
 ### Added
 
 - **Move Custom List to Position:** Each custom list now shows its position number, and tapping it (or the new move action) opens a dialog to type a target position. The list jumps there instantly without dragging across pages — practical for large collections. Drag-and-drop still works for fine adjustments.
