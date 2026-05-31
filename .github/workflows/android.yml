@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -37,7 +37,7 @@ jobs:
           cat $HOME/.gradle/gradle.properties
 
       - name: Cache Gradle and Android dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -56,7 +56,7 @@ jobs:
           cache: true
 
       - name: Cache pub dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ env.PUB_CACHE }}
@@ -92,7 +92,7 @@ jobs:
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-universal
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
@@ -120,19 +120,19 @@ jobs:
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk
 
       - name: Upload arm64-v8a APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-arm64-v8a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_arm64-v8a.apk
 
       - name: Upload armeabi-v7a APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-armeabi-v7a
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_armeabi-v7a.apk
 
       - name: Upload x86_64 APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-x86_64
           path: build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.apk

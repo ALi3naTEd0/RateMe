@@ -22,7 +22,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Dependencies
         run: |
@@ -42,7 +42,7 @@ jobs:
 
       # Add cache for pub dependencies
       - name: Cache pub dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ env.PUB_CACHE }}
@@ -114,7 +114,7 @@ jobs:
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --no-appstream AppDir RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
 
       - name: Upload AppImage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-AppImage
           path: RateMe_${{ inputs.version || github.event.inputs.version }}.AppImage
@@ -174,7 +174,7 @@ jobs:
           dpkg-deb --build $PKGDIR
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-DEB
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_amd64.deb
@@ -191,7 +191,7 @@ jobs:
           find . -name "rateme-*.rpm" -exec mv {} RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm \;
 
       - name: Upload RPM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-RPM
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_x86_64.rpm
@@ -204,7 +204,7 @@ jobs:
           tar -czf RateMe_${VERSION}.tar.gz *
 
       - name: Upload tarball artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-TAR
           path: build/linux/x64/release/bundle/RateMe_${{ inputs.version || github.event.inputs.version }}.tar.gz

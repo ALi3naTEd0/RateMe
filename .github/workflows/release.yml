@@ -97,7 +97,7 @@ jobs:
       version: ${{ steps.get_version.outputs.VERSION }}
       release_url: ${{ steps.set_release_url.outputs.url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           
@@ -139,7 +139,7 @@ jobs:
 
       # Optimize artifact download with merging
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -155,7 +155,7 @@ jobs:
 
       - name: Create Release and Upload Assets
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
@@ -199,7 +199,7 @@ jobs:
           echo "Release type: ${{ github.event.inputs.release_type }}"
           echo "Version: ${{ needs.create-release.outputs.version }}"
           
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: main

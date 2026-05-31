@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -33,7 +33,7 @@ jobs:
 
       # Add pub dependencies cache
       - name: Cache pub dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ env.PUB_CACHE }}
@@ -123,7 +123,7 @@ jobs:
           Compress-Archive -Path "$portableDirName\*" -DestinationPath $zipFileName -Force
 
       - name: Upload Portable ZIP
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-portable
           path: RateMe_${{ inputs.version || github.event.inputs.version }}_portable.zip
@@ -140,7 +140,7 @@ jobs:
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installers\inno_setup_script.iss
 
       - name: Upload Setup Package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RateMe-Setup
           path: installers/Output/RateMe_${{ inputs.version || github.event.inputs.version }}.exe
