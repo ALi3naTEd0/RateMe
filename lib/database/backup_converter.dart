@@ -19,7 +19,7 @@ class BackupConverter {
   static Future<bool> convertBackupFile() async {
     try {
       // 1. Select the old backup file
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         dialogTitle: 'Select old backup file to convert',
@@ -51,7 +51,7 @@ class BackupConverter {
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final newFilename = 'rateme_converted_backup_$timestamp.json';
 
-      final String? outputPath = await FilePicker.platform.saveFile(
+      final String? outputPath = await FilePicker.saveFile(
         dialogTitle: 'Save converted backup as',
         fileName: newFilename,
         type: FileType.custom,
@@ -80,7 +80,7 @@ class BackupConverter {
   static Future<bool> importConvertedBackup() async {
     try {
       // 1. Select the old backup file
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         dialogTitle: 'Select backup file to convert and import',
@@ -1224,6 +1224,16 @@ class BackupConverter {
               }
             }
 
+            // Preserve the user-selected dominant color (based on the album
+            // cover). This is stored in a separate column that insertAlbum()
+            // does not write, so restore it explicitly here.
+            final dominantColor = albumData['dominant_color'];
+            if (dominantColor != null &&
+                dominantColor.toString().isNotEmpty) {
+              await db.saveDominantColor(
+                  album.id.toString(), dominantColor.toString());
+            }
+
             albumCount++;
           } catch (e, stack) {
             Logging.severe('Error importing album: $e', e, stack);
@@ -1471,7 +1481,17 @@ class BackupConverter {
       Logging.severe('Exported album order with ${albumOrder.length} items');
 
       // 5. Export custom list order
-      final customListOrder = await db.getCustomListOrder();
+      // Build a COMPLETE order so the destination always restores the same
+      // arrangement. The saved order table can be empty/incomplete on the
+      // source machine; in that case fall back to (and append) the current
+      // list order so the destination doesn't shuffle them by insertion order.
+      final savedListOrder = await db.getCustomListOrder();
+      final allListIds =
+          customLists.map((list) => list['id'].toString()).toList();
+      final customListOrder = <String>[
+        ...savedListOrder.where(allListIds.contains),
+        ...allListIds.where((id) => !savedListOrder.contains(id)),
+      ];
       exportMap['custom_list_order'] = customListOrder;
       Logging.severe(
           'Exported custom list order with ${customListOrder.length} items');
