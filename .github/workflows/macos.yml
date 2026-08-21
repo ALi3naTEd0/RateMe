@@ -45,6 +45,9 @@ jobs:
 
       - name: Setup Build
         run: |
+          # macOS runners may include an untrusted AWS tap that blocks Brew.
+          brew untap aws/tap || true
+
           # Install ImageMagick first
           brew install imagemagick
           
