@@ -65,16 +65,15 @@ class ShareWidgetState extends State<ShareWidget> {
         await tempFile.writeAsBytes(pngBytes);
         savedPath = tempPath;
       } else {
-        final String? savePath = await FilePicker.saveFile(
+        final saveUri = await FilePicker.saveFile(
           dialogTitle: 'Save image as',
           fileName: fileName,
+          bytes: pngBytes,
           type: FileType.custom,
           allowedExtensions: ['png'],
         );
-        if (savePath != null) {
-          final file = File(savePath);
-          await file.writeAsBytes(pngBytes);
-          savedPath = savePath;
+        if (saveUri != null) {
+          savedPath = saveUri.toFilePath();
         }
       }
 

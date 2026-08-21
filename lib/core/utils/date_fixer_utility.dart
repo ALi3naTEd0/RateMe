@@ -218,7 +218,7 @@ class DateFixerUtility {
       Logging.severe('Got release date for album $albumId: $formattedDate');
 
       // Update the album in the database
-      return _updateDateInDatabase(album, formattedDate);
+      return await _updateDateInDatabase(album, formattedDate);
     } catch (e, stack) {
       Logging.severe('Error fixing Deezer date', e, stack);
       return false;
@@ -274,7 +274,7 @@ class DateFixerUtility {
       Logging.severe('Got date for album $albumId: $formattedDate');
 
       // Update the album in the database
-      return _updateDateInDatabase(album, formattedDate);
+      return await _updateDateInDatabase(album, formattedDate);
     } catch (e, stack) {
       Logging.severe('Error fixing generic date', e, stack);
       return false;

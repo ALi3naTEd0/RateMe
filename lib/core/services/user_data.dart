@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:rateme/core/services/search_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -1074,11 +1075,11 @@ class UserData {
         dialogTitle: 'Import Album',
       );
 
-      if (result == null || result.files.isEmpty) {
+      if (result.isEmpty) {
         return null;
       }
 
-      final file = File(result.files.first.path!);
+      final file = File(result.first.path!);
       final jsonData = await file.readAsString();
       final albumData = jsonDecode(jsonData);
       // Save to database
@@ -1099,19 +1100,17 @@ class UserData {
           albumData['name'] ?? albumData['collectionName'] ?? 'Unknown';
       final safeAlbumName = albumName.replaceAll(RegExp(r'[^\w\s-]'), '_');
 
-      final String? outputPath = await FilePicker.saveFile(
+      final outputUri = await FilePicker.saveFile(
         dialogTitle: 'Export Album',
         fileName: '$safeAlbumName.json',
+        bytes: Uint8List.fromList(utf8.encode(jsonData)),
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
 
-      if (outputPath == null) {
+      if (outputUri == null) {
         return false;
       }
-
-      final file = File(outputPath);
-      await file.writeAsString(jsonData);
 
       return true;
     } catch (e) {
@@ -1164,19 +1163,17 @@ class UserData {
       final jsonData = jsonEncode(backupData);
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
 
-      final String? outputPath = await FilePicker.saveFile(
+      final outputUri = await FilePicker.saveFile(
         dialogTitle: 'Export All Data',
         fileName: 'rateme_backup_$timestamp.json',
+        bytes: Uint8List.fromList(utf8.encode(jsonData)),
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
 
-      if (outputPath == null) {
+      if (outputUri == null) {
         return false;
       }
-
-      final file = File(outputPath);
-      await file.writeAsString(jsonData);
 
       return true;
     } catch (e, stack) {
@@ -1206,11 +1203,11 @@ class UserData {
           dialogTitle: 'Import Data',
         );
 
-        if (result == null || result.files.isEmpty) {
+        if (result.isEmpty) {
           return false;
         }
 
-        final file = File(result.files.first.path!);
+        final file = File(result.first.path!);
         jsonData = await file.readAsString();
         // Update progress
         progressCallback?.call('Analyzing backup file...', 0.1);

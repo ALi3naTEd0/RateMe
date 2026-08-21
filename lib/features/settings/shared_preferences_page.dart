@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -84,16 +85,20 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
 
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
     final defaultFileName = 'rateme_preferences_$timestamp.json';
+    final jsonData = jsonEncode(data);
 
     String? filePath;
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-      filePath = await FilePicker.saveFile(
+      final savedUri = await FilePicker.saveFile(
         dialogTitle: 'Save preferences as',
         fileName: defaultFileName,
+        bytes: Uint8List.fromList(utf8.encode(jsonData)),
         type: FileType.custom,
         allowedExtensions: ['json'],
-        lockParentWindow: true,
+        windowsOptions: const WindowsOptions(lockParentWindow: true),
+        linuxOptions: const LinuxOptions(lockParentWindow: true),
       );
+      filePath = savedUri?.toFilePath();
     } else {
       final defaultDir = await getExternalStorageDirectory();
       filePath = path.join(
@@ -101,8 +106,9 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
     }
 
     if (filePath != null) {
-      File file = File(filePath);
-      await file.writeAsString(jsonEncode(data));
+      if (!Platform.isLinux && !Platform.isWindows && !Platform.isMacOS) {
+        await File(filePath).writeAsString(jsonData);
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -136,15 +142,15 @@ class _SharedPreferencesPageState extends State<SharedPreferencesPage> {
 
   Future<void> importSharedPreferencesFromJson(BuildContext context) async {
     // We ask the user to select the JSON file to import.
-    FilePickerResult? result = await FilePicker.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
       dialogTitle:
           'Select JSON file to import', // Changed from 'Seleccione el archivo JSON a importar'
     );
 
-    if (result != null) {
-      PlatformFile file = result.files.first;
+    if (result.isNotEmpty) {
+      final file = result.first;
       String? path = file.path;
 
       if (path != null) {

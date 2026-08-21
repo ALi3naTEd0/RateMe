@@ -5,7 +5,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 license: MIT
 
 # Version information
-version: 1.1.6-1
+version: 1.1.7-1
 
 environment:
   sdk: '>=3.2.0 <4.0.0'  # Changed from 3.2.6 to 3.2.0
@@ -24,11 +24,11 @@ dependencies:
   url_launcher: ^6.1.14
   path_provider: ^2.1.1
   shared_preferences: ^2.2.3
-  file_picker: ^11.0.2
+  file_picker: ^12.0.0
   # share_plus 13 / package_info_plus 10 require win32 ^6, which conflicts with
   # file_picker 11 (win32 ^5). The win32-6 set is only reachable via the
   # file_picker 12 *beta*, so we stay on these stable versions for now.
-  share_plus: ^12.0.0
+  share_plus: ^13.3.0
   html: ^0.15.4
   intl: ^0.20.0
   logging: ^1.2.0
@@ -41,7 +41,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.2.1
 
 dev_dependencies:
   flutter_test:

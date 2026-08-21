@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:sqflite/sqflite.dart';
@@ -25,13 +26,13 @@ class BackupConverter {
         dialogTitle: 'Select old backup file to convert',
       );
 
-      if (result == null || result.files.isEmpty) {
+      if (result.isEmpty) {
         _showSnackBar('No file selected');
         return false;
       }
 
       // 2. Read the file
-      final file = File(result.files.first.path!);
+      final file = File(result.first.path!);
       final jsonData = await file.readAsString();
       final data = jsonDecode(jsonData);
 
@@ -51,21 +52,18 @@ class BackupConverter {
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final newFilename = 'rateme_converted_backup_$timestamp.json';
 
-      final String? outputPath = await FilePicker.saveFile(
+      final outputUri = await FilePicker.saveFile(
         dialogTitle: 'Save converted backup as',
         fileName: newFilename,
+        bytes: Uint8List.fromList(utf8.encode(jsonEncode(convertedData))),
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
 
-      if (outputPath == null) {
+      if (outputUri == null) {
         _showSnackBar('Save cancelled');
         return false;
       }
-
-      // 6. Write the new file
-      final newFile = File(outputPath);
-      await newFile.writeAsString(jsonEncode(convertedData));
 
       _showSnackBar('Backup converted and saved successfully!');
       return true;
@@ -86,13 +84,13 @@ class BackupConverter {
         dialogTitle: 'Select backup file to convert and import',
       );
 
-      if (result == null || result.files.isEmpty) {
+      if (result.isEmpty) {
         _showSnackBar('No file selected');
         return false;
       }
 
       // 2. Read the file
-      final file = File(result.files.first.path!);
+      final file = File(result.first.path!);
       final jsonData = await file.readAsString();
       final data = jsonDecode(jsonData);
 
@@ -1424,15 +1422,15 @@ class BackupConverter {
 
       if (hasSqliteTables || hasEmbeddedTracks) {
         Logging.severe('Detected SQLite format backup');
-        return importFromSqliteJson(jsonString);
+        return await importFromSqliteJson(jsonString);
       } else if (hasSharedPrefsFormat) {
         Logging.severe('Detected SharedPreferences format backup');
-        return importFromSharedPrefsJson(jsonString);
+        return await importFromSharedPrefsJson(jsonString);
       } else {
         Logging.severe(
             'Unknown backup format, attempting to parse as SQLite format');
         // Try SQLite format as default for unknown formats since it's more flexible
-        return importFromSqliteJson(jsonString);
+        return await importFromSqliteJson(jsonString);
       }
     } catch (e, stack) {
       Logging.severe('Error in smart import', e, stack);

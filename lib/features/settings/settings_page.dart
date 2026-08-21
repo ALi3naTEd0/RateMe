@@ -689,7 +689,7 @@ class _SettingsPageState extends State<SettingsPage> {
         dialogTitle: 'Select backup file to import',
       );
 
-      if (result == null || result.files.isEmpty) {
+      if (result.isEmpty) {
         _showSnackBar('No file selected');
         return;
       }
@@ -713,7 +713,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
       // Read file
-      final file = File(result.files.first.path!);
+      final file = File(result.first.path!);
       final jsonString = await file.readAsString();
 
       // Import backup
@@ -810,24 +810,23 @@ class _SettingsPageState extends State<SettingsPage> {
       // Convert to pretty-printed JSON
       final jsonString = const JsonEncoder.withIndent('  ').convert(exportMap);
 
-      final savePath = await FilePicker.saveFile(
+      final saveUri = await FilePicker.saveFile(
         dialogTitle: 'Export Backup As',
         fileName: 'rateme_backup.json',
+        bytes: Uint8List.fromList(utf8.encode(jsonString)),
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
 
       if (!mounted) return;
 
-      if (savePath == null) {
+      if (saveUri == null) {
         _showSnackBar('Export cancelled.');
         return;
       }
 
-      final file = await File(savePath).writeAsString(jsonString);
-
       if (!mounted) return;
-      _showSnackBar('Backup exported to: ${file.path}');
+      _showSnackBar('Backup exported to: ${saveUri.toFilePath()}');
     } catch (e, stack) {
       Logging.severe('Error exporting backup', e, stack);
       if (!mounted) return;
