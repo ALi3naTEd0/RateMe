@@ -105,14 +105,31 @@
             <p>Available for multiple platforms</p>
             
             <div class="download-options">
-                <!-- Android button -->
-                <button onclick="window.open('https://github.com/ALi3naTEd0/RateMe/releases/download/v1.1.7-1/RateMe_1.1.7-1.apk', '_blank')" class="download-button">
-                    <i class="fab fa-android"></i>
-                    <span>
-                        <strong>Android</strong>
-                        <small style="white-space: nowrap;">Universal APK</small>
-                    </span>
-                </button>
+                <!-- Android dropdown -->
+                <div class="download-dropdown">
+                    <button class="download-button dropdown-toggle">
+                        <i class="fab fa-android"></i>
+                        <span>
+                            <strong>Android</strong>
+                            <small>Select APK</small>
+                        </span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-content">
+                        <a data-android-variant="androidUniversal" href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.1.7-1/RateMe_1.1.7-1.apk" target="_blank" rel="noopener">
+                            Universal APK (all devices)
+                        </a>
+                        <a data-android-variant="androidArm64" href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.1.7-1/RateMe_1.1.7-1_arm64-v8a.apk" target="_blank" rel="noopener">
+                            arm64-v8a (most phones)
+                        </a>
+                        <a data-android-variant="androidArmeabi" href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.1.7-1/RateMe_1.1.7-1_armeabi-v7a.apk" target="_blank" rel="noopener">
+                            armeabi-v7a (older phones)
+                        </a>
+                        <a data-android-variant="androidX86" href="https://github.com/ALi3naTEd0/RateMe/releases/download/v1.1.7-1/RateMe_1.1.7-1_x86_64.apk" target="_blank" rel="noopener">
+                            x86_64 (emulators)
+                        </a>
+                    </div>
+                </div>
 
                 <!-- Linux dropdown -->
                 <div class="download-dropdown">
@@ -369,8 +386,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateDownloadLinks(version) {
         const baseUrl = 'https://github.com/ALi3naTEd0/RateMe/releases/download';
         const links = {
-            // Android - only universal APK
-            'android': `${baseUrl}/v${version}/RateMe_${version}.apk`,
+            // Android APKs
+            'androidUniversal': `${baseUrl}/v${version}/RateMe_${version}.apk`,
+            'androidArm64': `${baseUrl}/v${version}/RateMe_${version}_arm64-v8a.apk`,
+            'androidArmeabi': `${baseUrl}/v${version}/RateMe_${version}_armeabi-v7a.apk`,
+            'androidX86': `${baseUrl}/v${version}/RateMe_${version}_x86_64.apk`,
             
             // Windows links
             'exe': `${baseUrl}/v${version}/RateMe_${version}.exe`,
@@ -386,9 +406,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'rpm': `${baseUrl}/v${version}/RateMe_${version}_x86_64.rpm`
         };
 
-        // Update Android direct download button - universal APK only
-        document.querySelector('button.download-button').onclick = () => 
-            window.open(links.android, '_blank');
+        document.querySelectorAll('[data-android-variant]').forEach(link => {
+            link.href = links[link.dataset.androidVariant];
+        });
 
         // Update dropdown links - more specifically for AppImage
         document.querySelectorAll('.dropdown-content a').forEach(link => {
