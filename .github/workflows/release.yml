@@ -137,14 +137,32 @@ jobs:
           
       - name: Extract release notes
         id: extract_release_notes
+        env:
+          RELEASE_VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
           if [ -f "CHANGELOG.md" ]; then
-            # Extract content between ## [Unreleased] and the next ##
-            RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{flag=1;next}/^## /{if(flag==1)exit}flag' CHANGELOG.md | sed '/^$/d')
-            
-            # If no content was found or it's empty, use a default message
+            # Prefer notes already filed under the requested release version.
+            RELEASE_NOTES=$(awk -v version="$RELEASE_VERSION" '
+              {
+                heading = "## [" version "]"
+                if (index($0, heading) == 1 &&
+                    (length($0) == length(heading) ||
+                     substr($0, length(heading) + 1, 1) ~ /[[:space:]]/)) {
+                  in_version = 1
+                  next
+                }
+                if (in_version && /^## /) exit
+                if (in_version) print
+              }
+            ' CHANGELOG.md | sed '/^$/d')
+
+            # Fall back to unreleased notes for a version without its own section.
             if [ -z "$RELEASE_NOTES" ]; then
-              RELEASE_NOTES="Release version ${{ steps.get_version.outputs.VERSION }}"
+              RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{flag=1;next}/^## /{if(flag==1)exit}flag' CHANGELOG.md | sed '/^$/d')
+            fi
+
+            if [ -z "$RELEASE_NOTES" ]; then
+              RELEASE_NOTES="Release version $RELEASE_VERSION"
             fi
             
             # Decode and preserve line breaks for GitHub Actions output
@@ -155,7 +173,7 @@ jobs:
             echo "$RELEASE_NOTES" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           else
-            echo "RELEASE_NOTES=Release version ${{ steps.get_version.outputs.VERSION }}" >> "$GITHUB_OUTPUT"
+            echo "RELEASE_NOTES=Release version $RELEASE_VERSION" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create Dist Directory
