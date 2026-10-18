@@ -21,7 +21,8 @@ depends=(
 # Flutter SDK is fetched and pinned here instead of relying on a system-wide
 # Flutter install. This keeps the build self-contained and reproducible, and
 # avoids `flutter upgrade` trying to write into a system directory it can't.
-_flutterver=3.44.0
+# Flutter 3.44.0 release commit
+_fluttercommit=559ffa3f75e7402d65a8def9c28389a9b2e6fe42
 makedepends=(
     'git'
     'clang'
@@ -35,7 +36,7 @@ makedepends=(
 # Remove options related to api_keys.dart protection
 options=('!strip' '!debug' '!lto' 'staticlibs')
 source=("git+$url.git#branch=main"
-        "flutter::git+https://github.com/flutter/flutter.git#tag=$_flutterver")
+    "flutter::git+https://github.com/flutter/flutter.git#commit=$_fluttercommit")
 sha256sums=('SKIP'
             'SKIP')
 
