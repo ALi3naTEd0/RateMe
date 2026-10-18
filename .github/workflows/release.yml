@@ -133,16 +133,9 @@ jobs:
           disable-linux-hw-accel: false
           disable-animations: true
           script: |
-            APK_PATH="$(find android-artifact -name '*.apk' -print -quit)"
-            test -n "$APK_PATH"
-            adb install "$APK_PATH"
+            adb install android-artifact/*.apk
             adb shell am start -W -n com.ali3nated0.rateme/.MainActivity
-            APP_PID="$(adb shell pidof com.ali3nated0.rateme | tr -d '\r')"
-            if [ -z "$APP_PID" ]; then
-              echo "Android app process was not found after launch"
-              adb logcat -d -t 200
-              exit 1
-            fi
+            test -n "$(adb shell pidof com.ali3nated0.rateme | tr -d '\r')" || { echo "Android app process was not found after launch"; adb logcat -d -t 200; exit 1; }
 
   linux-smoke:
     name: Smoke test Linux bundle
