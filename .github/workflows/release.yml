@@ -105,16 +105,169 @@ jobs:
     with:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
-  # STEP 2: CREATE RELEASE - Create the GitHub release and attach artifacts
+  # STEP 2: SMOKE TESTS - Verify the packaged app artifacts
+  android-smoke:
+    name: Smoke test Android APK
+    needs: android-build
+    if: needs.android-build.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: RateMe-universal
+          path: android-artifact
+
+      - name: Launch APK in emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: |
+            APK_PATH="$(find android-artifact -name '*.apk' -print -quit)"
+            test -n "$APK_PATH"
+            adb install "$APK_PATH"
+            adb shell am start -W -n com.ali3nated0.rateme/.MainActivity
+            APP_PID="$(adb shell pidof com.ali3nated0.rateme | tr -d '\r')"
+            if [ -z "$APP_PID" ]; then
+              echo "Android app process was not found after launch"
+              adb logcat -d -t 200
+              exit 1
+            fi
+
+  linux-smoke:
+    name: Smoke test Linux bundle
+    needs: linux-build
+    if: needs.linux-build.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: RateMe-TAR
+          path: linux-artifact
+
+      - name: Launch packaged Linux app
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0 libsecret-1-0 xvfb xauth
+          TARBALL="$(find linux-artifact -name '*.tar.gz' -print -quit)"
+          test -n "$TARBALL"
+          mkdir -p "$RUNNER_TEMP/rateme-linux"
+          tar -xzf "$TARBALL" -C "$RUNNER_TEMP/rateme-linux"
+
+          set +e
+          (cd "$RUNNER_TEMP/rateme-linux" && xvfb-run -a timeout 15s env LIBGL_ALWAYS_SOFTWARE=1 ./rateme)
+          app_exit_code=$?
+          set -e
+
+          if [ "$app_exit_code" -ne 124 ]; then
+            echo "Linux app exited before the smoke-test timeout (exit code: $app_exit_code)"
+            exit 1
+          fi
+
+  windows-smoke:
+    name: Smoke test Windows app
+    needs: windows-build
+    if: needs.windows-build.result == 'success'
+    runs-on: windows-2025-vs2026
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: RateMe-portable
+          path: portable-artifact
+
+      - name: Launch packaged Windows app
+        shell: pwsh
+        run: |
+          $zipPath = (Get-ChildItem -Path "portable-artifact" -Filter "*_portable.zip" | Select-Object -First 1).FullName
+          if (-not $zipPath) {
+            throw "Portable ZIP artifact was not found"
+          }
+
+          $extractPath = Join-Path $env:RUNNER_TEMP "rateme-portable"
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          $appPath = Join-Path $extractPath "rateme.exe"
+          if (-not (Test-Path $appPath)) {
+            throw "rateme.exe was not found in the portable ZIP"
+          }
+
+          $process = Start-Process -FilePath $appPath -WorkingDirectory $extractPath -PassThru
+          try {
+            if (-not $process.WaitForInputIdle(30000)) {
+              throw "Windows app did not become idle after launch"
+            }
+            if ($process.WaitForExit(5000)) {
+              throw "Windows app exited shortly after launch"
+            }
+          } finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
+
+  macos-smoke:
+    name: Smoke test macOS app
+    needs: macos-build
+    if: needs.macos-build.result == 'success'
+    runs-on: macos-15
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: RateMe-DMG
+          path: macos-artifact
+
+      - name: Launch app from DMG
+        run: |
+          DMG_PATH="$(find macos-artifact -name '*.dmg' -print -quit)"
+          test -n "$DMG_PATH"
+          MOUNT_POINT="$RUNNER_TEMP/rateme-dmg"
+          mkdir -p "$MOUNT_POINT"
+          hdiutil attach "$DMG_PATH" -nobrowse -mountpoint "$MOUNT_POINT"
+
+          APP_PID=""
+          cleanup() {
+            if [ -n "$APP_PID" ]; then
+              kill "$APP_PID" 2>/dev/null || true
+            fi
+            hdiutil detach "$MOUNT_POINT" -quiet || true
+          }
+          trap cleanup EXIT
+
+          APP_PATH="$(find "$MOUNT_POINT" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          APP_EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+          open -n "$APP_PATH"
+
+          for attempt in {1..15}; do
+            APP_PID="$(pgrep -x "$APP_EXECUTABLE" | head -n 1 || true)"
+            if [ -n "$APP_PID" ]; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$APP_PID" ]; then
+            echo "macOS app did not start"
+            exit 1
+          fi
+
+          sleep 5
+          kill -0 "$APP_PID"
+
+  # STEP 3: CREATE RELEASE - Create the GitHub release and attach artifacts
   create-release:
     name: Create Release
-    needs: [test, android-build, linux-build, windows-build, macos-build, flatpak-build]
+    needs: [test, android-build, linux-build, windows-build, macos-build, flatpak-build, android-smoke, linux-smoke, windows-smoke, macos-smoke]
     if: |
       !cancelled() && !failure() && needs.test.result == 'success' &&
-      (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
-      (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
-      (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
-      (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped') &&
+      ((needs.android-build.result == 'success' && needs.android-smoke.result == 'success') ||
+       (needs.android-build.result == 'skipped' && needs.android-smoke.result == 'skipped')) &&
+      ((needs.linux-build.result == 'success' && needs.linux-smoke.result == 'success') ||
+       (needs.linux-build.result == 'skipped' && needs.linux-smoke.result == 'skipped')) &&
+      ((needs.windows-build.result == 'success' && needs.windows-smoke.result == 'success') ||
+       (needs.windows-build.result == 'skipped' && needs.windows-smoke.result == 'skipped')) &&
+      ((needs.macos-build.result == 'success' && needs.macos-smoke.result == 'success') ||
+       (needs.macos-build.result == 'skipped' && needs.macos-smoke.result == 'skipped')) &&
       (needs.flatpak-build.result == 'success' || needs.flatpak-build.result == 'skipped')
     runs-on: ubuntu-24.04
     outputs:
@@ -220,7 +373,7 @@ jobs:
           echo "Setting release URL to: $RELEASE_URL"
           echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
 
-  # STEP 3: UPDATE DOCUMENTATION - Update docs with new version links
+  # STEP 4: UPDATE DOCUMENTATION - Update docs with new version links
   update-docs:
     name: Update Documentation
     needs: create-release

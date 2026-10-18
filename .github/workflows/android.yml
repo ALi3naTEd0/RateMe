@@ -91,17 +91,6 @@ jobs:
           flutter build apk --release --no-pub --dart-define=CI=true
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
 
-      - name: Smoke test Universal APK
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          disable-animations: true
-          script: |
-            adb install build/app/outputs/flutter-apk/RateMe_${{ inputs.version || github.event.inputs.version }}.apk
-            adb shell am start -W -n com.ali3nated0.rateme/.MainActivity
-            adb shell pidof com.ali3nated0.rateme
-
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v7
         with:

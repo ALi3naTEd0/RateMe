@@ -75,18 +75,6 @@ jobs:
             flutter build linux --release --no-pub --dart-define=flutter.inspector.structuredErrors=true
           )
 
-      - name: Smoke test Linux bundle
-        run: |
-          set +e
-          (cd build/linux/x64/release/bundle && xvfb-run -a timeout 15s env LIBGL_ALWAYS_SOFTWARE=1 ./rateme)
-          app_exit_code=$?
-          set -e
-
-          if [ "$app_exit_code" -ne 124 ]; then
-            echo "Linux app exited before the smoke-test timeout (exit code: $app_exit_code)"
-            exit 1
-          fi
-
       # AppImage build
       - name: Create AppImage Structure
         run: |
