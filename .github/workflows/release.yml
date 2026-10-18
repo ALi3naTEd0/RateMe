@@ -35,8 +35,28 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Test app
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
   # STEP 1: BUILD PHASE - Build all required platforms
   android-build:
+    needs: test
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'android')) ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
@@ -46,6 +66,7 @@ jobs:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   linux-build:
+    needs: test
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'linux')) ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
@@ -55,6 +76,7 @@ jobs:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   windows-build:
+    needs: test
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'windows')) ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
@@ -64,6 +86,7 @@ jobs:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   macos-build:
+    needs: test
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'macos')) ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
@@ -73,6 +96,7 @@ jobs:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
   flatpak-build:
+    needs: test
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.platforms == 'all' || inputs.platforms == 'flatpak')) ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
@@ -84,15 +108,15 @@ jobs:
   # STEP 2: CREATE RELEASE - Create the GitHub release and attach artifacts
   create-release:
     name: Create Release
-    needs: [android-build, linux-build, windows-build, macos-build, flatpak-build]
+    needs: [test, android-build, linux-build, windows-build, macos-build, flatpak-build]
     if: |
-      !cancelled() && !failure() &&
+      !cancelled() && !failure() && needs.test.result == 'success' &&
       (needs.android-build.result == 'success' || needs.android-build.result == 'skipped') &&
       (needs.linux-build.result == 'success' || needs.linux-build.result == 'skipped') &&
       (needs.windows-build.result == 'success' || needs.windows-build.result == 'skipped') &&
       (needs.macos-build.result == 'success' || needs.macos-build.result == 'skipped') &&
       (needs.flatpak-build.result == 'success' || needs.flatpak-build.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
       release_url: ${{ steps.set_release_url.outputs.url }}
@@ -185,7 +209,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' && 
       github.event.inputs.release_type == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Verify Release Type
         run: |
