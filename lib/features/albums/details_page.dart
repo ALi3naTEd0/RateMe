@@ -413,8 +413,10 @@ class _DetailsPageState extends State<DetailsPage> {
     // Fix release date formatting
     try {
       if (unifiedAlbum?.platform == 'rateyourmusic') {
-        final year = unifiedAlbum!.releaseDate.year;
-        return year > 1 ? year.toString() : 'Unknown Year';
+        final date = unifiedAlbum!.releaseDate;
+        if (date.year <= 1) return 'Unknown Year';
+        if (date.month == 1 && date.day == 1) return date.year.toString();
+        return DateFormat('d MMMM yyyy').format(date);
       }
       if (unifiedAlbum?.releaseDate != null) {
         return DateFormat('d MMMM yyyy').format(unifiedAlbum!.releaseDate);
@@ -1676,10 +1678,10 @@ class _DetailsPageState extends State<DetailsPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: yearController,
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.datetime,
                 decoration: const InputDecoration(
-                  labelText: 'Año de lanzamiento (opcional)',
-                  hintText: '2024',
+                  labelText: 'Año o fecha de lanzamiento (opcional)',
+                  hintText: '2024 o 2024-03-15',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1695,7 +1697,7 @@ class _DetailsPageState extends State<DetailsPage> {
             onPressed: () => Navigator.pop(context, {
               'tracks': tracksController.text,
               'artworkUrl': artworkController.text,
-              'releaseYear': yearController.text,
+              'releaseDate': yearController.text,
             }),
             icon: const Icon(Icons.download),
             label: const Text('Importar'),
@@ -1754,25 +1756,38 @@ class _DetailsPageState extends State<DetailsPage> {
     final validArtworkUrl = artworkUri != null &&
         artworkUri.hasAuthority &&
         (artworkUri.scheme == 'http' || artworkUri.scheme == 'https');
-    final enteredYear = (importData['releaseYear'] ?? '').trim();
-    final pageYear = RegExp(
-      r'\b(?:release\s*date|release\s*year|released(?:\s+in)?)\s*[:\-]?\s*((?:19|20)\d{2})\b',
+    final enteredReleaseDate = (importData['releaseDate'] ?? '').trim();
+    final pageReleaseDate = RegExp(
+      r'\b(?:release\s*date|release\s*year|released(?:\s+in)?)\s*[:\-]?\s*((?:19|20)\d{2}(?:-\d{2}-\d{2})?)\b',
       caseSensitive: false,
     ).firstMatch(pastedTracksText)?.group(1);
-    final releaseYearText =
-        enteredYear.isNotEmpty ? enteredYear : pageYear ?? '';
-    final releaseYear = int.tryParse(releaseYearText);
-    final validReleaseYear =
-        releaseYear != null && releaseYear >= 1000 && releaseYear <= 9999;
+    final releaseDateText = enteredReleaseDate.isNotEmpty
+        ? enteredReleaseDate
+        : pageReleaseDate ?? '';
+    final dateMatch =
+        RegExp(r'^(\d{4})(?:-(\d{2})-(\d{2}))?$').firstMatch(releaseDateText);
+    final releaseYear = int.tryParse(dateMatch?.group(1) ?? '');
+    final releaseMonth = int.tryParse(dateMatch?.group(2) ?? '') ?? 1;
+    final releaseDay = int.tryParse(dateMatch?.group(3) ?? '') ?? 1;
+    DateTime? parsedReleaseDate;
+    if (releaseYear != null && releaseYear >= 1000 && releaseYear <= 9999) {
+      final candidate = DateTime(releaseYear, releaseMonth, releaseDay);
+      if (candidate.year == releaseYear &&
+          candidate.month == releaseMonth &&
+          candidate.day == releaseDay) {
+        parsedReleaseDate = candidate;
+      }
+    }
+    final validReleaseDate = parsedReleaseDate != null;
     final hasTracks = importedTracks.isNotEmpty;
 
-    if (!hasTracks && !validArtworkUrl && !validReleaseYear) {
+    if (!hasTracks && !validArtworkUrl && !validReleaseDate) {
       if (mounted) {
         scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
-            content: Text(releaseYearText.isNotEmpty
-                ? 'El año de lanzamiento no es válido'
-                : 'Pega temas, una URL de portada o un año'),
+            content: Text(releaseDateText.isNotEmpty
+                ? 'El año o la fecha de lanzamiento no son válidos'
+                : 'Pega temas, una URL de portada o un año/fecha'),
           ),
         );
       }
@@ -1791,9 +1806,8 @@ class _DetailsPageState extends State<DetailsPage> {
           artworkUrl: validArtworkUrl ? artworkUrl : album.artworkUrl,
           url: album.url,
           platform: album.platform,
-          releaseDate: validReleaseYear
-              ? DateTime(releaseYear, 1, 1)
-              : album.releaseDate,
+          releaseDate:
+              validReleaseDate ? parsedReleaseDate! : album.releaseDate,
           metadata: album.metadata,
           tracks: updatedTracks,
         );
@@ -1802,10 +1816,9 @@ class _DetailsPageState extends State<DetailsPage> {
         widget.album['artworkUrl'] = artworkUrl;
         widget.album['artworkUrl100'] = artworkUrl;
       }
-      if (validReleaseYear) {
-        widget.album['releaseYear'] = releaseYear;
-        widget.album['releaseDate'] =
-            DateTime(releaseYear, 1, 1).toIso8601String();
+      if (validReleaseDate) {
+        widget.album['releaseYear'] = parsedReleaseDate!.year;
+        widget.album['releaseDate'] = parsedReleaseDate.toIso8601String();
       }
       albumDurationMillis =
           updatedTracks.fold(0, (sum, track) => sum + track.durationMs);
@@ -1816,9 +1829,11 @@ class _DetailsPageState extends State<DetailsPage> {
         const SnackBar(content: Text('La URL de portada no es válida')),
       );
     }
-    if (releaseYearText.isNotEmpty && !validReleaseYear && mounted) {
+    if (releaseDateText.isNotEmpty && !validReleaseDate && mounted) {
       scaffoldMessengerKey.currentState?.showSnackBar(
-        const SnackBar(content: Text('El año de lanzamiento no es válido')),
+        const SnackBar(
+          content: Text('El año o la fecha de lanzamiento no son válidos'),
+        ),
       );
     }
 
