@@ -73,7 +73,8 @@ class SearchService {
 
   /// Search for an album on a given platform
   static Future<Map<String, dynamic>?> searchAlbum(
-      String albumName, String artistName, [SearchPlatform? platform]) async {
+      String albumName, String artistName,
+      [SearchPlatform? platform]) async {
     // If platform is not provided, use spotify as default
     final SearchPlatform effectivePlatform = platform ?? SearchPlatform.spotify;
 
@@ -86,7 +87,9 @@ class SearchService {
     // Check if the query is a URL first
     String lowerQuery = query.toLowerCase();
     // Override platform based on URL detection
-    if (lowerQuery.contains('bandcamp.com')) {
+    if (lowerQuery.contains('rateyourmusic.com')) {
+      return _buildRateYourMusicResult(query);
+    } else if (lowerQuery.contains('bandcamp.com')) {
       Logging.severe(
           'URL detection in searchAlbum: Switching to Bandcamp for URL: $query');
       return await searchBandcamp(query);
@@ -227,6 +230,59 @@ class SearchService {
       case SearchPlatform.discogs:
         return await searchDiscogs(query);
     }
+  }
+
+  static Map<String, dynamic> _buildRateYourMusicResult(String url) {
+    final uri = Uri.tryParse(url);
+    final segments = uri?.pathSegments ?? const <String>[];
+    final releaseIndex = segments.indexOf('release');
+    var artistSlug = '';
+    var albumSlug = '';
+
+    if (releaseIndex >= 0 && segments.length > releaseIndex + 2) {
+      final hasReleaseType = const {
+        'album',
+        'single',
+        'ep',
+        'compilation',
+        'mixtape',
+      }.contains(segments[releaseIndex + 1].toLowerCase());
+      final artistIndex = releaseIndex + (hasReleaseType ? 2 : 1);
+      if (segments.length > artistIndex + 1) {
+        artistSlug = segments[artistIndex];
+        albumSlug = segments[artistIndex + 1];
+      }
+    }
+
+    String readableSlug(String slug) => slug
+        .replaceAll(RegExp(r'[-_]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .split(' ')
+        .where((word) => word.isNotEmpty)
+        .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+
+    final artist = readableSlug(artistSlug);
+    final album = readableSlug(albumSlug);
+
+    return {
+      'results': [
+        {
+          'id': url,
+          'collectionId': url,
+          'collectionName': album.isEmpty ? 'Rate Your Music release' : album,
+          'artistName': artist.isEmpty ? 'Unknown Artist' : artist,
+          'artworkUrl': '',
+          'artworkUrl100': '',
+          'url': url,
+          'platform': 'rateyourmusic',
+          'isDirectUrl': true,
+          'manualEntry': true,
+          'tracks': <Map<String, dynamic>>[],
+        }
+      ]
+    };
   }
 
   /// Method that converts search results to a List format
@@ -522,18 +578,23 @@ class SearchService {
               .get(albumUrl, headers: {'Authorization': 'Bearer $accessToken'});
           if (albumResponse.statusCode == 200) {
             final albumData = jsonDecode(albumResponse.body);
-            
+
             // CRITICAL FIX: Add debugging for direct URL album fetching
             Logging.severe('=== SPOTIFY DIRECT URL FETCH DEBUG ===');
-            Logging.severe('Album: ${albumData['name']} by ${albumData['artists'][0]['name']}');
-            Logging.severe('Total tracks: ${albumData['tracks']['items'].length}');
-            
+            Logging.severe(
+                'Album: ${albumData['name']} by ${albumData['artists'][0]['name']}');
+            Logging.severe(
+                'Total tracks: ${albumData['tracks']['items'].length}');
+
             // Debug first few tracks
-            for (int i = 0; i < albumData['tracks']['items'].length && i < 5; i++) {
+            for (int i = 0;
+                i < albumData['tracks']['items'].length && i < 5;
+                i++) {
               final track = albumData['tracks']['items'][i];
-              Logging.severe('Direct URL Track $i: "${track['name']}" - disc_number: ${track['disc_number']}, track_number: ${track['track_number']}');
+              Logging.severe(
+                  'Direct URL Track $i: "${track['name']}" - disc_number: ${track['disc_number']}, track_number: ${track['track_number']}');
             }
-            
+
             // Format as a single result with complete information
             final album = {
               'id': albumData['id'],
@@ -564,13 +625,14 @@ class SearchService {
                 };
               }).toList(),
             };
-            
+
             Logging.severe('=== DIRECT URL PROCESSED TRACKS DEBUG ===');
             for (int i = 0; i < album['tracks'].length && i < 5; i++) {
               final track = album['tracks'][i];
-              Logging.severe('Direct URL Processed Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
+              Logging.severe(
+                  'Direct URL Processed Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
             }
-            
+
             // Return only this single album with full track information
             Logging.severe(
                 'Found exact Spotify album from URL with ${album['tracks'].length} tracks: ${album['collectionName']}');
@@ -690,16 +752,16 @@ class SearchService {
         if (match != null && match.groupCount >= 1) {
           final albumId = match.group(1);
           Logging.severe('Extracted Deezer album ID from URL: $albumId');
-          
+
           try {
             // Get album details for preview
             final albumDetailsUrl =
                 Uri.parse('https://api.deezer.com/album/$albumId');
             final albumResponse = await http.get(albumDetailsUrl);
-            
+
             if (albumResponse.statusCode == 200) {
               final albumData = jsonDecode(albumResponse.body);
-              
+
               // Create a complete preview of the album with basic info
               final album = {
                 'id': albumData['id'],
@@ -709,21 +771,24 @@ class SearchService {
                 'artist': albumData['artist']?['name'] ?? 'Unknown Artist',
                 'artistName': albumData['artist']?['name'] ?? 'Unknown Artist',
                 // PRIORITIZE HIGHEST-RES ARTWORK: Use cover_xl first, then fallback
-                'artworkUrl': albumData['cover_xl'] ?? 
-                             albumData['cover_big'] ?? 
-                             albumData['cover_medium'] ?? 
-                             albumData['cover_small'] ?? '',
-                'artworkUrl100': albumData['cover_xl'] ?? 
-                                albumData['cover_big'] ?? 
-                                albumData['cover_medium'] ?? 
-                                albumData['cover_small'] ?? '',
+                'artworkUrl': albumData['cover_xl'] ??
+                    albumData['cover_big'] ??
+                    albumData['cover_medium'] ??
+                    albumData['cover_small'] ??
+                    '',
+                'artworkUrl100': albumData['cover_xl'] ??
+                    albumData['cover_big'] ??
+                    albumData['cover_medium'] ??
+                    albumData['cover_small'] ??
+                    '',
                 'url': query,
                 'platform': 'deezer',
                 'releaseDate': albumData['release_date'] ?? 'unknown',
-                'isDirectUrl': true, // Add this flag to indicate direct URL loading
+                'isDirectUrl':
+                    true, // Add this flag to indicate direct URL loading
                 'useDeezerMiddleware': true // Flag for middleware processing
               };
-              
+
               // Return the single album with preview data
               Logging.severe(
                   'Found Deezer album from URL: ${album['name']} by ${album['artist']}');
@@ -737,12 +802,13 @@ class SearchService {
             Logging.severe('Error fetching Deezer album preview: $e');
           }
         }
-        
+
         // If we couldn't parse the URL properly or API failed, return a generic placeholder
         return {
           'results': [
             {
-              'collectionId': match?.group(1) ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              'collectionId': match?.group(1) ??
+                  DateTime.now().millisecondsSinceEpoch.toString(),
               'collectionName': 'Deezer Album',
               'artistName': 'Loading details...',
               'artworkUrl': '',
@@ -788,17 +854,21 @@ class SearchService {
         // PRIORITIZE HIGHEST-RES ARTWORK: Always use cover_xl first, then fallback to big/medium/small
         String artworkUrl = '';
         String artworkUrl100 = '';
-        
-        if (album['cover_xl'] != null && album['cover_xl'].toString().isNotEmpty) {
+
+        if (album['cover_xl'] != null &&
+            album['cover_xl'].toString().isNotEmpty) {
           artworkUrl = album['cover_xl'];
           artworkUrl100 = album['cover_xl']; // Use highest-res for both
-        } else if (album['cover_big'] != null && album['cover_big'].toString().isNotEmpty) {
+        } else if (album['cover_big'] != null &&
+            album['cover_big'].toString().isNotEmpty) {
           artworkUrl = album['cover_big'];
           artworkUrl100 = album['cover_big']; // Use high-res for both
-        } else if (album['cover_medium'] != null && album['cover_medium'].toString().isNotEmpty) {
+        } else if (album['cover_medium'] != null &&
+            album['cover_medium'].toString().isNotEmpty) {
           artworkUrl = album['cover_medium'];
           artworkUrl100 = album['cover_medium'];
-        } else if (album['cover_small'] != null && album['cover_small'].toString().isNotEmpty) {
+        } else if (album['cover_small'] != null &&
+            album['cover_small'].toString().isNotEmpty) {
           artworkUrl = album['cover_small'];
           artworkUrl100 = album['cover_small'];
         }
@@ -833,37 +903,47 @@ class SearchService {
   static Future<bool> updateDeezerAlbumArtwork(String albumId) async {
     try {
       Logging.severe('Updating artwork for Deezer album ID: $albumId');
-      
-      final albumDetailsUrl = Uri.parse('https://api.deezer.com/album/$albumId');
+
+      final albumDetailsUrl =
+          Uri.parse('https://api.deezer.com/album/$albumId');
       final albumResponse = await http.get(albumDetailsUrl);
-      
+
       if (albumResponse.statusCode == 200) {
         final albumData = jsonDecode(albumResponse.body);
-        
+
         // Get the highest quality artwork available - prioritize cover_xl
         String highResArtwork = '';
-        if (albumData['cover_xl'] != null && albumData['cover_xl'].toString().isNotEmpty) {
+        if (albumData['cover_xl'] != null &&
+            albumData['cover_xl'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_xl'];
-          Logging.severe('Using cover_xl (1000x1000) for album $albumId: $highResArtwork');
-        } else if (albumData['cover_big'] != null && albumData['cover_big'].toString().isNotEmpty) {
+          Logging.severe(
+              'Using cover_xl (1000x1000) for album $albumId: $highResArtwork');
+        } else if (albumData['cover_big'] != null &&
+            albumData['cover_big'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_big'];
-          Logging.severe('Using cover_big (500x500) for album $albumId: $highResArtwork');
-        } else if (albumData['cover_medium'] != null && albumData['cover_medium'].toString().isNotEmpty) {
+          Logging.severe(
+              'Using cover_big (500x500) for album $albumId: $highResArtwork');
+        } else if (albumData['cover_medium'] != null &&
+            albumData['cover_medium'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_medium'];
-          Logging.severe('Using cover_medium (250x250) for album $albumId: $highResArtwork');
-        } else if (albumData['cover_small'] != null && albumData['cover_small'].toString().isNotEmpty) {
+          Logging.severe(
+              'Using cover_medium (250x250) for album $albumId: $highResArtwork');
+        } else if (albumData['cover_small'] != null &&
+            albumData['cover_small'].toString().isNotEmpty) {
           highResArtwork = albumData['cover_small'];
-          Logging.severe('Using cover_small (56x56) for album $albumId: $highResArtwork');
+          Logging.severe(
+              'Using cover_small (56x56) for album $albumId: $highResArtwork');
         }
-        
+
         if (highResArtwork.isNotEmpty) {
           // Update the album in the database
           final db = await DatabaseHelper.instance.database;
-          
+
           // Update the artwork_url column if it exists
           final tableInfo = await db.rawQuery("PRAGMA table_info(albums)");
-          final columnNames = tableInfo.map((col) => col['name'] as String).toList();
-          
+          final columnNames =
+              tableInfo.map((col) => col['name'] as String).toList();
+
           if (columnNames.contains('artwork_url')) {
             await db.update(
               'albums',
@@ -872,7 +952,7 @@ class SearchService {
               whereArgs: [albumId, 'deezer'],
             );
           }
-          
+
           // Also update the data JSON field if it exists
           if (columnNames.contains('data')) {
             final albumRows = await db.query(
@@ -880,25 +960,26 @@ class SearchService {
               where: 'id = ? AND platform = ?',
               whereArgs: [albumId, 'deezer'],
             );
-            
+
             if (albumRows.isNotEmpty) {
               final albumRow = albumRows.first;
               final dataString = albumRow['data'] as String?;
-              
+
               if (dataString != null && dataString.isNotEmpty) {
                 try {
                   final data = jsonDecode(dataString);
                   data['artworkUrl'] = highResArtwork;
                   data['artworkUrl100'] = highResArtwork;
-                  
+
                   await db.update(
                     'albums',
                     {'data': jsonEncode(data)},
                     where: 'id = ? AND platform = ?',
                     whereArgs: [albumId, 'deezer'],
                   );
-                  
-                  Logging.severe('Updated Deezer album $albumId with highest quality artwork: $highResArtwork');
+
+                  Logging.severe(
+                      'Updated Deezer album $albumId with highest quality artwork: $highResArtwork');
                   return true;
                 } catch (e) {
                   Logging.severe('Error updating album data JSON: $e');
@@ -908,7 +989,7 @@ class SearchService {
           }
         }
       }
-      
+
       return false;
     } catch (e, stack) {
       Logging.severe('Error updating Deezer album artwork', e, stack);
@@ -972,30 +1053,30 @@ class SearchService {
     try {
       final albumId = album['id'] ?? album['collectionId'];
       if (albumId == null) return null;
-      
+
       // Get access token
       final accessToken = await _getSpotifyAccessToken();
-      
+
       // Get album details
       final url = Uri.parse('https://api.spotify.com/v1/albums/$albumId');
       final response = await http
           .get(url, headers: {'Authorization': 'Bearer $accessToken'});
-      
+
       if (response.statusCode != 200) {
         throw 'Spotify API error: ${response.statusCode}';
       }
-      
+
       final data = jsonDecode(response.body);
-      
+
       // CRITICAL FIX: Properly extract tracks with ALL disc number variants
       Logging.severe('=== SPOTIFY FETCHALBUMDETAILS DEBUG ===');
       Logging.severe('Album: ${data['name']} by ${data['artists'][0]['name']}');
       Logging.severe('Total tracks: ${data['tracks']['items'].length}');
-      
+
       // Parse tracks with proper disc number handling
       final tracks = data['tracks']['items'].map<Map<String, dynamic>>((track) {
         final discNumber = track['disc_number'] ?? 1;
-        
+
         return {
           'trackId': track['id'],
           'trackName': track['name'],
@@ -1003,32 +1084,34 @@ class SearchService {
           'trackTimeMillis': track['duration_ms'],
           'artistName': track['artists'][0]['name'],
           // CRITICAL: Set ALL disc number field variants
-          'disc_number': discNumber,        // Spotify API format (PRIMARY)
-          'disk_number': discNumber,        // Alternative spelling
-          'discNumber': discNumber,         // CamelCase variant
-          'diskNumber': discNumber,         // CamelCase alternative
-          'disc': discNumber,               // Short form
-          'disk': discNumber,               // Short form alternative
+          'disc_number': discNumber, // Spotify API format (PRIMARY)
+          'disk_number': discNumber, // Alternative spelling
+          'discNumber': discNumber, // CamelCase variant
+          'diskNumber': discNumber, // CamelCase alternative
+          'disc': discNumber, // Short form
+          'disk': discNumber, // Short form alternative
           'position': track['track_number'],
           'id': track['id'],
           'name': track['name'],
           'durationMs': track['duration_ms'],
         };
       }).toList();
-      
+
       // Debug the processed tracks
       Logging.severe('=== PROCESSED TRACKS WITH DISC NUMBERS ===');
       for (int i = 0; i < tracks.length && i < 5; i++) {
         final track = tracks[i];
-        Logging.severe('Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}, track_number: ${track['trackNumber']}');
+        Logging.severe(
+            'Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}, track_number: ${track['trackNumber']}');
       }
-      
+
       // Return album with tracks containing proper disc numbers
       final result = Map<String, dynamic>.from(album);
       result['tracks'] = tracks;
       result['platform'] = 'spotify';
-      
-      Logging.severe('Returning Spotify album with ${tracks.length} tracks including disc_number fields');
+
+      Logging.severe(
+          'Returning Spotify album with ${tracks.length} tracks including disc_number fields');
       return result;
     } catch (e, stack) {
       Logging.severe('Error fetching Spotify album details', e, stack);

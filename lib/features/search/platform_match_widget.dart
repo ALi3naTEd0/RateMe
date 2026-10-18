@@ -418,6 +418,8 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       return 'deezer';
     } else if (lowerUrl.contains('discogs.com')) {
       return 'discogs';
+    } else if (lowerUrl.contains('rateyourmusic.com')) {
+      return 'rateyourmusic';
     }
 
     return '';
@@ -441,6 +443,13 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       _platformUrls['bandcamp'] = widget.album.url;
       Logging.severe(
           'Added missing bandcamp to available platforms explicitly');
+    }
+
+    if (widget.album.platform.toLowerCase() == 'rateyourmusic' &&
+        widget.album.url.isNotEmpty &&
+        !availablePlatforms.contains('rateyourmusic')) {
+      availablePlatforms.add('rateyourmusic');
+      _platformUrls['rateyourmusic'] = widget.album.url;
     }
 
     // Don't show anything if in initial loading state and no platforms are available yet
@@ -474,6 +483,7 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       'spotify',
       'deezer',
       'discogs',
+      'rateyourmusic',
       'bandcamp'
     ];
     final sortedPlatforms = <String>[];
@@ -634,6 +644,9 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       case 'discogs':
         iconPath = 'lib/icons/discogs.svg';
         break;
+      case 'rateyourmusic':
+        iconPath = 'lib/icons/rateyourmusic.svg';
+        break;
       default:
         iconPath = '';
     }
@@ -657,12 +670,30 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
       child: iconPath.isNotEmpty
           ? Padding(
               padding: const EdgeInsets.all(4.0),
-              child: SvgPicture.asset(
-                iconPath,
-                height: widget.buttonSize - 8,
-                width: widget.buttonSize - 8,
-                colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-              ),
+              child: normalizedPlatform == 'rateyourmusic'
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isDarkTheme
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade600,
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: SvgPicture.asset(
+                        iconPath,
+                        height: widget.buttonSize - 12,
+                        width: widget.buttonSize - 12,
+                      ),
+                    )
+                  : SvgPicture.asset(
+                      iconPath,
+                      height: widget.buttonSize - 8,
+                      width: widget.buttonSize - 8,
+                      colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                    ),
             )
           : Icon(
               Icons.music_note,
@@ -831,6 +862,8 @@ class _PlatformMatchWidgetState extends State<PlatformMatchWidget> {
         return 'Bandcamp';
       case 'discogs':
         return 'Discogs';
+      case 'rateyourmusic':
+        return 'RateYourMusic';
       default:
         return platform.split('_').map((s) => s.capitalize()).join(' ');
     }

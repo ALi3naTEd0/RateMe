@@ -24,6 +24,8 @@ class PlatformUI {
       return 'lib/icons/youtube_music.svg';
     } else if (platformLower.contains('discogs')) {
       return 'lib/icons/discogs.svg';
+    } else if (platformLower.contains('rateyourmusic')) {
+      return 'lib/icons/rateyourmusic.svg';
     }
 
     // Default fallback
@@ -45,6 +47,7 @@ class PlatformUI {
       case 'bandcamp':
         return Icons.album;
       case 'discogs':
+      case 'rateyourmusic':
         return Icons.album;
       default:
         // Instead of defaulting to bandcamp icon, let's use a generic music icon
@@ -100,6 +103,8 @@ class PlatformUI {
         return const Color(0xFF1DA0C3);
       case 'discogs':
         return const Color(0xFFFF5500);
+      case 'rateyourmusic':
+        return const Color(0xFF536DFE);
       default:
         return Colors.grey.shade700;
     }
@@ -112,7 +117,6 @@ class PlatformUI {
     Color? color,
   }) {
     final String assetPath = _getPlatformIconPath(platform);
-
     return Builder(
       builder: (context) {
         // Use theme's iconTheme directly for better theme reactivity
@@ -142,11 +146,18 @@ class PlatformUI {
     final artistName =
         album['artistName'] ?? album['artist'] ?? 'Unknown Artist';
 
+    Widget artworkFallback() => Container(
+          color: Colors.grey.shade800,
+          child: const Icon(Icons.album, color: Colors.white54, size: 20),
+        );
+
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8), // Reduced from 4 to 2
+      margin: const EdgeInsets.symmetric(
+          vertical: 2, horizontal: 8), // Reduced from 4 to 2
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0), // Reduced from all 8.0
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8.0, vertical: 4.0), // Reduced from all 8.0
         dense: true, // Added dense property for more compact layout
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(4),
@@ -157,16 +168,10 @@ class PlatformUI {
                 ? Image.network(
                     artworkUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade800,
-                      child:
-                          const Icon(Icons.album, color: Colors.white54, size: 20), // Reduced icon size
-                    ),
+                    errorBuilder: (context, error, stackTrace) =>
+                        artworkFallback(),
                   )
-                : Container(
-                    color: Colors.grey.shade800,
-                    child: const Icon(Icons.album, color: Colors.white54, size: 20), // Reduced icon size
-                  ),
+                : artworkFallback(),
           ),
         ),
         title: Text(
@@ -187,7 +192,8 @@ class PlatformUI {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: buildPlatformIcon(platform: platform, size: 18), // Reduced from 20
+        trailing:
+            buildPlatformIcon(platform: platform, size: 18), // Reduced from 20
       ),
     );
   }

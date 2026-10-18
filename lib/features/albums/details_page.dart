@@ -110,8 +110,10 @@ class _DetailsPageState extends State<DetailsPage> {
           })}');
 
       // If album has no tracks, try to fetch them from the API before proceeding
-      if (widget.album['tracks'] == null ||
-          (widget.album['tracks'] is List && widget.album['tracks'].isEmpty)) {
+      if (widget.album['manualEntry'] != true &&
+          (widget.album['tracks'] == null ||
+              (widget.album['tracks'] is List &&
+                  widget.album['tracks'].isEmpty))) {
         Logging.severe('Album has no tracks, attempting to fetch from API');
         await _fetchTracksIfMissing();
       }
@@ -354,6 +356,19 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<void> _launchRateYourMusic() async {
+    final sourceUrl =
+        unifiedAlbum?.url ?? widget.album['url']?.toString() ?? '';
+    if (sourceUrl.contains('rateyourmusic.com')) {
+      try {
+        await launchUrl(Uri.parse(sourceUrl),
+            mode: LaunchMode.externalApplication);
+      } catch (error, stackTrace) {
+        Logging.severe(
+            'Error opening RateYourMusic release', error, stackTrace);
+      }
+      return;
+    }
+
     final artistName = unifiedAlbum?.artistName;
     final albumName = unifiedAlbum?.collectionName;
     final url =
@@ -379,9 +394,28 @@ class _DetailsPageState extends State<DetailsPage> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
+  Widget _buildArtworkPreview() {
+    final artworkUrl = unifiedAlbum?.artworkUrl ?? '';
+    const fallback = Icon(Icons.album, size: 300);
+
+    if (artworkUrl.isEmpty) return fallback;
+
+    return Image.network(
+      artworkUrl.replaceAll('100x100', '600x600'),
+      width: 300,
+      height: 300,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
+  }
+
   String _formatReleaseDate() {
     // Fix release date formatting
     try {
+      if (unifiedAlbum?.platform == 'rateyourmusic') {
+        final year = unifiedAlbum!.releaseDate.year;
+        return year > 1 ? year.toString() : 'Unknown Year';
+      }
       if (unifiedAlbum?.releaseDate != null) {
         return DateFormat('d MMMM yyyy').format(unifiedAlbum!.releaseDate);
       } else if (widget.album['releaseDate'] != null) {
@@ -447,7 +481,8 @@ class _DetailsPageState extends State<DetailsPage> {
             children: [
               Icon(
                 Icons.edit_note,
-                color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                color: selectedDominantColor ??
+                    Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),
               const Text('Album Notes'),
@@ -457,7 +492,8 @@ class _DetailsPageState extends State<DetailsPage> {
                 IconButton(
                   icon: Icon(
                     Icons.copy,
-                    color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                    color: selectedDominantColor ??
+                        Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
                   onPressed: () {
@@ -495,18 +531,20 @@ class _DetailsPageState extends State<DetailsPage> {
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(
-                foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                foregroundColor: selectedDominantColor ??
+                    Theme.of(context).colorScheme.primary,
               ),
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(controller.text),
               style: FilledButton.styleFrom(
-                backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                backgroundColor: selectedDominantColor ??
+                    Theme.of(context).colorScheme.primary,
                 foregroundColor: useDarkButtonText
                     ? Colors.black
-                    : ColorUtility.getContrastingColor(
-                        selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+                    : ColorUtility.getContrastingColor(selectedDominantColor ??
+                        Theme.of(context).colorScheme.primary),
               ),
               child: const Text('Save'),
             ),
@@ -588,18 +626,27 @@ class _DetailsPageState extends State<DetailsPage> {
 
   // Add this method after _loadDominantColors
   Future<void> _refetchArtwork() async {
-    final platform = widget.album['platform']?.toString().toLowerCase() ?? unifiedAlbum?.platform.toLowerCase() ?? '';
+    final platform = widget.album['platform']?.toString().toLowerCase() ??
+        unifiedAlbum?.platform.toLowerCase() ??
+        '';
     if (platform != 'deezer') {
       scaffoldMessengerKey.currentState?.showSnackBar(
-        const SnackBar(content: Text('Cover art refetch is only available for Deezer albums')),
+        const SnackBar(
+            content:
+                Text('Cover art refetch is only available for Deezer albums')),
       );
       return;
     }
 
-    final albumId = widget.album['id']?.toString() ?? widget.album['collectionId']?.toString();
-    final albumName = widget.album['name']?.toString() ?? widget.album['collectionName']?.toString() ?? '';
-    final artistName = widget.album['artist']?.toString() ?? widget.album['artistName']?.toString() ?? '';
-    
+    final albumId = widget.album['id']?.toString() ??
+        widget.album['collectionId']?.toString();
+    final albumName = widget.album['name']?.toString() ??
+        widget.album['collectionName']?.toString() ??
+        '';
+    final artistName = widget.album['artist']?.toString() ??
+        widget.album['artistName']?.toString() ??
+        '';
+
     if (albumId == null || albumId.isEmpty) {
       scaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(content: Text('Cannot refetch: No album ID found')),
@@ -616,7 +663,7 @@ class _DetailsPageState extends State<DetailsPage> {
         albumName,
         artistName,
       );
-      
+
       if (newArtworkUrl != null && newArtworkUrl.isNotEmpty) {
         widget.album['artworkUrl'] = newArtworkUrl;
         widget.album['artworkUrl100'] = newArtworkUrl;
@@ -650,11 +697,12 @@ class _DetailsPageState extends State<DetailsPage> {
         scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('Cover art updated successfully')),
         );
-        
+
         _loadDominantColors();
       } else {
         scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('Could not fetch cover art from any source')),
+          const SnackBar(
+              content: Text('Could not fetch cover art from any source')),
         );
       }
     } catch (e) {
@@ -736,27 +784,48 @@ class _DetailsPageState extends State<DetailsPage> {
                           // Album artwork
                           Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child: Image.network(
-                              unifiedAlbum?.artworkUrl100
-                                      .replaceAll('100x100', '600x600') ??
-                                  '',
-                              width: 300,
-                              height: 300,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.album, size: 300),
-                            ),
+                            child: _buildArtworkPreview(),
                           ),
+                          if (unifiedAlbum?.platform == 'rateyourmusic')
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: 8,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: _launchRateYourMusic,
+                                    icon: const Icon(Icons.open_in_new),
+                                    label: const Text('Abrir release RYM'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed:
+                                        _showImportRateYourMusicTracksDialog,
+                                    icon: const Icon(Icons.edit_outlined),
+                                    label:
+                                        const Text('Completar portada y año'),
+                                  ),
+                                ],
+                              ),
+                            ),
 
                           // MOVED HERE: Refetch button directly under artwork (only for Deezer)
-                          if ((widget.album['platform']?.toString().toLowerCase() ?? unifiedAlbum?.platform.toLowerCase() ?? '') == 'deezer')
+                          if ((widget.album['platform']
+                                      ?.toString()
+                                      .toLowerCase() ??
+                                  unifiedAlbum?.platform.toLowerCase() ??
+                                  '') ==
+                              'deezer')
                             Padding(
-                              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                              padding:
+                                  const EdgeInsets.only(top: 8.0, bottom: 8.0),
                               child: InkWell(
-                                onTap: _refetchingArtwork ? null : _refetchArtwork,
+                                onTap:
+                                    _refetchingArtwork ? null : _refetchArtwork,
                                 borderRadius: BorderRadius.circular(8),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0, vertical: 4.0),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -772,14 +841,24 @@ class _DetailsPageState extends State<DetailsPage> {
                                         Icon(
                                           Icons.refresh,
                                           size: 12,
-                                          color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color
+                                              ?.withAlpha(179),
                                         ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        _refetchingArtwork ? 'Refetching...' : 'Fix cover art',
+                                        _refetchingArtwork
+                                            ? 'Refetching...'
+                                            : 'Fix cover art',
                                         style: TextStyle(
                                           fontSize: 10,
-                                          color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color
+                                              ?.withAlpha(179),
                                         ),
                                       ),
                                     ],
@@ -799,8 +878,7 @@ class _DetailsPageState extends State<DetailsPage> {
                               children: [
                                 // Color picker button
                                 Padding(
-                                  padding:
-                                      const EdgeInsets.only(bottom: 8.0),
+                                  padding: const EdgeInsets.only(bottom: 8.0),
                                   child: OutlinedButton.icon(
                                     onPressed: () {
                                       setState(() {
@@ -813,9 +891,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                           : Icons.palette,
                                       size: 16,
                                       color: selectedDominantColor ??
-                                          Theme.of(context)
-                                              .colorScheme
-                                              .primary,
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                     label: Text(
                                       showColorPicker
@@ -845,12 +921,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                 ),
                                 // Expandable color picker
                                 AnimatedContainer(
-                                  duration:
-                                      const Duration(milliseconds: 300),
+                                  duration: const Duration(milliseconds: 300),
                                   height: showColorPicker ? null : 0,
                                   child: AnimatedOpacity(
-                                    duration:
-                                        const Duration(milliseconds: 300),
+                                    duration: const Duration(milliseconds: 300),
                                     opacity: showColorPicker ? 1.0 : 0.0,
                                     child: showColorPicker
                                         ? Padding(
@@ -858,12 +932,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                                 bottom: 8.0),
                                             child: DominantColorPicker(
                                               colors: dominantColors,
-                                              selected:
-                                                  selectedDominantColor,
+                                              selected: selectedDominantColor,
                                               onSelect: (color) {
                                                 setState(() {
-                                                  selectedDominantColor =
-                                                      color;
+                                                  selectedDominantColor = color;
                                                   showColorPicker = false;
                                                 });
                                                 // Save the selected color to database
@@ -904,17 +976,22 @@ class _DetailsPageState extends State<DetailsPage> {
                                         'Unknown Album'),
                                 // MODIFIED: Add refresh icon inline with release date
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2.0),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         "Release Date: ",
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14),
                                       ),
                                       Text(
                                         _formatReleaseDate(),
-                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.normal),
                                       ),
                                       const SizedBox(width: 4),
                                       InkWell(
@@ -925,7 +1002,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                           child: Icon(
                                             Icons.refresh,
                                             size: 16,
-                                            color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                            color: selectedDominantColor ??
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
                                           ),
                                         ),
                                       ),
@@ -935,13 +1015,12 @@ class _DetailsPageState extends State<DetailsPage> {
                                 _buildInfoRow("Duration",
                                     formatDuration(albumDurationMillis)),
                                 const SizedBox(height: 8),
-                                _buildInfoRow("Rating",
-                                    averageRating.toStringAsFixed(2)),
+                                _buildInfoRow(
+                                    "Rating", averageRating.toStringAsFixed(2)),
 
                                 // Buttons row - KEEP AT CURRENT POSITION
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     FilledButton(
@@ -949,12 +1028,18 @@ class _DetailsPageState extends State<DetailsPage> {
                                         _showAddToListDialog();
                                       },
                                       style: FilledButton.styleFrom(
-                                        backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                        backgroundColor:
+                                            selectedDominantColor ??
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
                                         foregroundColor: useDarkButtonText
                                             ? Colors.black
-                                            : ColorUtility
-                                                .getContrastingColor(
-                                                    selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+                                            : ColorUtility.getContrastingColor(
+                                                selectedDominantColor ??
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .primary),
                                         minimumSize: const Size(150, 45),
                                       ),
                                       child: const Text('Save Album'),
@@ -966,7 +1051,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                               ? Colors.black
                                               : ColorUtility
                                                   .getContrastingColor(
-                                                      selectedDominantColor ?? Theme.of(context).colorScheme.primary)),
+                                                      selectedDominantColor ??
+                                                          Theme.of(context)
+                                                              .colorScheme
+                                                              .primary)),
                                       label: Text(
                                         'Options',
                                         style: TextStyle(
@@ -974,15 +1062,24 @@ class _DetailsPageState extends State<DetailsPage> {
                                                 ? Colors.black
                                                 : ColorUtility
                                                     .getContrastingColor(
-                                                        selectedDominantColor ?? Theme.of(context).colorScheme.primary)),
+                                                        selectedDominantColor ??
+                                                            Theme.of(context)
+                                                                .colorScheme
+                                                                .primary)),
                                       ),
                                       style: FilledButton.styleFrom(
-                                        backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                        backgroundColor:
+                                            selectedDominantColor ??
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
                                         foregroundColor: useDarkButtonText
                                             ? Colors.black
-                                            : ColorUtility
-                                                .getContrastingColor(
-                                                    selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+                                            : ColorUtility.getContrastingColor(
+                                                selectedDominantColor ??
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .primary),
                                         minimumSize: const Size(150, 45),
                                       ),
                                       onPressed: () {
@@ -1004,7 +1101,8 @@ class _DetailsPageState extends State<DetailsPage> {
                           // Display note if exists - remove fixed width, let it size naturally
                           if (albumNote != null && albumNote!.isNotEmpty)
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
                               child: Container(
                                 // Remove fixed width constraint - let it size naturally
                                 padding: const EdgeInsets.all(12.0),
@@ -1023,8 +1121,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                   ),
                                 ),
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       mainAxisAlignment:
@@ -1046,23 +1143,21 @@ class _DetailsPageState extends State<DetailsPage> {
                                             // Add Copy button
                                             InkWell(
                                               onTap: () {
-                                                Clipboard.setData(
-                                                    ClipboardData(
-                                                        text: albumNote!));
+                                                Clipboard.setData(ClipboardData(
+                                                    text: albumNote!));
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(
                                                   const SnackBar(
                                                     content: Text(
                                                         'Notes copied to clipboard'),
-                                                    duration: Duration(
-                                                        seconds: 1),
+                                                    duration:
+                                                        Duration(seconds: 1),
                                                   ),
                                                 );
                                               },
                                               child: Padding(
                                                 padding:
-                                                    const EdgeInsets.all(
-                                                        8.0),
+                                                    const EdgeInsets.all(8.0),
                                                 child: Icon(
                                                   Icons.copy,
                                                   size: 16,
@@ -1077,8 +1172,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                               onTap: _editAlbumNote,
                                               child: Padding(
                                                 padding:
-                                                    const EdgeInsets.all(
-                                                        8.0),
+                                                    const EdgeInsets.all(8.0),
                                                 child: Icon(
                                                   Icons.edit,
                                                   size: 16,
@@ -1110,8 +1204,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                                             'Cancel'),
                                                       ),
                                                       FilledButton(
-                                                        onPressed:
-                                                            () async {
+                                                        onPressed: () async {
                                                           // Store context in local variable before async gap
                                                           final currentContext =
                                                               context;
@@ -1125,8 +1218,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                                                       'id'] !=
                                                                   null
                                                               ? widget
-                                                                  .album[
-                                                                      'id']
+                                                                  .album['id']
                                                                   .toString()
                                                               : widget.album[
                                                                           'collectionId']
@@ -1154,9 +1246,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                                                 const SnackBar(
                                                                   content: Text(
                                                                       'Notes deleted'),
-                                                                  duration: Duration(
-                                                                      seconds:
-                                                                          1),
+                                                                  duration:
+                                                                      Duration(
+                                                                          seconds:
+                                                                              1),
                                                                 ),
                                                               );
                                                             }
@@ -1171,8 +1264,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                               },
                                               child: Padding(
                                                 padding:
-                                                    const EdgeInsets.all(
-                                                        8.0),
+                                                    const EdgeInsets.all(8.0),
                                                 child: Icon(
                                                   Icons.delete_outline,
                                                   size: 16,
@@ -1192,11 +1284,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                       albumNote!,
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color:
-                                            Theme.of(context).brightness ==
-                                                    Brightness.dark
-                                                ? Colors.grey.shade300
-                                                : Colors.grey.shade800,
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.grey.shade300
+                                            : Colors.grey.shade800,
                                       ),
                                     ),
                                   ],
@@ -1217,10 +1308,8 @@ class _DetailsPageState extends State<DetailsPage> {
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).brightness ==
                                             Brightness.dark
-                                        ? Colors.grey.shade800
-                                            .withAlpha(128)
-                                        : Colors.grey.shade200
-                                            .withAlpha(179),
+                                        ? Colors.grey.shade800.withAlpha(128)
+                                        : Colors.grey.shade200.withAlpha(179),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -1229,15 +1318,17 @@ class _DetailsPageState extends State<DetailsPage> {
                                       Icon(
                                         Icons.note_add,
                                         size: 16,
-                                        color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                        color: selectedDominantColor ??
+                                            Theme.of(context)
+                                                .colorScheme
+                                                .primary,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'Add notes',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Theme.of(context)
-                                                      .brightness ==
+                                          color: Theme.of(context).brightness ==
                                                   Brightness.dark
                                               ? Colors.grey.shade300
                                               : Colors.grey.shade700,
@@ -1254,11 +1345,15 @@ class _DetailsPageState extends State<DetailsPage> {
                             // Changed from ElevatedButton
                             onPressed: _launchRateYourMusic,
                             style: FilledButton.styleFrom(
-                              backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                              backgroundColor: selectedDominantColor ??
+                                  Theme.of(context).colorScheme.primary,
                               foregroundColor: useDarkButtonText
                                   ? Colors.black
                                   : ColorUtility.getContrastingColor(
-                                      selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+                                      selectedDominantColor ??
+                                          Theme.of(context)
+                                              .colorScheme
+                                              .primary),
                               minimumSize: const Size(150, 45),
                             ),
                             child: const Text('Rate on RateYourMusic'),
@@ -1391,7 +1486,7 @@ class _DetailsPageState extends State<DetailsPage> {
   Widget _buildInfoRow(String label, String value, {double fontSize = 14}) {
     // Special handling for Rating to make it bigger
     final effectiveFontSize = label == "Rating" ? 18.0 : fontSize;
-    
+
     return Padding(
       padding: EdgeInsets.symmetric(
         vertical: label == "Rating" ? 8.0 : 2.0,
@@ -1402,13 +1497,15 @@ class _DetailsPageState extends State<DetailsPage> {
         children: [
           Text(
             "$label: ",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: effectiveFontSize),
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: effectiveFontSize),
           ),
           Tooltip(
             message: value,
             child: Text(
               value,
-              style: TextStyle(fontSize: effectiveFontSize, fontWeight: FontWeight.normal),
+              style: TextStyle(
+                  fontSize: effectiveFontSize, fontWeight: FontWeight.normal),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1421,8 +1518,9 @@ class _DetailsPageState extends State<DetailsPage> {
   Widget _buildTrackList() {
     // Calculate a reasonable table width based on content
     final screenWidth = MediaQuery.of(context).size.width;
-    final maxTableWidth = (screenWidth * 0.9).clamp(400.0, 800.0); // Reasonable limits
-    
+    final maxTableWidth =
+        (screenWidth * 0.9).clamp(400.0, 800.0); // Reasonable limits
+
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxTableWidth),
@@ -1432,20 +1530,50 @@ class _DetailsPageState extends State<DetailsPage> {
             children: [
               // Header row - more compact
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(127),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withAlpha(127),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 30, child: Center(child: Text('#', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))), // Changed from w600 to w500
+                    const SizedBox(
+                        width: 30,
+                        child: Center(
+                            child: Text('#',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize:
+                                        13)))), // Changed from w600 to w500
                     const SizedBox(width: 8),
-                    Expanded(child: Text('Title', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13))), // Changed from w600 to w500
+                    Expanded(
+                        child: Text('Title',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13))), // Changed from w600 to w500
                     const SizedBox(width: 8),
-                    const SizedBox(width: 70, child: Center(child: Text('Duration', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))), // Changed from w600 to w500
+                    const SizedBox(
+                        width: 70,
+                        child: Center(
+                            child: Text('Duration',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize:
+                                        13)))), // Changed from w600 to w500
                     const SizedBox(width: 8),
-                    const SizedBox(width: 160, child: Center(child: Text('Rating', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)))), // Changed from w600 to w500
+                    const SizedBox(
+                        width: 160,
+                        child: Center(
+                            child: Text('Rating',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize:
+                                        13)))), // Changed from w600 to w500
                   ],
                 ),
               ),
@@ -1454,18 +1582,29 @@ class _DetailsPageState extends State<DetailsPage> {
                 final index = entry.key;
                 final track = entry.value;
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: index.isEven 
-                      ? Colors.transparent 
-                      : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(51),
-                    borderRadius: index == tracks.length - 1 
-                      ? const BorderRadius.vertical(bottom: Radius.circular(8))
-                      : null,
+                    color: index.isEven
+                        ? Colors.transparent
+                        : Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withAlpha(51),
+                    borderRadius: index == tracks.length - 1
+                        ? const BorderRadius.vertical(
+                            bottom: Radius.circular(8))
+                        : null,
                   ),
                   child: Row(
                     children: [
-                      SizedBox(width: 30, child: Center(child: Text(track.position.toString(), style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal)))),
+                      SizedBox(
+                          width: 30,
+                          child: Center(
+                              child: Text(track.position.toString(),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.normal)))),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Tooltip(
@@ -1473,14 +1612,23 @@ class _DetailsPageState extends State<DetailsPage> {
                           child: Text(
                             track.name,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.normal),
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      SizedBox(width: 70, child: Center(child: Text(formatDuration(track.durationMs), style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal)))),
+                      SizedBox(
+                          width: 70,
+                          child: Center(
+                              child: Text(formatDuration(track.durationMs),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.normal)))),
                       const SizedBox(width: 8),
-                      SizedBox(width: 160, child: _buildCompactTrackSlider(track.id)),
+                      SizedBox(
+                          width: 160,
+                          child: _buildCompactTrackSlider(track.id)),
                     ],
                   ),
                 );
@@ -1490,6 +1638,191 @@ class _DetailsPageState extends State<DetailsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _showImportRateYourMusicTracksDialog() async {
+    final tracksController = TextEditingController();
+    final artworkController = TextEditingController();
+    final yearController = TextEditingController();
+    final importData = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Importar desde RYM'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: tracksController,
+                autofocus: true,
+                minLines: 5,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                  hintText:
+                      'Pega tracks o texto de RYM; detecta número, duración y año',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: artworkController,
+                decoration: const InputDecoration(
+                  labelText: 'URL de la portada (opcional)',
+                  hintText: 'https://...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: yearController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Año de lanzamiento (opcional)',
+                  hintText: '2024',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, {
+              'tracks': tracksController.text,
+              'artworkUrl': artworkController.text,
+              'releaseYear': yearController.text,
+            }),
+            icon: const Icon(Icons.download),
+            label: const Text('Importar'),
+          ),
+        ],
+      ),
+    );
+    tracksController.dispose();
+    artworkController.dispose();
+    yearController.dispose();
+    if (importData == null) return;
+
+    final pastedTracksText = importData['tracks'] ?? '';
+    final importedTracks = <Track>[];
+    final numberedTrack = RegExp(r'^\s*(\d{1,3})[.)]?\s+(.+?)\s*$');
+    final durationPattern = RegExp(r'\s+(\d{1,2}):(\d{2})\s*$');
+    final hasNumberedTracks = RegExp(
+      r'^\s*\d{1,3}[.)]?\s+\S',
+      multiLine: true,
+    ).hasMatch(pastedTracksText);
+
+    for (final rawLine in pastedTracksText.split(RegExp(r'\r?\n'))) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+
+      final numberedMatch = numberedTrack.firstMatch(line);
+      if (hasNumberedTracks && numberedMatch == null) continue;
+      if (numberedMatch == null && RegExp(r'^\d{1,2}:\d{2}$').hasMatch(line)) {
+        continue;
+      }
+      final position = numberedMatch == null
+          ? importedTracks.length + 1
+          : int.parse(numberedMatch.group(1)!);
+      var title = numberedMatch?.group(2) ?? line;
+
+      final durationMatch = durationPattern.firstMatch(title);
+      var durationMs = 0;
+      if (durationMatch != null) {
+        durationMs = (int.parse(durationMatch.group(1)!) * 60 +
+                int.parse(durationMatch.group(2)!)) *
+            1000;
+        title = title.substring(0, durationMatch.start).trim();
+      }
+
+      if (title.isEmpty) continue;
+      importedTracks.add(Track(
+        id: position.toString(),
+        name: title,
+        position: position,
+        durationMs: durationMs,
+      ));
+    }
+
+    final artworkUrl = (importData['artworkUrl'] ?? '').trim();
+    final artworkUri = Uri.tryParse(artworkUrl);
+    final validArtworkUrl = artworkUri != null &&
+        artworkUri.hasAuthority &&
+        (artworkUri.scheme == 'http' || artworkUri.scheme == 'https');
+    final enteredYear = (importData['releaseYear'] ?? '').trim();
+    final pageYear = RegExp(
+      r'\b(?:release\s*date|release\s*year|released(?:\s+in)?)\s*[:\-]?\s*((?:19|20)\d{2})\b',
+      caseSensitive: false,
+    ).firstMatch(pastedTracksText)?.group(1);
+    final releaseYearText =
+        enteredYear.isNotEmpty ? enteredYear : pageYear ?? '';
+    final releaseYear = int.tryParse(releaseYearText);
+    final validReleaseYear =
+        releaseYear != null && releaseYear >= 1000 && releaseYear <= 9999;
+    final hasTracks = importedTracks.isNotEmpty;
+
+    if (!hasTracks && !validArtworkUrl && !validReleaseYear) {
+      if (mounted) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(releaseYearText.isNotEmpty
+                ? 'El año de lanzamiento no es válido'
+                : 'Pega temas, una URL de portada o un año'),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      final updatedTracks = hasTracks ? importedTracks : tracks;
+      tracks = updatedTracks;
+      if (unifiedAlbum != null) {
+        final album = unifiedAlbum!;
+        unifiedAlbum = Album(
+          id: album.id,
+          name: album.name,
+          artist: album.artist,
+          artworkUrl: validArtworkUrl ? artworkUrl : album.artworkUrl,
+          url: album.url,
+          platform: album.platform,
+          releaseDate: validReleaseYear
+              ? DateTime(releaseYear, 1, 1)
+              : album.releaseDate,
+          metadata: album.metadata,
+          tracks: updatedTracks,
+        );
+      }
+      if (validArtworkUrl) {
+        widget.album['artworkUrl'] = artworkUrl;
+        widget.album['artworkUrl100'] = artworkUrl;
+      }
+      if (validReleaseYear) {
+        widget.album['releaseYear'] = releaseYear;
+        widget.album['releaseDate'] =
+            DateTime(releaseYear, 1, 1).toIso8601String();
+      }
+      albumDurationMillis =
+          updatedTracks.fold(0, (sum, track) => sum + track.durationMs);
+    });
+
+    if (artworkUrl.isNotEmpty && !validArtworkUrl && mounted) {
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('La URL de portada no es válida')),
+      );
+    }
+    if (releaseYearText.isNotEmpty && !validReleaseYear && mounted) {
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('El año de lanzamiento no es válido')),
+      );
+    }
+
+    _loadDominantColors();
   }
 
   // Make the slider bigger and more usable
@@ -1513,8 +1846,10 @@ class _DetailsPageState extends State<DetailsPage> {
                         Theme.of(context).colorScheme.primary)
                     .withAlpha(76),
                 trackHeight: 4.0, // Make track thicker
-                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10.0), // Bigger thumb
-                overlayShape: RoundSliderOverlayShape(overlayRadius: 16.0), // Bigger overlay
+                thumbShape: RoundSliderThumbShape(
+                    enabledThumbRadius: 10.0), // Bigger thumb
+                overlayShape: RoundSliderOverlayShape(
+                    overlayRadius: 16.0), // Bigger overlay
               ),
               child: Slider(
                 min: 0,
@@ -1557,18 +1892,28 @@ class _DetailsPageState extends State<DetailsPage> {
                 children: [
                   FilledButton.icon(
                     icon: Icon(Icons.add,
-                        color: useDarkButtonText ? Colors.black : ColorUtility.getContrastingColor(
-                            selectedDominantColor ?? Theme.of(context).colorScheme.primary)),
+                        color: useDarkButtonText
+                            ? Colors.black
+                            : ColorUtility.getContrastingColor(
+                                selectedDominantColor ??
+                                    Theme.of(context).colorScheme.primary)),
                     label: Text('Create New List',
                         style: TextStyle(
                             color: useDarkButtonText
                                 ? Colors.black
                                 : ColorUtility.getContrastingColor(
-                                    selectedDominantColor ?? Theme.of(context).colorScheme.primary))),
+                                    selectedDominantColor ??
+                                        Theme.of(context)
+                                            .colorScheme
+                                            .primary))),
                     style: FilledButton.styleFrom(
-                      backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                      foregroundColor: useDarkButtonText ? Colors.black : ColorUtility.getContrastingColor(
-                          selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+                      backgroundColor: selectedDominantColor ??
+                          Theme.of(context).colorScheme.primary,
+                      foregroundColor: useDarkButtonText
+                          ? Colors.black
+                          : ColorUtility.getContrastingColor(
+                              selectedDominantColor ??
+                                  Theme.of(context).colorScheme.primary),
                     ),
                     onPressed: () => Navigator.of(context).pop('new'),
                   ),
@@ -1601,7 +1946,8 @@ class _DetailsPageState extends State<DetailsPage> {
                                     subtitle:
                                         Text('${list.albumIds.length} albums'),
                                     value: selectedLists[list.id] ?? false,
-                                    activeColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                                    activeColor: selectedDominantColor ??
+                                        Theme.of(context).colorScheme.primary,
                                     onChanged: (bool? value) {
                                       setState(() {
                                         selectedLists[list.id] = value ?? false;
@@ -1620,15 +1966,20 @@ class _DetailsPageState extends State<DetailsPage> {
               TextButton(
                 onPressed: () => Navigator.pop(context, null),
                 style: TextButton.styleFrom(
-                  foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                  foregroundColor: selectedDominantColor ??
+                      Theme.of(context).colorScheme.primary,
                 ),
                 child: const Text('Cancel'),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                  foregroundColor: useDarkButtonText ? Colors.black : ColorUtility.getContrastingColor(
-                      selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+                  backgroundColor: selectedDominantColor ??
+                      Theme.of(context).colorScheme.primary,
+                  foregroundColor: useDarkButtonText
+                      ? Colors.black
+                      : ColorUtility.getContrastingColor(
+                          selectedDominantColor ??
+                              Theme.of(context).colorScheme.primary),
                 ),
                 onPressed: () => Navigator.pop(context, selectedLists),
                 child: const Text('Save'),
@@ -1650,35 +2001,40 @@ class _DetailsPageState extends State<DetailsPage> {
     try {
       // CRITICAL FIX: Ensure Spotify albums get disc numbers before saving
       Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
-      
+
       // If this is a Spotify album, ensure we have proper disc numbers in tracks
       if (albumToSave['platform'] == 'spotify') {
         Logging.severe('=== ENSURING SPOTIFY DISC NUMBERS BEFORE SAVE ===');
-        
+
         // Check if tracks already have disc_number data
         bool hasDiscNumbers = false;
-        if (albumToSave['tracks'] is List && (albumToSave['tracks'] as List).isNotEmpty) {
+        if (albumToSave['tracks'] is List &&
+            (albumToSave['tracks'] as List).isNotEmpty) {
           final firstTrack = (albumToSave['tracks'] as List)[0];
-          if (firstTrack is Map<String, dynamic> && firstTrack.containsKey('disc_number')) {
+          if (firstTrack is Map<String, dynamic> &&
+              firstTrack.containsKey('disc_number')) {
             hasDiscNumbers = true;
             Logging.severe('Tracks already have disc_number data');
           }
         }
-        
+
         // If no disc numbers, fetch fresh data from Spotify API
         if (!hasDiscNumbers) {
           Logging.severe('No disc numbers found, fetching fresh Spotify data');
-          final enhancedAlbum = await SearchService.fetchAlbumTracks(albumToSave);
-          
+          final enhancedAlbum =
+              await SearchService.fetchAlbumTracks(albumToSave);
+
           if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
             albumToSave = enhancedAlbum;
-            Logging.severe('Updated album with ${(enhancedAlbum['tracks'] as List).length} tracks including disc numbers');
-            
+            Logging.severe(
+                'Updated album with ${(enhancedAlbum['tracks'] as List).length} tracks including disc numbers');
+
             // Debug first few tracks
             final tracksList = enhancedAlbum['tracks'] as List;
             for (int i = 0; i < tracksList.length && i < 3; i++) {
               final track = tracksList[i];
-              Logging.severe('Enhanced Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
+              Logging.severe(
+                  'Enhanced Track $i: "${track['trackName']}" - disc_number: ${track['disc_number']}');
             }
           } else {
             Logging.severe('Failed to enhance Spotify album with disc numbers');
@@ -1794,135 +2150,147 @@ class _DetailsPageState extends State<DetailsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-          title: const Text('Create New List'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'List Name',
-                  hintText: 'e.g. Progressive Rock',
-                  labelStyle: TextStyle(
-                    color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
+        title: const Text('Create New List'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'List Name',
+                hintText: 'e.g. Progressive Rock',
+                labelStyle: TextStyle(
+                  color: selectedDominantColor ??
+                      Theme.of(context).colorScheme.primary,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: selectedDominantColor ??
+                        Theme.of(context).colorScheme.primary,
+                    width: 2,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descController,
-                decoration: InputDecoration(
-                  labelText: 'Description (optional)',
-                  hintText: 'e.g. My favorite prog rock albums',
-                  labelStyle: TextStyle(
-                    color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-              ),
-              child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () async {
-                if (nameController.text.isNotEmpty) {
-                  // CRITICAL FIX: Store navigator before async operations
-                  final navigator = Navigator.of(context);
-                  
-                  // CRITICAL FIX: Ensure Spotify albums have disc numbers before saving
-                  Map<String, dynamic> albumToSave = unifiedAlbum?.toJson() ?? widget.album;
-                  
-                  // If this is a Spotify album, ensure we have proper disc numbers in tracks
-                  if (albumToSave['platform'] == 'spotify') {
-                    Logging.severe('=== ENSURING SPOTIFY DISC NUMBERS FOR NEW LIST ===');
-                    
-                    // Check if tracks already have disc_number data
-                    bool hasDiscNumbers = false;
-                    if (albumToSave['tracks'] is List && (albumToSave['tracks'] as List).isNotEmpty) {
-                      final firstTrack = (albumToSave['tracks'] as List)[0];
-                      if (firstTrack is Map<String, dynamic> && firstTrack.containsKey('disc_number')) {
-                        hasDiscNumbers = true;
-                      }
-                    }
-                    
-                    // If no disc numbers, fetch fresh data from Spotify API
-                    if (!hasDiscNumbers) {
-                      final enhancedAlbum = await SearchService.fetchAlbumTracks(albumToSave);
-                      if (enhancedAlbum != null && enhancedAlbum['tracks'] is List) {
-                        albumToSave = enhancedAlbum;
-                        Logging.severe('Enhanced album for new list with disc numbers');
-                      }
-                    }
-                  }
-
-                  await UserData.addToSavedAlbums(albumToSave);
-
-                  // Get album ID
-                  final albumIdStr = unifiedAlbum?.id.toString() ??
-                      albumToSave['id']?.toString() ??
-                      albumToSave['collectionId']?.toString() ??
-                      '';
-
-                  // --- Save dominant color if selected ---
-                  if (albumIdStr.isNotEmpty && selectedDominantColor != null) {
-                    await DatabaseHelper.instance.saveDominantColor(albumIdStr,
-                        '#${selectedDominantColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}');
-                    Logging.severe(
-                        'Saved dominant color for album $albumIdStr');
-                  }
-                  // --- end dominant color save ---
-
-                  // Create the list with the album
-                  final newList = CustomList(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    name: nameController.text,
-                    description: descController.text,
-                    albumIds: [albumIdStr],
-                  );
-                  await UserData.saveCustomList(newList);
-                  if (mounted) {
-                    scaffoldMessengerKey.currentState?.showSnackBar(
-                      SnackBar(content: Text('Created list "${newList.name}"')),
-                    );
-                  }
-                  
-                  // FIX: Use stored navigator instead of Navigator.of(context)
-                  navigator.pop();
-                } else {
-                  // FIX: If name is empty, we can still use context directly since no async gap
-                  Navigator.of(context).pop();
-                }
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
-                foregroundColor: useDarkButtonText
-                    ? Colors.black
-                    : ColorUtility.getContrastingColor(
-                        selectedDominantColor ?? Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 8),
+            TextField(
+              controller: descController,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                hintText: 'e.g. My favorite prog rock albums',
+                labelStyle: TextStyle(
+                  color: selectedDominantColor ??
+                      Theme.of(context).colorScheme.primary,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: selectedDominantColor ??
+                        Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
               ),
-              child: const Text('Create'),
             ),
           ],
         ),
-      );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: selectedDominantColor ??
+                  Theme.of(context).colorScheme.primary,
+            ),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty) {
+                // CRITICAL FIX: Store navigator before async operations
+                final navigator = Navigator.of(context);
+
+                // CRITICAL FIX: Ensure Spotify albums have disc numbers before saving
+                Map<String, dynamic> albumToSave =
+                    unifiedAlbum?.toJson() ?? widget.album;
+
+                // If this is a Spotify album, ensure we have proper disc numbers in tracks
+                if (albumToSave['platform'] == 'spotify') {
+                  Logging.severe(
+                      '=== ENSURING SPOTIFY DISC NUMBERS FOR NEW LIST ===');
+
+                  // Check if tracks already have disc_number data
+                  bool hasDiscNumbers = false;
+                  if (albumToSave['tracks'] is List &&
+                      (albumToSave['tracks'] as List).isNotEmpty) {
+                    final firstTrack = (albumToSave['tracks'] as List)[0];
+                    if (firstTrack is Map<String, dynamic> &&
+                        firstTrack.containsKey('disc_number')) {
+                      hasDiscNumbers = true;
+                    }
+                  }
+
+                  // If no disc numbers, fetch fresh data from Spotify API
+                  if (!hasDiscNumbers) {
+                    final enhancedAlbum =
+                        await SearchService.fetchAlbumTracks(albumToSave);
+                    if (enhancedAlbum != null &&
+                        enhancedAlbum['tracks'] is List) {
+                      albumToSave = enhancedAlbum;
+                      Logging.severe(
+                          'Enhanced album for new list with disc numbers');
+                    }
+                  }
+                }
+
+                await UserData.addToSavedAlbums(albumToSave);
+
+                // Get album ID
+                final albumIdStr = unifiedAlbum?.id.toString() ??
+                    albumToSave['id']?.toString() ??
+                    albumToSave['collectionId']?.toString() ??
+                    '';
+
+                // --- Save dominant color if selected ---
+                if (albumIdStr.isNotEmpty && selectedDominantColor != null) {
+                  await DatabaseHelper.instance.saveDominantColor(albumIdStr,
+                      '#${selectedDominantColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}');
+                  Logging.severe('Saved dominant color for album $albumIdStr');
+                }
+                // --- end dominant color save ---
+
+                // Create the list with the album
+                final newList = CustomList(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: nameController.text,
+                  description: descController.text,
+                  albumIds: [albumIdStr],
+                );
+                await UserData.saveCustomList(newList);
+                if (mounted) {
+                  scaffoldMessengerKey.currentState?.showSnackBar(
+                    SnackBar(content: Text('Created list "${newList.name}"')),
+                  );
+                }
+
+                // FIX: Use stored navigator instead of Navigator.of(context)
+                navigator.pop();
+              } else {
+                // FIX: If name is empty, we can still use context directly since no async gap
+                Navigator.of(context).pop();
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: selectedDominantColor ??
+                  Theme.of(context).colorScheme.primary,
+              foregroundColor: useDarkButtonText
+                  ? Colors.black
+                  : ColorUtility.getContrastingColor(selectedDominantColor ??
+                      Theme.of(context).colorScheme.primary),
+            ),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showOptionsDialog() {
@@ -2044,7 +2412,8 @@ class _DetailsPageState extends State<DetailsPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            final theme = exportDarkTheme ? ThemeData.dark() : ThemeData.light();
+            final theme =
+                exportDarkTheme ? ThemeData.dark() : ThemeData.light();
             return Theme(
               data: theme,
               child: AlertDialog(
@@ -2094,7 +2463,8 @@ class _DetailsPageState extends State<DetailsPage> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                      foregroundColor: selectedDominantColor ??
+                          Theme.of(context).colorScheme.primary,
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2103,13 +2473,14 @@ class _DetailsPageState extends State<DetailsPage> {
                       // Store references before async gap
                       final navigator = Navigator.of(context);
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
-                      
+
                       try {
-                        final path = await shareWidgetKey.currentState?.saveAsImage();
+                        final path =
+                            await shareWidgetKey.currentState?.saveAsImage();
 
                         // Check if the widget is still mounted before using navigator
                         if (!mounted) return;
-                        
+
                         if (path != null) {
                           navigator.pop();
                           _showShareOptions(path);
@@ -2125,9 +2496,11 @@ class _DetailsPageState extends State<DetailsPage> {
                       }
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: selectedDominantColor ?? Theme.of(context).colorScheme.primary,
+                      foregroundColor: selectedDominantColor ??
+                          Theme.of(context).colorScheme.primary,
                     ),
-                    child: Text(Platform.isAndroid ? 'Save & Share' : 'Save Image'),
+                    child: Text(
+                        Platform.isAndroid ? 'Save & Share' : 'Save Image'),
                   ),
                 ],
               ),
@@ -2154,13 +2527,22 @@ class _DetailsPageState extends State<DetailsPage> {
                   onTap: () async {
                     Navigator.of(bottomSheetContext).pop();
                     try {
-                      final downloadDir = Directory('/storage/emulated/0/Download');
+                      final downloadDir =
+                          Directory('/storage/emulated/0/Download');
                       // --- Begin filename fix ---
-                      final artist = unifiedAlbum?.artist ?? widget.album['artistName'] ?? widget.album['artist'] ?? 'UnknownArtist';
-                      final albumName = unifiedAlbum?.name ?? widget.album['collectionName'] ?? widget.album['name'] ?? 'UnknownAlbum';
-                      String sanitize(String s) =>
-                          s.replaceAll(RegExp(r'[\\/:*?"<>|]'), '').replaceAll(' ', '_');
-                      final fileName = '${sanitize(artist)}_${sanitize(albumName)}.png';
+                      final artist = unifiedAlbum?.artist ??
+                          widget.album['artistName'] ??
+                          widget.album['artist'] ??
+                          'UnknownArtist';
+                      final albumName = unifiedAlbum?.name ??
+                          widget.album['collectionName'] ??
+                          widget.album['name'] ??
+                          'UnknownAlbum';
+                      String sanitize(String s) => s
+                          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '')
+                          .replaceAll(' ', '_');
+                      final fileName =
+                          '${sanitize(artist)}_${sanitize(albumName)}.png';
                       // --- End filename fix ---
                       final newPath = '${downloadDir.path}/$fileName';
 
@@ -2168,16 +2550,19 @@ class _DetailsPageState extends State<DetailsPage> {
                       await File(path).copy(newPath);
 
                       // Scan file with MediaScanner
-                      const platform = MethodChannel('com.example.rateme/media_scanner');
+                      const platform =
+                          MethodChannel('com.example.rateme/media_scanner');
                       try {
-                        await platform.invokeMethod('scanFile', {'path': newPath});
+                        await platform
+                            .invokeMethod('scanFile', {'path': newPath});
                       } catch (e) {
                         Logging.severe('MediaScanner error: $e');
                       }
 
                       if (!mounted) return;
                       scaffoldMessengerKey.currentState?.showSnackBar(
-                        SnackBar(content: Text('Saved to Downloads: $fileName')),
+                        SnackBar(
+                            content: Text('Saved to Downloads: $fileName')),
                       );
                     } catch (e) {
                       if (!mounted) return;
@@ -2227,13 +2612,13 @@ class _DetailsPageState extends State<DetailsPage> {
         Logging.severe('=== DETAILS_PAGE TRACK EXTRACTION DEBUG ===');
         Logging.severe('Album: ${album['name'] ?? album['collectionName']}');
         Logging.severe('Platform: ${album['platform']}');
-        Logging.severe('Extracting ${tracksList.length} tracks from album data');
+        Logging.severe(
+            'Extracting ${tracksList.length} tracks from album data');
 
         for (var i = 0; i < tracksList.length; i++) {
           try {
             final trackData = tracksList[i];
             if (trackData is Map<String, dynamic>) {
-              
               // MASSIVE DEBUG: Print ALL track data for first 5 tracks
               if (i < 5) {
                 Logging.severe('=== RAW TRACK $i DEBUG ===');
@@ -2262,19 +2647,23 @@ class _DetailsPageState extends State<DetailsPage> {
                     0,
                 metadata: trackData,
               );
-              
+
               result.add(track);
-              
+
               // DEBUG: Print the created Track object
               if (i < 5) {
                 Logging.severe('=== CREATED TRACK $i DEBUG ===');
                 Logging.severe('Track ID: ${track.id}');
                 Logging.severe('Track name: ${track.name}');
                 Logging.severe('Track position: ${track.position}');
-                Logging.severe('Metadata keys: ${track.metadata.keys.toList()}');
-                Logging.severe('Metadata disc_number: ${track.metadata['disc_number']}');
-                Logging.severe('Metadata disk_number: ${track.metadata['disk_number']}');
-                Logging.severe('Metadata discNumber: ${track.metadata['discNumber']}');
+                Logging.severe(
+                    'Metadata keys: ${track.metadata.keys.toList()}');
+                Logging.severe(
+                    'Metadata disc_number: ${track.metadata['disc_number']}');
+                Logging.severe(
+                    'Metadata disk_number: ${track.metadata['disk_number']}');
+                Logging.severe(
+                    'Metadata discNumber: ${track.metadata['discNumber']}');
                 Logging.severe('=== END CREATED TRACK $i ===');
               }
             }
@@ -2282,13 +2671,17 @@ class _DetailsPageState extends State<DetailsPage> {
             Logging.severe('Error parsing track at index $i: $e');
           }
         }
-        
+
         Logging.severe('=== FINAL TRACK SUMMARY ===');
         Logging.severe('Total tracks created: ${result.length}');
         for (int i = 0; i < result.length && i < 10; i++) {
           final track = result[i];
-          final discNum = track.metadata['disc_number'] ?? track.metadata['disk_number'] ?? track.metadata['discNumber'] ?? 1;
-          Logging.severe('Track $i: "${track.name}" - Position: ${track.position}, Disc: $discNum');
+          final discNum = track.metadata['disc_number'] ??
+              track.metadata['disk_number'] ??
+              track.metadata['discNumber'] ??
+              1;
+          Logging.severe(
+              'Track $i: "${track.name}" - Position: ${track.position}, Disc: $discNum');
         }
         Logging.severe('=== END DETAILS_PAGE EXTRACTION ===');
       }
@@ -2331,7 +2724,8 @@ class _DetailsPageState extends State<DetailsPage> {
     final albumName = unifiedAlbum?.name ?? '';
     final artistName = unifiedAlbum?.artistName ?? '';
     final albumUrl = unifiedAlbum?.url ?? '';
-    final platform = unifiedAlbum?.platform.toLowerCase() ?? ''; // FIX: Removed duplicate ?? operator
+    final platform = unifiedAlbum?.platform.toLowerCase() ??
+        ''; // FIX: Removed duplicate ?? operator
 
     String? spotifyDate;
     String? itunesDate;
@@ -2380,8 +2774,11 @@ class _DetailsPageState extends State<DetailsPage> {
       try {
         if (spotifyUrl == null) {
           // Search for the album on Spotify
-          final searchResult = await SearchService.searchSpotify('$artistName $albumName');
-          if (searchResult != null && searchResult['results'] is List && searchResult['results'].isNotEmpty) {
+          final searchResult =
+              await SearchService.searchSpotify('$artistName $albumName');
+          if (searchResult != null &&
+              searchResult['results'] is List &&
+              searchResult['results'].isNotEmpty) {
             spotifyUrl = searchResult['results'][0]['url'];
             Logging.severe('Spotify: Found album URL by search: $spotifyUrl');
           }
@@ -2405,8 +2802,11 @@ class _DetailsPageState extends State<DetailsPage> {
       try {
         if (itunesUrl == null) {
           // Search for the album on iTunes
-          final searchResult = await SearchService.searchITunes('$artistName $albumName');
-          if (searchResult != null && searchResult['results'] is List && searchResult['results'].isNotEmpty) {
+          final searchResult =
+              await SearchService.searchITunes('$artistName $albumName');
+          if (searchResult != null &&
+              searchResult['results'] is List &&
+              searchResult['results'].isNotEmpty) {
             itunesUrl = searchResult['results'][0]['collectionViewUrl'];
             Logging.severe('iTunes: Found album URL by search: $itunesUrl');
           }
@@ -2430,8 +2830,11 @@ class _DetailsPageState extends State<DetailsPage> {
       try {
         if (deezerUrl == null) {
           // Search for the album on Deezer
-          final searchResult = await SearchService.searchDeezer('$artistName $albumName');
-          if (searchResult != null && searchResult['results'] is List && searchResult['results'].isNotEmpty) {
+          final searchResult =
+              await SearchService.searchDeezer('$artistName $albumName');
+          if (searchResult != null &&
+              searchResult['results'] is List &&
+              searchResult['results'].isNotEmpty) {
             deezerUrl = searchResult['results'][0]['url'];
             Logging.severe('Deezer: Found album URL by search: $deezerUrl');
           }
@@ -2449,12 +2852,12 @@ class _DetailsPageState extends State<DetailsPage> {
         }
       } catch (e, stack) {
         Logging.severe('Deezer fetch error: $e', stack);
-           }
+      }
 
       Logging.severe('Fetched release dates:');
       Logging.severe('Spotify: $spotifyDate');
       Logging.severe('Apple Music: $itunesDate');
-           Logging.severe('Deezer: $deezerDate');
+      Logging.severe('Deezer: $deezerDate');
 
       // --- Consensus logic: use the date that matches at least 2 sources (normalized) ---
       List<String> allDates = [spotifyDate, itunesDate, deezerDate]
@@ -2493,7 +2896,8 @@ class _DetailsPageState extends State<DetailsPage> {
         message =
             'No consensus, using Deezer: $deezerDate\n(Spotify: $spotifyDate, Apple: $itunesDate)';
       } else {
-        message = 'Could not fetch release date from Spotify, Apple, or Deezer.';
+        message =
+            'Could not fetch release date from Spotify, Apple, or Deezer.';
       }
 
       Logging.severe('USED DATE: $usedDate | MESSAGE: $message');
@@ -2529,9 +2933,9 @@ class _DetailsPageState extends State<DetailsPage> {
       }
 
       if (!mounted) return;
-      
+
       setState(() {});
-      
+
       // FIX: Use scaffoldMessengerKey instead of ScaffoldMessenger.of(context)
       scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text(message)),
@@ -2539,9 +2943,9 @@ class _DetailsPageState extends State<DetailsPage> {
       Logging.severe('=== RELEASE DATE DEBUG END ===');
     } catch (e, stack) {
       Logging.severe('Error in _fetchAndCompareReleaseDate: $e', stack);
-      
+
       if (!mounted) return;
-      
+
       scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Error fetching release date: $e')),
       );

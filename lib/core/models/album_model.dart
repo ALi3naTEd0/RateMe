@@ -311,7 +311,17 @@ class Album {
 
     // Parse release date with better error handling and logging
     DateTime releaseDate;
-    final rawDate = legacy['releaseDate'];
+    final sourcePlatform = legacy['platform']?.toString().toLowerCase();
+    final fallbackReleaseDate =
+        sourcePlatform == 'rateyourmusic' ? DateTime(1, 1, 1) : DateTime.now();
+    final metadata = legacy['metadata'];
+    final metadataMap = metadata is Map ? metadata : const {};
+    final manualRymWithoutYear = sourcePlatform == 'rateyourmusic' &&
+        (legacy['manualEntry'] == true || metadataMap['manualEntry'] == true) &&
+        legacy['releaseYear'] == null &&
+        metadataMap['releaseYear'] == null &&
+        metadataMap['releaseDate'] == null;
+    final rawDate = manualRymWithoutYear ? null : legacy['releaseDate'];
     Logging.severe(
         'Album.fromLegacy: Parsing releaseDate field: $rawDate (type: ${rawDate?.runtimeType})'); // Log raw date
     try {
@@ -330,17 +340,17 @@ class Album {
         } else {
           Logging.severe(
               'Album.fromLegacy: Unknown date string format "$rawDate", falling back.');
-          releaseDate = DateTime.now(); // Fallback for unknown string formats
+          releaseDate = fallbackReleaseDate;
         }
       } else {
         Logging.severe(
             'Album.fromLegacy: releaseDate field is null, empty, or wrong type, falling back.');
-        releaseDate = DateTime.now(); // Fallback for null or wrong type
+        releaseDate = fallbackReleaseDate;
       }
     } catch (e, stack) {
       Logging.severe(
           'Album.fromLegacy: Error parsing release date "$rawDate"', e, stack);
-      releaseDate = DateTime.now(); // Fallback on any parsing error
+      releaseDate = fallbackReleaseDate;
     }
     Logging.severe(
         'Album.fromLegacy: Parsed releaseDate: ${DateFormat('yyyy-MM-dd').format(releaseDate)}'); // Log parsed date

@@ -831,7 +831,8 @@ class _MyAppState extends State<MyApp> {
         lowerText.contains('spotify.com') ||
         lowerText.contains('open.spotify') ||
         lowerText.contains('deezer.com') ||
-        lowerText.contains('discogs.com');
+        lowerText.contains('discogs.com') ||
+        lowerText.contains('rateyourmusic.com');
   }
 
   void _processManualUrl(String url) {

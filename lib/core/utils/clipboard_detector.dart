@@ -47,7 +47,8 @@ class ClipboardDetector {
         lowerText.contains('spotify.com') ||
         lowerText.contains('open.spotify') ||
         lowerText.contains('deezer.com') ||
-        lowerText.contains('discogs.com');
+        lowerText.contains('discogs.com') ||
+        lowerText.contains('rateyourmusic.com');
   }
 
   /// Extract artist and album name from Apple Music URL
@@ -295,14 +296,21 @@ class ClipboardDetector {
       final bool isDeezer = lowerText.contains('deezer.com');
 
       final bool isDiscogs = lowerText.contains('discogs.com');
+      final bool isRateYourMusic = lowerText.contains('rateyourmusic.com');
 
-      if (isAppleMusic || isBandcamp || isSpotify || isDeezer || isDiscogs) {
+      if (isAppleMusic ||
+          isBandcamp ||
+          isSpotify ||
+          isDeezer ||
+          isDiscogs ||
+          isRateYourMusic) {
         String platform = 'unknown';
         if (isAppleMusic) platform = 'Apple Music';
         if (isBandcamp) platform = 'Bandcamp';
         if (isSpotify) platform = 'Spotify';
         if (isDeezer) platform = 'Deezer';
         if (isDiscogs) platform = 'Discogs';
+        if (isRateYourMusic) platform = 'Rate Your Music';
 
         Logging.severe('$platform URL detected');
 
@@ -338,10 +346,10 @@ class ClipboardDetector {
 
           // Use the original URL directly for consistent behavior with other platforms
           onDetected(text);
-          
+
           // Complete search processing immediately like other platforms
           onSearchCompleted(true);
-          
+
           // Set a timer to reset state after some time
           _resetTimer?.cancel();
           _resetTimer = Timer(Duration(seconds: _autoResetSeconds), () {
@@ -418,6 +426,9 @@ class ClipboardDetector {
           // Complete immediately to avoid API delays
           onSearchCompleted(true);
           return true;
+        } else if (isRateYourMusic) {
+          onSnackBarMessage('Rate Your Music link detected');
+          onDetected(text);
         } else {
           // For other platforms, use the extracted search query
           if (searchQuery.isEmpty || searchQuery == text) {
