@@ -796,16 +796,10 @@ class _DetailsPageState extends State<DetailsPage> {
                                 spacing: 8,
                                 children: [
                                   OutlinedButton.icon(
-                                    onPressed: _launchRateYourMusic,
-                                    icon: const Icon(Icons.open_in_new),
-                                    label: const Text('Abrir release RYM'),
-                                  ),
-                                  OutlinedButton.icon(
                                     onPressed:
                                         _showImportRateYourMusicTracksDialog,
                                     icon: const Icon(Icons.edit_outlined),
-                                    label:
-                                        const Text('Completar portada y año'),
+                                    label: const Text('Import data'),
                                   ),
                                 ],
                               ),
@@ -1342,25 +1336,26 @@ class _DetailsPageState extends State<DetailsPage> {
                               ),
                             ),
 
-                          const SizedBox(height: 20),
-                          FilledButton(
-                            // Changed from ElevatedButton
-                            onPressed: _launchRateYourMusic,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: selectedDominantColor ??
-                                  Theme.of(context).colorScheme.primary,
-                              foregroundColor: useDarkButtonText
-                                  ? Colors.black
-                                  : ColorUtility.getContrastingColor(
-                                      selectedDominantColor ??
-                                          Theme.of(context)
-                                              .colorScheme
-                                              .primary),
-                              minimumSize: const Size(150, 45),
+                          if (unifiedAlbum?.platform != 'rateyourmusic') ...[
+                            const SizedBox(height: 20),
+                            FilledButton(
+                              onPressed: _launchRateYourMusic,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: selectedDominantColor ??
+                                    Theme.of(context).colorScheme.primary,
+                                foregroundColor: useDarkButtonText
+                                    ? Colors.black
+                                    : ColorUtility.getContrastingColor(
+                                        selectedDominantColor ??
+                                            Theme.of(context)
+                                                .colorScheme
+                                                .primary),
+                                minimumSize: const Size(150, 45),
+                              ),
+                              child: const Text('Rate on RateYourMusic'),
                             ),
-                            child: const Text('Rate on RateYourMusic'),
-                          ),
-                          const SizedBox(height: 40),
+                            const SizedBox(height: 40),
+                          ],
                         ],
                       ),
                     ),
@@ -1643,26 +1638,42 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<void> _showImportRateYourMusicTracksDialog() async {
+    final albumNameController =
+        TextEditingController(text: unifiedAlbum?.collectionName ?? '');
     final tracksController = TextEditingController();
     final artworkController = TextEditingController();
-    final yearController = TextEditingController();
+    final releaseDate = unifiedAlbum?.releaseDate;
+    final existingReleaseDate = releaseDate == null || releaseDate.year <= 1
+        ? ''
+        : releaseDate.month == 1 && releaseDate.day == 1
+            ? releaseDate.year.toString()
+            : DateFormat('yyyy-MM-dd').format(releaseDate);
+    final yearController = TextEditingController(text: existingReleaseDate);
     final importData = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Importar desde RYM'),
+        title: const Text('Import data from Rate Your Music'),
         content: SizedBox(
           width: 520,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
+                controller: albumNameController,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Album name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
                 controller: tracksController,
-                autofocus: true,
                 minLines: 5,
                 maxLines: 10,
                 decoration: const InputDecoration(
                   hintText:
-                      'Pega tracks o texto de RYM; detecta número, duración y año',
+                      'Paste tracks or RYM text; numbers, durations, and year are detected',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1670,7 +1681,7 @@ class _DetailsPageState extends State<DetailsPage> {
               TextField(
                 controller: artworkController,
                 decoration: const InputDecoration(
-                  labelText: 'URL de la portada (opcional)',
+                  labelText: 'Artwork URL (optional)',
                   hintText: 'https://...',
                   border: OutlineInputBorder(),
                 ),
@@ -1680,8 +1691,8 @@ class _DetailsPageState extends State<DetailsPage> {
                 controller: yearController,
                 keyboardType: TextInputType.datetime,
                 decoration: const InputDecoration(
-                  labelText: 'Año o fecha de lanzamiento (opcional)',
-                  hintText: '2024 o 2024-03-15',
+                  labelText: 'Release year or date (optional)',
+                  hintText: 'YYYY or YYYY-MM-DD',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1691,25 +1702,31 @@ class _DetailsPageState extends State<DetailsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: const Text('Cancel'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, {
+              'name': albumNameController.text,
               'tracks': tracksController.text,
               'artworkUrl': artworkController.text,
               'releaseDate': yearController.text,
             }),
             icon: const Icon(Icons.download),
-            label: const Text('Importar'),
+            label: const Text('Import'),
           ),
         ],
       ),
     );
+    albumNameController.dispose();
     tracksController.dispose();
     artworkController.dispose();
     yearController.dispose();
     if (importData == null) return;
 
+    final enteredAlbumName = (importData['name'] ?? '').trim();
+    final currentAlbumName = unifiedAlbum?.collectionName.trim() ?? '';
+    final hasAlbumName =
+        enteredAlbumName.isNotEmpty && enteredAlbumName != currentAlbumName;
     final pastedTracksText = importData['tracks'] ?? '';
     final importedTracks = <Track>[];
     final numberedTrack = RegExp(r'^\s*(\d{1,3})[.)]?\s+(.+?)\s*$');
@@ -1781,13 +1798,13 @@ class _DetailsPageState extends State<DetailsPage> {
     final validReleaseDate = parsedReleaseDate != null;
     final hasTracks = importedTracks.isNotEmpty;
 
-    if (!hasTracks && !validArtworkUrl && !validReleaseDate) {
+    if (!hasAlbumName && !hasTracks && !validArtworkUrl && !validReleaseDate) {
       if (mounted) {
         scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
             content: Text(releaseDateText.isNotEmpty
-                ? 'El año o la fecha de lanzamiento no son válidos'
-                : 'Pega temas, una URL de portada o un año/fecha'),
+                ? 'The release year or date is invalid'
+                : 'Change a field or paste tracks to import'),
           ),
         );
       }
@@ -1801,7 +1818,7 @@ class _DetailsPageState extends State<DetailsPage> {
         final album = unifiedAlbum!;
         unifiedAlbum = Album(
           id: album.id,
-          name: album.name,
+          name: hasAlbumName ? enteredAlbumName : album.name,
           artist: album.artist,
           artworkUrl: validArtworkUrl ? artworkUrl : album.artworkUrl,
           url: album.url,
@@ -1811,6 +1828,10 @@ class _DetailsPageState extends State<DetailsPage> {
           metadata: album.metadata,
           tracks: updatedTracks,
         );
+      }
+      if (hasAlbumName) {
+        widget.album['name'] = enteredAlbumName;
+        widget.album['collectionName'] = enteredAlbumName;
       }
       if (validArtworkUrl) {
         widget.album['artworkUrl'] = artworkUrl;
