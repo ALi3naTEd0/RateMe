@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Release Validation:** The release workflow now runs Flutter tests before platform builds and uses pinned Ubuntu 24.04 runners.
+- **Release Validation:** The release workflow runs Flutter tests before builds and smoke-tests Android, Linux, Windows, and macOS apps before publication; Ubuntu runners are pinned to 24.04.
 
 ## [1.1.8-1] - 2026-10-18
 

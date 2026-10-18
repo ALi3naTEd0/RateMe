@@ -106,6 +106,24 @@ jobs:
             flutter build windows --release --no-pub --dart-define=flutter.inspector.structuredErrors=true
           }
 
+      - name: Smoke test Windows app
+        shell: pwsh
+        run: |
+          $appPath = (Resolve-Path "build\windows\x64\runner\Release\rateme.exe").Path
+          $process = Start-Process -FilePath $appPath -PassThru
+          try {
+            if (-not $process.WaitForInputIdle(30000)) {
+              throw "Windows app did not become idle after launch"
+            }
+            if ($process.WaitForExit(5000)) {
+              throw "Windows app exited shortly after launch"
+            }
+          } finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
+
       - name: Create Portable ZIP
         shell: pwsh
         run: |

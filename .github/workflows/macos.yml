@@ -93,6 +93,31 @@ jobs:
           
           flutter build macos --release --no-pub # Add --no-pub flag for better performance
 
+      - name: Smoke test macOS app
+        run: |
+          APP_PATH="$(find build/macos/Build/Products/Release -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          APP_EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+          open -n "$APP_PATH"
+
+          APP_PID=""
+          for attempt in {1..15}; do
+            APP_PID="$(pgrep -x "$APP_EXECUTABLE" | head -n 1 || true)"
+            if [ -n "$APP_PID" ]; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$APP_PID" ]; then
+            echo "macOS app did not start"
+            exit 1
+          fi
+
+          sleep 5
+          kill -0 "$APP_PID"
+          kill "$APP_PID"
+
       - name: Create DMG
         run: |
           APP_NAME="RateMe"
